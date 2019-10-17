@@ -1,0 +1,15 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP MIC5528-3.3
+D 300mA Low-dropout Voltage Regulator, Vout 3.3V, Vin up to 5.5V, SOT-23
+K Micrel LDO voltage regulator
+F http://ww1.microchip.com/downloads/en/DeviceDoc/MIC550X.pdf
+$ENDCMP
+#
+$CMP TCR2EF11
+D 300mA Low-dropout Voltage Regulator, Vout 3.3V, Vin up to 5.5V, SOT-23
+K Micrel LDO voltage regulator
+F https://toshiba.semicon-storage.com/info/docget.jsp?did=13794&prodName=TCR2EF45
+$ENDCMP
+#
+#End Doc Library
