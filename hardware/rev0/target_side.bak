@@ -1,0 +1,412 @@
+EESchema Schematic File Version 4
+LIBS:luna_rev0-cache
+EELAYER 29 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 6 6
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L power:+3V3 #PWR?
+U 1 1 5DDE2AE4
+P 6500 3750
+F 0 "#PWR?" H 6500 3600 50  0001 C CNN
+F 1 "+3V3" V 6515 3878 50  0000 L CNN
+F 2 "" H 6500 3750 50  0001 C CNN
+F 3 "" H 6500 3750 50  0001 C CNN
+	1    6500 3750
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	6650 3750 6500 3750
+Wire Wire Line
+	6650 3650 5500 3650
+Wire Wire Line
+	6650 3250 4950 3250
+Wire Wire Line
+	4650 3050 6650 3050
+Wire Wire Line
+	4800 3150 6650 3150
+Wire Wire Line
+	4500 2950 6650 2950
+Wire Wire Line
+	8450 2950 8650 2950
+Wire Wire Line
+	8150 2950 7950 2950
+$Comp
+L Device:R R?
+U 1 1 5DDE2AF8
+P 8300 2950
+AR Path="/5DCD9772/5DDE2AF8" Ref="R?"  Part="1" 
+AR Path="/5DD754D4/5DDE2AF8" Ref="R?"  Part="1" 
+F 0 "R?" V 8250 2800 50  0000 C CNN
+F 1 "20k" V 8300 2950 50  0000 C CNN
+F 2 "" V 8230 2950 50  0001 C CNN
+F 3 "~" H 8300 2950 50  0001 C CNN
+	1    8300 2950
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	8600 3500 8400 3500
+$Comp
+L power:GND #PWR?
+U 1 1 5DDE2AFF
+P 8600 3500
+AR Path="/5DCD9772/5DDE2AFF" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/5DDE2AFF" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 8600 3250 50  0001 C CNN
+F 1 "GND" V 8605 3372 50  0000 R CNN
+F 2 "" H 8600 3500 50  0001 C CNN
+F 3 "" H 8600 3500 50  0001 C CNN
+	1    8600 3500
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	8100 3500 7950 3500
+$Comp
+L Device:R R?
+U 1 1 5DDE2B06
+P 8250 3500
+AR Path="/5DCD9772/5DDE2B06" Ref="R?"  Part="1" 
+AR Path="/5DD754D4/5DDE2B06" Ref="R?"  Part="1" 
+F 0 "R?" V 8200 3350 50  0000 C CNN
+F 1 "8.06k+1%" V 8150 3650 50  0000 C CNN
+F 2 "" V 8180 3500 50  0001 C CNN
+F 3 "~" H 8250 3500 50  0001 C CNN
+	1    8250 3500
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	8350 2650 7950 2650
+Wire Wire Line
+	8350 2300 8350 2650
+$Comp
+L power:+3V3 #PWR?
+U 1 1 5DDE2B0E
+P 8350 2300
+AR Path="/5DCD9772/5DDE2B0E" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/5DDE2B0E" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 8350 2150 50  0001 C CNN
+F 1 "+3V3" H 8364 2473 50  0000 C CNN
+F 2 "" H 8350 2300 50  0001 C CNN
+F 3 "" H 8350 2300 50  0001 C CNN
+	1    8350 2300
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+5V #PWR?
+U 1 1 5DDE2B14
+P 8150 2300
+AR Path="/5DCD9772/5DDE2B14" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/5DDE2B14" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 8150 2150 50  0001 C CNN
+F 1 "+5V" H 8164 2473 50  0000 C CNN
+F 2 "" H 8150 2300 50  0001 C CNN
+F 3 "" H 8150 2300 50  0001 C CNN
+	1    8150 2300
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	8150 2550 8150 2300
+Wire Wire Line
+	7950 2550 8150 2550
+$Comp
+L power:GND #PWR?
+U 1 1 5DDE2B1C
+P 8100 2750
+AR Path="/5DCD9772/5DDE2B1C" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/5DDE2B1C" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 8100 2500 50  0001 C CNN
+F 1 "GND" V 8105 2622 50  0000 R CNN
+F 2 "" H 8100 2750 50  0001 C CNN
+F 3 "" H 8100 2750 50  0001 C CNN
+	1    8100 2750
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	7950 2750 8100 2750
+Wire Wire Line
+	8650 3250 7950 3250
+Text HLabel 8650 3250 2    50   BiDi ~ 0
+TARGET_ID
+Wire Wire Line
+	7950 3150 8650 3150
+Text HLabel 8650 3150 2    50   BiDi ~ 0
+TARGET_D+
+Text HLabel 8650 3050 2    50   BiDi ~ 0
+TARGET_D-
+Wire Wire Line
+	7950 3050 8650 3050
+Text HLabel 8650 2950 2    50   Input ~ 0
+TARGET_VBUS
+Wire Wire Line
+	8000 4150 8350 4150
+Connection ~ 8000 4150
+Wire Wire Line
+	8000 4350 8000 4150
+$Comp
+L Connector:TestPoint TP?
+U 1 1 5DDE2B2D
+P 8000 4350
+AR Path="/5DCD9772/5DDE2B2D" Ref="TP?"  Part="1" 
+AR Path="/5DD754D4/5DDE2B2D" Ref="TP?"  Part="1" 
+F 0 "TP?" H 8050 4600 50  0000 R CNN
+F 1 "TestPoint" H 8200 4700 50  0000 R CNN
+F 2 "" H 8200 4350 50  0001 C CNN
+F 3 "~" H 8200 4350 50  0001 C CNN
+	1    8000 4350
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	9050 4050 9250 4050
+Connection ~ 9050 4050
+Wire Wire Line
+	9050 3900 9050 4050
+Wire Wire Line
+	9100 3900 9050 3900
+$Comp
+L Connector:TestPoint TP?
+U 1 1 5DDE2B37
+P 9100 3900
+AR Path="/5DCD9772/5DDE2B37" Ref="TP?"  Part="1" 
+AR Path="/5DD754D4/5DDE2B37" Ref="TP?"  Part="1" 
+F 0 "TP?" V 9055 4087 50  0000 L CNN
+F 1 "TestPoint" V 9145 4087 50  0000 L CNN
+F 2 "" H 9300 3900 50  0001 C CNN
+F 3 "~" H 9300 3900 50  0001 C CNN
+	1    9100 3900
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	8800 4050 9050 4050
+Connection ~ 8800 4050
+Wire Wire Line
+	8800 4150 8800 4050
+Wire Wire Line
+	7950 4050 8800 4050
+Wire Wire Line
+	8800 4600 8800 4450
+$Comp
+L power:GND #PWR?
+U 1 1 5DDE2B42
+P 8800 4600
+AR Path="/5DCD9772/5DDE2B42" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/5DDE2B42" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 8800 4350 50  0001 C CNN
+F 1 "GND" H 8804 4428 50  0000 C CNN
+F 2 "" H 8800 4600 50  0001 C CNN
+F 3 "" H 8800 4600 50  0001 C CNN
+	1    8800 4600
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DDE2B48
+P 8800 4300
+AR Path="/5DCD9772/5DDE2B48" Ref="C?"  Part="1" 
+AR Path="/5DD754D4/5DDE2B48" Ref="C?"  Part="1" 
+F 0 "C?" H 8915 4345 50  0000 L CNN
+F 1 "1uF" H 8915 4255 50  0000 L CNN
+F 2 "" H 8838 4150 50  0001 C CNN
+F 3 "~" H 8800 4300 50  0001 C CNN
+	1    8800 4300
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	7950 4150 8000 4150
+Wire Wire Line
+	8350 4600 8350 4450
+$Comp
+L power:GND #PWR?
+U 1 1 5DDE2B50
+P 8350 4600
+AR Path="/5DCD9772/5DDE2B50" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/5DDE2B50" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 8350 4350 50  0001 C CNN
+F 1 "GND" H 8354 4428 50  0000 C CNN
+F 2 "" H 8350 4600 50  0001 C CNN
+F 3 "" H 8350 4600 50  0001 C CNN
+	1    8350 4600
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DDE2B56
+P 8350 4300
+AR Path="/5DCD9772/5DDE2B56" Ref="C?"  Part="1" 
+AR Path="/5DD754D4/5DDE2B56" Ref="C?"  Part="1" 
+F 0 "C?" H 8465 4345 50  0000 L CNN
+F 1 "1uF" H 8465 4255 50  0000 L CNN
+F 2 "" H 8388 4150 50  0001 C CNN
+F 3 "~" H 8350 4300 50  0001 C CNN
+	1    8350 4300
+	1    0    0    -1  
+$EndComp
+Text HLabel 9250 4050 2    50   Output ~ 0
+TARGET_PHY_1V8
+Wire Wire Line
+	6400 4000 6550 4000
+Text Label 8850 3800 2    50   ~ 0
+TARGET_PHY_CLK
+Wire Wire Line
+	7950 3800 8850 3800
+$Comp
+L rhododendron:USB3343 U?
+U 1 1 5DDE2B63
+P 6650 2450
+AR Path="/5DCD9772/5DDE2B63" Ref="U?"  Part="1" 
+AR Path="/5DD754D4/5DDE2B63" Ref="U?"  Part="1" 
+F 0 "U?" H 7250 2613 50  0000 C CNN
+F 1 "USB3343" H 7250 2523 50  0000 C CNN
+F 2 "" H 6650 2450 50  0001 C CNN
+F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/334x.pdf" H 6650 2450 50  0001 C CNN
+	1    6650 2450
+	1    0    0    -1  
+$EndComp
+$Comp
+L fpgas_and_processors:ECP5-BGA256 IC?
+U 4 1 5DDE3D5A
+P 1650 2100
+F 0 "IC?" H 1620 283 50  0000 R CNN
+F 1 "ECP5-BGA256" H 1620 193 50  0000 R CNN
+F 2 "BGA256C80P16X16_1400X1400X170" H -1550 5550 50  0001 L CNN
+F 3 "" H -2000 6500 50  0001 L CNN
+F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H -2000 6400 50  0001 L CNN "Description"
+F 5 "1.7" H -2000 6750 50  0001 L CNN "Height"
+F 6 "Lattice" H -1950 7350 50  0001 L CNN "Manufacturer_Name"
+F 7 "LFE5U-12F-6BG256C" H -1950 7250 50  0001 L CNN "Manufacturer_Part_Number"
+F 8 "842-LFE5U12F6BG256C" H -1300 5950 50  0001 L CNN "Mouser Part Number"
+F 9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" H -1650 5800 50  0001 L CNN "Mouser Price/Stock"
+	4    1650 2100
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2600 2550 6650 2550
+Wire Wire Line
+	6650 2850 4350 2850
+Wire Wire Line
+	4200 2750 6650 2750
+Wire Wire Line
+	2600 2650 6650 2650
+Wire Wire Line
+	4200 2750 4200 2950
+Wire Wire Line
+	4200 2950 2600 2950
+Wire Wire Line
+	4350 2850 4350 3050
+Wire Wire Line
+	4350 3050 2600 3050
+Wire Wire Line
+	4500 2950 4500 3350
+Wire Wire Line
+	4500 3350 2600 3350
+Wire Wire Line
+	2600 3450 4650 3450
+Wire Wire Line
+	4650 3450 4650 3050
+Wire Wire Line
+	4800 3150 4800 4050
+Wire Wire Line
+	4800 4050 2600 4050
+Wire Wire Line
+	4950 3250 4950 4150
+Wire Wire Line
+	4950 4150 2600 4150
+Wire Wire Line
+	5200 3450 5200 4250
+Wire Wire Line
+	5200 3450 6650 3450
+Wire Wire Line
+	5200 4250 2600 4250
+Wire Wire Line
+	5350 3550 5350 4950
+Wire Wire Line
+	5350 4950 2600 4950
+Wire Wire Line
+	5350 3550 6650 3550
+Wire Wire Line
+	5500 3650 5500 5350
+Wire Wire Line
+	5500 5350 2600 5350
+Wire Wire Line
+	6400 5450 2600 5450
+Wire Wire Line
+	6400 4000 6400 5450
+Text Label 2650 5550 0    50   ~ 0
+TARGET_PHY_CLK
+Wire Wire Line
+	3300 5550 2600 5550
+Text Label 2650 5450 0    50   ~ 0
+TARGET_PHY_RESET
+Text Label 2650 5350 0    50   ~ 0
+TARGET_PHY_DIR
+Text Label 2650 4250 0    50   ~ 0
+TARGET_PHY_STP
+Text Label 2650 4950 0    50   ~ 0
+TARGET_PHY_NXT
+Text Label 2650 4150 0    50   ~ 0
+TARGET_DATA7
+Text Label 2650 4050 0    50   ~ 0
+TARGET_DATA6
+Text Label 2650 3450 0    50   ~ 0
+TARGET_DATA5
+Text Label 2650 3350 0    50   ~ 0
+TARGET_DATA4
+Text Label 2650 3050 0    50   ~ 0
+TARGET_DATA3
+Text Label 2650 2950 0    50   ~ 0
+TARGET_DATA2
+Text Label 2650 2650 0    50   ~ 0
+TARGET_DATA1
+Text Label 2650 2550 0    50   ~ 0
+TARGET_DATA0
+NoConn ~ 2600 2750
+NoConn ~ 2550 2850
+NoConn ~ 2600 2850
+NoConn ~ 2600 3550
+NoConn ~ 2600 3150
+NoConn ~ 2600 3250
+NoConn ~ 2600 3650
+NoConn ~ 2600 3750
+NoConn ~ 2600 3850
+NoConn ~ 2600 3950
+NoConn ~ 2600 4350
+NoConn ~ 2600 4450
+NoConn ~ 2600 4550
+NoConn ~ 2600 4650
+NoConn ~ 2600 4750
+NoConn ~ 2600 4850
+NoConn ~ 2600 5050
+NoConn ~ 2600 5150
+NoConn ~ 2600 5250
+Wire Wire Line
+	1800 1900 1800 1800
+Wire Wire Line
+	1800 1800 1850 1800
+Wire Wire Line
+	1900 1800 1900 1900
+Wire Wire Line
+	1850 1800 1850 1700
+Connection ~ 1850 1800
+Wire Wire Line
+	1850 1800 1900 1800
+$Comp
+L power:+3V3 #PWR?
+U 1 1 5DE347EF
+P 1850 1700
+F 0 "#PWR?" H 1850 1550 50  0001 C CNN
+F 1 "+3V3" H 1864 1873 50  0000 C CNN
+F 2 "" H 1850 1700 50  0001 C CNN
+F 3 "" H 1850 1700 50  0001 C CNN
+	1    1850 1700
+	1    0    0    -1  
+$EndComp
+$EndSCHEMATC
