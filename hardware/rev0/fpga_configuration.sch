@@ -4,14 +4,391 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 1 3
-Title ""
-Date ""
-Rev ""
-Comp ""
-Comment1 ""
+Sheet 3 3
+Title "LUNA USB Multitool"
+Date "2019-10-16"
+Rev "r0"
+Comp "Great Scott Gadgets"
+Comment1 "Katherine J. Temkin"
 Comment2 ""
 Comment3 ""
 Comment4 ""
 $EndDescr
+$Comp
+L fpgas_and_processors:ECP5-BGA256 IC?
+U 8 1 5DCABD39
+P 10500 2250
+F 0 "IC?" H 11350 2400 50  0000 R CNN
+F 1 "ECP5-BGA256" H 11350 2300 50  0000 R CNN
+F 2 "BGA256C80P16X16_1400X1400X170" H 7300 5700 50  0001 L CNN
+F 3 "" H 6850 6650 50  0001 L CNN
+F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H 6850 6550 50  0001 L CNN "Description"
+F 5 "1.7" H 6850 6900 50  0001 L CNN "Height"
+F 6 "Lattice" H 6900 7500 50  0001 L CNN "Manufacturer_Name"
+F 7 "LFE5U-12F-6BG256C" H 6900 7400 50  0001 L CNN "Manufacturer_Part_Number"
+F 8 "842-LFE5U12F6BG256C" H 7550 6100 50  0001 L CNN "Mouser Part Number"
+F 9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" H 7200 5950 50  0001 L CNN "Mouser Price/Stock"
+	8    10500 2250
+	-1   0    0    -1  
+$EndComp
+Wire Wire Line
+	10300 2050 10300 1900
+$Comp
+L power:+3V3 #PWR?
+U 1 1 5DCDEED8
+P 10300 1900
+F 0 "#PWR?" H 10300 1750 50  0001 C CNN
+F 1 "+3V3" H 10315 2073 50  0000 C CNN
+F 2 "" H 10300 1900 50  0001 C CNN
+F 3 "" H 10300 1900 50  0001 C CNN
+	1    10300 1900
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2350 1850 2450 1850
+Connection ~ 2450 1850
+Connection ~ 2650 1850
+Wire Wire Line
+	2650 1850 2750 1850
+Wire Wire Line
+	2450 1850 2550 1850
+Connection ~ 2550 1850
+Wire Wire Line
+	2550 1850 2650 1850
+$Comp
+L Device:C C?
+U 1 1 5DCEC8F9
+P 1400 1300
+F 0 "C?" H 1450 1400 50  0000 L CNN
+F 1 "0.1uF" H 1450 1200 50  0000 L CNN
+F 2 "" H 1438 1150 50  0001 C CNN
+F 3 "~" H 1400 1300 50  0001 C CNN
+	1    1400 1300
+	1    0    0    -1  
+$EndComp
+Connection ~ 1400 1100
+Wire Wire Line
+	1400 1150 1400 1100
+$Comp
+L Device:C C?
+U 1 1 5DCEDCE6
+P 1700 1300
+F 0 "C?" H 1750 1400 50  0000 L CNN
+F 1 "0.1uF" H 1750 1200 50  0000 L CNN
+F 2 "" H 1738 1150 50  0001 C CNN
+F 3 "~" H 1700 1300 50  0001 C CNN
+	1    1700 1300
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DCEE41C
+P 2000 1300
+F 0 "C?" H 2050 1400 50  0000 L CNN
+F 1 "0.1uF" H 2050 1200 50  0000 L CNN
+F 2 "" H 2038 1150 50  0001 C CNN
+F 3 "~" H 2000 1300 50  0001 C CNN
+	1    2000 1300
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DCEE96F
+P 1100 1300
+F 0 "C?" H 1150 1400 50  0000 L CNN
+F 1 "0.1uF" H 1150 1200 50  0000 L CNN
+F 2 "" H 1138 1150 50  0001 C CNN
+F 3 "~" H 1100 1300 50  0001 C CNN
+	1    1100 1300
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	1100 1450 1400 1450
+Connection ~ 1400 1450
+Wire Wire Line
+	1400 1450 1550 1450
+Connection ~ 1700 1450
+Wire Wire Line
+	1700 1450 2000 1450
+Wire Wire Line
+	1550 1450 1550 1500
+Connection ~ 1550 1450
+Wire Wire Line
+	1550 1450 1700 1450
+$Comp
+L power:GND #PWR?
+U 1 1 5DCEFFC7
+P 1550 1500
+F 0 "#PWR?" H 1550 1250 50  0001 C CNN
+F 1 "GND" H 1555 1327 50  0000 C CNN
+F 2 "" H 1550 1500 50  0001 C CNN
+F 3 "" H 1550 1500 50  0001 C CNN
+	1    1550 1500
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	1700 1150 1700 1100
+Connection ~ 1700 1100
+Wire Wire Line
+	1700 1100 1400 1100
+Wire Wire Line
+	2000 1150 2000 1100
+Connection ~ 2000 1100
+Wire Wire Line
+	2000 1100 1700 1100
+Wire Wire Line
+	1100 1150 1100 1100
+Wire Wire Line
+	1100 1100 1400 1100
+Text Notes 3200 5700 0    39   ~ 0
+replace w/ ATSAMD21G15B (smaller flash) in later rev
+Wire Wire Line
+	2000 1100 2550 1100
+Wire Wire Line
+	2550 1100 2550 1850
+Wire Wire Line
+	2550 1100 2800 1100
+Wire Wire Line
+	2800 1100 2800 950 
+Connection ~ 2550 1100
+$Comp
+L power:+3V3 #PWR?
+U 1 1 5DD07968
+P 2800 950
+F 0 "#PWR?" H 2800 800 50  0001 C CNN
+F 1 "+3V3" H 2815 1123 50  0000 C CNN
+F 2 "" H 2800 950 50  0001 C CNN
+F 3 "" H 2800 950 50  0001 C CNN
+	1    2800 950 
+	1    0    0    -1  
+$EndComp
+Text Notes 1250 6650 0    138  ~ 0
+Development / Debug uC
+Wire Wire Line
+	2450 5650 2450 5750
+Wire Wire Line
+	2450 5750 2550 5750
+Wire Wire Line
+	2650 5750 2650 5650
+Wire Wire Line
+	2550 5750 2550 5950
+Connection ~ 2550 5750
+Wire Wire Line
+	2550 5750 2650 5750
+$Comp
+L power:GND #PWR?
+U 1 1 5DD0C578
+P 2550 5950
+F 0 "#PWR?" H 2550 5700 50  0001 C CNN
+F 1 "GND" H 2555 5777 50  0000 C CNN
+F 2 "" H 2550 5950 50  0001 C CNN
+F 3 "" H 2550 5950 50  0001 C CNN
+	1    2550 5950
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3550 5250 4650 5250
+Text Label 4500 5250 2    50   ~ 0
+CONFIG_UC_RESET
+$Comp
+L Memory_Flash:W25Q32JVSS U?
+U 1 1 5DD128B2
+P 7850 1350
+F 0 "U?" H 7550 950 50  0000 C CNN
+F 1 "W25Q32JVSS" H 8300 950 50  0000 C CNN
+F 2 "Package_SO:SOIC-8_5.23x5.23mm_P1.27mm" H 7850 1350 50  0001 C CNN
+F 3 "http://www.winbond.com/resource-files/w25q32jv%20revg%2003272018%20plus.pdf" H 7850 1350 50  0001 C CNN
+	1    7850 1350
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3V3 #PWR?
+U 1 1 5DD1D655
+P 7850 900
+F 0 "#PWR?" H 7850 750 50  0001 C CNN
+F 1 "+3V3" H 7865 1073 50  0000 C CNN
+F 2 "" H 7850 900 50  0001 C CNN
+F 3 "" H 7850 900 50  0001 C CNN
+	1    7850 900 
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5DD1E101
+P 7850 1750
+F 0 "#PWR?" H 7850 1500 50  0001 C CNN
+F 1 "GND" H 7855 1577 50  0000 C CNN
+F 2 "" H 7850 1750 50  0001 C CNN
+F 3 "" H 7850 1750 50  0001 C CNN
+	1    7850 1750
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DD1E9FF
+P 7100 900
+F 0 "C?" V 7150 800 50  0000 C CNN
+F 1 "0.1uF" V 7150 1150 50  0000 C CNN
+F 2 "" H 7138 750 50  0001 C CNN
+F 3 "~" H 7100 900 50  0001 C CNN
+	1    7100 900 
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	7250 900  7850 900 
+Wire Wire Line
+	7850 950  7850 900 
+Connection ~ 7850 900 
+$Comp
+L power:GND #PWR?
+U 1 1 5DD21DA8
+P 6950 900
+F 0 "#PWR?" H 6950 650 50  0001 C CNN
+F 1 "GND" V 6955 772 50  0000 R CNN
+F 2 "" H 6950 900 50  0001 C CNN
+F 3 "" H 6950 900 50  0001 C CNN
+	1    6950 900 
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R R?
+U 1 1 5DD22BB5
+P 8750 4950
+F 0 "R?" V 8800 5100 50  0000 C CNN
+F 1 "R" V 8750 4950 50  0000 C CNN
+F 2 "" V 8680 4950 50  0001 C CNN
+F 3 "~" H 8750 4950 50  0001 C CNN
+	1    8750 4950
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R R?
+U 1 1 5DD23434
+P 8750 5050
+F 0 "R?" V 8800 5200 50  0000 C CNN
+F 1 "R" V 8750 5050 50  0000 C CNN
+F 2 "" V 8680 5050 50  0001 C CNN
+F 3 "~" H 8750 5050 50  0001 C CNN
+	1    8750 5050
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R R?
+U 1 1 5DD23797
+P 8750 5150
+F 0 "R?" V 8800 5300 50  0000 C CNN
+F 1 "R" V 8750 5150 50  0000 C CNN
+F 2 "" V 8680 5150 50  0001 C CNN
+F 3 "~" H 8750 5150 50  0001 C CNN
+	1    8750 5150
+	0    1    1    0   
+$EndComp
+$Comp
+L power:+3V3 #PWR?
+U 1 1 5DD27B73
+P 8450 5050
+F 0 "#PWR?" H 8450 4900 50  0001 C CNN
+F 1 "+3V3" V 8465 5178 50  0000 L CNN
+F 2 "" H 8450 5050 50  0001 C CNN
+F 3 "" H 8450 5050 50  0001 C CNN
+	1    8450 5050
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	8450 5050 8600 5050
+Wire Wire Line
+	8900 4950 9450 4950
+Wire Wire Line
+	8900 5050 9450 5050
+Wire Wire Line
+	8900 5150 9450 5150
+$Comp
+L power:GND #PWR?
+U 1 1 5DD2CC69
+P 8400 4950
+F 0 "#PWR?" H 8400 4700 50  0001 C CNN
+F 1 "GND" V 8405 4822 50  0000 R CNN
+F 2 "" H 8400 4950 50  0001 C CNN
+F 3 "" H 8400 4950 50  0001 C CNN
+	1    8400 4950
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	8400 4950 8600 4950
+$Comp
+L power:GND #PWR?
+U 1 1 5DD2DED3
+P 8400 5150
+F 0 "#PWR?" H 8400 4900 50  0001 C CNN
+F 1 "GND" V 8405 5022 50  0000 R CNN
+F 2 "" H 8400 5150 50  0001 C CNN
+F 3 "" H 8400 5150 50  0001 C CNN
+	1    8400 5150
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	8400 5150 8600 5150
+Text Notes 8000 5150 2    44   ~ 0
+By default, select MSPI \nmode, so the ECP5 will \nself-configure from flash.
+Wire Wire Line
+	9450 4750 6950 4750
+Wire Wire Line
+	6950 4750 6950 1450
+Wire Wire Line
+	6950 1450 7350 1450
+Wire Wire Line
+	8350 1150 9050 1150
+Wire Wire Line
+	9050 1150 9050 3400
+Wire Wire Line
+	9050 3400 9450 3400
+Wire Wire Line
+	9450 3300 8950 3300
+Wire Wire Line
+	8950 3300 8950 1250
+Wire Wire Line
+	8950 1250 8350 1250
+Wire Wire Line
+	8350 1450 8850 1450
+Wire Wire Line
+	8850 1450 8850 3200
+Wire Wire Line
+	8850 3200 9450 3200
+Wire Wire Line
+	9450 3100 8750 3100
+Wire Wire Line
+	8750 3100 8750 1550
+Wire Wire Line
+	8750 1550 8350 1550
+Wire Wire Line
+	9450 3700 7050 3700
+Wire Wire Line
+	7050 3700 7050 1250
+Wire Wire Line
+	7050 1250 7350 1250
+Text Label 9250 3700 0    44   ~ 0
+~CS
+Text Label 9250 3400 0    44   ~ 0
+D0
+Text Label 9250 3300 0    44   ~ 0
+D1
+Text Label 9250 3200 0    44   ~ 0
+D2
+Text Label 9250 3100 0    44   ~ 0
+D3
+Text Label 9150 4750 0    44   ~ 0
+SPI_CLK
+$Comp
+L MCU_Microchip_SAMD:ATSAMD21G18A-AUT U?
+U 1 1 5DCDF84F
+P 2550 3750
+F 0 "U?" H 3300 1950 50  0000 C CNN
+F 1 "ATSAMD21G18A-AUT" H 1500 1950 50  0000 C CNN
+F 2 "Package_QFP:TQFP-48_7x7mm_P0.5mm" H 1600 2000 50  0001 C CNN
+F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/SAMD21-Family-DataSheet-DS40001882D.pdf" H 2550 4750 50  0001 C CNN
+	1    2550 3750
+	-1   0    0    -1  
+$EndComp
+Wire Wire Line
+	3550 4550 4650 4550
 $EndSCHEMATC

@@ -5,11 +5,11 @@ EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
 Sheet 2 3
-Title ""
-Date ""
-Rev ""
-Comp ""
-Comment1 ""
+Title "LUNA USB Multitool"
+Date "2019-10-16"
+Rev "r0"
+Comp "Great Scott Gadgets"
+Comment1 "Katherine J. Temkin"
 Comment2 ""
 Comment3 ""
 Comment4 ""
