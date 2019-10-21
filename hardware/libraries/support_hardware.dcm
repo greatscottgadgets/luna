@@ -1,5 +1,9 @@
 EESchema-DOCLIB  Version 2.0
 #
+$CMP AP2152
+F https://diodes.com/assets/Datasheets/AP2142A_52A.pdf
+$ENDCMP
+#
 $CMP MIC5528-3.3
 D 300mA Low-dropout Voltage Regulator, Vout 3.3V, Vin up to 5.5V, SOT-23
 K Micrel LDO voltage regulator

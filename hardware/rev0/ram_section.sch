@@ -1,0 +1,326 @@
+EESchema Schematic File Version 4
+LIBS:luna_rev0-cache
+EELAYER 29 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 6 9
+Title "LUNA: RAM Section"
+Date "2019-10-20"
+Rev "r0"
+Comp "Great Scott Gadgets"
+Comment1 "Katherine J. Temkin"
+Comment2 ""
+Comment3 "Licensed under the CERN OHL v1.2"
+Comment4 ""
+$EndDescr
+Wire Wire Line
+	1800 1900 1800 1800
+Wire Wire Line
+	1800 1800 1850 1800
+Wire Wire Line
+	1900 1800 1900 1900
+Wire Wire Line
+	1850 1800 1850 1700
+Connection ~ 1850 1800
+Wire Wire Line
+	1850 1800 1900 1800
+$Comp
+L power:+1V8 #PWR?
+U 1 1 5DE84804
+P 1850 1700
+F 0 "#PWR?" H 1850 1550 50  0001 C CNN
+F 1 "+1V8" H 1864 1873 50  0000 C CNN
+F 2 "" H 1850 1700 50  0001 C CNN
+F 3 "" H 1850 1700 50  0001 C CNN
+	1    1850 1700
+	1    0    0    -1  
+$EndComp
+$Comp
+L fpgas_and_processors:ECP5-BGA256 IC?
+U 3 1 5DE93650
+P 1650 2100
+F 0 "IC?" H 1620 308 50  0000 R CNN
+F 1 "ECP5-BGA256" H 1620 218 50  0000 R CNN
+F 2 "BGA256C80P16X16_1400X1400X170" H -1550 5550 50  0001 L CNN
+F 3 "" H -2000 6500 50  0001 L CNN
+F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H -2000 6400 50  0001 L CNN "Description"
+F 5 "1.7" H -2000 6750 50  0001 L CNN "Height"
+F 6 "Lattice" H -1950 7350 50  0001 L CNN "Manufacturer_Name"
+F 7 "LFE5U-12F-6BG256C" H -1950 7250 50  0001 L CNN "Manufacturer_Part_Number"
+F 8 "842-LFE5U12F6BG256C" H -1300 5950 50  0001 L CNN "Mouser Part Number"
+F 9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" H -1650 5800 50  0001 L CNN "Mouser Price/Stock"
+	3    1650 2100
+	1    0    0    -1  
+$EndComp
+$Comp
+L support_hardware:S27KS0641 U?
+U 1 1 5DEA1FC4
+P 5400 4850
+F 0 "U?" H 5400 5772 50  0000 C CNN
+F 1 "S27KS0641" H 5400 5682 50  0000 C CNN
+F 2 "pkl_housings_bga:BGA-24_5x5_6.0x8.0mm" H 6000 3950 50  0001 C CNN
+F 3 "" H 5400 3950 50  0001 C CNN
+F 4 "ANY" H 5400 4850 50  0001 C CNN "Source"
+	1    5400 4850
+	-1   0    0    -1  
+$EndComp
+Text Notes 1000 6500 0    100  ~ 0
+note: this section is 1V8; do not connect to 3V3 signals!
+Wire Wire Line
+	6000 4150 6350 4150
+Wire Wire Line
+	6350 4150 6350 4250
+Wire Wire Line
+	6350 4350 6000 4350
+Wire Wire Line
+	6000 4250 6350 4250
+Connection ~ 6350 4250
+Wire Wire Line
+	6350 4250 6350 4350
+Wire Wire Line
+	6350 4250 6550 4250
+Wire Wire Line
+	6550 4250 6550 4000
+$Comp
+L power:+1V8 #PWR?
+U 1 1 5DEA6771
+P 6550 4000
+F 0 "#PWR?" H 6550 3850 50  0001 C CNN
+F 1 "+1V8" H 6564 4173 50  0000 C CNN
+F 2 "" H 6550 4000 50  0001 C CNN
+F 3 "" H 6550 4000 50  0001 C CNN
+	1    6550 4000
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6000 5350 6350 5350
+Wire Wire Line
+	6350 5350 6350 5450
+Wire Wire Line
+	6350 5550 6000 5550
+Wire Wire Line
+	6000 5450 6350 5450
+Connection ~ 6350 5450
+Wire Wire Line
+	6350 5450 6350 5550
+Wire Wire Line
+	6350 5450 6550 5450
+Wire Wire Line
+	6550 5450 6550 5600
+$Comp
+L power:GND #PWR?
+U 1 1 5DEA82D8
+P 6550 5600
+F 0 "#PWR?" H 6550 5350 50  0001 C CNN
+F 1 "GND" H 6554 5428 50  0000 C CNN
+F 2 "" H 6550 5600 50  0001 C CNN
+F 3 "" H 6550 5600 50  0001 C CNN
+	1    6550 5600
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6000 4850 7100 4850
+Entry Wire Line
+	7100 4850 7200 4950
+Wire Wire Line
+	6000 4950 7100 4950
+Entry Wire Line
+	7100 4950 7200 5050
+Wire Wire Line
+	2700 5550 3000 5550
+Wire Wire Line
+	2700 5650 3000 5650
+Entry Wire Line
+	3000 5550 3100 5650
+Entry Wire Line
+	3000 5650 3100 5750
+Text Label 6800 4850 0    50   ~ 0
+CLK
+Text Label 6800 4950 0    50   ~ 0
+~CLK
+Wire Bus Line
+	3100 6050 7200 6050
+Text Label 2750 5550 0    50   ~ 0
+~CLK
+Text Label 2750 5650 0    50   ~ 0
+CLK
+Wire Wire Line
+	2700 3350 3800 3350
+Wire Wire Line
+	3800 3350 3800 4350
+Wire Wire Line
+	3800 4350 4800 4350
+Wire Wire Line
+	2700 3450 3700 3450
+Wire Wire Line
+	3700 3450 3700 4450
+Wire Wire Line
+	3700 4450 4800 4450
+Wire Wire Line
+	2700 3550 3600 3550
+Wire Wire Line
+	3600 3550 3600 4550
+Wire Wire Line
+	3600 4550 4800 4550
+Wire Wire Line
+	2700 3950 3500 3950
+Wire Wire Line
+	3500 3950 3500 4650
+Wire Wire Line
+	3500 4650 4800 4650
+Wire Wire Line
+	2700 4250 3400 4250
+Wire Wire Line
+	3400 4250 3400 4750
+Wire Wire Line
+	3400 4750 4800 4750
+Wire Wire Line
+	2700 4350 3300 4350
+Wire Wire Line
+	3300 4350 3300 4850
+Wire Wire Line
+	3300 4850 4800 4850
+Wire Wire Line
+	2700 4450 3200 4450
+Wire Wire Line
+	3200 4450 3200 4950
+Wire Wire Line
+	3200 4950 4800 4950
+Wire Wire Line
+	2700 4550 3100 4550
+Wire Wire Line
+	3100 4550 3100 5050
+Wire Wire Line
+	3100 5050 4800 5050
+Wire Wire Line
+	4800 5150 3000 5150
+Wire Wire Line
+	3000 5150 3000 4950
+Wire Wire Line
+	3000 4950 2700 4950
+NoConn ~ 4800 5350
+NoConn ~ 4800 5450
+NoConn ~ 4800 5550
+NoConn ~ 6000 5050
+NoConn ~ 6000 5150
+Wire Wire Line
+	2700 5450 3100 5450
+Text Label 3100 5350 0    50   ~ 0
+~CS
+Wire Wire Line
+	6000 4750 6300 4750
+Text Label 6300 4750 0    50   ~ 0
+~CS
+Wire Wire Line
+	2700 5350 3100 5350
+Text Label 3100 5450 0    50   ~ 0
+~RESET
+Text Label 6350 4550 0    50   ~ 0
+~RESET
+Wire Wire Line
+	6350 4550 6000 4550
+$Comp
+L Device:C C?
+U 1 1 5DEC975A
+P 5100 3050
+F 0 "C?" H 5150 3150 50  0000 L CNN
+F 1 "0.1uF" H 5150 2950 50  0000 L CNN
+F 2 "" H 5138 2900 50  0001 C CNN
+F 3 "~" H 5100 3050 50  0001 C CNN
+	1    5100 3050
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DECBE47
+P 5400 3050
+F 0 "C?" H 5450 3150 50  0000 L CNN
+F 1 "0.1uF" H 5450 2950 50  0000 L CNN
+F 2 "" H 5438 2900 50  0001 C CNN
+F 3 "~" H 5400 3050 50  0001 C CNN
+	1    5400 3050
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DECC0D1
+P 5700 3050
+F 0 "C?" H 5750 3150 50  0000 L CNN
+F 1 "0.1uF" H 5750 2950 50  0000 L CNN
+F 2 "" H 5738 2900 50  0001 C CNN
+F 3 "~" H 5700 3050 50  0001 C CNN
+	1    5700 3050
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	5100 2900 5100 2800
+Wire Wire Line
+	5100 2800 5400 2800
+Wire Wire Line
+	5700 2800 5700 2900
+Wire Wire Line
+	5400 2900 5400 2800
+Connection ~ 5400 2800
+Wire Wire Line
+	5400 2800 5700 2800
+$Comp
+L power:+5V #PWR?
+U 1 1 5DECF10E
+P 5400 2650
+F 0 "#PWR?" H 5400 2500 50  0001 C CNN
+F 1 "+5V" H 5414 2823 50  0000 C CNN
+F 2 "" H 5400 2650 50  0001 C CNN
+F 3 "" H 5400 2650 50  0001 C CNN
+	1    5400 2650
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	5400 2650 5400 2800
+Wire Wire Line
+	5100 3200 5100 3300
+Wire Wire Line
+	5100 3300 5400 3300
+Wire Wire Line
+	5700 3300 5700 3200
+Wire Wire Line
+	5400 3200 5400 3300
+Connection ~ 5400 3300
+Wire Wire Line
+	5400 3300 5700 3300
+Wire Wire Line
+	5400 3300 5400 3400
+Wire Bus Line
+	3100 5650 3100 6050
+Wire Bus Line
+	7200 4950 7200 6050
+$Comp
+L power:GND #PWR?
+U 1 1 5DED5068
+P 5400 3400
+F 0 "#PWR?" H 5400 3150 50  0001 C CNN
+F 1 "GND" H 5404 3228 50  0000 C CNN
+F 2 "" H 5400 3400 50  0001 C CNN
+F 3 "" H 5400 3400 50  0001 C CNN
+	1    5400 3400
+	1    0    0    -1  
+$EndComp
+Text Label 4000 4350 0    50   ~ 0
+RAM_DQ7
+Text Label 4000 4450 0    50   ~ 0
+RAM_DQ6
+Text Label 4000 4550 0    50   ~ 0
+RAM_DQ5
+Text Label 4000 4650 0    50   ~ 0
+RAM_DQ4
+Text Label 4000 4750 0    50   ~ 0
+RAM_DQ3
+Text Label 4000 4850 0    50   ~ 0
+RAM_DQ2
+Text Label 4000 4950 0    50   ~ 0
+RAM_DQ1
+Text Label 4000 5050 0    50   ~ 0
+RAM_DQ0
+Text Label 4000 5150 0    50   ~ 0
+RAM_RWDS
+$EndSCHEMATC

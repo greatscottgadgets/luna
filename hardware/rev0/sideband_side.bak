@@ -4,14 +4,14 @@ EELAYER 29 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 4 6
-Title "LUNA USB Multitool"
-Date "2019-10-16"
+Sheet 4 9
+Title "LUNA: Sideband USB PHY"
+Date "2019-10-20"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
 Comment2 ""
-Comment3 ""
+Comment3 "Licensed under the CERN OHL v1.2"
 Comment4 ""
 $EndDescr
 $Comp
@@ -161,10 +161,8 @@ Text Label 2600 3800 0    50   ~ 0
 SIDEBAND_DATA6
 Text Label 2600 3900 0    50   ~ 0
 SIDEBAND_DATA7
-Text Label 2650 5350 0    50   ~ 0
-SIDEBAND_PHY_RESET
-Wire Wire Line
-	2650 5350 2500 5350
+Text Label 3350 5350 0    50   ~ 0
+~SIDEBAND_PHY_RESET
 Wire Wire Line
 	5450 4400 5200 4400
 Wire Wire Line
@@ -172,7 +170,7 @@ Wire Wire Line
 Wire Wire Line
 	5200 3900 5350 3900
 Text Label 5450 4400 0    50   ~ 0
-SIDEBAND_PHY_RESET
+~SIDEBAND_PHY_RESET
 Text HLabel 8050 3950 2    50   Output ~ 0
 SIDEBAND_PHY_1V8
 $Comp
@@ -453,4 +451,26 @@ NoConn ~ 2500 5700
 NoConn ~ 2500 5800
 NoConn ~ 2500 5900
 NoConn ~ 2500 6000
+Wire Wire Line
+	5200 4400 5200 5300
+Wire Wire Line
+	5200 5300 5550 5300
+Connection ~ 5200 4400
+$Comp
+L Device:R R?
+U 1 1 5E110842
+P 2950 5350
+F 0 "R?" V 2850 5350 50  0000 C CNN
+F 1 "1K" V 2950 5350 50  0000 C CNN
+F 2 "" V 2880 5350 50  0001 C CNN
+F 3 "~" H 2950 5350 50  0001 C CNN
+	1    2950 5350
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	2500 5350 2800 5350
+Wire Wire Line
+	3100 5350 3350 5350
+Text HLabel 5550 5300 2    50   BiDi ~ 0
+UC_USB_INHIBIT
 $EndSCHEMATC

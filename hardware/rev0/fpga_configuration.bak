@@ -4,14 +4,14 @@ EELAYER 29 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 3 6
-Title "LUNA USB Multitool"
-Date "2019-10-16"
+Sheet 3 9
+Title "LUNA: Configuration / Dev / Debug Section"
+Date "2019-10-20"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
 Comment2 ""
-Comment3 ""
+Comment3 "Licensed under the CERN OHL v1.2"
 Comment4 ""
 $EndDescr
 $Comp
@@ -44,17 +44,7 @@ F 3 "" H 10300 1900 50  0001 C CNN
 	1    10300 1900
 	1    0    0    -1  
 $EndComp
-Wire Wire Line
-	2350 1850 2450 1850
-Connection ~ 2450 1850
-Connection ~ 2650 1850
-Wire Wire Line
-	2650 1850 2750 1850
-Wire Wire Line
-	2450 1850 2550 1850
 Connection ~ 2550 1850
-Wire Wire Line
-	2550 1850 2650 1850
 $Comp
 L Device:C C32
 U 1 1 5DCEC8F9
@@ -376,17 +366,6 @@ Text Label 9250 3100 0    44   ~ 0
 D3
 Text Label 8900 4750 2    50   ~ 0
 FPGA_CONFIG_CLK
-$Comp
-L MCU_Microchip_SAMD:ATSAMD21G18A-AUT U5
-U 1 1 5DCDF84F
-P 2550 3750
-F 0 "U5" H 3300 1950 50  0000 C CNN
-F 1 "ATSAMD21G18A-AUT" H 1500 1950 50  0000 C CNN
-F 2 "Package_QFP:TQFP-48_7x7mm_P0.5mm" H 1600 2000 50  0001 C CNN
-F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/SAMD21-Family-DataSheet-DS40001882D.pdf" H 2550 4750 50  0001 C CNN
-	1    2550 3750
-	-1   0    0    -1  
-$EndComp
 Text Label 8900 4200 2    50   ~ 0
 TMS
 Text Label 8900 4300 2    50   ~ 0
@@ -519,10 +498,6 @@ Wire Wire Line
 	4650 6650 5350 6650
 Text Label 3600 5050 0    50   ~ 0
 UC_SWDIO
-Wire Wire Line
-	3550 3750 4650 3750
-Wire Wire Line
-	3550 3850 4650 3850
 Wire Wire Line
 	5350 4300 5350 3050
 Wire Wire Line
@@ -700,10 +675,6 @@ Wire Wire Line
 Wire Wire Line
 	3900 4350 4150 4350
 NoConn ~ 3550 4450
-Text HLabel 4650 3750 2    50   BiDi ~ 0
-CONTROL_SDA
-Text HLabel 4650 3850 2    50   BiDi ~ 0
-CONTROL_SCL
 Text HLabel 4150 3350 2    50   Output ~ 0
 DEBUG_SPI_UC_OUT
 Text HLabel 4150 3450 2    50   Output ~ 0
@@ -716,10 +687,6 @@ Text HLabel 4150 3550 2    50   Input ~ 0
 DEBUG_SPI_UC_IN
 Wire Wire Line
 	4150 3550 3550 3550
-Text HLabel 4150 3650 2    50   Output ~ 0
-~DEBUG_SPI_CS
-Wire Wire Line
-	4150 3650 3550 3650
 Text Label 4650 2150 2    50   ~ 0
 UC_TX_FPGA_RX
 Wire Wire Line
@@ -798,9 +765,6 @@ NoConn ~ 3550 4850
 NoConn ~ 1550 2150
 NoConn ~ 1550 2250
 NoConn ~ 1550 2550
-NoConn ~ 1550 2650
-NoConn ~ 1550 2750
-NoConn ~ 1550 2850
 Text HLabel 4650 2450 2    50   Input ~ 0
 SIDEBAND_PHY_1V8
 Text HLabel 4650 2750 2    50   Input ~ 0
@@ -878,4 +842,48 @@ $EndComp
 NoConn ~ 1250 6350
 Wire Wire Line
 	1750 5950 1750 6050
+NoConn ~ 3550 3750
+NoConn ~ 3550 3850
+NoConn ~ 3550 3650
+Wire Wire Line
+	2450 1850 2550 1850
+Wire Wire Line
+	2350 1850 2450 1850
+Connection ~ 2450 1850
+Wire Wire Line
+	2550 1850 2650 1850
+Wire Wire Line
+	2650 1850 2750 1850
+Connection ~ 2650 1850
+$Comp
+L MCU_Microchip_SAMD:ATSAMD21G18A-AUT U5
+U 1 1 5DCDF84F
+P 2550 3750
+F 0 "U5" H 3300 1950 50  0000 C CNN
+F 1 "ATSAMD21G18A-AUT" H 1500 1950 50  0000 C CNN
+F 2 "Package_QFP:TQFP-48_7x7mm_P0.5mm" H 1600 2000 50  0001 C CNN
+F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/SAMD21-Family-DataSheet-DS40001882D.pdf" H 2550 4750 50  0001 C CNN
+	1    2550 3750
+	-1   0    0    -1  
+$EndComp
+Text HLabel 1200 3350 0    50   BiDi ~ 0
+INHIBIT_UC_USB
+Text Notes 550  4100 0    50   ~ 0
+assert this signal from the\nFPGA to tristate the the uC’s \nUSB connections\n\nor assert from the UC to\nprevent the FPGA from\ndriving the USB (used in\nrecovery modes)
+Text HLabel 1250 2750 0    50   Input ~ 0
+FORCE_RECOVERY
+Wire Wire Line
+	1250 2750 1550 2750
+Text HLabel 1250 2650 0    50   Input ~ 0
+FORCE_DFU
+Wire Wire Line
+	1550 2650 1250 2650
+Text Notes 550  3050 0    50   ~ 0
+assert to enter recovery,\nor to force-enter DFU;\noverride INHIBIT_USB
+Wire Wire Line
+	1500 3350 1500 2850
+Wire Wire Line
+	1500 2850 1550 2850
+Wire Wire Line
+	1200 3350 1500 3350
 $EndSCHEMATC

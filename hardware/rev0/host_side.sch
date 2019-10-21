@@ -4,14 +4,14 @@ EELAYER 29 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 5 6
-Title ""
-Date ""
-Rev ""
-Comp ""
-Comment1 ""
+Sheet 9 9
+Title "LUNA: Upstream \"Host\" Section"
+Date "2019-10-20"
+Rev "r0"
+Comp "Great Scott Gadgets"
+Comment1 "Katherine J. Temkin"
 Comment2 ""
-Comment3 ""
+Comment3 "Licensed under the CERN OHL v1.2"
 Comment4 ""
 $EndDescr
 $Comp
@@ -406,8 +406,90 @@ F 3 "" H 1950 1100 50  0001 C CNN
 	1    1950 1100
 	1    0    0    -1  
 $EndComp
+$Comp
+L Device:C C?
+U 1 1 5DEDB896
+P 6750 5200
+AR Path="/5DCD9772/5DEDB896" Ref="C?"  Part="1" 
+AR Path="/5DD754D4/5DEDB896" Ref="C?"  Part="1" 
+F 0 "C?" H 6865 5245 50  0000 L CNN
+F 1 "0.1uF" H 6865 5155 50  0000 L CNN
+F 2 "" H 6788 5050 50  0001 C CNN
+F 3 "~" H 6750 5200 50  0001 C CNN
+	1    6750 5200
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DEDB89C
+P 7250 5200
+AR Path="/5DCD9772/5DEDB89C" Ref="C?"  Part="1" 
+AR Path="/5DD754D4/5DEDB89C" Ref="C?"  Part="1" 
+F 0 "C?" H 7365 5245 50  0000 L CNN
+F 1 "0.1uF" H 7365 5155 50  0000 L CNN
+F 2 "" H 7288 5050 50  0001 C CNN
+F 3 "~" H 7250 5200 50  0001 C CNN
+	1    7250 5200
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+5V #PWR?
+U 1 1 5DEDB8A2
+P 6750 4950
+AR Path="/5DCD9772/5DEDB8A2" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/5DEDB8A2" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 6750 4800 50  0001 C CNN
+F 1 "+5V" H 6764 5123 50  0000 C CNN
+F 2 "" H 6750 4950 50  0001 C CNN
+F 3 "" H 6750 4950 50  0001 C CNN
+	1    6750 4950
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3V3 #PWR?
+U 1 1 5DEDB8A8
+P 7250 4950
+AR Path="/5DCD9772/5DEDB8A8" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/5DEDB8A8" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 7250 4800 50  0001 C CNN
+F 1 "+3V3" H 7264 5123 50  0000 C CNN
+F 2 "" H 7250 4950 50  0001 C CNN
+F 3 "" H 7250 4950 50  0001 C CNN
+	1    7250 4950
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5DEDB8AE
+P 6750 5450
+AR Path="/5DCD9772/5DEDB8AE" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/5DEDB8AE" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 6750 5200 50  0001 C CNN
+F 1 "GND" H 6754 5278 50  0000 C CNN
+F 2 "" H 6750 5450 50  0001 C CNN
+F 3 "" H 6750 5450 50  0001 C CNN
+	1    6750 5450
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5DEDB8B4
+P 7250 5450
+AR Path="/5DCD9772/5DEDB8B4" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/5DEDB8B4" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 7250 5200 50  0001 C CNN
+F 1 "GND" H 7254 5278 50  0000 C CNN
+F 2 "" H 7250 5450 50  0001 C CNN
+F 3 "" H 7250 5450 50  0001 C CNN
+	1    7250 5450
+	1    0    0    -1  
+$EndComp
 Wire Wire Line
-	2700 3000 2800 3000
-Text HLabel 2800 3000 2    50   Input ~ 0
-CLK_60M
+	7250 4950 7250 5050
+Wire Wire Line
+	6750 4950 6750 5050
+Wire Wire Line
+	6750 5350 6750 5450
+Wire Wire Line
+	7250 5350 7250 5450
 $EndSCHEMATC

@@ -1,5 +1,5 @@
 (sym_lib_table
   (lib (name support_hardware)(type Legacy)(uri ${KIPRJMOD}/../libraries/support_hardware.lib)(options "")(descr ""))
   (lib (name fpgas_and_processors)(type Legacy)(uri ${KIPRJMOD}/../libraries/fpgas_and_processors.lib)(options "")(descr ""))
-  (lib (name usb)(type Legacy)(uri /Users/ktemkin/Projects/luna/hardware/libraries/usb.lib)(options "")(descr ""))
+  (lib (name usb)(type Legacy)(uri ${KIPRJMOD}/../libraries/usb.lib)(options "")(descr ""))
 )

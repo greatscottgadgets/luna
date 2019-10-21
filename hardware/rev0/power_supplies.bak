@@ -4,18 +4,16 @@ EELAYER 29 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 2 6
-Title "LUNA USB Multitool"
-Date "2019-10-16"
+Sheet 2 9
+Title "LUNA: Power Supplies"
+Date "2019-10-20"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
 Comment2 ""
-Comment3 ""
+Comment3 "Licensed under the CERN OHL v1.2"
 Comment4 ""
 $EndDescr
-Text Notes 7050 6800 0    157  ~ 0
-Power Management & Supply
 $Comp
 L fpgas_and_processors:ECP5-BGA256 IC1
 U 1 1 5DA7C210
