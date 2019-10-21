@@ -4,7 +4,7 @@ EELAYER 29 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 8 9
+Sheet 7 9
 Title "LUNA: Debug and Control Connections"
 Date "2019-10-20"
 Rev "r0"
@@ -50,12 +50,12 @@ ALLOW_POWER_VIA_TARGET
 Text HLabel 3600 3750 2    50   Output ~ 0
 SUPPLY_POWER_TO_TARGET
 $Comp
-L fpgas_and_processors:ECP5-BGA256 IC?
+L fpgas_and_processors:ECP5-BGA256 IC1
 U 2 1 5DFF5299
 P 2200 1950
-F 0 "IC?" H 2170 508 50  0000 R CNN
+F 0 "IC1" H 2170 508 50  0000 R CNN
 F 1 "ECP5-BGA256" H 2170 418 50  0000 R CNN
-F 2 "BGA256C80P16X16_1400X1400X170" H -1000 5400 50  0001 L CNN
+F 2 "luna:lattice_cabga256" H -1000 5400 50  0001 L CNN
 F 3 "" H -1450 6350 50  0001 L CNN
 F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H -1450 6250 50  0001 L CNN "Description"
 F 5 "1.7" H -1450 6600 50  0001 L CNN "Height"
@@ -70,4 +70,32 @@ Text HLabel 3600 4650 2    50   Input ~ 0
 TARGET_OVERCURRENT
 Text HLabel 3600 4750 2    50   Input ~ 0
 CLKIN_60MHZ
+NoConn ~ 3150 2500
+NoConn ~ 3150 2800
+NoConn ~ 3150 2900
+NoConn ~ 3150 3000
+NoConn ~ 3150 3100
+NoConn ~ 3150 3200
+NoConn ~ 3150 3300
+NoConn ~ 3150 3400
+NoConn ~ 3150 3500
+NoConn ~ 3150 3850
+NoConn ~ 3150 3950
+NoConn ~ 3150 4050
+NoConn ~ 3150 4150
+NoConn ~ 3150 4250
+NoConn ~ 3150 4350
+NoConn ~ 3150 4450
+NoConn ~ 3150 4550
+$Comp
+L power:+3V3 #PWR0105
+U 1 1 5E3ECE52
+P 2450 1500
+F 0 "#PWR0105" H 2450 1350 50  0001 C CNN
+F 1 "+3V3" H 2464 1673 50  0000 C CNN
+F 2 "" H 2450 1500 50  0001 C CNN
+F 3 "" H 2450 1500 50  0001 C CNN
+	1    2450 1500
+	1    0    0    -1  
+$EndComp
 $EndSCHEMATC
