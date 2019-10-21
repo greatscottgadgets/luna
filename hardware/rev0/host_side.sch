@@ -1,6 +1,6 @@
 EESchema Schematic File Version 4
 LIBS:luna_rev0-cache
-EELAYER 29 0
+EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
@@ -334,7 +334,7 @@ HOST_PHY_CLK
 Wire Wire Line
 	6800 3150 7700 3150
 $Comp
-L rhododendron:USB3343 U?
+L usb:USB3343 U?
 U 1 1 5DD9AEA4
 P 5500 1800
 AR Path="/5DCD9772/5DD9AEA4" Ref="U?"  Part="1" 
@@ -506,19 +506,6 @@ $EndComp
 Wire Wire Line
 	5150 3350 5250 3350
 Connection ~ 5250 3350
-Wire Wire Line
-	4850 3350 4750 3350
-$Comp
-L ibp-hyperram-cache:+3.3V #PWR0101
-U 1 1 5E151861
-P 4750 3350
-F 0 "#PWR0101" H 4750 3200 50  0001 C CNN
-F 1 "+3.3V" V 4765 3478 50  0000 L CNN
-F 2 "" H 4750 3350 50  0001 C CNN
-F 3 "" H 4750 3350 50  0001 C CNN
-	1    4750 3350
-	0    -1   -1   0   
-$EndComp
 NoConn ~ 2700 2200
 NoConn ~ 2700 2500
 NoConn ~ 2700 2600
@@ -539,4 +526,17 @@ NoConn ~ 2700 4850
 NoConn ~ 2700 4950
 NoConn ~ 2700 5050
 NoConn ~ 6800 3050
+$Comp
+L power:+3V3 #PWR?
+U 1 1 5DD76B4C
+P 4750 3350
+F 0 "#PWR?" H 4750 3200 50  0001 C CNN
+F 1 "+3V3" V 4765 3478 50  0000 L CNN
+F 2 "" H 4750 3350 50  0001 C CNN
+F 3 "" H 4750 3350 50  0001 C CNN
+	1    4750 3350
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	4750 3350 4850 3350
 $EndSCHEMATC

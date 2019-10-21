@@ -1,6 +1,6 @@
 EESchema Schematic File Version 4
 LIBS:luna_rev0-cache
-EELAYER 29 0
+EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
@@ -273,7 +273,7 @@ TARGET_PHY_CLK
 Wire Wire Line
 	7950 3800 8850 3800
 $Comp
-L rhododendron:USB3343 U?
+L usb:USB3343 U?
 U 1 1 5DDE2B63
 P 6650 2450
 AR Path="/5DCD9772/5DDE2B63" Ref="U?"  Part="1" 
@@ -526,11 +526,12 @@ Wire Wire Line
 Wire Wire Line
 	5900 5050 5900 4950
 $Comp
-L ibp-hyperram-cache:+3.3V #PWR?
+L support_hardware:S27KS0641 #PWR?
 U 1 1 5E15EF17
 P 5900 4950
 AR Path="/5DD754D4/5E15EF17" Ref="#PWR?"  Part="1" 
 AR Path="/5DDDB747/5E15EF17" Ref="#PWR0100"  Part="1" 
+AR Path="/5E15EF17" Ref="#PWR0100"  Part="1" 
 F 0 "#PWR0100" H 5900 4800 50  0001 C CNN
 F 1 "+3.3V" V 5915 5078 50  0000 L CNN
 F 2 "" H 5900 4950 50  0001 C CNN

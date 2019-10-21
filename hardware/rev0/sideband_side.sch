@@ -1,6 +1,6 @@
 EESchema Schematic File Version 4
 LIBS:luna_rev0-cache
-EELAYER 29 0
+EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
@@ -15,7 +15,7 @@ Comment3 "Licensed under the CERN OHL v1.2"
 Comment4 ""
 $EndDescr
 $Comp
-L rhododendron:USB3343 U8
+L usb:USB3343 U8
 U 1 1 5DCDAEF5
 P 5450 2350
 F 0 "U8" H 6050 2513 50  0000 C CNN
@@ -491,11 +491,12 @@ Wire Wire Line
 Wire Wire Line
 	4900 4450 4900 4350
 $Comp
-L ibp-hyperram-cache:+3.3V #PWR?
+L support_hardware:S27KS0641 #PWR?
 U 1 1 5E1591EA
 P 4900 4350
 AR Path="/5DD754D4/5E1591EA" Ref="#PWR?"  Part="1" 
 AR Path="/5DCD9772/5E1591EA" Ref="#PWR099"  Part="1" 
+AR Path="/5E1591EA" Ref="#PWR099"  Part="1" 
 F 0 "#PWR099" H 4900 4200 50  0001 C CNN
 F 1 "+3.3V" V 4915 4478 50  0000 L CNN
 F 2 "" H 4900 4350 50  0001 C CNN
