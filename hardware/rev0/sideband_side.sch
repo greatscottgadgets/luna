@@ -64,22 +64,10 @@ Wire Wire Line
 Connection ~ 1750 1550
 Wire Wire Line
 	1750 1550 1800 1550
-Wire Wire Line
-	5450 3550 4700 3550
-Wire Wire Line
-	4700 3550 4700 5550
-Wire Wire Line
-	5450 3450 4550 3450
-Wire Wire Line
-	4550 3450 4550 4900
-Wire Wire Line
-	5450 3350 4400 3350
-Wire Wire Line
-	4400 3350 4400 4600
 Text Label 2650 4600 0    50   ~ 0
-SIDEBAND_STP
-Text Label 2650 4900 0    50   ~ 0
 SIDEBAND_NXT
+Text Label 2650 4900 0    50   ~ 0
+SIDEBAND_STP
 Text Label 2650 5550 0    50   ~ 0
 SIDEBAND_DIR
 $Comp
@@ -93,51 +81,13 @@ F 3 "" H 5300 3650 50  0001 C CNN
 	1    5300 3650
 	0    -1   -1   0   
 $EndComp
-Wire Wire Line
-	2500 4600 4400 4600
-Wire Wire Line
-	2500 4900 4550 4900
-Wire Wire Line
-	2500 5550 4700 5550
-Wire Wire Line
-	5450 3150 3850 3150
-Wire Wire Line
-	3850 3150 3850 3900
-Wire Wire Line
-	3850 3900 2500 3900
-Wire Wire Line
-	5450 3050 3750 3050
-Wire Wire Line
-	3750 3050 3750 3800
-Wire Wire Line
-	3750 3800 2500 3800
-Wire Wire Line
-	5450 2950 3650 2950
-Wire Wire Line
-	3650 2950 3650 3450
-Wire Wire Line
-	3650 3450 2500 3450
-Wire Wire Line
-	3550 2850 3550 3350
-Wire Wire Line
-	3550 3350 2500 3350
-Wire Wire Line
-	3550 2850 5450 2850
-Wire Wire Line
-	2500 2750 5450 2750
-Wire Wire Line
-	5450 2650 2500 2650
-Wire Wire Line
-	5450 2550 2500 2550
-Wire Wire Line
-	5450 2450 2500 2450
-Text Label 2600 2450 0    50   ~ 0
+Text Label 4500 2450 0    50   ~ 0
 SIDEBAND_DATA0
-Text Label 2600 2550 0    50   ~ 0
+Text Label 4500 2550 0    50   ~ 0
 SIDEBAND_DATA1
-Text Label 2600 2650 0    50   ~ 0
+Text Label 4500 2650 0    50   ~ 0
 SIDEBAND_DATA2
-Text Label 2600 2750 0    50   ~ 0
+Text Label 4500 2750 0    50   ~ 0
 SIDEBAND_DATA3
 NoConn ~ 2500 2900
 NoConn ~ 2500 3000
@@ -147,17 +97,15 @@ Wire Wire Line
 	6750 3700 7650 3700
 Text Label 7650 3700 2    50   ~ 0
 SIDEBAND_PHY_CLK
-Text Label 2650 4500 0    50   ~ 0
+Text Label 2650 2450 0    50   ~ 0
 SIDEBAND_PHY_CLK
-Wire Wire Line
-	2500 4500 2650 4500
-Text Label 2600 3350 0    50   ~ 0
+Text Label 4500 2850 0    50   ~ 0
 SIDEBAND_DATA4
-Text Label 2600 3450 0    50   ~ 0
+Text Label 4500 2950 0    50   ~ 0
 SIDEBAND_DATA5
-Text Label 2600 3800 0    50   ~ 0
+Text Label 4500 3050 0    50   ~ 0
 SIDEBAND_DATA6
-Text Label 2600 3900 0    50   ~ 0
+Text Label 4500 3150 0    50   ~ 0
 SIDEBAND_DATA7
 Text Label 3350 5350 0    50   ~ 0
 ~SIDEBAND_PHY_RESET
@@ -490,24 +438,135 @@ Wire Wire Line
 	4900 4750 4900 4850
 Wire Wire Line
 	4900 4450 4900 4350
-$Comp
-L support_hardware:S27KS0641 #PWR?
-U 1 1 5E1591EA
-P 4900 4350
-AR Path="/5DD754D4/5E1591EA" Ref="#PWR?"  Part="1" 
-AR Path="/5DCD9772/5E1591EA" Ref="#PWR099"  Part="1" 
-AR Path="/5E1591EA" Ref="#PWR099"  Part="1" 
-F 0 "#PWR099" H 4900 4200 50  0001 C CNN
-F 1 "+3.3V" V 4915 4478 50  0000 L CNN
-F 2 "" H 4900 4350 50  0001 C CNN
-F 3 "" H 4900 4350 50  0001 C CNN
-	1    4900 4350
-	1    0    0    -1  
-$EndComp
 Wire Wire Line
 	4900 4850 5200 4850
 Connection ~ 5200 4850
 Wire Wire Line
 	5200 4850 5200 5300
 NoConn ~ 6750 3600
+$Comp
+L power:+3V3 #PWR0108
+U 1 1 5DE2FBF8
+P 4900 4350
+F 0 "#PWR0108" H 4900 4200 50  0001 C CNN
+F 1 "+3V3" H 4915 4523 50  0000 C CNN
+F 2 "" H 4900 4350 50  0001 C CNN
+F 3 "" H 4900 4350 50  0001 C CNN
+	1    4900 4350
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2500 4600 4100 4600
+Wire Wire Line
+	2500 4900 4100 4900
+Wire Wire Line
+	2500 5550 4100 5550
+Entry Wire Line
+	4100 5550 4200 5450
+Entry Wire Line
+	4100 4900 4200 4800
+Entry Wire Line
+	4100 4600 4200 4500
+Entry Wire Line
+	4200 3450 4300 3350
+Wire Wire Line
+	4300 3350 5450 3350
+Wire Wire Line
+	4300 3450 5450 3450
+Entry Wire Line
+	4300 3450 4200 3550
+Wire Wire Line
+	4300 3550 5450 3550
+Entry Wire Line
+	4300 3550 4200 3650
+Text Label 4500 3350 0    50   ~ 0
+SIDEBAND_STP
+Text Label 4500 3450 0    50   ~ 0
+SIDEBAND_NXT
+Text Label 4500 3550 0    50   ~ 0
+SIDEBAND_DIR
+Wire Wire Line
+	5450 2450 4300 2450
+Entry Wire Line
+	4300 2450 4200 2550
+Wire Wire Line
+	5450 2550 4300 2550
+Wire Wire Line
+	5450 2650 4300 2650
+Wire Wire Line
+	5450 2750 4300 2750
+Wire Wire Line
+	5450 2850 4300 2850
+Wire Wire Line
+	5450 2950 4300 2950
+Wire Wire Line
+	5450 3050 4300 3050
+Wire Wire Line
+	5450 3150 4300 3150
+Entry Wire Line
+	4200 2650 4300 2550
+Entry Wire Line
+	4200 2750 4300 2650
+Entry Wire Line
+	4200 2850 4300 2750
+Entry Wire Line
+	4200 2950 4300 2850
+Entry Wire Line
+	4200 3050 4300 2950
+Entry Wire Line
+	4200 3150 4300 3050
+Entry Wire Line
+	4200 3250 4300 3150
+Wire Wire Line
+	2500 3800 4100 3800
+Entry Wire Line
+	4100 3800 4200 3700
+Wire Wire Line
+	2500 3900 4100 3900
+Entry Wire Line
+	4100 3900 4200 3800
+Wire Wire Line
+	2500 3450 4100 3450
+Wire Wire Line
+	2500 3350 4100 3350
+Entry Wire Line
+	4100 3350 4200 3250
+Entry Wire Line
+	4100 3450 4200 3350
+Wire Wire Line
+	2500 2750 4100 2750
+Wire Wire Line
+	2500 2650 4100 2650
+Wire Wire Line
+	2500 2550 4100 2550
+Entry Wire Line
+	4100 2550 4200 2450
+Entry Wire Line
+	4100 2650 4200 2550
+Entry Wire Line
+	4100 2750 4200 2650
+Entry Wire Line
+	4100 4500 4200 4400
+Wire Wire Line
+	2500 4500 4100 4500
+Text Label 2650 4500 0    50   ~ 0
+SIDEBAND_DATA0
+Text Label 2650 3900 0    50   ~ 0
+SIDEBAND_DATA1
+Text Label 2650 3450 0    50   ~ 0
+SIDEBAND_DATA2
+Text Label 2650 3800 0    50   ~ 0
+SIDEBAND_DATA3
+Text Label 2650 3350 0    50   ~ 0
+SIDEBAND_DATA4
+Text Label 2650 2750 0    50   ~ 0
+SIDEBAND_DATA5
+Text Label 2650 2650 0    50   ~ 0
+SIDEBAND_DATA6
+Text Label 2650 2550 0    50   ~ 0
+SIDEBAND_DATA7
+Wire Wire Line
+	2500 2450 2650 2450
+Wire Bus Line
+	4200 2350 4200 5450
 $EndSCHEMATC
