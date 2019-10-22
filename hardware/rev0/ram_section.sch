@@ -170,10 +170,6 @@ Wire Wire Line
 Wire Wire Line
 	3500 4650 4800 4650
 Wire Wire Line
-	2700 4250 3400 4250
-Wire Wire Line
-	3400 4250 3400 4750
-Wire Wire Line
 	3400 4750 4800 4750
 Wire Wire Line
 	2700 4350 3300 4350
@@ -323,7 +319,6 @@ NoConn ~ 2700 2550
 NoConn ~ 2700 2650
 NoConn ~ 2700 2750
 NoConn ~ 2700 2850
-NoConn ~ 2700 2950
 NoConn ~ 2700 3050
 NoConn ~ 2700 3150
 NoConn ~ 2700 3250
@@ -338,6 +333,11 @@ NoConn ~ 2700 4850
 NoConn ~ 2700 5050
 NoConn ~ 2700 5150
 NoConn ~ 2700 5250
+Wire Wire Line
+	2700 2950 3400 2950
+Wire Wire Line
+	3400 2950 3400 4750
+NoConn ~ 2700 4250
 Wire Bus Line
 	3100 5650 3100 6050
 Wire Bus Line
