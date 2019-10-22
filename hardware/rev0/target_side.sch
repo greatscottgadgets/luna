@@ -30,16 +30,6 @@ $EndComp
 Wire Wire Line
 	6650 3750 6500 3750
 Wire Wire Line
-	6650 3650 5500 3650
-Wire Wire Line
-	6650 3250 4950 3250
-Wire Wire Line
-	4650 3050 6650 3050
-Wire Wire Line
-	4800 3150 6650 3150
-Wire Wire Line
-	4500 2950 6650 2950
-Wire Wire Line
 	8450 2950 8650 2950
 Wire Wire Line
 	8150 2950 7950 2950
@@ -304,82 +294,30 @@ F 9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" H -1
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	2600 2550 6650 2550
-Wire Wire Line
-	6650 2850 4350 2850
-Wire Wire Line
-	4200 2750 6650 2750
-Wire Wire Line
-	2600 2650 6650 2650
-Wire Wire Line
-	4200 2750 4200 2950
-Wire Wire Line
-	4200 2950 2600 2950
-Wire Wire Line
-	4350 2850 4350 3050
-Wire Wire Line
-	4350 3050 2600 3050
-Wire Wire Line
-	4500 2950 4500 3350
-Wire Wire Line
-	4500 3350 2600 3350
-Wire Wire Line
-	2600 3450 4650 3450
-Wire Wire Line
-	4650 3450 4650 3050
-Wire Wire Line
-	4800 3150 4800 4050
-Wire Wire Line
-	4800 4050 2600 4050
-Wire Wire Line
-	4950 3250 4950 4150
-Wire Wire Line
-	4950 4150 2600 4150
-Wire Wire Line
-	5200 3450 5200 4250
-Wire Wire Line
-	5200 3450 6650 3450
-Wire Wire Line
-	5200 4250 2600 4250
-Wire Wire Line
-	5350 3550 5350 4950
-Wire Wire Line
-	5350 4950 2600 4950
-Wire Wire Line
-	5350 3550 6650 3550
-Wire Wire Line
-	5500 3650 5500 5350
-Wire Wire Line
-	5500 5350 2600 5350
-Wire Wire Line
 	6400 4000 6400 5450
-Text Label 2650 5550 0    50   ~ 0
+Text Label 2750 2650 0    50   ~ 0
 TARGET_PHY_CLK
-Wire Wire Line
-	3300 5550 2600 5550
-Text Label 2650 5450 0    50   ~ 0
-TARGET_PHY_RESET
-Text Label 2650 5350 0    50   ~ 0
+Text Label 5650 3650 0    50   ~ 0
 TARGET_PHY_DIR
-Text Label 2650 4250 0    50   ~ 0
+Text Label 5650 3450 0    50   ~ 0
 TARGET_PHY_STP
-Text Label 2650 4950 0    50   ~ 0
+Text Label 5650 3550 0    50   ~ 0
 TARGET_PHY_NXT
-Text Label 2650 4150 0    50   ~ 0
+Text Label 5650 3250 0    50   ~ 0
 TARGET_DATA7
-Text Label 2650 4050 0    50   ~ 0
+Text Label 5650 3150 0    50   ~ 0
 TARGET_DATA6
-Text Label 2650 3450 0    50   ~ 0
+Text Label 5650 3050 0    50   ~ 0
 TARGET_DATA5
-Text Label 2650 3350 0    50   ~ 0
+Text Label 5650 2950 0    50   ~ 0
 TARGET_DATA4
-Text Label 2650 3050 0    50   ~ 0
+Text Label 5650 2850 0    50   ~ 0
 TARGET_DATA3
-Text Label 2650 2950 0    50   ~ 0
+Text Label 5650 2750 0    50   ~ 0
 TARGET_DATA2
-Text Label 2650 2650 0    50   ~ 0
+Text Label 5650 2650 0    50   ~ 0
 TARGET_DATA1
-Text Label 2650 2550 0    50   ~ 0
+Text Label 5650 2550 0    50   ~ 0
 TARGET_DATA0
 NoConn ~ 2600 2750
 NoConn ~ 2550 2850
@@ -390,7 +328,6 @@ NoConn ~ 2600 3250
 NoConn ~ 2600 3650
 NoConn ~ 2600 3750
 NoConn ~ 2600 3850
-NoConn ~ 2600 3950
 NoConn ~ 2600 4350
 NoConn ~ 2600 4450
 NoConn ~ 2600 4550
@@ -525,24 +462,151 @@ Wire Wire Line
 	5900 5350 5900 5450
 Wire Wire Line
 	5900 5050 5900 4950
+Wire Wire Line
+	5900 5450 6400 5450
+NoConn ~ 7950 3700
 $Comp
-L support_hardware:S27KS0641 #PWR?
-U 1 1 5E15EF17
+L power:+3V3 #PWR0109
+U 1 1 5DFA29A4
 P 5900 4950
-AR Path="/5DD754D4/5E15EF17" Ref="#PWR?"  Part="1" 
-AR Path="/5DDDB747/5E15EF17" Ref="#PWR0100"  Part="1" 
-AR Path="/5E15EF17" Ref="#PWR0100"  Part="1" 
-F 0 "#PWR0100" H 5900 4800 50  0001 C CNN
-F 1 "+3.3V" V 5915 5078 50  0000 L CNN
+F 0 "#PWR0109" H 5900 4800 50  0001 C CNN
+F 1 "+3V3" H 5915 5123 50  0000 C CNN
 F 2 "" H 5900 4950 50  0001 C CNN
 F 3 "" H 5900 4950 50  0001 C CNN
 	1    5900 4950
 	1    0    0    -1  
 $EndComp
+Wire Bus Line
+	4550 6450 5500 6450
 Wire Wire Line
-	2600 5450 5900 5450
+	2600 2550 4450 2550
+Wire Wire Line
+	2600 2650 4450 2650
+Entry Wire Line
+	4450 2550 4550 2650
+Entry Wire Line
+	4450 2650 4550 2750
+Wire Wire Line
+	2600 2950 4450 2950
+Wire Wire Line
+	2600 3050 4450 3050
+Wire Wire Line
+	2600 3350 4450 3350
+Wire Wire Line
+	2600 3450 4450 3450
+Wire Wire Line
+	2600 4050 4450 4050
+Wire Wire Line
+	2600 4150 4450 4150
+Wire Wire Line
+	2600 4250 4450 4250
+Wire Wire Line
+	2600 5350 4450 5350
+Wire Wire Line
+	6650 3450 4650 3450
+Wire Wire Line
+	6650 3550 4650 3550
+Wire Wire Line
+	6650 3650 4650 3650
+Wire Wire Line
+	2600 5550 4450 5550
+Entry Wire Line
+	4550 3550 4650 3450
+Entry Wire Line
+	4550 3650 4650 3550
+Entry Wire Line
+	4550 3750 4650 3650
+Entry Wire Line
+	4550 3350 4650 3250
+Entry Wire Line
+	4550 3250 4650 3150
+Entry Wire Line
+	4550 3150 4650 3050
+Entry Wire Line
+	4550 3050 4650 2950
+Entry Wire Line
+	4550 2950 4650 2850
+Entry Wire Line
+	4550 2850 4650 2750
+Entry Wire Line
+	4550 2650 4650 2550
+Entry Wire Line
+	4550 2750 4650 2650
+Wire Wire Line
+	6650 3250 4650 3250
+Wire Wire Line
+	6650 3150 4650 3150
+Wire Wire Line
+	6650 3050 4650 3050
+Wire Wire Line
+	6650 2950 4650 2950
+Wire Wire Line
+	6650 2850 4650 2850
+Wire Wire Line
+	6650 2750 4650 2750
+Wire Wire Line
+	4650 2650 6650 2650
+Wire Wire Line
+	6650 2550 4650 2550
+Text Label 5500 6450 0    50   ~ 0
+TARGET_ULPI
+Text Label 2750 2550 0    50   ~ 0
+TARGET_PHY_STP
+Text Label 2750 3050 0    50   ~ 0
+TARGET_PHY_DIR
+Text Label 2750 2950 0    50   ~ 0
+TARGET_PHY_NXT
+Text Label 2750 3350 0    50   ~ 0
+TARGET_DATA0
+Text Label 2750 3450 0    50   ~ 0
+TARGET_DATA1
+Text Label 2750 4050 0    50   ~ 0
+TARGET_DATA2
+Wire Wire Line
+	2600 3950 4450 3950
+Text Label 2750 3950 0    50   ~ 0
+TARGET_DATA3
+Text Label 2750 4150 0    50   ~ 0
+TARGET_DATA4
+Text Label 2750 4950 0    50   ~ 0
+TARGET_PHY_RESET
+Text Label 2750 4250 0    50   ~ 0
+TARGET_DATA5
+Text Label 2750 5350 0    50   ~ 0
+TARGET_DATA6
+Text Label 2750 5550 0    50   ~ 0
+TARGET_DATA7
+Entry Wire Line
+	4450 2950 4550 3050
+Entry Wire Line
+	4450 3050 4550 3150
+Entry Wire Line
+	4450 3350 4550 3450
+Entry Wire Line
+	4450 3450 4550 3550
+Entry Wire Line
+	4450 3950 4550 4050
+Entry Wire Line
+	4450 4050 4550 4150
+Entry Wire Line
+	4450 4150 4550 4250
+Entry Wire Line
+	4450 4250 4550 4350
+Entry Wire Line
+	4450 4950 4550 5050
+Entry Wire Line
+	4450 5350 4550 5450
+Entry Wire Line
+	4450 5550 4550 5650
+Wire Wire Line
+	2600 4950 4450 4950
+Wire Wire Line
+	5900 5450 4650 5450
+Wire Bus Line
+	4550 2350 4550 6450
 Connection ~ 5900 5450
-Wire Wire Line
-	5900 5450 6400 5450
-NoConn ~ 7950 3700
+Entry Wire Line
+	4550 5350 4650 5450
+Text Label 4850 5450 0    50   ~ 0
+TARGET_PHY_RESET
 $EndSCHEMATC

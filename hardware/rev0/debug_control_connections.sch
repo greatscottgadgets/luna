@@ -26,12 +26,6 @@ Connection ~ 2450 1650
 Wire Wire Line
 	2450 1650 2500 1650
 Wire Wire Line
-	3150 2400 3600 2400
-Wire Wire Line
-	3150 2600 3600 2600
-Wire Wire Line
-	3150 2700 3600 2700
-Wire Wire Line
 	3150 3650 3600 3650
 Wire Wire Line
 	3150 3750 3600 3750
@@ -39,12 +33,6 @@ Wire Wire Line
 	3150 4650 3600 4650
 Wire Wire Line
 	3150 4750 3600 4750
-Text HLabel 3600 2600 2    50   Input ~ 0
-DEBUG_SPI_UC_OUT
-Text HLabel 3600 2700 2    50   Output ~ 0
-DEBUG_SPI_UC_IN
-Text HLabel 3600 2400 2    50   Input ~ 0
-DEBUG_SPI_CLK
 Text HLabel 3600 3650 2    50   Output ~ 0
 ALLOW_POWER_VIA_TARGET
 Text HLabel 3600 3750 2    50   Output ~ 0
@@ -98,4 +86,7 @@ F 3 "" H 2450 1500 50  0001 C CNN
 	1    2450 1500
 	1    0    0    -1  
 $EndComp
+NoConn ~ 3150 2400
+NoConn ~ 3150 2600
+NoConn ~ 3150 2700
 $EndSCHEMATC

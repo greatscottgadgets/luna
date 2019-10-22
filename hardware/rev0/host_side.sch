@@ -579,12 +579,12 @@ F 9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" H -1
 $EndComp
 Wire Wire Line
 	2700 4850 4350 4850
-Wire Bus Line
-	4450 1650 4450 5800
 Entry Wire Line
 	4350 4850 4450 4950
 Entry Wire Line
 	4350 4850 4450 4950
 Text Label 2850 4850 0    50   ~ 0
 HOST_NXT
+Wire Bus Line
+	4450 1650 4450 5800
 $EndSCHEMATC

@@ -127,95 +127,27 @@ Wire Wire Line
 	6000 4950 7100 4950
 Entry Wire Line
 	7100 4950 7200 5050
-Wire Wire Line
-	2700 5550 3000 5550
-Wire Wire Line
-	2700 5650 3000 5650
-Entry Wire Line
-	3000 5550 3100 5650
-Entry Wire Line
-	3000 5650 3100 5750
 Text Label 6800 4850 0    50   ~ 0
 CLK
 Text Label 6800 4950 0    50   ~ 0
 ~CLK
-Wire Bus Line
-	3100 6050 7200 6050
-Text Label 2750 5550 0    50   ~ 0
+Text Label 2900 5650 0    50   ~ 0
 ~CLK
-Text Label 2750 5650 0    50   ~ 0
+Text Label 2900 5550 0    50   ~ 0
 CLK
-Wire Wire Line
-	2700 3350 3800 3350
-Wire Wire Line
-	3800 3350 3800 4350
-Wire Wire Line
-	3800 4350 4800 4350
-Wire Wire Line
-	2700 3450 3700 3450
-Wire Wire Line
-	3700 3450 3700 4450
-Wire Wire Line
-	3700 4450 4800 4450
-Wire Wire Line
-	2700 3550 3600 3550
-Wire Wire Line
-	3600 3550 3600 4550
-Wire Wire Line
-	3600 4550 4800 4550
-Wire Wire Line
-	2700 3950 3500 3950
-Wire Wire Line
-	3500 3950 3500 4650
-Wire Wire Line
-	3500 4650 4800 4650
-Wire Wire Line
-	3400 4750 4800 4750
-Wire Wire Line
-	2700 4350 3300 4350
-Wire Wire Line
-	3300 4350 3300 4850
-Wire Wire Line
-	3300 4850 4800 4850
-Wire Wire Line
-	2700 4450 3200 4450
-Wire Wire Line
-	3200 4450 3200 4950
-Wire Wire Line
-	3200 4950 4800 4950
-Wire Wire Line
-	2700 4550 3100 4550
-Wire Wire Line
-	3100 4550 3100 5050
-Wire Wire Line
-	3100 5050 4800 5050
-Wire Wire Line
-	4800 5150 3000 5150
-Wire Wire Line
-	3000 5150 3000 4950
-Wire Wire Line
-	3000 4950 2700 4950
 NoConn ~ 4800 5350
 NoConn ~ 4800 5450
 NoConn ~ 4800 5550
 NoConn ~ 6000 5050
 NoConn ~ 6000 5150
-Wire Wire Line
-	2700 5450 3100 5450
-Text Label 3100 5350 0    50   ~ 0
+Text Label 2900 5450 0    50   ~ 0
 ~CS
-Wire Wire Line
-	6000 4750 6300 4750
-Text Label 6300 4750 0    50   ~ 0
+Text Label 6950 4750 2    50   ~ 0
 ~CS
-Wire Wire Line
-	2700 5350 3100 5350
-Text Label 3100 5450 0    50   ~ 0
+Text Label 2900 4950 0    50   ~ 0
 ~RESET
-Text Label 6350 4550 0    50   ~ 0
+Text Label 6950 4550 2    50   ~ 0
 ~RESET
-Wire Wire Line
-	6350 4550 6000 4550
 $Comp
 L Device:C C44
 U 1 1 5DEC975A
@@ -334,12 +266,123 @@ NoConn ~ 2700 5050
 NoConn ~ 2700 5150
 NoConn ~ 2700 5250
 Wire Wire Line
-	2700 2950 3400 2950
+	4800 4350 3950 4350
 Wire Wire Line
-	3400 2950 3400 4750
-NoConn ~ 2700 4250
+	3950 4450 4800 4450
+Wire Wire Line
+	4800 4550 3950 4550
+Wire Wire Line
+	4800 4650 3950 4650
+Wire Wire Line
+	4800 4750 3950 4750
+Wire Wire Line
+	4800 4850 3950 4850
+Wire Wire Line
+	4800 4950 3950 4950
+Wire Wire Line
+	4800 5050 3950 5050
+Wire Wire Line
+	4800 5150 3950 5150
+Entry Wire Line
+	3850 4250 3950 4350
+Entry Wire Line
+	3850 4350 3950 4450
+Entry Wire Line
+	3850 4450 3950 4550
+Entry Wire Line
+	3850 4550 3950 4650
+Entry Wire Line
+	3850 4650 3950 4750
+Entry Wire Line
+	3850 4750 3950 4850
+Entry Wire Line
+	3850 4850 3950 4950
+Entry Wire Line
+	3850 4950 3950 5050
+Entry Wire Line
+	3850 5050 3950 5150
 Wire Bus Line
-	3100 5650 3100 6050
+	3850 6050 7200 6050
+Wire Wire Line
+	2700 3350 3750 3350
+Wire Wire Line
+	2700 3450 3750 3450
+Wire Wire Line
+	2700 2950 3750 2950
+Wire Wire Line
+	2700 3550 3750 3550
+Entry Wire Line
+	3750 2950 3850 3050
+Entry Wire Line
+	3750 3350 3850 3450
+Entry Wire Line
+	3750 3450 3850 3550
+Entry Wire Line
+	3750 3550 3850 3650
+Text Label 2900 3350 0    50   ~ 0
+RAM_DQ7
+Text Label 2900 2950 0    50   ~ 0
+RAM_DQ6
+Text Label 2900 3450 0    50   ~ 0
+RAM_DQ5
+Text Label 2900 3550 0    50   ~ 0
+RAM_DQ1
+Wire Wire Line
+	2700 3950 3750 3950
+Entry Wire Line
+	3750 3950 3850 4050
+Text Label 2900 4350 0    50   ~ 0
+RAM_DQ0
+Text Label 2900 3950 0    50   ~ 0
+RAM_DQ4
+Wire Wire Line
+	2700 4450 3750 4450
+Wire Wire Line
+	2700 4350 3750 4350
+Entry Wire Line
+	3750 4350 3850 4450
+Entry Wire Line
+	3750 4450 3850 4550
+Text Label 2900 4450 0    50   ~ 0
+RAM_DQ3
+Wire Wire Line
+	2700 4550 3750 4550
+Entry Wire Line
+	3750 4550 3850 4650
+Text Label 2900 4550 0    50   ~ 0
+RAM_DQ2
+Wire Wire Line
+	2700 4950 3750 4950
+Entry Wire Line
+	3750 4950 3850 5050
+Text Label 2900 5350 0    50   ~ 0
+RAM_RWDS
+Wire Wire Line
+	2700 5350 3750 5350
+Entry Wire Line
+	3750 5350 3850 5450
+Wire Wire Line
+	6000 4550 7100 4550
+Wire Wire Line
+	6000 4750 7100 4750
+Entry Wire Line
+	7100 4750 7200 4850
+Entry Wire Line
+	7100 4550 7200 4650
+Wire Wire Line
+	2700 5450 3750 5450
+Entry Wire Line
+	3750 5450 3850 5550
+Wire Wire Line
+	2700 5550 3750 5550
+Wire Wire Line
+	2700 5650 3750 5650
 Wire Bus Line
-	7200 4950 7200 6050
+	7200 4450 7200 6050
+Wire Bus Line
+	3850 2800 3850 6050
+Entry Wire Line
+	3750 5550 3850 5650
+Entry Wire Line
+	3750 5650 3850 5750
 $EndSCHEMATC

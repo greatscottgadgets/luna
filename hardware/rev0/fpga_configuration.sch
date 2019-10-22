@@ -664,23 +664,7 @@ Wire Wire Line
 	4150 3550 3550 3550
 Text Label 4650 2150 2    50   ~ 0
 UC_TX_FPGA_RX
-Wire Wire Line
-	9450 2700 6250 2700
-Wire Wire Line
-	6250 2700 6250 2150
-Wire Wire Line
-	3550 2150 6250 2150
-Wire Wire Line
-	9450 2800 6150 2800
-Wire Wire Line
-	6150 2800 6150 2250
-Wire Wire Line
-	6150 2250 3550 2250
 Text Label 4650 2250 2    50   ~ 0
-UC_RX_FPGA_TX
-Text Label 8650 2700 2    50   ~ 0
-UC_TX_FPGA_RX
-Text Label 8650 2800 2    50   ~ 0
 UC_RX_FPGA_TX
 Wire Wire Line
 	3550 2550 4650 2550
@@ -820,24 +804,10 @@ Wire Wire Line
 Wire Wire Line
 	2450 1850 2550 1850
 Wire Wire Line
-	2350 1850 2450 1850
-Connection ~ 2450 1850
-Wire Wire Line
 	2550 1850 2650 1850
 Wire Wire Line
 	2650 1850 2750 1850
 Connection ~ 2650 1850
-$Comp
-L MCU_Microchip_SAMD:ATSAMD21G18A-AUT U6
-U 1 1 5DCDF84F
-P 2550 3750
-F 0 "U6" H 3300 1950 50  0000 C CNN
-F 1 "ATSAMD21G18A-AUT" H 1500 1950 50  0000 C CNN
-F 2 "Package_QFP:TQFP-48_7x7mm_P0.5mm" H 1600 2000 50  0001 C CNN
-F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/SAMD21-Family-DataSheet-DS40001882D.pdf" H 2550 4750 50  0001 C CNN
-	1    2550 3750
-	-1   0    0    -1  
-$EndComp
 Text HLabel 1250 2750 0    50   Input ~ 0
 FORCE_RECOVERY
 Wire Wire Line
@@ -927,4 +897,53 @@ Text Label 4150 3750 2    50   ~ 0
 ~FPGA_INIT
 Text Label 4150 3850 2    50   ~ 0
 ~FPGA_PROGRAM
+$Comp
+L MCU_Microchip_SAMD:ATSAMD21G18A-AUT U6
+U 1 1 5DCDF84F
+P 2550 3750
+F 0 "U6" H 3300 1950 50  0000 C CNN
+F 1 "ATSAMD21G18A-AUT" H 1500 1950 50  0000 C CNN
+F 2 "Package_QFP:TQFP-48_7x7mm_P0.5mm" H 1600 2000 50  0001 C CNN
+F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/SAMD21-Family-DataSheet-DS40001882D.pdf" H 2550 4750 50  0001 C CNN
+	1    2550 3750
+	-1   0    0    -1  
+$EndComp
+Wire Wire Line
+	2350 1850 2350 1750
+$Comp
+L Device:C C51
+U 1 1 5E10AFD4
+P 2150 1750
+F 0 "C51" V 2050 1600 50  0000 C CNN
+F 1 "0.1uF" V 2050 1950 50  0000 C CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 2188 1600 50  0001 C CNN
+F 3 "~" H 2150 1750 50  0001 C CNN
+	1    2150 1750
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	2300 1750 2350 1750
+$Comp
+L power:GND #PWR0112
+U 1 1 5E121F7E
+P 1950 1750
+F 0 "#PWR0112" H 1950 1500 50  0001 C CNN
+F 1 "GND" V 1955 1622 50  0000 R CNN
+F 2 "" H 1950 1750 50  0001 C CNN
+F 3 "" H 1950 1750 50  0001 C CNN
+	1    1950 1750
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	1950 1750 2000 1750
+Text HLabel 5850 2150 2    50   Output ~ 0
+UC_TX_FPGA_RX
+Wire Wire Line
+	3550 2150 5850 2150
+Text HLabel 5850 2250 2    50   Input ~ 0
+UC_RX_FPGA_TX
+Wire Wire Line
+	5850 2250 3550 2250
+NoConn ~ 9450 2700
+NoConn ~ 9450 2800
 $EndSCHEMATC
