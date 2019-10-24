@@ -5974,7 +5974,7 @@
   (gr_text FPGA (at 111.506 80.899) (layer F.SilkS) (tstamp 5DB2ECE8)
     (effects (font (size 1 1) (thickness 0.15)))
   )
-  (gr_text Target (at 125.476 79.629 90) (layer F.SilkS) (tstamp 5DB2ECE5)
+  (gr_text Target (at 125.603 78.867 90) (layer F.SilkS) (tstamp 5DB2ECE5)
     (effects (font (size 1 1) (thickness 0.15)))
   )
   (gr_text Target (at 134.112 88.773 90) (layer F.SilkS) (tstamp 5DB2E533)
