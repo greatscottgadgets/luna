@@ -201,10 +201,6 @@ F 3 "" H 1700 5950 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	1850 6450 1550 6450
-Text HLabel 1250 6450 0    50   Input ~ 0
-VCC_RAM_EN
-Wire Wire Line
 	2250 6650 2250 6700
 $Comp
 L power:GND #PWR020
@@ -245,8 +241,6 @@ F 3 "" H 1150 6150 50  0001 C CNN
 	1    1150 6150
 	1    0    0    -1  
 $EndComp
-Wire Wire Line
-	1500 6050 1550 6050
 Connection ~ 1700 6050
 Wire Wire Line
 	1700 6050 1700 6250
@@ -302,10 +296,6 @@ F 3 "" H 4800 5950 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	4950 6450 4650 6450
-Text HLabel 4350 6450 0    50   Input ~ 0
-V_FPGA_EN
-Wire Wire Line
 	5350 6650 5350 6700
 $Comp
 L power:GND #PWR033
@@ -346,8 +336,6 @@ F 3 "" H 4250 6150 50  0001 C CNN
 	1    4250 6150
 	1    0    0    -1  
 $EndComp
-Wire Wire Line
-	4600 6050 4650 6050
 Connection ~ 4800 6050
 Wire Wire Line
 	4800 6050 4800 6250
@@ -404,23 +392,15 @@ F 3 "" H 6050 5900 50  0001 C CNN
 $EndComp
 Wire Wire Line
 	6050 5900 6050 6250
-Wire Wire Line
-	1950 4100 1800 4100
-Wire Wire Line
-	1950 4300 1650 4300
-Text HLabel 1350 4300 0    50   Input ~ 0
-VCCIO_EN
-Wire Wire Line
-	2350 4500 2350 4550
 $Comp
 L power:GND #PWR021
 U 1 1 5DAFC980
-P 2350 4600
-F 0 "#PWR021" H 2350 4350 50  0001 C CNN
-F 1 "GND" H 2355 4427 50  0000 C CNN
-F 2 "" H 2350 4600 50  0001 C CNN
-F 3 "" H 2350 4600 50  0001 C CNN
-	1    2350 4600
+P 2350 4800
+F 0 "#PWR021" H 2350 4550 50  0001 C CNN
+F 1 "GND" H 2355 4627 50  0000 C CNN
+F 2 "" H 2350 4800 50  0001 C CNN
+F 3 "" H 2350 4800 50  0001 C CNN
+	1    2350 4800
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
@@ -451,99 +431,26 @@ F 3 "" H 1250 4000 50  0001 C CNN
 	1    1250 4000
 	1    0    0    -1  
 $EndComp
-Wire Wire Line
-	1600 3900 1650 3900
 Connection ~ 1800 3900
 Wire Wire Line
 	1800 3900 1800 4100
-Wire Wire Line
-	2750 4100 2900 4100
 Wire Wire Line
 	3050 3800 3050 4100
 $Comp
 L Device:C C20
 U 1 1 5DAFC9B0
-P 2900 4250
-F 0 "C20" H 3015 4296 50  0000 L CNN
-F 1 "2.2uF" H 3015 4205 50  0000 L CNN
-F 2 "Capacitor_SMD:C_0603_1608Metric" H 2938 4100 50  0001 C CNN
-F 3 "~" H 2900 4250 50  0001 C CNN
-	1    2900 4250
+P 2950 4250
+F 0 "C20" H 3065 4296 50  0000 L CNN
+F 1 "2.2uF" H 3065 4205 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0603_1608Metric" H 2988 4100 50  0001 C CNN
+F 3 "~" H 2950 4250 50  0001 C CNN
+	1    2950 4250
 	1    0    0    -1  
 $EndComp
-Connection ~ 2900 4100
-Wire Wire Line
-	2900 4100 3050 4100
-Wire Wire Line
-	2900 4400 2900 4550
-Wire Wire Line
-	2900 4550 2350 4550
-Connection ~ 2350 4550
-Wire Wire Line
-	2350 4550 2350 4600
 Text Notes 1350 5350 0    134  ~ 0
 Main I/O Supply
 Wire Notes Line
 	3700 3350 3700 7700
-$Comp
-L Connector:TestPoint TP2
-U 1 1 5DB0D264
-P 3250 3950
-F 0 "TP2" H 3308 4068 50  0000 L CNN
-F 1 "TestPoint" H 3308 3977 50  0000 L CNN
-F 2 "TestPoint:TestPoint_Pad_1.0x1.0mm" H 3450 3950 50  0001 C CNN
-F 3 "~" H 3450 3950 50  0001 C CNN
-	1    3250 3950
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	3050 4100 3250 4100
-Wire Wire Line
-	3250 4100 3250 3950
-Connection ~ 3050 4100
-$Comp
-L Connector:TestPoint TP1
-U 1 1 5DB112E2
-P 3150 6100
-F 0 "TP1" H 3208 6218 50  0000 L CNN
-F 1 "TestPoint" H 3208 6127 50  0000 L CNN
-F 2 "TestPoint:TestPoint_Pad_1.0x1.0mm" H 3350 6100 50  0001 C CNN
-F 3 "~" H 3350 6100 50  0001 C CNN
-	1    3150 6100
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	2950 6250 3150 6250
-Wire Wire Line
-	3150 6250 3150 6100
-Connection ~ 2950 6250
-$Comp
-L Connector:TestPoint TP4
-U 1 1 5DB14CDD
-P 6250 6100
-F 0 "TP4" H 6308 6218 50  0000 L CNN
-F 1 "TestPoint" H 6308 6127 50  0000 L CNN
-F 2 "TestPoint:TestPoint_Pad_1.0x1.0mm" H 6450 6100 50  0001 C CNN
-F 3 "~" H 6450 6100 50  0001 C CNN
-	1    6250 6100
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	6050 6250 6250 6250
-Wire Wire Line
-	6250 6250 6250 6100
-Connection ~ 6050 6250
-$Comp
-L support_hardware:MIC5528-3.3 U3
-U 1 1 5DB545E9
-P 2350 4200
-F 0 "U3" H 2350 4567 50  0000 C CNN
-F 1 "MIC5528-3.3" H 2350 4476 50  0000 C CNN
-F 2 "Package_DFN_QFN:DFN-6-1EP_1.2x1.2mm_P0.4mm_EP0.3x0.94mm_PullBack" H 2350 3800 50  0001 C CNN
-F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/MIC550X.pdf" H 2100 4450 50  0001 C CNN
-	1    2350 4200
-	1    0    0    -1  
-$EndComp
 $Comp
 L power:+5V #PWR019
 U 1 1 5DB57CF1
@@ -568,10 +475,6 @@ F 3 "" H 3050 3800 50  0001 C CNN
 $EndComp
 Wire Wire Line
 	4950 4050 4800 4050
-Wire Wire Line
-	4950 4250 4650 4250
-Text HLabel 4350 4250 0    50   Input ~ 0
-V_FPGA_EN
 Wire Wire Line
 	5350 4450 5350 4500
 $Comp
@@ -613,8 +516,6 @@ F 3 "" H 4250 3950 50  0001 C CNN
 	1    4250 3950
 	1    0    0    -1  
 $EndComp
-Wire Wire Line
-	4600 3850 4650 3850
 Connection ~ 4800 3850
 Wire Wire Line
 	4800 3850 4800 4050
@@ -645,22 +546,6 @@ Text Notes 4650 5400 0    134  ~ 0
 FPGA VCC CORE
 Wire Wire Line
 	6050 3700 6050 4050
-$Comp
-L Connector:TestPoint TP3
-U 1 1 5DB5ACB3
-P 6250 3900
-F 0 "TP3" H 6308 4018 50  0000 L CNN
-F 1 "TestPoint" H 6308 3927 50  0000 L CNN
-F 2 "TestPoint:TestPoint_Pad_1.0x1.0mm" H 6450 3900 50  0001 C CNN
-F 3 "~" H 6450 3900 50  0001 C CNN
-	1    6250 3900
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	6050 4050 6250 4050
-Wire Wire Line
-	6250 4050 6250 3900
-Connection ~ 6050 4050
 Wire Notes Line
 	7000 3350 7000 6450
 Wire Notes Line
@@ -1176,80 +1061,77 @@ Wire Notes Line
 	5250 500  5200 500 
 Text Notes 650  3150 0    134  ~ 0
 FPGA Decoupling
+Wire Wire Line
+	1800 4100 2050 4100
+Wire Wire Line
+	2650 4200 2650 4300
+Wire Wire Line
+	2350 4500 2350 4750
+Wire Wire Line
+	2650 4600 2650 4750
+Wire Wire Line
+	2650 4750 2350 4750
+Connection ~ 2350 4750
+Wire Wire Line
+	2350 4750 2350 4800
+Connection ~ 2650 4750
 $Comp
-L Device:R R4
-U 1 1 5DC854F4
-P 1650 4150
-F 0 "R4" V 1550 4050 50  0000 L CNN
-F 1 "1k" V 1650 4100 50  0000 L CNN
-F 2 "Resistor_SMD:R_0402_1005Metric" V 1580 4150 50  0001 C CNN
-F 3 "~" H 1650 4150 50  0001 C CNN
-	1    1650 4150
+L Device:C C52
+U 1 1 5E4B89EC
+P 2650 4450
+F 0 "C52" H 2700 4550 50  0000 L CNN
+F 1 "470pF" H 2700 4350 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 2688 4300 50  0001 C CNN
+F 3 "~" H 2650 4450 50  0001 C CNN
+	1    2650 4450
 	1    0    0    -1  
 $EndComp
-Connection ~ 1650 4300
+Connection ~ 2950 4100
 Wire Wire Line
-	1650 4300 1350 4300
+	2950 4100 3050 4100
 Wire Wire Line
-	1650 4000 1650 3900
-Connection ~ 1650 3900
+	2650 4100 2950 4100
 Wire Wire Line
-	1650 3900 1800 3900
+	2950 4750 2950 4400
+Wire Wire Line
+	2650 4750 2950 4750
 $Comp
-L Device:R R5
-U 1 1 5DC8DA5D
-P 4650 4100
-F 0 "R5" V 4550 4000 50  0000 L CNN
-F 1 "1k" V 4650 4050 50  0000 L CNN
-F 2 "Resistor_SMD:R_0402_1005Metric" V 4580 4100 50  0001 C CNN
-F 3 "~" H 4650 4100 50  0001 C CNN
-	1    4650 4100
+L Regulator_Linear:MIC5219-3.3YM5 U3
+U 1 1 5E463FB9
+P 2350 4200
+F 0 "U3" H 2350 4542 50  0000 C CNN
+F 1 "MIC5219-3.3YM5" H 2350 4451 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-23-5" H 2350 4525 50  0001 C CNN
+F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/MIC5219-500mA-Peak-Output-LDO-Regulator-DS20006021A.pdf" H 2350 4200 50  0001 C CNN
+	1    2350 4200
 	1    0    0    -1  
 $EndComp
-Connection ~ 4650 4250
 Wire Wire Line
-	4650 4250 4350 4250
+	2050 4200 1800 4200
 Wire Wire Line
-	4650 3950 4650 3850
-Connection ~ 4650 3850
+	1800 4200 1800 4100
+Connection ~ 1800 4100
 Wire Wire Line
-	4650 3850 4800 3850
-$Comp
-L Device:R R6
-U 1 1 5DC96C1A
-P 4650 6300
-F 0 "R6" V 4550 6200 50  0000 L CNN
-F 1 "1k" V 4650 6250 50  0000 L CNN
-F 2 "Resistor_SMD:R_0402_1005Metric" V 4580 6300 50  0001 C CNN
-F 3 "~" H 4650 6300 50  0001 C CNN
-	1    4650 6300
-	1    0    0    -1  
-$EndComp
-Connection ~ 4650 6450
+	1600 3900 1800 3900
 Wire Wire Line
-	4650 6450 4350 6450
+	4800 4050 4800 4250
+Connection ~ 4800 4050
 Wire Wire Line
-	4650 6050 4650 6150
-Connection ~ 4650 6050
+	4800 4250 4950 4250
 Wire Wire Line
-	4650 6050 4800 6050
-$Comp
-L Device:R R3
-U 1 1 5DC9F09C
-P 1550 6300
-F 0 "R3" V 1450 6200 50  0000 L CNN
-F 1 "1k" V 1550 6250 50  0000 L CNN
-F 2 "Resistor_SMD:R_0402_1005Metric" V 1480 6300 50  0001 C CNN
-F 3 "~" H 1550 6300 50  0001 C CNN
-	1    1550 6300
-	1    0    0    -1  
-$EndComp
-Connection ~ 1550 6450
+	1500 6050 1700 6050
 Wire Wire Line
-	1550 6450 1250 6450
+	1850 6450 1700 6450
 Wire Wire Line
-	1550 6150 1550 6050
-Connection ~ 1550 6050
+	1700 6450 1700 6250
+Connection ~ 1700 6250
 Wire Wire Line
-	1550 6050 1700 6050
+	4800 6250 4800 6450
+Wire Wire Line
+	4800 6450 4950 6450
+Connection ~ 4800 6250
+Wire Wire Line
+	4600 6050 4800 6050
+Wire Wire Line
+	4600 3850 4800 3850
 $EndSCHEMATC

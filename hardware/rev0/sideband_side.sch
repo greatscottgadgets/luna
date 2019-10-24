@@ -141,8 +141,6 @@ F 3 "" H 7150 4500 50  0001 C CNN
 $EndComp
 Wire Wire Line
 	7150 4500 7150 4350
-Wire Wire Line
-	6750 4050 6800 4050
 $Comp
 L Device:C C37
 U 1 1 5DD280CB
@@ -172,42 +170,6 @@ Wire Wire Line
 Wire Wire Line
 	7600 4050 7600 3950
 Connection ~ 7600 3950
-Wire Wire Line
-	7600 3950 7850 3950
-$Comp
-L Connector:TestPoint TP6
-U 1 1 5DD2BF2B
-P 7900 3800
-F 0 "TP6" V 7855 3987 50  0000 L CNN
-F 1 "TestPoint" V 7945 3987 50  0000 L CNN
-F 2 "TestPoint:TestPoint_Pad_1.0x1.0mm" H 8100 3800 50  0001 C CNN
-F 3 "~" H 8100 3800 50  0001 C CNN
-	1    7900 3800
-	0    1    1    0   
-$EndComp
-Wire Wire Line
-	7900 3800 7850 3800
-Wire Wire Line
-	7850 3800 7850 3950
-Connection ~ 7850 3950
-Wire Wire Line
-	7850 3950 8050 3950
-$Comp
-L Connector:TestPoint TP5
-U 1 1 5DD2DA1C
-P 6800 4250
-F 0 "TP5" H 6850 4500 50  0000 R CNN
-F 1 "TestPoint" H 7000 4600 50  0000 R CNN
-F 2 "TestPoint:TestPoint_Pad_1.0x1.0mm" H 7000 4250 50  0001 C CNN
-F 3 "~" H 7000 4250 50  0001 C CNN
-	1    6800 4250
-	-1   0    0    1   
-$EndComp
-Wire Wire Line
-	6800 4250 6800 4050
-Connection ~ 6800 4050
-Wire Wire Line
-	6800 4050 7150 4050
 Text HLabel 7450 2850 2    50   Input ~ 0
 SIDEBAND_VBUS
 Wire Wire Line
@@ -564,6 +526,12 @@ Text Label 2650 2650 0    50   ~ 0
 SIDEBAND_DATA6
 Wire Wire Line
 	3350 5450 2500 5450
+Text Label 2650 2550 0    50   ~ 0
+SIDEBAND_DATA7
+Wire Wire Line
+	7600 3950 8050 3950
 Wire Bus Line
 	4200 2350 4200 5450
+Wire Wire Line
+	6750 4050 7150 4050
 $EndSCHEMATC

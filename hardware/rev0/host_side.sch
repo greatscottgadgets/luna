@@ -137,46 +137,6 @@ Wire Wire Line
 	6800 2400 7500 2400
 Text HLabel 7500 2300 2    50   Input ~ 0
 HOST_VBUS
-Wire Wire Line
-	6850 3500 7200 3500
-Connection ~ 6850 3500
-Wire Wire Line
-	6850 3700 6850 3500
-$Comp
-L Connector:TestPoint TP?
-U 1 1 5DD9AEEC
-P 6850 3700
-AR Path="/5DCD9772/5DD9AEEC" Ref="TP?"  Part="1" 
-AR Path="/5DD754D4/5DD9AEEC" Ref="TP9"  Part="1" 
-F 0 "TP9" H 6900 3950 50  0000 R CNN
-F 1 "TestPoint" H 7050 4050 50  0000 R CNN
-F 2 "TestPoint:TestPoint_Pad_1.0x1.0mm" H 7050 3700 50  0001 C CNN
-F 3 "~" H 7050 3700 50  0001 C CNN
-	1    6850 3700
-	-1   0    0    1   
-$EndComp
-Wire Wire Line
-	7900 3400 8100 3400
-Connection ~ 7900 3400
-Wire Wire Line
-	7900 3250 7900 3400
-Wire Wire Line
-	7950 3250 7900 3250
-$Comp
-L Connector:TestPoint TP?
-U 1 1 5DD9AEE2
-P 7950 3250
-AR Path="/5DCD9772/5DD9AEE2" Ref="TP?"  Part="1" 
-AR Path="/5DD754D4/5DD9AEE2" Ref="TP10"  Part="1" 
-F 0 "TP10" V 7905 3437 50  0000 L CNN
-F 1 "TestPoint" V 7995 3437 50  0000 L CNN
-F 2 "TestPoint:TestPoint_Pad_1.0x1.0mm" H 8150 3250 50  0001 C CNN
-F 3 "~" H 8150 3250 50  0001 C CNN
-	1    7950 3250
-	0    1    1    0   
-$EndComp
-Wire Wire Line
-	7650 3400 7900 3400
 Connection ~ 7650 3400
 Wire Wire Line
 	7650 3500 7650 3400
@@ -210,8 +170,6 @@ F 3 "~" H 7650 3650 50  0001 C CNN
 	1    7650 3650
 	1    0    0    -1  
 $EndComp
-Wire Wire Line
-	6800 3500 6850 3500
 Wire Wire Line
 	7200 3950 7200 3800
 $Comp
@@ -585,6 +543,10 @@ Entry Wire Line
 	4350 4850 4450 4950
 Text Label 2850 4850 0    50   ~ 0
 HOST_NXT
+Wire Wire Line
+	7650 3400 8100 3400
+Wire Wire Line
+	6800 3500 7200 3500
 Wire Bus Line
 	4450 1650 4450 5800
 $EndSCHEMATC

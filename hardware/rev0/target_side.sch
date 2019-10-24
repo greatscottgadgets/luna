@@ -72,7 +72,7 @@ P 8250 3500
 AR Path="/5DCD9772/5DDE2B06" Ref="R?"  Part="1" 
 AR Path="/5DD754D4/5DDE2B06" Ref="R?"  Part="1" 
 AR Path="/5DDDB747/5DDE2B06" Ref="R18"  Part="1" 
-F 0 "R18" V 8200 3350 50  0000 C CNN
+F 0 "R18" V 8200 3300 50  0000 C CNN
 F 1 "8.06k+1%" V 8150 3650 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 8180 3500 50  0001 C CNN
 F 3 "~" H 8250 3500 50  0001 C CNN
@@ -145,48 +145,6 @@ Wire Wire Line
 	7950 3050 8650 3050
 Text HLabel 8650 2950 2    50   Input ~ 0
 TARGET_VBUS
-Wire Wire Line
-	8000 4150 8350 4150
-Connection ~ 8000 4150
-Wire Wire Line
-	8000 4350 8000 4150
-$Comp
-L Connector:TestPoint TP?
-U 1 1 5DDE2B2D
-P 8000 4350
-AR Path="/5DCD9772/5DDE2B2D" Ref="TP?"  Part="1" 
-AR Path="/5DD754D4/5DDE2B2D" Ref="TP?"  Part="1" 
-AR Path="/5DDDB747/5DDE2B2D" Ref="TP7"  Part="1" 
-F 0 "TP7" H 8050 4600 50  0000 R CNN
-F 1 "TestPoint" H 8200 4700 50  0000 R CNN
-F 2 "TestPoint:TestPoint_Pad_1.0x1.0mm" H 8200 4350 50  0001 C CNN
-F 3 "~" H 8200 4350 50  0001 C CNN
-	1    8000 4350
-	-1   0    0    1   
-$EndComp
-Wire Wire Line
-	9050 4050 9250 4050
-Connection ~ 9050 4050
-Wire Wire Line
-	9050 3900 9050 4050
-Wire Wire Line
-	9100 3900 9050 3900
-$Comp
-L Connector:TestPoint TP?
-U 1 1 5DDE2B37
-P 9100 3900
-AR Path="/5DCD9772/5DDE2B37" Ref="TP?"  Part="1" 
-AR Path="/5DD754D4/5DDE2B37" Ref="TP?"  Part="1" 
-AR Path="/5DDDB747/5DDE2B37" Ref="TP8"  Part="1" 
-F 0 "TP8" V 9055 4087 50  0000 L CNN
-F 1 "TestPoint" V 9145 4087 50  0000 L CNN
-F 2 "TestPoint:TestPoint_Pad_1.0x1.0mm" H 9300 3900 50  0001 C CNN
-F 3 "~" H 9300 3900 50  0001 C CNN
-	1    9100 3900
-	0    1    1    0   
-$EndComp
-Wire Wire Line
-	8800 4050 9050 4050
 Connection ~ 8800 4050
 Wire Wire Line
 	8800 4150 8800 4050
@@ -222,8 +180,6 @@ F 3 "~" H 8800 4300 50  0001 C CNN
 	1    8800 4300
 	1    0    0    -1  
 $EndComp
-Wire Wire Line
-	7950 4150 8000 4150
 Wire Wire Line
 	8350 4600 8350 4450
 $Comp
@@ -602,11 +558,15 @@ Wire Wire Line
 	2600 4950 4450 4950
 Wire Wire Line
 	5900 5450 4650 5450
-Wire Bus Line
-	4550 2350 4550 6450
 Connection ~ 5900 5450
 Entry Wire Line
 	4550 5350 4650 5450
 Text Label 4850 5450 0    50   ~ 0
 TARGET_PHY_RESET
+Wire Wire Line
+	8800 4050 9250 4050
+Wire Wire Line
+	7950 4150 8350 4150
+Wire Bus Line
+	4550 2350 4550 6450
 $EndSCHEMATC
