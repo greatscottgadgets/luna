@@ -4,7 +4,7 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 7 9
+Sheet 9 9
 Title "LUNA: Debug and Control Connections"
 Date "2019-10-20"
 Rev "r0"
@@ -25,18 +25,6 @@ Wire Wire Line
 Connection ~ 2450 1650
 Wire Wire Line
 	2450 1650 2500 1650
-Wire Wire Line
-	3150 3650 3600 3650
-Wire Wire Line
-	3150 3750 3600 3750
-Wire Wire Line
-	3150 4650 3600 4650
-Wire Wire Line
-	3150 4750 3600 4750
-Text HLabel 3600 3650 2    50   Output ~ 0
-ALLOW_POWER_VIA_TARGET
-Text HLabel 3600 3750 2    50   Output ~ 0
-SUPPLY_POWER_TO_TARGET
 $Comp
 L fpgas_and_processors:ECP5-BGA256 IC1
 U 2 1 5DFF5299
@@ -54,9 +42,7 @@ F 9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" H -1
 	2    2200 1950
 	1    0    0    -1  
 $EndComp
-Text HLabel 3600 4650 2    50   Input ~ 0
-TARGET_OVERCURRENT
-Text HLabel 3600 4750 2    50   Input ~ 0
+Text HLabel 3700 4750 2    50   Input ~ 0
 CLKIN_60MHZ
 NoConn ~ 3150 2500
 NoConn ~ 3150 2800
@@ -86,7 +72,30 @@ F 3 "" H 2450 1500 50  0001 C CNN
 	1    2450 1500
 	1    0    0    -1  
 $EndComp
-NoConn ~ 3150 2400
-NoConn ~ 3150 2600
-NoConn ~ 3150 2700
+Wire Wire Line
+	3150 2400 3750 2400
+Wire Wire Line
+	3150 2600 3750 2600
+Wire Wire Line
+	3150 2700 3750 2700
+Wire Wire Line
+	3150 3650 3750 3650
+Wire Wire Line
+	3150 3750 3750 3750
+Text HLabel 3750 3650 2    50   BiDi ~ 0
+USER_IO0
+Text HLabel 3750 2700 2    50   BiDi ~ 0
+USER_IO1
+Text HLabel 3750 2600 2    50   BiDi ~ 0
+USER_IO2
+Text HLabel 3750 2400 2    50   BiDi ~ 0
+USER_IO3
+Text HLabel 3750 3750 2    50   BiDi ~ 0
+USER_IO4
+Wire Wire Line
+	3150 4650 3700 4650
+Text HLabel 3700 4650 2    50   BiDi ~ 0
+USER_IO5
+Wire Wire Line
+	3150 4750 3700 4750
 $EndSCHEMATC

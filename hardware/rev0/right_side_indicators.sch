@@ -25,8 +25,6 @@ Wire Wire Line
 	2350 1750 2400 1750
 Wire Wire Line
 	2350 1600 2350 1750
-Wire Wire Line
-	3150 4200 3950 4200
 $Comp
 L fpgas_and_processors:ECP5-BGA256 IC1
 U 5 1 5DF17723
@@ -104,20 +102,6 @@ Wire Wire Line
 	3400 3300 3150 3300
 Wire Wire Line
 	3400 2900 4100 2900
-Wire Wire Line
-	3150 3600 3950 3600
-Wire Wire Line
-	3150 3700 3950 3700
-Wire Wire Line
-	3150 4300 3950 4300
-Text HLabel 3950 3600 2    50   BiDi ~ 0
-USER_IO0
-Text HLabel 3950 3700 2    50   BiDi ~ 0
-USER_IO1
-Text HLabel 3950 4300 2    50   BiDi ~ 0
-USER_IO3
-Text HLabel 3950 4200 2    50   BiDi ~ 0
-USER_IO2
 Wire Wire Line
 	3150 4700 3950 4700
 Text HLabel 3950 4700 2    50   Output ~ 0
