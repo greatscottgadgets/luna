@@ -1,6 +1,6 @@
 EESchema Schematic File Version 4
 LIBS:luna_rev0-cache
-EELAYER 30 0
+EELAYER 29 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
@@ -530,8 +530,8 @@ Text Label 2650 2550 0    50   ~ 0
 SIDEBAND_DATA7
 Wire Wire Line
 	7600 3950 8050 3950
-Wire Bus Line
-	4200 2350 4200 5450
 Wire Wire Line
 	6750 4050 7150 4050
+Wire Bus Line
+	4200 2350 4200 5450
 $EndSCHEMATC

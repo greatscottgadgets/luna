@@ -1,6 +1,6 @@
 EESchema Schematic File Version 4
 LIBS:luna_rev0-cache
-EELAYER 30 0
+EELAYER 29 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
@@ -1134,4 +1134,85 @@ Wire Wire Line
 	4600 6050 4800 6050
 Wire Wire Line
 	4600 3850 4800 3850
+$Comp
+L Device:C C?
+U 1 1 5DF73A32
+P 5700 1350
+F 0 "C?" H 5750 1450 50  0000 L CNN
+F 1 "0.1uF" H 5750 1250 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 5738 1200 50  0001 C CNN
+F 3 "~" H 5700 1350 50  0001 C CNN
+	1    5700 1350
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DF73A38
+P 6000 1350
+F 0 "C?" H 6050 1450 50  0000 L CNN
+F 1 "0.1uF" H 6050 1250 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 6038 1200 50  0001 C CNN
+F 3 "~" H 6000 1350 50  0001 C CNN
+	1    6000 1350
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DF73A3E
+P 6300 1350
+F 0 "C?" H 6350 1450 50  0000 L CNN
+F 1 "0.1uF" H 6350 1250 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 6338 1200 50  0001 C CNN
+F 3 "~" H 6300 1350 50  0001 C CNN
+	1    6300 1350
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	5700 1200 5700 1100
+Wire Wire Line
+	5700 1100 6000 1100
+Wire Wire Line
+	6300 1100 6300 1200
+Wire Wire Line
+	6000 1200 6000 1100
+Connection ~ 6000 1100
+Wire Wire Line
+	6000 1100 6300 1100
+$Comp
+L power:+5V #PWR?
+U 1 1 5DF73A4A
+P 6000 950
+F 0 "#PWR?" H 6000 800 50  0001 C CNN
+F 1 "+5V" H 6014 1123 50  0000 C CNN
+F 2 "" H 6000 950 50  0001 C CNN
+F 3 "" H 6000 950 50  0001 C CNN
+	1    6000 950 
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6000 950  6000 1100
+Wire Wire Line
+	5700 1500 5700 1600
+Wire Wire Line
+	5700 1600 6000 1600
+Wire Wire Line
+	6300 1600 6300 1500
+Wire Wire Line
+	6000 1500 6000 1600
+Connection ~ 6000 1600
+Wire Wire Line
+	6000 1600 6300 1600
+Wire Wire Line
+	6000 1600 6000 1700
+$Comp
+L power:GND #PWR?
+U 1 1 5DF73A58
+P 6000 1700
+F 0 "#PWR?" H 6000 1450 50  0001 C CNN
+F 1 "GND" H 6004 1528 50  0000 C CNN
+F 2 "" H 6000 1700 50  0001 C CNN
+F 3 "" H 6000 1700 50  0001 C CNN
+	1    6000 1700
+	1    0    0    -1  
+$EndComp
 $EndSCHEMATC

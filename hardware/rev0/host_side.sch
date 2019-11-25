@@ -1,10 +1,10 @@
 EESchema Schematic File Version 4
 LIBS:luna_rev0-cache
-EELAYER 30 0
+EELAYER 29 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 8 9
+Sheet 7 9
 Title "LUNA: Upstream \"Host\" Section"
 Date "2019-10-20"
 Rev "r0"
