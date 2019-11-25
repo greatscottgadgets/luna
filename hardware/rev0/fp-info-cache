@@ -1,4 +1,4 @@
-16180280197766562
+16183439000026562
 Battery
 BatteryHolder_Bulgin_BX0036_1xC
 Bulgin Battery Holder, BX0036, Battery Type C (https://www.bulgin.com/products/pub/media/bulgin/data/Battery_holders.pdf)
@@ -50064,6 +50064,27 @@ Yellow 5381 Series LED
 2
 2
 luna
+BGA-24_5x5_6.0x8.0mm
+
+
+0
+24
+24
+luna
+BGA256C80P16X16_1400X1400X170
+256-Ball caBGA
+Integrated Circuit
+0
+256
+256
+luna
+CONN-Amphenol-UE27AC54100
+
+
+0
+6
+5
+luna
 lattice_cabga256
 256-Ball caBGA
 Integrated Circuit
@@ -50098,13 +50119,6 @@ SWITCH-FSMRA
 0
 4
 3
-luna
-USB-A-Amphenol-87583-2010BLF
-USB - A USB 2.0 Receptacle Connector 4 Position 
-
-0
-6
-5
 luna
 USB-MICROB-FCI-10103592-LONGPADS
 
