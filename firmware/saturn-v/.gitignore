@@ -1,0 +1,13 @@
+.ccls-cache
+*.o
+.tags
+.gdbinit
+*.gdb
+
+# targets
+*.elf
+*.hex
+*.bin
+*.sym
+*.lss
+*.o
