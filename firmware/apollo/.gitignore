@@ -1,0 +1,7 @@
+*.o
+*.elf
+*.bin
+*.sess
+_build
+compile-commands.json
+.ccls

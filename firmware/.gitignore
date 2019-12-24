@@ -1,1 +1,8 @@
-.ccls-cache
+\.ccls-cache
+*.o
+*.elf
+*.bin
+ses
+_build
+compile_commands.json
+.ccls
