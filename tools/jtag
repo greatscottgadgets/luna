@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+#
+# This file is part of GreatFET
+#
+
+from __future__ import print_function
+
+import os
+import sys
+import errno
+import argparse
+
+from tqdm import tqdm
+
+from apollo import ApolloDebugger
+from apollo.jtag import JTAGChain, JTAGPatternError
+from apollo.onboard_jtag import *
+from apollo.ecp5 import ECP5_JTAGProgrammer
+
+
+def print_chain_info(jtag, log_function, log_error, args):
+    """ Command that prints information about devices connected to the scan chain to the console. """
+
+    log_function("Scanning for connected devices...")
+    detected_devices = jtag.enumerate()
+
+    # If devices exist on the scan chain, print their information.
+    if detected_devices:
+        log_function("{} device{} detected on the scan chain:\n".format(
+                    len(detected_devices), 's' if len(detected_devices) > 1 else ''))
+
+        for device in detected_devices:
+            log_function("    {:08x} -- {}".format(device.idcode(), device.description()))
+
+
+        log_function('')
+
+    else:
+        log_function("No devices found.\n")
+
+
+def play_svf_file(jtag, log_function, log_error, args):
+    """ Command that prints the relevant flash chip's information to the console. """
+
+    if not args.filename:
+        log_error("You must provide an SVF filename to play!\n")
+        sys.exit(-1)
+
+    try:
+        jtag.play_svf_file(args.filename, log_function=log_function, error_log_function=log_error)
+    except JTAGPatternError:
+        # Our SVF player has already logged the error to stderr.
+        log_error("")
+
+
+def configure_ecp5(jtag, log_function, log_error, args):
+    """ Command that prints information about devices connected to the scan chain to the console. """
+
+    programmer = ECP5_JTAGProgrammer(jtag)
+
+    with open(args.filename, "rb") as f:
+        bitstream = f.read()
+
+    programmer.configure(bitstream)
+
+
+
+def print_fpga_idcode(jtag, log_function, log_error, args):
+
+    jtag.move_to_state('IDLE')
+
+    jtag.shift_instruction(0xe0, state_after='IRPAUSE')
+    print(jtag.shift_data(length=32, state_after='DRPAUSE'))
+
+
+
+def main():
+
+    commands = {
+        'scan': print_chain_info,
+        'svf': play_svf_file,
+        'idcode': print_fpga_idcode,
+        'config': configure_ecp5
+    }
+
+    # Set up a simple argument parser.
+    parser = argparse.ArgumentParser(description="Utility for working with LUNA's on-board JTAG devices")
+    parser.add_argument('command', choices=commands, help='the operation to complete')
+    parser.add_argument('filename', metavar="[filename]", nargs='?',
+                        help='the filename to read from, for SVF playback')
+
+    args = parser.parse_args()
+    device = ApolloDebugger()
+
+    if args.command == 'scan':
+        args.verbose = True
+    elif args.filename == "-":
+        args.verbose = False
+
+    # Grab our log functions.
+    # FIXME: select these
+    log_function, log_error = print, print
+
+    with JTAGChain(device) as jtag:
+
+        # Execute the relevant command.
+        command = commands[args.command]
+        command(jtag, log_function, log_error, args)
+
+
+if __name__ == '__main__':
+    main()

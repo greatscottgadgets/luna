@@ -3,7 +3,6 @@
  *
  * Copyright (c) 2019 Katherine J. Temkin <kate@ktemkin.com>
  * Copyright (c) 2019 Great Scott Gadgets <ktemkin@greatscottgadgets.com>
- * Copyright (c) 2019 Ha Thach (tinyusb.org)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,73 +28,47 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "bsp/board.h"
-#include "tusb.h"
-#include "jtag.h"
+#include <tusb.h>
+#include <bsp/board.h>
+#include <hal/include/hal_gpio.h>
 
-/**
- * Blink patterns, in ms.
- */
-enum  {
-  BLINK_ONLINE = 250,
-  BLINK_SUSPENDED = 2500,
+#include "jtag.h"
+#include "led.h"
+
+enum {
+	DONE_GPIO    = PIN_PA15,
+	PROGRAM_GPIO = PIN_PA16,
+	INIT_GPIO    = PIN_PA17,
 };
 
-static uint32_t blink_interval_ms = BLINK_ONLINE;
 
-void heartbeat_task(void);
+void io_init(void)
+{
+	// Don't actively drive the FPGA configration pins...
+	gpio_set_pin_direction(DONE_GPIO,    GPIO_DIRECTION_IN);
+	gpio_set_pin_direction(INIT_GPIO,    GPIO_DIRECTION_IN);
+	gpio_set_pin_direction(PROGRAM_GPIO, GPIO_DIRECTION_IN);
+
+	// ... but do apply their recommended pull configuration.
+	gpio_set_pin_pull_mode(PROGRAM_GPIO, GPIO_PULL_UP);
+	gpio_set_pin_pull_mode(DONE_GPIO,    GPIO_PULL_UP);
+}
+
 
 /**
  * Main round-robin 'scheduler' for the execution tasks.
  */
 int main(void)
 {
-  board_init();
-  tusb_init();
-  jtag_init();
+	board_init();
+	tusb_init();
+	led_init();
+	io_init();
 
-  while (1)
-  {
-    tud_task(); // tinyusb device task
-    heartbeat_task();
-  }
+	while (1) {
+		tud_task(); // tinyusb device task
+		heartbeat_task();
+	}
 
-  return 0;
-}
-
-//--------------------------------------------------------------------+
-// Device callbacks
-//--------------------------------------------------------------------+
-
-
-// Invoked when usb bus is suspended
-// remote_wakeup_en : if host allow us  to perform remote wakeup
-// Within 7ms, device must draw an average of current less than 2.5 mA from bus
-void tud_suspend_cb(bool remote_wakeup_en)
-{
-  (void) remote_wakeup_en;
-  blink_interval_ms = BLINK_SUSPENDED;
-}
-
-// Invoked when usb bus is resumed
-void tud_resume_cb(void)
-{
-  blink_interval_ms = BLINK_ONLINE;
-}
-
-
-/**
- * Task that handles blinking the heartbeat LED.
- */
-void heartbeat_task(void)
-{
-  static uint32_t start_ms = 0;
-  static bool led_state = false;
-
-  // Blink every interval ms
-  if ( board_millis() - start_ms < blink_interval_ms) return; // not enough time
-  start_ms += blink_interval_ms;
-
-  board_led_write(led_state);
-  led_state = 1 - led_state; // toggle
+	return 0;
 }
