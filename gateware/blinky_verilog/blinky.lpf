@@ -1,0 +1,13 @@
+LOCATE COMP "clk_60mhz"  SITE "A8";
+
+LOCATE COMP "led[5]"     SITE "L16";
+LOCATE COMP "led[4]"     SITE "L15";
+LOCATE COMP "led[3]"     SITE "M16";
+LOCATE COMP "led[2]"     SITE "M15";
+LOCATE COMP "led[1]"     SITE "N16";
+LOCATE COMP "led[0]"     SITE "P15";
+
+LOCATE COMP "user_io[3]" SITE "A2";
+LOCATE COMP "user_io[2]" SITE "A3";
+LOCATE COMP "user_io[1]" SITE "A4";
+LOCATE COMP "user_io[0]" SITE "A5";
