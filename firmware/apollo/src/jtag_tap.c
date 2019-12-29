@@ -145,6 +145,11 @@ void jtag_init(void)
 	gpio_set_pin_direction(TCK_GPIO, GPIO_DIRECTION_OUT);
 	gpio_set_pin_direction(TMS_GPIO, GPIO_DIRECTION_OUT);
 
+	// Ensure the TDO GPIO is continuously sampled, rather
+	// than sampled on-demand. This allows us to significantly
+	// speak up TDO reads.
+	PORT->Group[0].CTRL.reg = (1 << TDO_GPIO);
+
 
 	jtag_set_current_state(STATE_TEST_LOGIC_RESET);
 }
@@ -171,31 +176,31 @@ void jtag_deinit(void)
 
 static inline void jtag_set_tms(void)
 {
-	gpio_set_pin_level(TMS_GPIO, true);
+	PORT_IOBUS->Group[0].OUTSET.reg = (1 << TMS_GPIO);
 }
 
 
 static inline void jtag_clear_tms(void)
 {
-	gpio_set_pin_level(TMS_GPIO, false);
+	PORT_IOBUS->Group[0].OUTCLR.reg = (1 << TMS_GPIO);
 }
 
 
 static inline void jtag_set_tdi(void)
 {
-	gpio_set_pin_level(TDI_GPIO, true);
+	PORT_IOBUS->Group[0].OUTSET.reg = (1 << TDI_GPIO);
 }
 
 
 static inline void jtag_clear_tdi(void)
 {
-	gpio_set_pin_level(TDI_GPIO, false);
+	PORT_IOBUS->Group[0].OUTCLR.reg = (1 << TDI_GPIO);
 }
 
 
 static inline bool jtag_read_tdo(void)
 {
-	return gpio_get_pin_level(TDO_GPIO);
+	return PORT_IOBUS->Group[0].IN.reg & (1 << TDO_GPIO);
 }
 
 
@@ -227,10 +232,6 @@ void jtag_tap_shift(
 {
 	uint32_t bit_count = data_bits;
 	uint32_t byte_count = (data_bits + 7) / 8;
-
-	//serialComm().Debug(F("... shifting %lu bits (%lu bytes)"),
-	//	data_bits, byte_count);
-	//serialComm().DebugBytes(F("... data:     "), input_data, byte_count);
 
 	for (uint32_t i = 0; i < byte_count; ++i) {
 		uint8_t byte_out = input_data[i];

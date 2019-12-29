@@ -10,7 +10,7 @@ all: ${PROJ}.svf ${PROJ}.bit
 	nextpnr-ecp5 --json $< --textcfg $@ --25k --package CABGA256 --lpf ${PROJ}.lpf
 
 %.bit: %_out.config
-	ecppack --idcode $(FPGA_IDCODE) --input $< --bit $@
+	ecppack --idcode $(FPGA_IDCODE) --input $< --bit $@ --compress
 
 %.svf: %_out.config
 	ecppack --input $< --svf $@ --idcode $(FPGA_IDCODE)

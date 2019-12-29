@@ -64,16 +64,16 @@
 #define CFG_TUD_ENDPOINT0_SIZE    64
 #endif
 
-// Vendor FIFO size of TX and RX
-// If not configured vendor endpoints will not be buffered
-#define CFG_TUD_VENDOR_RX_BUFSIZE 64
-#define CFG_TUD_VENDOR_TX_BUFSIZE 64
-
 
 //------------- CLASS -------------//
 #define CFG_TUD_CDC              1
 #define CFG_TUD_DFU_RT           1
 #define CFG_TUD_VENDOR           1
+
+// CDC FIFO size of TX and RX
+#define CFG_TUD_VENDOR_RX_BUFSIZE   16
+#define CFG_TUD_VENDOR_TX_BUFSIZE   512
+
 
 // CDC FIFO size of TX and RX
 #define CFG_TUD_CDC_RX_BUFSIZE   16
