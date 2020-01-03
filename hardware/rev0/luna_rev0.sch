@@ -710,24 +710,11 @@ P 9950 4900
 AR Path="/5DEF5588/5DF2A471" Ref="D?"  Part="1" 
 AR Path="/5DF2A471" Ref="D2"  Part="1" 
 F 0 "D2" H 10050 4850 50  0000 C CNN
-F 1 "RED" H 9600 4850 50  0000 C CNN
+F 1 "RED" H 10300 4850 50  0000 C CNN
 F 2 "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 9950 4900 50  0001 C CNN
 F 3 "~" H 9950 4900 50  0001 C CNN
 	1    9950 4900
-	-1   0    0    1   
-$EndComp
-$Comp
-L Device:LED D?
-U 1 1 5DF2A46B
-P 9950 5000
-AR Path="/5DEF5588/5DF2A46B" Ref="D?"  Part="1" 
-AR Path="/5DF2A46B" Ref="D3"  Part="1" 
-F 0 "D3" H 10050 4950 50  0000 C CNN
-F 1 "ORANGE" H 9600 4950 50  0000 C CNN
-F 2 "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 9950 5000 50  0001 C CNN
-F 3 "~" H 9950 5000 50  0001 C CNN
-	1    9950 5000
-	-1   0    0    1   
+	1    0    0    -1  
 $EndComp
 $Comp
 L Device:LED D?
@@ -736,11 +723,11 @@ P 9950 5100
 AR Path="/5DEF5588/5DF2A465" Ref="D?"  Part="1" 
 AR Path="/5DF2A465" Ref="D4"  Part="1" 
 F 0 "D4" H 10050 5050 50  0000 C CNN
-F 1 "YELLOW" H 9600 5050 50  0000 C CNN
+F 1 "YELLOW" H 10300 5050 50  0000 C CNN
 F 2 "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 9950 5100 50  0001 C CNN
 F 3 "~" H 9950 5100 50  0001 C CNN
 	1    9950 5100
-	-1   0    0    1   
+	1    0    0    -1  
 $EndComp
 $Comp
 L Device:LED D?
@@ -749,11 +736,11 @@ P 9950 5200
 AR Path="/5DEF5588/5DF2A45F" Ref="D?"  Part="1" 
 AR Path="/5DF2A45F" Ref="D5"  Part="1" 
 F 0 "D5" H 10050 5150 50  0000 C CNN
-F 1 "GREEN" H 9600 5150 50  0000 C CNN
+F 1 "GREEN" H 10300 5150 50  0000 C CNN
 F 2 "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 9950 5200 50  0001 C CNN
 F 3 "~" H 9950 5200 50  0001 C CNN
 	1    9950 5200
-	-1   0    0    1   
+	1    0    0    -1  
 $EndComp
 $Comp
 L Device:LED D?
@@ -762,11 +749,11 @@ P 9950 5300
 AR Path="/5DEF5588/5DF2A459" Ref="D?"  Part="1" 
 AR Path="/5DF2A459" Ref="D6"  Part="1" 
 F 0 "D6" H 10050 5250 50  0000 C CNN
-F 1 "BLUE" H 9600 5250 50  0000 C CNN
+F 1 "BLUE" H 10300 5250 50  0000 C CNN
 F 2 "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 9950 5300 50  0001 C CNN
 F 3 "~" H 9950 5300 50  0001 C CNN
 	1    9950 5300
-	-1   0    0    1   
+	1    0    0    -1  
 $EndComp
 $Comp
 L Device:LED D?
@@ -775,11 +762,11 @@ P 9950 5400
 AR Path="/5DEF5588/5DF2A453" Ref="D?"  Part="1" 
 AR Path="/5DF2A453" Ref="D7"  Part="1" 
 F 0 "D7" H 10050 5350 50  0000 C CNN
-F 1 "PURPLE" H 9600 5350 50  0000 C CNN
+F 1 "PURPLE" H 10300 5350 50  0000 C CNN
 F 2 "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 9950 5400 50  0001 C CNN
 F 3 "~" H 9950 5400 50  0001 C CNN
 	1    9950 5400
-	-1   0    0    1   
+	1    0    0    -1  
 $EndComp
 $Comp
 L power:+3V3 #PWR?
@@ -1216,4 +1203,17 @@ F 3 "" H 6650 1900 50  0001 C CNN
 $EndComp
 Wire Wire Line
 	6650 1900 6650 1800
+$Comp
+L Device:LED D?
+U 1 1 5DF2A46B
+P 9950 5000
+AR Path="/5DEF5588/5DF2A46B" Ref="D?"  Part="1" 
+AR Path="/5DF2A46B" Ref="D3"  Part="1" 
+F 0 "D3" H 10050 4950 50  0000 C CNN
+F 1 "ORANGE" H 10300 4950 50  0000 C CNN
+F 2 "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder" H 9950 5000 50  0001 C CNN
+F 3 "~" H 9950 5000 50  0001 C CNN
+	1    9950 5000
+	1    0    0    -1  
+$EndComp
 $EndSCHEMATC
