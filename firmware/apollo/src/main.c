@@ -32,8 +32,9 @@
 #include <bsp/board.h>
 #include <hal/include/hal_gpio.h>
 
-#include "jtag.h"
 #include "led.h"
+#include "jtag.h"
+#include "selftest.h"
 
 enum {
 	DONE_GPIO    = PIN_PA15,
@@ -47,9 +48,12 @@ void io_init(void)
 	// Don't actively drive the FPGA configration pins...
 	gpio_set_pin_direction(DONE_GPIO,    GPIO_DIRECTION_IN);
 	gpio_set_pin_direction(INIT_GPIO,    GPIO_DIRECTION_IN);
+
+	// ... but keep PROGRAM_N out of applying a program...
+	gpio_set_pin_level(PROGRAM_GPIO, true);
 	gpio_set_pin_direction(PROGRAM_GPIO, GPIO_DIRECTION_IN);
 
-	// ... but do apply their recommended pull configuration.
+	// ... and apply their recommended pull configuration.
 	gpio_set_pin_pull_mode(PROGRAM_GPIO, GPIO_PULL_UP);
 	gpio_set_pin_pull_mode(DONE_GPIO,    GPIO_PULL_UP);
 }
@@ -62,8 +66,10 @@ int main(void)
 {
 	board_init();
 	tusb_init();
-	led_init();
+
 	io_init();
+	led_init();
+	selftest_init();
 
 	while (1) {
 		tud_task(); // tinyusb device task

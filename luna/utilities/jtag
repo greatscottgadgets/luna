@@ -12,10 +12,10 @@ import argparse
 
 from tqdm import tqdm
 
-from apollo import ApolloDebugger
-from apollo.jtag import JTAGChain, JTAGPatternError
-from apollo.onboard_jtag import *
-from apollo.ecp5 import ECP5_JTAGProgrammer
+from luna.apollo import ApolloDebugger
+from luna.apollo.jtag import JTAGChain, JTAGPatternError
+from luna.apollo.ecp5 import ECP5_JTAGProgrammer
+from luna.apollo.onboard_jtag import *
 
 
 def print_chain_info(jtag, log_function, log_error, args):

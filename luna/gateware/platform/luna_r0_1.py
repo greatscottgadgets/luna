@@ -5,15 +5,16 @@
 from nmigen.build import *
 from nmigen.vendor.lattice_ecp5 import *
 
-from apollo import ApolloDebugger
-from apollo.jtag import JTAGChain
-from apollo.ecp5 import ECP5_JTAGProgrammer
+from luna.apollo import ApolloDebugger
+from luna.apollo.jtag import JTAGChain
+from luna.apollo.ecp5 import ECP5_JTAGProgrammer
 
 __all__ = ["LUNAPlatformR01"]
 
 
 def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset_site):
     """ Generates a set of resources for a ULPI-connected USB PHY. """
+
     return Resource(name, 0,
         Subsignal("data",  Pins(data_sites, dir="io")),
         Subsignal("clk",   Pins(clk_site,   dir="o" )),
@@ -24,6 +25,7 @@ def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset
         Attrs(IO_TYPE="LVCMOS33")
     )
 
+
 class LUNAPlatformR01(LatticeECP5Platform):
     """ Board description for the pre-release r0.1 revision of LUNA. """
 
@@ -31,12 +33,13 @@ class LUNAPlatformR01(LatticeECP5Platform):
     package     = "BG256"
     speed       = "6"
 
-    default_clk = "clk_60mhz"
+    default_clk = "clk_60MHz"
 
     resources   = [
 
         # Primary, discrete 60MHz oscillator.
-        Resource("clk_60MHz", 0, Pins("A8", dir="i"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("clk_60MHz", 0, Pins("A8", dir="i"), 
+            Clock(60e6), Attrs(IO_TYPE="LVCMOS33")),
 
         # Connection to our SPI flash; can be used to work with the flash
         # from e.g. a bootloader.
@@ -70,7 +73,7 @@ class LUNAPlatformR01(LatticeECP5Platform):
         Resource("led",  2, Pins("M15", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
         Resource("led",  3, Pins("M16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
         Resource("led",  4, Pins("L15", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led",  5, Pins("l16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("led",  5, Pins("L16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
 
         # USB PHYs
         ULPIResource("sideband", 

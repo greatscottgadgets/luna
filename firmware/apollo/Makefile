@@ -11,9 +11,17 @@ TINYUSB_PATH = ../lib/tinyusb
 include $(TINYUSB_PATH)/tools/top.mk
 include $(TINYUSB_PATH)/examples/make.mk
 
+CFLAGS += \
+	-Wno-unused-parameter
+
 INC += \
 	src \
 	$(TOP)/hw \
+	$(TOP)/hw/mcu/microchip/samd/asf4/samd51/hpl/tc/ \
+
+SRC_C += \
+	hw/mcu/microchip/samd/asf4/samd21/hal/src/hal_adc_sync.c \
+	hw/mcu/microchip/samd/asf4/samd21/hpl/adc/hpl_adc.c
 
 # Build using all 'c' files in the src directory.
 SOURCES += $(wildcard src/*.c)

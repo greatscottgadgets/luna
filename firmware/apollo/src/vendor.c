@@ -14,6 +14,7 @@
 
 #include "led.h"
 #include "jtag.h"
+#include "selftest.h"
 
 
 // Supported vendor requests.
@@ -21,7 +22,9 @@ enum {
 	VENDOR_REQUEST_GET_ID          = 0xa0,
 	VENDOR_REQUEST_SET_LED_PATTERN = 0xa1,
 
+	//
 	// JTAG requests.
+	//
 	VENDOR_REQUEST_JTAG_START            = 0xbf,
 	VENDOR_REQUEST_JTAG_STOP             = 0xbe,
 
@@ -32,6 +35,12 @@ enum {
 	VENDOR_REQUEST_JTAG_RUN_CLOCK        = 0xb4,
 	VENDOR_REQUEST_JTAG_GOTO_STATE       = 0xb5,
 	VENDOR_REQUEST_JTAG_GET_STATE        = 0xb6,
+
+
+	//
+	// Self-test requests.
+	//
+	VENDOR_REQUEST_GET_RAIL_VOLTAGE      = 0xe0
 };
 
 
@@ -87,6 +96,10 @@ bool tud_vendor_control_request_cb(uint8_t rhport, tusb_control_request_t const*
 			return handle_jtag_get_state(rhport, request);
 		case VENDOR_REQUEST_SET_LED_PATTERN:
 			return handle_set_led_pattern(rhport, request);
+
+		// Self-test requests.
+		case VENDOR_REQUEST_GET_RAIL_VOLTAGE:
+			return handle_get_rail_voltage(rhport, request);
 
 		default:
 			return false;
