@@ -7,12 +7,24 @@ BOARD = luna
 # Path to the TINYUSB library.
 TINYUSB_PATH = ../lib/tinyusb
 
+# Detect intercept-cc before we build.
+ifeq ($(CC), intercept-cc)
+	USE_INTERCEPT_CC := yes
+endif
+
 # Include the tinyusb basis BSP.
 include $(TINYUSB_PATH)/tools/top.mk
 include $(TINYUSB_PATH)/examples/make.mk
 
+# If we're using intercept-build, override our compiler back to intercept-cc.
+ifeq ($(USE_INTERCEPT_CC), yes)
+	CC := intercept-cc
+endif
+
 CFLAGS += \
-	-Wno-unused-parameter
+	-Wno-unused-parameter \
+	-fstrict-volatile-bitfields \
+	-g
 
 INC += \
 	src \

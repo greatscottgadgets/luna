@@ -196,9 +196,7 @@ class JTAGChain:
         while bits_to_scan > 0:
             bits_in_chunk = min(bits_to_scan, self.max_bits_per_scan)
             bits_to_scan -= bits_in_chunk
-
-            advance_state = not bool(bits_to_scan)
-            chunk = self._receive_data_chunk(bits_in_chunk, advance_state)
+            chunk = self._receive_data_chunk(bits_in_chunk)
 
             response.extend(chunk)
 

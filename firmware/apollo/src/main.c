@@ -33,6 +33,7 @@
 #include <hal/include/hal_gpio.h>
 
 #include "led.h"
+#include "spi.h"
 #include "jtag.h"
 #include "selftest.h"
 
@@ -70,6 +71,9 @@ int main(void)
 	io_init();
 	led_init();
 	selftest_init();
+
+	// Set up our SPI debug and JTAG connections.
+	spi_init(SPI_FPGA_DEBUG, false, true);
 
 	while (1) {
 		tud_task(); // tinyusb device task
