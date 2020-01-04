@@ -143,3 +143,4 @@ dmypy.json
 
 # GDB debugging setups
 .gdbinit
+*.vcd

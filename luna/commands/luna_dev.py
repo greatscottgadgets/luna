@@ -102,7 +102,7 @@ def main():
     args = parser.parse_args()
     device = ApolloDebugger()
 
-    if args.command == 'scan':
+    if args.command == 'jtag-scan':
         args.verbose = True
     elif args.filename == "-":
         args.verbose = False

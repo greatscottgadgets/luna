@@ -46,8 +46,10 @@ tusb_desc_device_t const desc_device =
 
 	.bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
 
-	.idVendor           = 0x1d50,
-	.idProduct          = 0x60e7, // FIXME: replace with unique Openmoko PID
+	// These are a unique VID/PID for development LUNA boards.
+	// TODO: should we replace these with an OpenMoko VID/PID pair, to match other GSG products?
+	.idVendor           = 0x16d0,
+	.idProduct          = 0x05a5,
 	.bcdDevice          = 0x0100,
 
 	.iManufacturer      = 0x01,

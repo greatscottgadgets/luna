@@ -44,4 +44,4 @@ SRC_C += $(addprefix $(CURRENT_PATH)/, $(SOURCES))
 include $(TINYUSB_PATH)/examples/rules.mk
 
 dfu: _build/build-$(BOARD)/$(BOARD)-firmware.bin
-	dfu-util -a 0 -d 1d50:60e7 -D $<
+	dfu-util -a 0 -d 16d0:05a5 -D $<

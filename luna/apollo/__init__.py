@@ -11,9 +11,10 @@ class DebuggerNotFound(IOError):
 class ApolloDebugger:
     """ Class representing a link to an Apollo Debug Module. """
 
-    # FIXME: replace these with newly allocated openmoko IDs?
-    VENDOR_ID  = 0x1d50
-    PRODUCT_ID = 0x60e7
+    # This VID/PID pair is unique to development LUNA boards.
+    # TODO: potentially change this to an OpenMoko VID, like other LUNA boards.
+    VENDOR_ID  = 0x16d0
+    PRODUCT_ID = 0x05a5
 
     REQUEST_SET_LED_PATTERN = 0xa1
 
