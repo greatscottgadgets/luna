@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# This file is part of GreatFET
+# This file is part of LUNA
 #
 
 from __future__ import print_function
@@ -16,6 +16,14 @@ from luna.apollo import ApolloDebugger
 from luna.apollo.jtag import JTAGChain, JTAGPatternError
 from luna.apollo.ecp5 import ECP5_JTAGProgrammer
 from luna.apollo.onboard_jtag import *
+
+
+COMMAND_HELP_TEXT = \
+"""configure -- Uploads a bitstream to the device's FPGA over JTAG.
+jtag-scan -- Prints information about devices on the onboard JTAG chain.
+svf       -- Plays a given SVF file over JTAG.
+fpga-id   -- Reads an ECP5 FPGA ID out over JTAG.
+"""
 
 
 def print_chain_info(jtag, log_function, log_error, args):
@@ -77,15 +85,17 @@ def print_fpga_idcode(jtag, log_function, log_error, args):
 def main():
 
     commands = {
-        'scan': print_chain_info,
+        'jtag-scan': print_chain_info,
         'svf': play_svf_file,
-        'idcode': print_fpga_idcode,
-        'config': configure_ecp5
+        'fpga-id': print_fpga_idcode,
+        'configure': configure_ecp5
     }
 
+
     # Set up a simple argument parser.
-    parser = argparse.ArgumentParser(description="Utility for working with LUNA's on-board JTAG devices")
-    parser.add_argument('command', choices=commands, help='the operation to complete')
+    parser = argparse.ArgumentParser(description="Utility for LUNA development via an onboard Debug Controller.",
+            formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('command', metavar='command:', choices=commands, help=COMMAND_HELP_TEXT)
     parser.add_argument('filename', metavar="[filename]", nargs='?',
                         help='the filename to read from, for SVF playback')
 
