@@ -58,22 +58,28 @@ class LUNAPlatformR01(LatticeECP5Platform):
             Attrs(IO_TYPE="LVCMOS33")
         ),
 
+        #
+        # Note: r0.1 has a DFM issue that makes it difficult to solder a BGA with
+        # reliable connections on the intended SCK pin (P12). Accordinly, we're mapping
+        # the debug-SPI SCK to our the same line as our UART RX.
+        #
+
         # SPI bus connected to the debug controller, for simple register exchanges.
         # Note that the Debug Controller is the master on this bus.
-        Resource("dc_spi", 0,
-            Subsignal("sck",   Pins("P12", dir="i")),
-            Subsignal("miso",  Pins("P11", dir="o")),
-            Subsignal("mosi",  Pins("P13", dir="i")),
+        Resource("debug_spi", 0,
+            Subsignal("sck",  Pins("R14", dir="i")),
+            Subsignal("sdi",  Pins("P13", dir="i")),
+            Subsignal("sdo",  Pins("P11", dir="o")),
             Attrs(IO_TYPE="LVCMOS33")
         ),
 
         # FPGA-connected LEDs.
-        Resource("led",  0, Pins("P15", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led",  1, Pins("N16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led",  2, Pins("M15", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led",  3, Pins("M16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led",  4, Pins("L15", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led",  5, Pins("L16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("led",  5, PinsN("P15", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("led",  4, PinsN("N16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("led",  3, PinsN("M15", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("led",  2, PinsN("M16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("led",  1, PinsN("L15", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("led",  0, PinsN("L16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
 
         # USB PHYs
         ULPIResource("sideband", 
@@ -94,7 +100,7 @@ class LUNAPlatformR01(LatticeECP5Platform):
         # HyperRAM (1V8 domain).
         Resource("ram",
             Subsignal("clk",   DiffPairs("B14", "A15", dir="o"), Attrs(IO_TYPE="LVCMOS18D")),
-            Subsignal("dq",    Pins("P12 A11 B10 B12 A12 B11 A10 B9 A9", dir="io")),
+            Subsignal("dq",    Pins("A11 B10 B12 A12 B11 A10 B9 A9", dir="io")),
             Subsignal("rwds",  Pins( "A13", dir="o")),
             Subsignal("cs",    PinsN("A14", dir="o")),
             Subsignal("reset", Pins( "B13", dir="o")),

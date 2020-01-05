@@ -75,26 +75,6 @@ bool handle_jtag_request_get_in_buffer(uint8_t rhport, tusb_control_request_t co
  *     wValue: the number of bits to scan; total
  *     wIndex: 1 if the given command should advance the FSM
  */
- /*
-bool handle_jtag_request_scan(uint8_t rhport, tusb_control_request_t const* request)
-{
-	// If this would scan more than we have buffer for, fail out.
-	if ((request->wValue / 8) > sizeof(jtag_out_buffer)) {
-		return false;
-	}
-
-	jtag_tap_shift(jtag_out_buffer, jtag_in_buffer, request->wValue, request->wIndex);
-	return tud_control_xfer(rhport, request, NULL, 0);
-}
-*/
-
-
-/**
- * Request that performs the actual JTAG scan event.
- * Arguments:
- *     wValue: the number of bits to scan; total
- *     wIndex: 1 if the given command should advance the FSM
- */
 bool handle_jtag_request_scan(uint8_t rhport, tusb_control_request_t const* request)
 {
 	// Our bulk method can only send whole bytes; so send as many bytes as we can
@@ -178,7 +158,7 @@ bool handle_jtag_start(uint8_t rhport, tusb_control_request_t const* request)
 	led_set_blink_pattern(BLINK_JTAG_CONNECTED);
 	jtag_init();
 
-	spi_init(SPI_FPGA_JTAG, true, false);
+	spi_init(SPI_FPGA_JTAG, true, false, 1, 1, 1);
 
 	return tud_control_xfer(rhport, request, NULL, 0);
 }

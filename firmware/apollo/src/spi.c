@@ -14,6 +14,10 @@
 
 #include <bsp/board.h>
 
+
+// Hide the ugly Atmel Sercom object name.
+typedef Sercom sercom_t;
+
 /**
  * Returns the SERCOM object associated with the given target.
  */
@@ -108,7 +112,8 @@ static void spi_set_up_clocking(spi_target_t target)
 /**
  * Configures the provided target to be used as an SPI port via the SERCOM.
  */
-void spi_init(spi_target_t target, bool lsb_first, bool configure_pinmux)
+void spi_init(spi_target_t target, bool lsb_first, bool configure_pinmux, uint8_t baud_divider,
+	 uint8_t clock_polarity, uint8_t clock_phase)
 {
 	volatile sercom_t *sercom = sercom_for_target(target);
 
@@ -135,22 +140,24 @@ void spi_init(spi_target_t target, bool lsb_first, bool configure_pinmux)
 
 	// Set up clocking for the SERCOM peripheral.
 	spi_set_up_clocking(target);
-	
+
 	// Configure the SERCOM for SPI master mode.
 	sercom->SPI.CTRLA.reg =
 		SERCOM_SPI_CTRLA_MODE_SPI_MASTER  |  // SPI master
 		SERCOM_SPI_CTRLA_DOPO(0)          |  // use our first pin as MOSI, and our second at SCK
 		SERCOM_SPI_CTRLA_DIPO(2)          |  // use our third pin as MISO
-		SERCOM_SPI_CTRLA_CPHA             |
-		SERCOM_SPI_CTRLA_CPOL             |
 		(lsb_first ? SERCOM_SPI_CTRLA_DORD : 0);   // SPI byte order
+
+	// Set the clock polarity and phase.
+	sercom->SPI.CTRLA.bit.CPOL = clock_polarity;
+	sercom->SPI.CTRLA.bit.CPHA = clock_phase;
 
 	// Use the SPI transceiver.
 	while(sercom->SPI.SYNCBUSY.bit.CTRLB);
 	sercom->SPI.CTRLB.reg = SERCOM_SPI_CTRLB_RXEN;
 
-	// For now, transmit as fast as the FPGA seems willing to respond.
-	sercom->SPI.BAUD.reg = 1;
+	// Set the baud divider for the relevant channel.
+	sercom->SPI.BAUD.reg = baud_divider;
 
 	// Finally, enable the SPI controller.
 	sercom->SPI.CTRLA.reg |= SERCOM_SPI_CTRLA_ENABLE;
@@ -178,11 +185,16 @@ uint8_t spi_send_byte(spi_target_t port, uint8_t data)
 
 /**
  * Sends a block of data over the SPI bus.
+ * 
+ * @param port The port on which to perform the SPI transaction.
+ * @param data_to_send The data to be transferred over the SPI bus.
+ * @param data_received Any data received during the SPI transaction.
+ * @param length The total length of the data to be exchanged, in bytes.
  */
-void spi_send(spi_target_t port, void *data_in, void *data_out, size_t length)
+void spi_send(spi_target_t port, void *data_to_send, void *data_received, size_t length)
 {
-	uint8_t *to_send  = data_in;
-	uint8_t *received = data_out;
+	uint8_t *to_send  = data_to_send;
+	uint8_t *received = data_received;
 
 	// TODO: use the FIFO to bulk send data
 	for (unsigned i = 0; i < length; ++i) {

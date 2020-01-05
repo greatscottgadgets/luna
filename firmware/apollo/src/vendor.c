@@ -12,9 +12,11 @@
 #include <sam.h>
 #include <tusb.h>
 
+#include "spi.h"
 #include "led.h"
 #include "jtag.h"
 #include "selftest.h"
+#include "debug_spi.h"
 
 
 // Supported vendor requests.
@@ -25,17 +27,24 @@ enum {
 	//
 	// JTAG requests.
 	//
-	VENDOR_REQUEST_JTAG_START            = 0xbf,
-	VENDOR_REQUEST_JTAG_STOP             = 0xbe,
+	VENDOR_REQUEST_JTAG_START              = 0xbf,
+	VENDOR_REQUEST_JTAG_STOP               = 0xbe,
 
-	VENDOR_REQUEST_JTAG_CLEAR_OUT_BUFFER = 0xb0,
-	VENDOR_REQUEST_JTAG_SET_OUT_BUFFER   = 0xb1,
-	VENDOR_REQUEST_JTAG_GET_IN_BUFFER    = 0xb2,
-	VENDOR_REQUEST_JTAG_SCAN             = 0xb3,
-	VENDOR_REQUEST_JTAG_RUN_CLOCK        = 0xb4,
-	VENDOR_REQUEST_JTAG_GOTO_STATE       = 0xb5,
-	VENDOR_REQUEST_JTAG_GET_STATE        = 0xb6,
-	VENDOR_REQUEST_JTAG_BULK_SCAN        = 0xb7,
+	VENDOR_REQUEST_JTAG_CLEAR_OUT_BUFFER   = 0xb0,
+	VENDOR_REQUEST_JTAG_SET_OUT_BUFFER     = 0xb1,
+	VENDOR_REQUEST_JTAG_GET_IN_BUFFER      = 0xb2,
+	VENDOR_REQUEST_JTAG_SCAN               = 0xb3,
+	VENDOR_REQUEST_JTAG_RUN_CLOCK          = 0xb4,
+	VENDOR_REQUEST_JTAG_GOTO_STATE         = 0xb5,
+	VENDOR_REQUEST_JTAG_GET_STATE          = 0xb6,
+	VENDOR_REQUEST_JTAG_BULK_SCAN          = 0xb7,
+
+
+	//
+	// Debug SPI requests
+	//
+	VENDOR_REQUEST_DEBUG_SPI_SEND          = 0x50,
+	VENDOR_REQUEST_DEBUG_SPI_READ_RESPONSE = 0x51,
 
 
 	//
@@ -63,6 +72,7 @@ bool handle_set_led_pattern(uint8_t rhport, tusb_control_request_t const* reques
 	led_set_blink_pattern(request->wValue);
 	return tud_control_xfer(rhport, request, NULL, 0);
 }
+
 
 
 /**
@@ -95,8 +105,16 @@ bool tud_vendor_control_request_cb(uint8_t rhport, tusb_control_request_t const*
 			return handle_jtag_stop(rhport, request);
 		case VENDOR_REQUEST_JTAG_GET_STATE:
 			return handle_jtag_get_state(rhport, request);
+
+		// LED control requests.
 		case VENDOR_REQUEST_SET_LED_PATTERN:
 			return handle_set_led_pattern(rhport, request);
+
+		// Debug SPI requests.
+		case VENDOR_REQUEST_DEBUG_SPI_SEND:
+			return handle_debug_spi_send(rhport, request);
+		case VENDOR_REQUEST_DEBUG_SPI_READ_RESPONSE:
+			return handle_debug_spi_get_response(rhport, request);
 
 		// Self-test requests.
 		case VENDOR_REQUEST_GET_RAIL_VOLTAGE:

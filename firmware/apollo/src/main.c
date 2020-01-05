@@ -36,6 +36,7 @@
 #include "spi.h"
 #include "jtag.h"
 #include "selftest.h"
+#include "debug_spi.h"
 
 enum {
 	DONE_GPIO    = PIN_PA15,
@@ -71,9 +72,9 @@ int main(void)
 	io_init();
 	led_init();
 	selftest_init();
+	debug_spi_init();
 
 	// Set up our SPI debug and JTAG connections.
-	spi_init(SPI_FPGA_DEBUG, false, true);
 
 	while (1) {
 		tud_task(); // tinyusb device task
