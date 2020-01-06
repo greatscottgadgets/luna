@@ -18,7 +18,6 @@
 
 import re
 from abc import ABCMeta, abstractmethod
-from future.utils import with_metaclass
 
 from ..support.bits import bits
 
@@ -461,7 +460,7 @@ class SVFParser:
         while self.parse_command(): pass
 
 
-class SVFEventHandler(with_metaclass(ABCMeta)):
+class SVFEventHandler(metaclass=ABCMeta):
     """
     An abstract base class for Serial Vector Format parsing events.
 

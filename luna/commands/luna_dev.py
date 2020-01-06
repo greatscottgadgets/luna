@@ -11,8 +11,6 @@ import ast
 import errno
 import argparse
 
-from tqdm import tqdm
-
 from luna.apollo import ApolloDebugger
 from luna.apollo.jtag import JTAGChain, JTAGPatternError
 from luna.apollo.ecp5 import ECP5_JTAGProgrammer
