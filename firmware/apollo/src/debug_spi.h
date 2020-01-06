@@ -15,10 +15,10 @@
 void debug_spi_init(void);
 
 /**
- * Request that changes the active LED pattern.
+ * Request that sends a block of data over SPI.
  */
 bool handle_debug_spi_send(uint8_t rhport, tusb_control_request_t const* request);
-
+bool handle_debug_spi_send_complete(uint8_t rhport, tusb_control_request_t const* request);
 
 /**
  * Request that changes the active LED pattern.

@@ -21,6 +21,8 @@ enum {
 
 	PIN_SDI = PIN_PA12,
 	PIN_SDO = PIN_PA14,
+
+	PIN_CS  = PIN_PA01
 };
 
 
@@ -60,10 +62,14 @@ void debug_spi_init(void)
 	gpio_set_pin_function(PIN_SDI, GPIO_PIN_FUNCTION_OFF);
 	gpio_set_pin_function(PIN_SCK, GPIO_PIN_FUNCTION_OFF);
 	gpio_set_pin_function(PIN_SDO, GPIO_PIN_FUNCTION_OFF);
+	gpio_set_pin_function(PIN_CS,  GPIO_PIN_FUNCTION_OFF);
 
 	gpio_set_pin_direction(PIN_SDI, GPIO_DIRECTION_OUT);
 	gpio_set_pin_direction(PIN_SCK, GPIO_DIRECTION_OUT);
 	gpio_set_pin_direction(PIN_SDO, GPIO_DIRECTION_IN);
+	gpio_set_pin_direction(PIN_CS,  GPIO_DIRECTION_OUT);
+
+	gpio_set_pin_level(PIN_CS, true);
 }
 
 
@@ -126,9 +132,13 @@ static uint8_t debug_spi_exchange_byte(uint8_t to_send)
  */
 static void debug_spi_send(uint8_t *tx_buffer, uint8_t *rx_buffer, size_t length)
 {
+	gpio_set_pin_level(PIN_CS, false);
+
     for (size_t i = 0; i < length; ++i) {
         rx_buffer[i] = debug_spi_exchange_byte(tx_buffer[i]);
     }
+
+	gpio_set_pin_level(PIN_CS, true);
 }
 
 #endif
@@ -136,7 +146,7 @@ static void debug_spi_send(uint8_t *tx_buffer, uint8_t *rx_buffer, size_t length
 
 
 /**
- * Request that changes the active LED pattern.
+ * Request that sends a block of data over our debug SPI.
  */
 bool handle_debug_spi_send(uint8_t rhport, tusb_control_request_t const* request)
 {
@@ -145,12 +155,14 @@ bool handle_debug_spi_send(uint8_t rhport, tusb_control_request_t const* request
 		return false;
 	}
 
-	// Grab the data to be transmitted...
-	if(!tud_control_xfer(rhport, request, spi_out_buffer, request->wLength)) {
-		return false;
-	}
+	// Queue a transfer that will receive the relevant SPI data.
+	// We'll perform the send itself once the data transfer is complete.
+	return tud_control_xfer(rhport, request, spi_out_buffer, request->wLength);
+}
 
-	// ... and perform the transaction.
+
+bool handle_debug_spi_send_complete(uint8_t rhport, tusb_control_request_t const* request)
+{
 	debug_spi_send(spi_out_buffer, spi_in_buffer, request->wLength);
 	return true;
 }

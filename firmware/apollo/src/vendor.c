@@ -125,3 +125,20 @@ bool tud_vendor_control_request_cb(uint8_t rhport, tusb_control_request_t const*
 	}
 
 }
+
+/**
+ * Called when a vendor request is completed.
+ *
+ * This is used to complete any actions that need to happen once data is available, e.g.
+ * during an IN transfer.
+ */
+bool tud_vendor_control_complete_cb(uint8_t rhport, tusb_control_request_t const * request)
+{
+	switch (request->bRequest) {
+		case VENDOR_REQUEST_DEBUG_SPI_SEND:
+			return handle_debug_spi_send_complete(rhport, request);
+		default:
+			return true;
+	}
+
+}

@@ -51,6 +51,15 @@ class LUNAPlatformR01(LatticeECP5Platform):
             Attrs(IO_TYPE="LVCMOS33")
         ),
 
+        #
+        # Note: r0.1 has a DFM issue that makes it difficult to solder a BGA with
+        # reliable connections on the intended SCK pin (P12), and lacks a CS pin on the
+        # debug SPI; which seems like a silly omission.
+        #
+        # Accordingly, we're mapping the debug SPI and UART over the same pins, as the
+        # microcontroller can use either.
+        #
+
         # UART connected to the debug controller; can be routed to a host via CDC-ACM.
         Resource("uart", 0,
             Subsignal("rx",   Pins("R14", dir="i")),
@@ -58,18 +67,14 @@ class LUNAPlatformR01(LatticeECP5Platform):
             Attrs(IO_TYPE="LVCMOS33")
         ),
 
-        #
-        # Note: r0.1 has a DFM issue that makes it difficult to solder a BGA with
-        # reliable connections on the intended SCK pin (P12). Accordinly, we're mapping
-        # the debug-SPI SCK to our the same line as our UART RX.
-        #
 
         # SPI bus connected to the debug controller, for simple register exchanges.
         # Note that the Debug Controller is the master on this bus.
         Resource("debug_spi", 0,
-            Subsignal("sck",  Pins("R14", dir="i")),
-            Subsignal("sdi",  Pins("P13", dir="i")),
-            Subsignal("sdo",  Pins("P11", dir="o")),
+            Subsignal("sck",  Pins( "R14", dir="i")),
+            Subsignal("sdi",  Pins( "P13", dir="i")),
+            Subsignal("sdo",  Pins( "P11", dir="o")),
+            Subsignal("cs",   PinsN("T14", dir="i")),
             Attrs(IO_TYPE="LVCMOS33")
         ),
 

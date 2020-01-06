@@ -31,10 +31,10 @@ def rising_edge_detector(m, signal):
     """ Generates and returns a signal that goes high for a cycle each rising edge of a given signal. """
     return _single_edge_detector(m, signal, edge='rising')
 
-def detect_falling_edge(m, signal):
+def falling_edge_detector(m, signal):
     """ Generates and returns a signal that goes high for a cycle each rising edge of a given signal. """
     return _single_edge_detector(m, signal, edge='falling')
 
-def detect_any_edge(m, signal):
+def any_edge_detector(m, signal):
     """ Generates and returns a signal that goes high for a cycle each rising edge of a given signal. """
     return _single_edge_detector(m, signal, edge='any')

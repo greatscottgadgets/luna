@@ -7,17 +7,17 @@ from nmigen import Signal, Elaboratable, Module
 from nmigen.lib.cdc import FFSynchronizer
 
 from luna.gateware.platform import *
-from luna.gateware.interface.spi import SPIDeviceInterface
+from luna.gateware.interface.spi import SPICommandInterface
 
 
 class DebugSPIExample(Elaboratable):
-    """ Hardware meant to demonstrate use of the Debug Controller's SPI interface. """
+    """ Hardware meant to demonstrate use of the Debug Controller's register interface. """
 
 
     def __init__(self):
 
         # Base ourselves around an SPI command interface.
-        self.interface = SPIDeviceInterface(clock_phase=1)
+        self.interface = SPICommandInterface()
 
 
     def elaborate(self, platform):
@@ -52,8 +52,13 @@ class DebugSPIExample(Elaboratable):
         led = platform.request('led', 0)
         m.d.comb += led.eq(1)
 
-        # Echo back the last received data.
-        m.d.comb += self.interface.word_out.eq(self.interface.word_in)
+        # Provide some simple register constants, for now.
+        with m.If(self.interface.command == 0):
+            m.d.comb += self.interface.word_to_send.eq(0xdeadbeef)
+        with m.Elif(self.interface.command == 1):
+            m.d.comb += self.interface.word_to_send.eq(0xc001cafe)
+        with m.Else():
+            m.d.comb += self.interface.word_to_send.eq(0x4C554E41) #LUNA
 
         return m
 
