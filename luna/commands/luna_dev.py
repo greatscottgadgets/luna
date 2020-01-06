@@ -88,6 +88,21 @@ def debug_spi(device, log_function, log_error, args):
     print("response: {}".format(response))
 
 
+def debug_spi_register(device, log_function, log_error, args):
+
+    # Try to figure out what data the user wants to send.
+    address = int(args.argument)
+    if args.value:
+        value = int(args.value)
+        is_write = True
+    else:
+        value = 0
+        is_write = False
+
+    response = device.spi.register_transaction(address, is_write=is_write, value=value)
+    print("0x{:08x}".format(response))
+
+
 
 
 def main():
@@ -96,7 +111,8 @@ def main():
         'jtag-scan': print_chain_info,
         'svf':       play_svf_file,
         'configure': configure_ecp5,
-        'spi':       debug_spi
+        'spi':       debug_spi,
+        'spi-reg':   debug_spi_register,
     }
 
 
@@ -106,6 +122,8 @@ def main():
     parser.add_argument('command', metavar='command:', choices=commands, help=COMMAND_HELP_TEXT)
     parser.add_argument('argument', metavar="[argument]", nargs='?',
                         help='the argument to the given command; often a filename')
+    parser.add_argument('value', metavar="[value]", nargs='?',
+                        help='the value to a register write command')
 
     args = parser.parse_args()
     device = ApolloDebugger()

@@ -260,3 +260,270 @@ class SPICommandInterface(Elaboratable):
                     m.next = 'STALL'
 
         return m
+
+
+class SPIRegisterInterface(Elaboratable):
+    """ SPI device interface that allows for register reads and writes via SPI.
+    The SPI transaction format matches:
+
+        in:  WAAAAAAA[...] VVVVVVVV[...]
+        out: XXXXXXXX[...] RRRRRRRR[...]
+
+    Where:
+        W = write bit; a '1' indicates that the provided value is a write request
+        A = all bits of the address
+        V = value to be written into the register, if W is set
+        R = value to be read from the register
+
+    I/O signals:
+        I: sck           -- SPI clock, from the SPI master
+        I: sdi           -- SPI data in
+        O: sdo           -- SPI data out
+        I: cs            -- chip select, active high (as we assume your I/O will use PinsN)
+
+    Other I/O ports are added dynamically with add_register().
+    """
+
+    def __init__(self, address_size=15, register_size=32, default_read_value=0, support_size_autonegotiation=True):
+        """ 
+        Parameters:
+            address_size       -- the size of an address, in bits; recommended to be one bit
+                                  less than a binary number, as the write command is formed by adding a one-bit
+                                  write flag to the start of every address
+            register_size      -- The size of any given register, in bits.
+            default_read_value -- The read value read from a non-existent or write-only register.
+
+            support_size_autonegotiation -- 
+                If set, register 0 is used as a size auto-negotation register. Functionally equivalent to
+                calling .support_size_autonegotation(); see its documentation for details on autonegtoation.
+        """
+
+        self.address_size  = address_size
+        self.register_size = register_size
+        self.default_read_value  = default_read_value
+
+        #
+        # I/O port
+        #
+
+        # Create our SPI I/O.
+        self.sck = Signal()
+        self.sdi = Signal()
+        self.sdo = Signal()
+        self.cs  = Signal()
+
+        #
+        # Internal details.
+        #
+
+        # Instantiate an SPI command transciever submodule.
+        self.interface = SPICommandInterface(command_size=address_size + 1, word_size=register_size) 
+
+        # Create a new, empty dictionary mapping registers to their signals.
+        self.registers = {}
+
+        # Create signals for each of our register control signals.
+        self._is_write = Signal()
+        self._address  = Signal(self.address_size)
+
+        if support_size_autonegotiation:
+            self.support_size_autonegotiation()
+
+
+    def _ensure_register_is_unused(self, address):
+        """ Checks to make sure a register address isn't in use before issuing it. """
+
+        if address in self.registers:
+            raise ValueError("can't add more than one register with address 0x{:x}!".format(address))
+
+
+    def support_size_autonegotiation(self):
+        """ Support autonegotiation of register and address size. Consumes address 0.
+        
+        Auto-negotation of size is relatively simple: the host sends a string of zeroes over
+        the SPI bus, and we respond with:
+
+            -- as many zeroes as there are address bits
+            -- as many ones as there are data bits
+            -- zeroes for any bits after
+
+        In practice, this is functionally identical to setting register zero to a constant of all 1's.
+        """
+        self.add_read_only_register(0, read=-1)
+
+
+    def add_sfr(self, address, *, read=None, write_signal=None, write_strobe=None, read_strobe=None):
+        """ Adds a special function register to the given command interface.
+        
+        Parameters: 
+            address       -- the register's address, as a big-endian integer
+            read          -- a Signal or integer constant representing the 
+                             value to be read at the given address; if not provided, the default
+                             value will be read
+            read_strobe   -- a Signal that is asserted when a read is completed; if not provided,
+                             the relevant strobe will be left unconnected
+            write_signal  -- a Signal set to the value to be written when a write is requested;
+                             if not provided, writes will be ignored
+            wrote_strobe  -- a Signal that goes high when a value is available for a write request
+         """
+
+        assert address < (2 ** self.address_size)
+        self._ensure_register_is_unused(address)
+
+        # Add the register to our collection.
+        self.registers[address] = {
+            'read': read,
+            'write_signal': write_signal,
+            'write_strobe': write_strobe,
+            'read_strobe': read_strobe,
+            'elaborate': None,
+        }
+
+
+    def add_read_only_register(self, address, *, read, read_strobe=None):
+        """ Adds a read-only register.
+        
+        Parameters: 
+            address       -- the register's address, as a big-endian integer
+            read          -- a Signal or integer constant representing the 
+                             value to be read at the given address; if not provided, the default
+                             value will be read
+            read_strobe   -- a Signal that is asserted when a read is completed; if not provided,
+                             the relevant strobe will be left unconnected
+        """
+        self.add_sfr(address, read=read, read_strobe=read_strobe)
+
+
+
+    def add_register(self, address, *, value_signal=None, size=None, name=None, read_strobe=None):
+        """ Adds a standard, memory-backed register. 
+        
+            Parameters: 
+                address       -- the register's address, as a big-endian integer
+                value_signal  -- the signal that will store the register's value; if omitted
+                                 a storage register will be created automatically
+                size          -- if value_signal isn't provided, this sets the size of the created register
+                read_strobe   -- a Signal to be asserted when the register is read; ignored if not provided
+
+            Returns:
+                value_signal  -- a signal that stores the register's value; which may be the value_signal arg,
+                                 or may be a signal created during execution
+        """
+
+        self._ensure_register_is_unused(address)
+
+        # Generate a name for the register, if we don't already have one.
+        name = name if name else "register_{:x}".format(address)
+
+        # Generate a backing store for the register, if we don't already have one.
+        if value_signal is None:
+            size = self.register_size if (size is None) else size
+            value_signal = Signal(size, name=name)
+
+        # Create our register-value-input and our write strobe.
+        write_value  = Signal.like(value_signal, name=name + "_write_value")
+        write_strobe = Signal(name=name + "_write_strobe")
+
+
+        # Create a generator for a the fragments that will manage the register's memory.
+        def _elaborate_memory_register(m):
+            with m.If(write_strobe):
+                m.d.sync += value_signal.eq(write_value)
+
+        # Add the register to our collection.
+        self.registers[address] = {
+            'read': value_signal,
+            'write_signal': write_value,
+            'write_strobe': write_strobe,
+            'read_strobe': read_strobe,
+            'elaborate': _elaborate_memory_register,
+        }
+
+        return value_signal
+
+
+    def _elaborate_register(self, m, register_address, connections):
+        """ Generates the hardware connections that handle a given register. """
+
+        #
+        # Elaborate our register hardware.
+        #
+
+        # Create a signal that goes high iff the given register is selected.
+        register_selected = Signal(name="register_address_matches_{:x}".format(register_address))
+        m.d.comb += register_selected.eq(self._address == register_address)
+
+        # Our write signal is always connected to word_received; but it's only meaningful
+        # when write_strobe is asserted.
+        if connections['write_signal'] is not None:
+            m.d.comb += connections['write_signal'].eq(self.interface.word_received)
+
+        # If we have a write strobe, assert it iff:
+        #  - this register is selected
+        #  - the relevant command is a write command
+        #  - we've just finished receiving the command's argument
+        if connections['write_strobe'] is not None:
+            m.d.comb += [
+                connections['write_strobe'].eq(self._is_write & self.interface.word_complete & register_selected)
+            ]
+
+        # Create essentially the same connection with the read strobe.
+        if connections['read_strobe'] is not None:
+            m.d.comb += [
+                connections['write_strobe'].eq(~self._is_write & self.interface.word_complete & register_selected)
+            ]
+
+        # If we have any additional code that assists in elaborating this register, run it.
+        if connections['elaborate']:
+            connections['elaborate'](m)
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Connect up our SPI transceiver submodule.
+        m.submodules.interface = self.interface
+        m.d.comb += [
+            self.interface.sck .eq(self.sck),
+            self.interface.sdi .eq(self.sdi),
+            self.sdo           .eq(self.interface.sdo),
+            self.interface.cs  .eq(self.cs),
+        ]
+
+        # Split the command into our "write" and "address" signals.
+        m.d.comb += [
+            self._is_write.eq(self.interface.command[-1]),
+            self._address .eq(self.interface.command[0:-1])
+        ]
+
+        # Create the control/write logic for each of our registers.
+        for address, connections in self.registers.items():
+            self._elaborate_register(m, address, connections)
+
+
+        # Build the logic to select the 'to_send' value, which is selected
+        # from all of our registers according to the selected register address.
+        for address, connections in self.registers.items():
+
+            first_item = True
+            for address, connections in self.registers.items():
+                statement = m.If if first_item else m.Elif
+
+                with statement(self._address == address):
+
+                    # Hook up the word-to-send signal either to the read value for the relevant
+                    # register, or to the default read value.
+                    if connections['read'] is not None:
+                        m.d.comb += self.interface.word_to_send.eq(connections['read'])
+                    else:
+                        m.d.comb += self.interface.word_to_send.eq(self.default_read_value)
+
+                # We've already created the m.If; from now on, use m.Elif
+                first_item = False
+
+        # Finally, tie all non-handled register values to always respond with the default.
+        with m.Else():
+            m.d.comb += self.interface.word_to_send.eq(self.default_read_value)
+
+        return m
+

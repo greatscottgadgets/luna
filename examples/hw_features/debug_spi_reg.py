@@ -3,30 +3,38 @@
 # This file is part of LUNA.
 #
 
-from nmigen import Signal, Elaboratable, Module
+from nmigen import Signal, Elaboratable, Module, Cat
 from nmigen.lib.cdc import FFSynchronizer
 
 from luna.gateware.platform import *
-from luna.gateware.interface.spi import SPICommandInterface
+from luna.gateware.interface.spi import SPIRegisterInterface
 
 
-class DebugSPIExample(Elaboratable):
+class DebugSPIRegisterExample(Elaboratable):
     """ Hardware meant to demonstrate use of the Debug Controller's register interface. """
-
-
-    def __init__(self):
-
-        # Base ourselves around an SPI command interface.
-        self.interface = SPICommandInterface()
 
 
     def elaborate(self, platform):
         m = Module()
         board_spi = platform.request("debug_spi")
 
-        # Use our command interface.
-        m.submodules.interface = self.interface
+        # Create a set of registers, and expose them over SPI.
+        spi_registers = SPIRegisterInterface(default_read_value=0x4C554E41A) #default read = u'LUNA'
+        m.submodules.spi_registers = spi_registers
 
+        # Fill in some example registers.
+        # (Register 0 is reserved for size autonegotiation).
+        spi_registers.add_read_only_register(1, read=0xc001cafe)
+        led_reg = spi_registers.add_register(2, size=6, name="leds")
+        spi_registers.add_read_only_register(3, read=0xdeadbeef)
+
+        # ... and tie our LED register to our LEDs.
+        led_out   = Cat([platform.request("led", i, dir="o") for i in range(0, 6)])
+        m.d.comb += led_out.eq(led_reg)
+
+        #
+        # Structural connections.
+        #
         sck = Signal()
         sdi = Signal()
         sdo = Signal()
@@ -40,29 +48,17 @@ class DebugSPIExample(Elaboratable):
         m.submodules += FFSynchronizer(board_spi.cs,  cs)
         m.d.comb     += board_spi.sdo.eq(sdo)
 
-        # Connect our command interface to our board SPI.
+        # Connect our register interface to our board SPI.
         m.d.comb += [
-            self.interface.sck.eq(sck),
-            self.interface.sdi.eq(sdi),
-            sdo.eq(self.interface.sdo),
-            self.interface.cs .eq(cs)
+            spi_registers.sck.eq(sck),
+            spi_registers.sdi.eq(sdi),
+            sdo.eq(spi_registers.sdo),
+            spi_registers.cs .eq(cs)
         ]
-
-        # Turn on a single LED, just to show something's running.
-        led = platform.request('led', 0)
-        m.d.comb += led.eq(1)
-
-        # Provide some simple register constants, for now.
-        with m.If(self.interface.command == 0):
-            m.d.comb += self.interface.word_to_send.eq(0xdeadbeef)
-        with m.Elif(self.interface.command == 1):
-            m.d.comb += self.interface.word_to_send.eq(0xc001cafe)
-        with m.Else():
-            m.d.comb += self.interface.word_to_send.eq(0x4C554E41) #LUNA
 
         return m
 
 
 if __name__ == "__main__":
     platform = LUNAPlatformR01()
-    platform.build(DebugSPIExample(), do_program=True)
+    platform.build(DebugSPIRegisterExample(), do_program=True)
