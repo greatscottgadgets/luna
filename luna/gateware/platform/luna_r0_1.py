@@ -98,8 +98,11 @@ class LUNAPlatformR01(LatticeECP5Platform):
             dir_site="C15", nxt_site="C16", stp_site="B16", reset_site="G16"),
 
         # Target port power switching
-        Resource("power_a_port",       0, Pins("C14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("pass_through_vbus",  0, Pins("D14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        # Note: the r0.1 boards that have been produced incorrectly use the AP22814B 
+        # instead of the AP22814A. This inverts the load-switch enables.
+        #
+        Resource("power_a_port",       0, PinsN("C14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("pass_through_vbus",  0, PinsN("D14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
         Resource("target_vbus_fault",  0, Pins("K15", dir="i"), Attrs(IO_TYPE="LVCMOS33")),
 
         # HyperRAM (1V8 domain).

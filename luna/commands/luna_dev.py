@@ -91,9 +91,9 @@ def debug_spi(device, log_function, log_error, args):
 def debug_spi_register(device, log_function, log_error, args):
 
     # Try to figure out what data the user wants to send.
-    address = int(args.argument)
+    address = int(args.argument, 0)
     if args.value:
-        value = int(args.value)
+        value = int(args.value, 0)
         is_write = True
     else:
         value = 0
