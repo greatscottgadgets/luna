@@ -3,11 +3,12 @@
 # This file is part of LUNA.
 #
 
-from nmigen import Signal, Elaboratable, Module, Cat
+from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal
 from nmigen.lib.cdc import FFSynchronizer
 
 from luna.gateware.platform import *
 from luna.gateware.interface.spi import SPIRegisterInterface
+from luna.gateware.interface.ulpi import ULPIRegisterWindow
 
 
 class InteractiveSelftest(Elaboratable):
@@ -18,14 +19,30 @@ class InteractiveSelftest(Elaboratable):
         1 -- gateware ID register (TEST)
         2 -- fpga LEDs
         3 -- target port power control
+
+
+        7 -- target PHY ULPI register address
+        8 -- target PHY ULPI register value
+        9 -- target ULPI state
     """
 
 
     def elaborate(self, platform):
         m = Module()
-        board_spi = platform.request("debug_spi")
+
+
+        # Explicitly create our main clock domain.
+        # This allows us to pass our clock e.g. to the ULPI PHYs.
+        sync = ClockDomain()
+        m.domains.sync = sync
+
+        # Drive that clock domain with our main clock.
+        clk_60MHz = platform.request(platform.default_clk)
+        m.d.comb      += ClockSignal().eq(clk_60MHz)
+
 
         # Create a set of registers, and expose them over SPI.
+        board_spi = platform.request("debug_spi")
         spi_registers = SPIRegisterInterface(default_read_value=-1)
         m.submodules.spi_registers = spi_registers
 
@@ -77,6 +94,51 @@ class InteractiveSelftest(Elaboratable):
                 power_passthrough  .eq(0)
             ]
 
+        #
+        # ULPI target PHY hardware
+        #
+        target_ulpi    = platform.request("target_phy")
+
+        target_addr_change  = Signal()
+        target_read_data    = Signal(8)
+
+        target_address   = spi_registers.add_register(7, write_strobe=target_addr_change, size=6)
+        spi_registers.add_sfr(8, read=target_read_data)
+
+        ulpi_control = spi_registers.add_register(9, size=1)
+
+        spi_registers.add_sfr(10, read=target_ulpi.data.i)
+
+        # ULPI target PHY access.
+        target_registers = ULPIRegisterWindow()
+        m.submodules.target_phy = target_registers
+
+
+        # Connect our register window and ULPI PHY.
+        m.d.comb += [
+
+            # Drive the bus whenever the target PHY isn't.
+            target_ulpi.data.oe.eq(~target_ulpi.dir),
+
+            # For now, keep the ULPI PHY out of reset and clocked.
+            target_ulpi.clk               .eq(clk_60MHz),
+            target_ulpi.reset             .eq(sync.rst),
+            target_ulpi.data.o            .eq(target_registers.ulpi_data_out),
+
+            #target_ulpi_busy              .eq(target_registers.busy),
+            target_registers.address      .eq(target_address),
+            target_registers.read_request .eq(target_addr_change),
+            target_read_data              .eq(target_registers.read_data),
+
+            target_registers.ulpi_data_in .eq(target_ulpi.data.i),
+            target_registers.ulpi_dir     .eq(target_ulpi.dir),
+            target_registers.ulpi_next    .eq(target_ulpi.nxt),
+
+            target_ulpi.stp               .eq(target_registers.ulpi_stop),
+        ]
+
+        user_io = Cat([platform.request("user_io", i, dir="o") for i in range(4)])
+        m.d.comb += user_io.eq(target_ulpi.data)
 
 
         #

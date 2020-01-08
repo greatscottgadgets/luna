@@ -21,7 +21,7 @@ def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset
         Subsignal("dir",   Pins(dir_site,   dir="i" )),
         Subsignal("nxt",   Pins(nxt_site,   dir="i" )),
         Subsignal("stp",   Pins(stp_site,   dir="o" )),
-        Subsignal("reset", PinsN(clk_site,  dir="o" )),
+        Subsignal("reset", PinsN(reset_site,  dir="o" )),
         Attrs(IO_TYPE="LVCMOS33")
     )
 
@@ -87,13 +87,13 @@ class LUNAPlatformR01(LatticeECP5Platform):
         Resource("led",  0, PinsN("L16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
 
         # USB PHYs
-        ULPIResource("sideband", 
+        ULPIResource("sideband_phy",
             data_sites="R2 R1 P2 P1 N1 M2 M1 L2", clk_site="R4", 
             dir_site="T3", nxt_site="T2", stp_site="T4", reset_site="R3"),
-        ULPIResource("host", 
+        ULPIResource("host_phy",
             data_sites="G2 G1 F2 F1 E1 G1 C1 B1", clk_site="K2", 
             dir_site="J1", nxt_site="H2", stp_site="J2", reset_site="K1"),
-        ULPIResource("target", 
+        ULPIResource("target_phy",
             data_sites="D16 E15 E16 F15 F16 G15 J16 K16", clk_site="B15", 
             dir_site="C15", nxt_site="C16", stp_site="B16", reset_site="G16"),
 

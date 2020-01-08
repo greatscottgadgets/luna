@@ -395,7 +395,8 @@ class SPIRegisterInterface(Elaboratable):
 
 
 
-    def add_register(self, address, *, value_signal=None, size=None, name=None, read_strobe=None, reset=0):
+    def add_register(self, address, *, value_signal=None, size=None, name=None, read_strobe=None,
+        write_strobe=None, reset=0):
         """ Adds a standard, memory-backed register. 
         
             Parameters: 
@@ -405,12 +406,12 @@ class SPIRegisterInterface(Elaboratable):
                 size          -- if value_signal isn't provided, this sets the size of the created register
                 reset         -- if value_signal isn't provided, this sets the reset value of the created register
                 read_strobe   -- a Signal to be asserted when the register is read; ignored if not provided
+                write_strobe  -- a Signal to be asserted when the register is written; ignored if not provided
 
             Returns:
                 value_signal  -- a signal that stores the register's value; which may be the value_signal arg,
                                  or may be a signal created during execution
         """
-
         self._ensure_register_is_unused(address)
 
         # Generate a name for the register, if we don't already have one.
@@ -421,10 +422,12 @@ class SPIRegisterInterface(Elaboratable):
             size = self.register_size if (size is None) else size
             value_signal = Signal(size, name=name, reset=reset)
 
+        # If we don't have a write strobe signal, create an internal one.
+        if write_strobe is None:
+            write_strobe = Signal(name=name + "_write_strobe")
+
         # Create our register-value-input and our write strobe.
         write_value  = Signal.like(value_signal, name=name + "_write_value")
-        write_strobe = Signal(name=name + "_write_strobe")
-
 
         # Create a generator for a the fragments that will manage the register's memory.
         def _elaborate_memory_register(m):
