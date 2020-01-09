@@ -53,7 +53,7 @@ class LunaGatewareTestCase(FHDLTestCase):
 
         By default, instantiates FRAGMENT_UNDER_TEST.
         """
-        self.dut = self.FRAGMENT_UNDER_TEST(**self.FRAGMENT_ARGUMENTS)
+        return self.FRAGMENT_UNDER_TEST(**self.FRAGMENT_ARGUMENTS)
 
 
     def get_vcd_name(self):
@@ -62,7 +62,7 @@ class LunaGatewareTestCase(FHDLTestCase):
 
 
     def setUp(self):
-        self.instantiate_dut()
+        self.dut = self.instantiate_dut()
         self.sim = Simulator(self.dut)
 
         if self.CLOCK_FREQUENCY:

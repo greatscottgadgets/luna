@@ -11,6 +11,96 @@ from nmigen.back.pysim import Simulator
 from ..test.utils import LunaGatewareTestCase, sync_test_case
 
 
+class PHYResetController(Elaboratable):
+    """ Gateware that implements a short power-on-reset pulse to reset an attached PHY.
+    
+    I/O ports:
+
+        I: trigger   -- A signal that triggers a reset when high.
+        O: phy_reset -- The signal to be delivered to the target PHY.
+    """
+
+    def __init__(self, *, clock_frequency=60e6, reset_length=2e-6, power_on_reset=True):
+        """ Params:
+
+            reset_length   -- The length of a reset pulse, in seconds.
+            power_on_reset -- If True or omitted, the reset will be applied once the firmware
+                            is configured.
+        """
+
+        from math import ceil
+
+        self.power_on_reset = power_on_reset
+
+        # Compute the reset length in cycles.
+        clock_period = 1 / clock_frequency
+        self.reset_length_cycles = ceil(reset_length / clock_period)
+
+        #
+        # I/O port
+        #
+        self.trigger   = Signal()
+        self.phy_reset = Signal()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Counter that stores how many cycles we've spent in reset.
+        cycles_in_reset = Signal(range(0, self.reset_length_cycles))
+
+        reset_state = 'RESETTING' if self.power_on_reset else 'IDLE'
+        with m.FSM(reset=reset_state) as fsm:
+
+            # Drive the PHY reset whenever we're in the RESETTING cycle.
+            m.d.comb += self.phy_reset.eq(fsm.ongoing('RESETTING'))
+
+            with m.State('IDLE'):
+                m.d.sync += cycles_in_reset.eq(0)
+
+                # Wait for a reset request.
+                with m.If(self.trigger):
+                    m.next = 'RESETTING'
+
+            with m.State('RESETTING'):
+                m.d.sync += cycles_in_reset.eq(cycles_in_reset + 1)
+
+                with m.If(cycles_in_reset + 1 == self.reset_length_cycles):
+                    m.next = 'IDLE'
+
+        return m
+
+
+class PHYResetControllerTest(LunaGatewareTestCase):
+    FRAGMENT_UNDER_TEST = PHYResetController
+   
+    def initialize_signals(self):
+        yield self.dut.trigger.eq(0)
+
+
+    @sync_test_case
+    def test_power_on_reset(self):
+
+        #
+        # After power-on, the PHY should remain in reset for a while.
+        #
+        yield
+        self.assertEqual((yield self.dut.phy_reset), 1)
+
+        yield from self.advance_cycles(30)
+        self.assertEqual((yield self.dut.phy_reset), 1)
+
+        yield from self.advance_cycles(60)
+        self.assertEqual((yield self.dut.phy_reset), 1)
+
+        #
+        # Then, after the relevant reset time, it should resume being unasserted.
+        #
+        yield from self.advance_cycles(30)
+        self.assertEqual((yield self.dut.phy_reset), 0)
+
+
+
 class ULPIRegisterWindow(Elaboratable):
     """ Gateware interface that handles ULPI register reads and writes.
     

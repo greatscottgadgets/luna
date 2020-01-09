@@ -3,12 +3,20 @@
 # This file is part of LUNA.
 #
 
-from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal
+from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetInserter
 from nmigen.lib.cdc import FFSynchronizer
 
-from luna.gateware.platform import *
+from luna.gateware.platform import get_appropriate_platform
 from luna.gateware.interface.spi import SPIRegisterInterface
-from luna.gateware.interface.ulpi import ULPIRegisterWindow
+from luna.gateware.interface.ulpi import PHYResetController, ULPIRegisterWindow
+
+REGISTER_ID            = 1
+REGISTER_LEDS          = 2
+REGISTER_TARGET_POWER  = 3
+
+REGISTER_USER_IO_DIR   = 4
+REGISTER_USER_IO_IN    = 5
+REGISTER_USER_IO_OUT   = 6
 
 
 class InteractiveSelftest(Elaboratable):
@@ -20,6 +28,9 @@ class InteractiveSelftest(Elaboratable):
         2 -- fpga LEDs
         3 -- target port power control
 
+        4 -- user I/O DDR (1 = out, 0 = in)
+        5 -- user I/O input state
+        6 -- user I/O output values (used when DDR = 1)
 
         7 -- target PHY ULPI register address
         8 -- target PHY ULPI register value
@@ -30,16 +41,16 @@ class InteractiveSelftest(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-
-        # Explicitly create our main clock domain.
-        # This allows us to pass our clock e.g. to the ULPI PHYs.
-        sync = ClockDomain()
-        m.domains.sync = sync
-
-        # Drive that clock domain with our main clock.
         clk_60MHz = platform.request(platform.default_clk)
-        m.d.comb      += ClockSignal().eq(clk_60MHz)
 
+        # Drive the sync clock domain with our main clock.
+        m.domains.sync = ClockDomain()
+        m.d.comb += ClockSignal().eq(clk_60MHz)
+
+        # Generate a post-configuration / power-on reset for the USB PHYs.
+        phy_power_on_reset = Signal()
+        m.submodules.por   = PHYResetController()
+        m.d.comb += phy_power_on_reset.eq(m.submodules.por.phy_reset)
 
         # Create a set of registers, and expose them over SPI.
         board_spi = platform.request("debug_spi")
@@ -47,10 +58,10 @@ class InteractiveSelftest(Elaboratable):
         m.submodules.spi_registers = spi_registers
 
         # Simple applet ID register.
-        spi_registers.add_read_only_register(1, read=0x54455354)
+        spi_registers.add_read_only_register(REGISTER_ID, read=0x54455354)
 
         # LED test register.
-        led_reg = spi_registers.add_register(2, size=6, name="leds", reset=0b10)
+        led_reg = spi_registers.add_register(REGISTER_LEDS, size=6, name="leds", reset=0b10)
         led_out   = Cat([platform.request("led", i, dir="o") for i in range(0, 6)])
         m.d.comb += led_out.eq(led_reg)
 
@@ -65,7 +76,7 @@ class InteractiveSelftest(Elaboratable):
         power_test_reg          = Signal(3)
         power_test_write_strobe = Signal()
         power_test_write_value  = Signal(2)
-        spi_registers.add_sfr(3, 
+        spi_registers.add_sfr(REGISTER_TARGET_POWER, 
             read=power_test_reg, 
             write_strobe=power_test_write_strobe, 
             write_signal=power_test_write_value
@@ -95,6 +106,30 @@ class InteractiveSelftest(Elaboratable):
             ]
 
         #
+        # User IO GPIO registers.
+        #
+
+        # Data direction register.
+        user_io_ddr = spi_registers.add_register(REGISTER_USER_IO_DIR, size=4)
+
+        # Pin (input) state register.
+        user_io_in  = Signal(4)
+        spi_registers.add_sfr(REGISTER_USER_IO_IN, read=user_io_in)
+
+        # Output value register.
+        user_io_out = spi_registers.add_register(REGISTER_USER_IO_OUT, size=4)
+
+        # Grab and connect each of our user-I/O ports our GPIO registers.
+        for i in range(4):
+            pin = platform.request("user_io", i)
+            m.d.comb += [
+                pin.oe         .eq(user_io_ddr[i]),
+                user_io_in[i]  .eq(pin.i),
+                pin.o          .eq(user_io_out[i])
+            ]
+
+
+        #
         # ULPI target PHY hardware
         #
         target_ulpi    = platform.request("target_phy")
@@ -122,7 +157,7 @@ class InteractiveSelftest(Elaboratable):
 
             # For now, keep the ULPI PHY out of reset and clocked.
             target_ulpi.clk               .eq(clk_60MHz),
-            target_ulpi.reset             .eq(sync.rst),
+            target_ulpi.reset             .eq(phy_power_on_reset),
             target_ulpi.data.o            .eq(target_registers.ulpi_data_out),
 
             #target_ulpi_busy              .eq(target_registers.busy),
@@ -137,9 +172,13 @@ class InteractiveSelftest(Elaboratable):
             target_ulpi.stp               .eq(target_registers.ulpi_stop),
         ]
 
-        user_io = Cat([platform.request("user_io", i, dir="o") for i in range(4)])
-        m.d.comb += user_io.eq(target_ulpi.data)
-
+        #user_io = Cat([platform.request("user_io", i, dir="o") for i in range(4)])
+        #m.d.comb += [
+        #    user_io[0].eq(target_ulpi.reset),
+        #    user_io[1].eq(target_registers.busy),
+        #    user_io[2].eq(target_ulpi.nxt),
+        #    user_io[3].eq(target_ulpi.dir)
+        #]
 
         #
         # Structural connections.
@@ -169,5 +208,5 @@ class InteractiveSelftest(Elaboratable):
 
 
 if __name__ == "__main__":
-    platform = LUNAPlatformR01()
+    platform = get_appropriate_platform()
     platform.build(InteractiveSelftest(), do_program=True)

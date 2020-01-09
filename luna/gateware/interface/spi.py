@@ -3,12 +3,13 @@
 #
 """ SPI and derived interfaces. """
 
+import unittest
+
 from nmigen import *
-from nmigen.cli import main
 from nmigen.back.pysim import Simulator
 
 from ..util import rising_edge_detector, falling_edge_detector
-
+from ..test.utils import LunaGatewareTestCase, sync_test_case
 
 class SPIDeviceInterface(Elaboratable):
     """ Simple word-oriented SPI interface.
@@ -531,3 +532,98 @@ class SPIRegisterInterface(Elaboratable):
 
         return m
 
+
+class SPIRegisterInterfaceTest(LunaGatewareTestCase):
+    """ Tests for the SPI command interface. """
+
+
+    def spi_send_bit(self, bit):
+        """ Sends a single bit over the SPI bus. """
+        cycles_per_bit = 4
+
+        # Apply the new bit...
+        yield self.dut.sdi.eq(bit)
+        yield from self.advance_cycles(cycles_per_bit)
+
+        # Create a RE of our serial clock.
+        yield self.dut.sck.eq(1)
+        yield from self.advance_cycles(cycles_per_bit)
+
+        # Read the data on the bus, and then create our falling edge.
+        return_value = (yield self.dut.sdo)
+        yield from self.advance_cycles(cycles_per_bit)
+
+        yield self.dut.sck.eq(0)
+        yield from self.advance_cycles(cycles_per_bit)
+
+        return return_value
+
+
+    def spi_exchange_byte(self, datum):
+        """ Sends a by over the virtual SPI bus. """
+
+        bits = "{:08b}".format(datum)
+        data_received = ""
+
+        # Send each of our bits...
+        for bit in bits:
+            received = yield from self.spi_send_bit(int(bit))
+            data_received += '1' if received else '0'
+
+        return int(data_received, 2)
+
+
+    def spi_exchange_data(self, data):
+        """ Sends a string of bytes over our virtual SPI bus. """
+
+        yield self.dut.cs.eq(1)
+        yield
+
+        response = bytearray()
+
+        for byte in data:
+            response_byte = yield from self.spi_exchange_byte(byte)
+            response.append(response_byte)
+
+        yield self.dut.cs.eq(0)
+        yield
+
+        return response
+
+    def instantiate_dut(self):
+
+        self.write_strobe = Signal()
+
+        # Create a register and sample dataset to work with.
+        dut = SPIRegisterInterface(default_read_value=0xDEADBEEF)
+        dut.add_register(2, write_strobe=self.write_strobe)
+
+        return dut
+
+
+    def initialize_signals(self):
+        # Start off with our clock low and the transaction idle.
+        yield self.dut.sck.eq(0)
+        yield self.dut.cs.eq(0)
+
+
+    @sync_test_case
+    def test_undefined_read_behavior(self):
+        data = yield from self.spi_exchange_data([0, 1, 0, 0, 0, 0])
+        self.assertEqual(bytes(data), b"\x00\x00\xde\xad\xbe\xef")
+
+    @sync_test_case
+    def test_write_behavior(self):
+
+        # Send a write command...
+        data = yield from self.spi_exchange_data(b"\x80\x02\x12\x34\x56\x78")
+        self.assertEqual(bytes(data), b"\x00\x00\x00\x00\x00\x00")
+
+        # ... and then read the relevant data back.
+        data = yield from self.spi_exchange_data(b"\x00\x02\x12\x34\x56\x78")
+        self.assertEqual(bytes(data), b"\x00\x00\x12\x34\x56\x78")
+
+
+
+if __name__ == "__main__":
+    unittest.main()
