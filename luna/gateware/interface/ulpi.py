@@ -146,7 +146,8 @@ class ULPIRegisterWindow(Elaboratable):
 
     """
 
-    COMMAND_REG_READ = 0b11000000
+    COMMAND_REG_WRITE = 0b10000000
+    COMMAND_REG_READ  = 0b11000000
 
     def __init__(self):
 
@@ -185,9 +186,6 @@ class ULPIRegisterWindow(Elaboratable):
             self.done        .eq(0)
         ]
 
-        # Keep our command line at "NOP" when it's not being set.
-        m.d.sync += self.ulpi_data_out.eq(0)
-
         with m.FSM() as fsm:
 
             # We're busy whenever we're not IDLE; indicate so.
@@ -195,6 +193,14 @@ class ULPIRegisterWindow(Elaboratable):
 
             # IDLE: wait for a request to be made
             with m.State('IDLE'):
+
+                # Apply a NOP whenever we're idle.
+                #
+                # This doesn't technically help for normal ULPI
+                # operation, as the controller should handle this,
+                # but it cleans up the output in our tests and allows
+                # this unit to be used standalone.
+                m.d.sync += self.ulpi_data_out.eq(0)
 
                 # Constantly latch in our arguments while IDLE.
                 # We'll stop latching these in as soon as we're busy.
@@ -206,6 +212,12 @@ class ULPIRegisterWindow(Elaboratable):
                 with m.If(self.read_request):
                     m.next = 'START_READ'
 
+                with m.If(self.write_request):
+                    m.next = 'START_WRITE'
+
+            #
+            # Read handling.
+            #
 
             # START_READ: wait for the bus to be idle, so we can transmit.
             with m.State('START_READ'):
@@ -226,6 +238,7 @@ class ULPIRegisterWindow(Elaboratable):
             # to come into this state writing, as we need to lead with a
             # bus-turnaround cycle.
             with m.State('SEND_READ_ADDRESS'):
+                m.d.sync += self.ulpi_out_req.eq(1)
 
                 # If DIR has become asserted, we're being interrupted. 
                 # We'll have to restart the read after the interruption is over.
@@ -242,14 +255,6 @@ class ULPIRegisterWindow(Elaboratable):
                         self.ulpi_data_out .eq(0),
                     ]
                     m.next = 'READ_TURNAROUND'
-
-                with m.Else():
-
-                    # Start sending read command, which contains our address.
-                    m.d.sync += [
-                        self.ulpi_data_out .eq(self.COMMAND_REG_READ | self.address),
-                        self.ulpi_out_req  .eq(1)
-                    ]
 
 
             # READ_TURNAROUND: wait for the PHY to take control of the ULPI bus.
@@ -268,6 +273,60 @@ class ULPIRegisterWindow(Elaboratable):
                     self.read_data .eq(self.ulpi_data_in),
                     self.done      .eq(1)
                 ]
+
+            #
+            # Write handling.
+            #
+
+            # START_WRITE: wait for the bus to be idle, so we can transmit.
+            with m.State('START_WRITE'):
+
+                # Wait for the bus to be idle.
+                with m.If(~self.ulpi_dir):
+                    m.next = 'SEND_WRITE_ADDRESS'
+
+                    # Once it is, start sending our command.
+                    m.d.sync += [
+                        self.ulpi_data_out .eq(self.COMMAND_REG_WRITE | self.address),
+                        self.ulpi_out_req  .eq(1)
+                    ]
+
+            # SEND_WRITE_ADDRESS: Continue sending the write address until the
+            # target device accepts it.
+            with m.State('SEND_WRITE_ADDRESS'):
+                m.d.sync += self.ulpi_out_req.eq(1)
+
+                # If DIR has become asserted, we're being interrupted. 
+                # We'll have to restart the write after the interruption is over.
+                with m.If(self.ulpi_dir):
+                    m.next = 'START_WRITE'
+                    m.d.sync += self.ulpi_out_req.eq(0)
+
+                # Hold our address until the PHY has accepted the command;
+                # and then move to presenting the PHY with the value to be written.
+                with m.Elif(self.ulpi_next):
+                    m.d.sync += self.ulpi_data_out.eq(self.write_data)
+                    m.next = 'HOLD_WRITE'
+
+
+            # Hold the write data on the bus until the device acknowledges it.
+            with m.State('HOLD_WRITE'):
+                m.d.sync += self.ulpi_out_req.eq(1)
+
+                # Handle interruption.
+                with m.If(self.ulpi_dir):
+                    m.next = 'START_WRITE'
+                    m.d.sync += self.ulpi_out_req.eq(0)
+
+                # Hold the data present until the device has accepted it.
+                # Once it has, pulse STP for a cycle to complete the transaction.
+                with m.Elif(self.ulpi_next):
+                    m.d.sync += [
+                        self.ulpi_data_out.eq(0),
+                        self.ulpi_out_req.eq(0),
+                        self.ulpi_stop.eq(1)
+                    ]
+                    m.next = 'IDLE'
 
         return m
 
@@ -329,6 +388,7 @@ class TestULPIRegisters(LunaGatewareTestCase):
         # Finally, we should return to idle.
         self.assertEqual((yield self.dut.busy), 0)
 
+
     @sync_test_case
     def test_interrupted_read(self):
         """ Validates how a register read works when interrupted by a change in DIR. """
@@ -375,6 +435,55 @@ class TestULPIRegisters(LunaGatewareTestCase):
 
         # Finally, we should return to idle.
         self.assertEqual((yield self.dut.busy), 0)
+
+
+    @sync_test_case
+    def test_register_write(self):
+
+        # Set up a write request.
+        yield self.dut.address.eq(0b10)
+        yield self.dut.write_data.eq(0xBC)
+        yield
+
+        # Starting the request should make us busy.
+        yield from self.pulse(self.dut.write_request)
+        self.assertEqual((yield self.dut.busy), 1)
+
+        # ... and then, since dir is unasserted, we should have a write command.
+        yield
+        self.assertEqual((yield self.dut.ulpi_data_out), 0b10000010)
+
+        # We should continue to present the command...
+        yield from self.advance_cycles(10)
+        self.assertEqual((yield self.dut.ulpi_data_out), 0b10000010)
+        self.assertEqual((yield self.dut.busy), 1)
+
+        # ... until the host accepts it.
+        yield self.dut.ulpi_next.eq(1)
+        yield
+
+        # We should then present the data to be written...
+        yield self.dut.ulpi_next.eq(0)
+        yield
+        self.assertEqual((yield self.dut.ulpi_data_out), 0xBC)
+
+        # ... and continue doing so until the host accepts it...
+        yield from self.advance_cycles(10)
+        self.assertEqual((yield self.dut.ulpi_data_out), 0xBC)
+
+        yield self.dut.ulpi_next.eq(1)
+        yield from self.advance_cycles(2)
+
+        # ... at which point stop should be asserted for one cycle.
+        self.assertEqual((yield self.dut.ulpi_stop), 1)
+        yield
+
+        # Finally, we should go idle.
+        self.assertEqual((yield self.dut.ulpi_stop), 0)
+        self.assertEqual((yield self.dut.busy), 0)
+
+
+
 
 
 

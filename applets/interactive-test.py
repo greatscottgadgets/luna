@@ -154,11 +154,13 @@ class InteractiveSelftest(Elaboratable):
         m.submodules.target_rxcmd = target_rxcmd_decoder
 
         target_addr_change  = Signal()
+        target_write        = Signal()
         target_read_data    = Signal(8)
+        target_write_data   = Signal(8)
 
         # ULPI register window.
         target_address   = spi_registers.add_register(REGISTER_TARGET_ADDR, write_strobe=target_addr_change, size=6)
-        spi_registers.add_sfr(REGISTER_TARGET_VALUE, read=target_read_data)
+        spi_registers.add_sfr(REGISTER_TARGET_VALUE, read=target_read_data, write_signal=target_write_data, write_strobe=target_write)
         spi_registers.add_sfr(REGISTER_TARGET_RXCMD, read=target_rxcmd_decoder.last_rx_command)
 
         # Connect our RxCmd decoder.
@@ -175,20 +177,24 @@ class InteractiveSelftest(Elaboratable):
             target_ulpi.data.oe.eq(~target_ulpi.dir),
 
             # For now, keep the ULPI PHY out of reset and clocked.
-            target_ulpi.clk               .eq(clk_60MHz),
-            target_ulpi.reset             .eq(phy_power_on_reset),
-            target_ulpi.data.o            .eq(target_registers.ulpi_data_out),
-
+            target_ulpi.clk                .eq(clk_60MHz),
+            target_ulpi.reset              .eq(phy_power_on_reset),
             #target_ulpi_busy              .eq(target_registers.busy),
-            target_registers.address      .eq(target_address),
-            target_registers.read_request .eq(target_addr_change),
-            target_read_data              .eq(target_registers.read_data),
 
+            # Read/write interfacing signals.
+            target_registers.address       .eq(target_address),
+            target_read_data               .eq(target_registers.read_data),
+            target_registers.write_data    .eq(target_write_data),
+
+            target_registers.read_request  .eq(target_addr_change),
+            target_registers.write_request .eq(target_write),
+
+            # ULPI signals
+            target_ulpi.data.o             .eq(target_registers.ulpi_data_out),
             target_registers.ulpi_data_in .eq(target_ulpi.data.i),
             target_registers.ulpi_dir     .eq(target_ulpi.dir),
             target_registers.ulpi_next    .eq(target_ulpi.nxt),
-
-            target_ulpi.stp               .eq(phy_defer_startup)
+            target_ulpi.stp               .eq(phy_defer_startup | target_registers.ulpi_stop)
         ]
 
         # Debug output.
