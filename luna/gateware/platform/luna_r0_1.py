@@ -21,7 +21,7 @@ def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset
         Subsignal("dir",   Pins(dir_site,   dir="i" )),
         Subsignal("nxt",   Pins(nxt_site,   dir="i" )),
         Subsignal("stp",   Pins(stp_site,   dir="o" )),
-        Subsignal("reset", PinsN(reset_site,  dir="o" )),
+        Subsignal("rst",   PinsN(reset_site,  dir="o" )),
         Attrs(IO_TYPE="LVCMOS33")
     )
 

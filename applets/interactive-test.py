@@ -11,20 +11,27 @@ from nmigen.lib.cdc import FFSynchronizer
 
 from luna.gateware.platform import get_appropriate_platform
 from luna.gateware.interface.spi import SPIRegisterInterface
-from luna.gateware.interface.ulpi import PHYResetController, ULPIRegisterWindow, ULPIRxEventDecoder
+from luna.gateware.interface.ulpi import UMTITranslator
 
-REGISTER_ID            = 1
-REGISTER_LEDS          = 2
-REGISTER_TARGET_POWER  = 3
+REGISTER_ID             = 1
+REGISTER_LEDS           = 2
+REGISTER_TARGET_POWER   = 3
 
-REGISTER_USER_IO_DIR   = 4
-REGISTER_USER_IO_IN    = 5
-REGISTER_USER_IO_OUT   = 6
+REGISTER_USER_IO_DIR    = 4
+REGISTER_USER_IO_IN     = 5
+REGISTER_USER_IO_OUT    = 6
 
-REGISTER_TARGET_ADDR   = 7
-REGISTER_TARGET_VALUE  = 8
-REGISTER_TARGET_RXCMD  = 9
+REGISTER_TARGET_ADDR    = 7
+REGISTER_TARGET_VALUE   = 8
+REGISTER_TARGET_RXCMD   = 9
 
+REGISTER_HOST_ADDR      = 10
+REGISTER_HOST_VALUE     = 11
+REGISTER_HOST_RXCMD     = 12
+
+REGISTER_SIDEBAND_ADDR  = 13
+REGISTER_SIDEBAND_VALUE = 14
+REGISTER_SIDEBAND_RXCMD = 15
 
 class InteractiveSelftest(Elaboratable):
     """ Hardware meant to demonstrate use of the Debug Controller's register interface.
@@ -42,8 +49,15 @@ class InteractiveSelftest(Elaboratable):
         7 -- target PHY ULPI register address
         8 -- target PHY ULPI register value
         9 -- last target PHY RxCmd
-    """
 
+        10 -- host PHY ULPI register address
+        11 -- host PHY ULPI register value
+        12 -- last host PHY RxCmd
+
+        13 -- sideband PHY ULPI register address
+        14 -- sideband PHY ULPI register value
+        15 -- last sideband PHY RxCmd
+    """
 
     def elaborate(self, platform):
         m = Module()
@@ -53,15 +67,6 @@ class InteractiveSelftest(Elaboratable):
         # Drive the sync clock domain with our main clock.
         m.domains.sync = ClockDomain()
         m.d.comb += ClockSignal().eq(clk_60MHz)
-
-        # Generate a post-configuration / power-on reset for the USB PHYs.
-        phy_power_on_reset = Signal()
-        phy_defer_startup  = Signal()
-        m.submodules.por   = PHYResetController()
-        m.d.comb +=  [ 
-            phy_power_on_reset .eq(m.submodules.por.phy_reset),
-            phy_defer_startup  .eq(m.submodules.por.phy_stop)
-        ]
 
         # Create a set of registers, and expose them over SPI.
         board_spi = platform.request("debug_spi")
@@ -131,80 +136,34 @@ class InteractiveSelftest(Elaboratable):
         user_io_out = spi_registers.add_register(REGISTER_USER_IO_OUT, size=4)
 
         # Grab and connect each of our user-I/O ports our GPIO registers.
-        #for i in range(4):
-            #pin = platform.request("user_io", i)
-            #m.d.comb += [
-                #pin.oe         .eq(user_io_ddr[i]),
-                #user_io_in[i]  .eq(pin.i),
-                #pin.o          .eq(user_io_out[i])
-            #]
+        for i in range(4):
+            pin = platform.request("user_io", i)
+            m.d.comb += [
+                pin.oe         .eq(user_io_ddr[i]),
+                user_io_in[i]  .eq(pin.i),
+                pin.o          .eq(user_io_out[i])
+            ]
 
 
         #
-        # ULPI target PHY hardware
+        # ULPI PHY windows
         #
-        target_ulpi    = platform.request("target_phy")
+        self.add_ulpi_registers(m,
+            clock=clk_60MHz,
+            ulpi_bus="target_phy",
+            register_base=REGISTER_TARGET_ADDR
+        )
+        self.add_ulpi_registers(m,
+            clock=clk_60MHz,
+            ulpi_bus="host_phy",
+            register_base=REGISTER_HOST_ADDR
+        )
+        self.add_ulpi_registers(m,
+            clock=clk_60MHz,
+            ulpi_bus="sideband_phy",
+            register_base=REGISTER_SIDEBAND_ADDR
+        )
 
-        # Target PHY register access.
-        target_registers = ULPIRegisterWindow()
-        m.submodules.target_phy = target_registers
-
-        # Target PHY RxCmd decoder.
-        target_rxcmd_decoder = ULPIRxEventDecoder()
-        m.submodules.target_rxcmd = target_rxcmd_decoder
-
-        target_addr_change  = Signal()
-        target_write        = Signal()
-        target_read_data    = Signal(8)
-        target_write_data   = Signal(8)
-
-        # ULPI register window.
-        target_address   = spi_registers.add_register(REGISTER_TARGET_ADDR, write_strobe=target_addr_change, size=6)
-        spi_registers.add_sfr(REGISTER_TARGET_VALUE, read=target_read_data, write_signal=target_write_data, write_strobe=target_write)
-        spi_registers.add_sfr(REGISTER_TARGET_RXCMD, read=target_rxcmd_decoder.last_rx_command)
-
-        # Connect our RxCmd decoder.
-        m.d.comb += [
-            target_rxcmd_decoder.ulpi_data_in .eq(target_ulpi.data.i),
-            target_rxcmd_decoder.ulpi_dir     .eq(target_ulpi.dir),
-            target_rxcmd_decoder.ulpi_next    .eq(target_ulpi.nxt),
-        ]
-
-        # Connect our register window and ULPI PHY.
-        m.d.comb += [
-
-            # Drive the bus whenever the target PHY isn't.
-            target_ulpi.data.oe.eq(~target_ulpi.dir),
-
-            # For now, keep the ULPI PHY out of reset and clocked.
-            target_ulpi.clk                .eq(clk_60MHz),
-            target_ulpi.reset              .eq(phy_power_on_reset),
-            #target_ulpi_busy              .eq(target_registers.busy),
-
-            # Read/write interfacing signals.
-            target_registers.address       .eq(target_address),
-            target_read_data               .eq(target_registers.read_data),
-            target_registers.write_data    .eq(target_write_data),
-
-            target_registers.read_request  .eq(target_addr_change),
-            target_registers.write_request .eq(target_write),
-
-            # ULPI signals
-            target_ulpi.data.o             .eq(target_registers.ulpi_data_out),
-            target_registers.ulpi_data_in .eq(target_ulpi.data.i),
-            target_registers.ulpi_dir     .eq(target_ulpi.dir),
-            target_registers.ulpi_next    .eq(target_ulpi.nxt),
-            target_ulpi.stp               .eq(phy_defer_startup | target_registers.ulpi_stop)
-        ]
-
-        # Debug output.
-        user_io = Cat([platform.request("user_io", i, dir="o") for i in range(4)])
-        m.d.comb += [
-            user_io[0].eq(target_ulpi.reset),
-            user_io[1].eq(target_ulpi.stp),
-            user_io[2].eq(target_ulpi.nxt),
-            user_io[3].eq(target_ulpi.dir)
-        ]
 
         #
         # Structural connections.
@@ -231,6 +190,31 @@ class InteractiveSelftest(Elaboratable):
         ]
 
         return m
+
+
+    def add_ulpi_registers(self, m, *, ulpi_bus, clock, register_base):
+        """ Adds a set of ULPI registers to the active design. """
+
+        target_ulpi    = platform.request(ulpi_bus)
+        umti_adapter   = UMTITranslator(ulpi=target_ulpi, clock=clock)
+        m.submodules  += umti_adapter
+
+        # ULPI register window.
+        spi_registers = m.submodules.spi_registers
+        spi_registers.add_register(register_base + 0,
+            write_strobe=umti_adapter.manual_read,
+            value_signal=umti_adapter.address,
+            size=6
+        )
+        spi_registers.add_sfr(register_base + 1,
+            read=umti_adapter.read_data,
+            write_signal=umti_adapter.write_data,
+            write_strobe=umti_adapter.manual_write
+        )
+        spi_registers.add_sfr(register_base + 2,
+            read=umti_adapter.last_rx_command
+        )
+
 
 
 if __name__ == "__main__":

@@ -562,5 +562,99 @@ class ULPIRxEventDecoder(Elaboratable):
         return m
 
 
+class UMTITranslator(Elaboratable):
+    """ Gateware that translates a ULPI interface into a simpler UMTI one.
+
+    I/O port:
+
+        B: ulpi          -- ULPI bus / interface record
+        O: busy          -- signal that's true iff the ULPI interface is being used
+                            for a register or transmit command
+
+        # Signals for diagnostic use:
+        O: last_rxcmd    -- The byte content of the last RxCmd.
+
+        I: address       -- The ULPI register address to work with.
+        O: read_data[8]  -- The contents of the most recently read ULPI command.
+        I: write_data[8] -- The data to be written on the next write request.
+        I: manual_read   -- Strobe that triggers a diagnostic read.
+        I: manual_write  -- Strobe that triggers a diagnostic write.
+
+    """
+
+    def __init__(self, *, ulpi, clock):
+        """ Params:
+
+            ulpi -- The ULPI bus to communicate with.
+        """
+
+        self.clock = clock
+
+        #
+        # I/O port
+        #
+        self.ulpi            = ulpi
+        self.busy            = Signal()
+
+
+        # Diagnostic I/O.
+        self.last_rx_command = Signal(8)
+
+        self.address         = Signal(6)
+        self.read_data       = Signal(8)
+        self.write_data      = Signal(8)
+        self.manual_read     = Signal()
+        self.manual_write    = Signal()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Create the component parts of our ULPI interfacing hardware.
+        reset_manager   = PHYResetController()
+        register_window = ULPIRegisterWindow()
+        rxevent_decoder = ULPIRxEventDecoder()
+        m.submodules.reset_manager   = reset_manager
+        m.submodules.register_window = register_window
+        m.submodules.rxevent_decoder = rxevent_decoder
+
+        # Connect our ULPI control signals to each of our subcomponents.
+        m.d.comb += [
+
+            # Drive the bus whenever the target PHY isn't.
+            self.ulpi.data.oe            .eq(~self.ulpi.dir),
+
+            # Generate our busy signal.
+            self.busy                    .eq(register_window.busy),
+
+            # Connect up our clock and reset signals.
+            self.ulpi.clk                .eq(self.clock),
+            self.ulpi.rst                .eq(reset_manager.phy_reset),
+
+            # Connect our data inputs to the event decoder.
+            # Note that the event decoder is purely passive.
+            rxevent_decoder.ulpi_dir      .eq(self.ulpi.data.i),
+            rxevent_decoder.ulpi_dir      .eq(self.ulpi.dir),
+            rxevent_decoder.ulpi_next     .eq(self.ulpi.nxt),
+            rxevent_decoder.register_operation_in_progress.eq(register_window.busy),
+            self.last_rx_command          .eq(rxevent_decoder.last_rx_command),
+
+            # Connect our signals to our register window.
+            register_window.ulpi_data_in  .eq(self.ulpi.data.i),
+            register_window.ulpi_dir      .eq(self.ulpi.dir),
+            register_window.ulpi_next     .eq(self.ulpi.nxt),
+            self.ulpi.data.o              .eq(register_window.ulpi_data_out),
+            self.ulpi.stp                 .eq(register_window.ulpi_stop),
+
+            register_window.address       .eq(self.address),
+            register_window.write_data    .eq(self.write_data),
+            register_window.read_request  .eq(self.manual_read),
+            register_window.write_request .eq(self.manual_write),
+            self.read_data                .eq(register_window.read_data)
+        ]
+
+        return m
+
+
 if __name__ == "__main__":
     unittest.main()
