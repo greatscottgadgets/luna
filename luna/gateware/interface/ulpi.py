@@ -483,30 +483,55 @@ class TestULPIRegisters(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.busy), 0)
 
 
-
-
-
-
 class ULPIRxEventDecoder(Elaboratable):
-    """ Simple piece of gateware that tracks receive events. """
+    """ Simple piece of gateware that tracks receive events.
+
+    I/O port:
+
+        I: ulpi_data_in[8] -- The current input state of the ULPI data lines.
+        I: ulpi_dir        -- The ULPI bus-direction signal.
+        I: ulpi_nxt        -- The ULPI 'next' throttle signal.
+        I: register_operation_in_progress
+            Signal that should be true iff we're performing a register operation.
+
+        O: last_rx_command -- The full byte value of the last RxCmd.
+
+        O: line_state[2]   -- The states of the two USB lines.
+        O: rx_active       -- True when a packet receipt is active.
+        O: rx_error        -- True when a packet recieve parse has occurred.
+        O: host_disconnect -- True if the host has just disconnected.
+        O: id_digital      -- Digital value of the ID pin.
+        O: vbus_valid      -- True iff a valid VBUS voltage is present
+        O: session_end     -- True iff a session has just ended.
+    """
 
     def __init__(self):
 
         #
         # I/O port.
         #
-        self.ulpi_data_in    = Signal(8)
-        self.ulpi_dir        = Signal()
-        self.ulpi_next       = Signal()
+        self.ulpi_data_in                   = Signal(8)
+        self.ulpi_dir                       = Signal()
+        self.ulpi_next                      = Signal()
+        self.register_operation_in_progress = Signal()
 
         # Optional: signal that allows access to the last RxCmd byte.
         self.last_rx_command = Signal(8)
+
+        self.line_state      = Signal(2)
+        self.rx_active       = Signal()
+        self.rx_error        = Signal()
+        self.host_disconnect = Signal()
+        self.id_digital      = Signal()
+        self.vbus_valid      = Signal()
+        self.session_end     = Signal()
 
 
     def elaborate(self, platform):
         m = Module()
 
-        # An RxCmd is present when two conditions are met:
+        # An RxCmd is present when three conditions are met:
+        # - We're not actively undergoing a register read.
         # - Direction has been high for more than one cycle.
         # - NXT is low.
 
@@ -519,8 +544,20 @@ class ULPIRxEventDecoder(Elaboratable):
         m.d.comb += receiving.eq(direction_delayed & self.ulpi_dir)
 
         # Sample the DATA lines whenever these conditions are met.
-        with m.If(receiving & ~self.ulpi_next):
+        with m.If(receiving & ~self.ulpi_next & ~self.register_operation_in_progress):
             m.d.sync += self.last_rx_command.eq(self.ulpi_data_in)
+
+        # Break the most recent RxCmd into its UMTI-equivalent signals.
+        # From table 3.8.1.2 in the ULPI spec; rev 1.1/Oct-20-2004.
+        m.d.comb += [
+            self.line_state      .eq(self.last_rx_command[0:2]),
+            self.vbus_valid      .eq(self.last_rx_command[2:4] == 0b11),
+            self.session_end     .eq(self.last_rx_command[2:4] == 0b00),
+            self.rx_active       .eq(self.last_rx_command[4]),
+            self.rx_error        .eq(self.last_rx_command[4:6] == 0b11),
+            self.host_disconnect .eq(self.last_rx_command[4:6] == 0b10),
+            self.id_digital      .eq(self.last_rx_command[6]),
+        ]
 
         return m
 
