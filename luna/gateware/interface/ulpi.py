@@ -7,8 +7,7 @@ from nmigen import Signal, Module, Cat, Elaboratable
 
 import unittest
 from nmigen.back.pysim import Simulator
-
-from ..test.utils import LunaGatewareTestCase, sync_test_case
+from ..test import LunaGatewareTestCase, sync_test_case
 
 
 class PHYResetController(Elaboratable):
@@ -20,10 +19,11 @@ class PHYResetController(Elaboratable):
         O: phy_reset -- The signal to be delivered to the target PHY.
     """
 
-    def __init__(self, *, clock_frequency=60e6, reset_length=2e-6, power_on_reset=True):
+    def __init__(self, *, clock_frequency=60e6, reset_length=2e-6, stop_length=2e-6, power_on_reset=True):
         """ Params:
 
             reset_length   -- The length of a reset pulse, in seconds.
+            stop_length    -- The length of time STP should be asserted after reset.
             power_on_reset -- If True or omitted, the reset will be applied once the firmware
                             is configured.
         """
@@ -35,12 +35,14 @@ class PHYResetController(Elaboratable):
         # Compute the reset length in cycles.
         clock_period = 1 / clock_frequency
         self.reset_length_cycles = ceil(reset_length / clock_period)
+        self.stop_length_cycles  = ceil(stop_length  / clock_period)
 
         #
         # I/O port
         #
         self.trigger   = Signal()
         self.phy_reset = Signal()
+        self.phy_stop  = Signal()
 
 
     def elaborate(self, platform):
@@ -53,7 +55,10 @@ class PHYResetController(Elaboratable):
         with m.FSM(reset=reset_state) as fsm:
 
             # Drive the PHY reset whenever we're in the RESETTING cycle.
-            m.d.comb += self.phy_reset.eq(fsm.ongoing('RESETTING'))
+            m.d.comb += [
+                self.phy_reset.eq(fsm.ongoing('RESETTING')),
+                self.phy_stop.eq(~fsm.ongoing('IDLE'))
+            ]
 
             with m.State('IDLE'):
                 m.d.sync += cycles_in_reset.eq(0)
@@ -62,11 +67,24 @@ class PHYResetController(Elaboratable):
                 with m.If(self.trigger):
                     m.next = 'RESETTING'
 
+            # RESETTING: hold the reset line active for the given amount of time
             with m.State('RESETTING'):
                 m.d.sync += cycles_in_reset.eq(cycles_in_reset + 1)
 
                 with m.If(cycles_in_reset + 1 == self.reset_length_cycles):
+                    m.d.sync += cycles_in_reset.eq(0)
+                    m.next = 'DEFERRING_STARTUP'
+
+            # DEFERRING_STARTUP: Produce a signal that will defer startup for
+            # the provided amount of time. This allows line state to stabilize
+            # before the PHY will start interacting with us.
+            with m.State('DEFERRING_STARTUP'):
+                m.d.sync += cycles_in_reset.eq(cycles_in_reset + 1)
+
+                with m.If(cycles_in_reset + 1 == self.stop_length_cycles):
+                    m.d.sync += cycles_in_reset.eq(0)
                     m.next = 'IDLE'
+
 
         return m
 
@@ -98,6 +116,10 @@ class PHYResetControllerTest(LunaGatewareTestCase):
         #
         yield from self.advance_cycles(30)
         self.assertEqual((yield self.dut.phy_reset), 0)
+        self.assertEqual((yield self.dut.phy_stop),  1)
+
+        yield from self.advance_cycles(120)
+        self.assertEqual((yield self.dut.phy_stop),  0)
 
 
 
@@ -133,7 +155,7 @@ class ULPIRegisterWindow(Elaboratable):
         #
 
         self.ulpi_data_in  = Signal(8)
-        self.ulpi_data_out = Signal(8, reset=0xff)
+        self.ulpi_data_out = Signal(8)
         self.ulpi_out_req  = Signal()
         self.ulpi_dir      = Signal()
         self.ulpi_next     = Signal()
@@ -164,7 +186,7 @@ class ULPIRegisterWindow(Elaboratable):
         ]
 
         # Keep our command line at "NOP" when it's not being set.
-        m.d.sync += self.ulpi_data_out.eq(0xFF)
+        m.d.sync += self.ulpi_data_out.eq(0)
 
         with m.FSM() as fsm:
 
@@ -209,14 +231,15 @@ class ULPIRegisterWindow(Elaboratable):
                 # We'll have to restart the read after the interruption is over.
                 with m.If(self.ulpi_dir):
                     m.next = 'START_READ'
+                    m.d.sync += self.ulpi_out_req.eq(0)
 
                 # If NXT becomes asserted without us being interrupted by
                 # DIR, then the PHY has accepted the read. Release our write
                 # request, so the next cycle can properly act as a bus turnaround.
-                with m.If(self.ulpi_next):
+                with m.Elif(self.ulpi_next):
                     m.d.sync += [
                         self.ulpi_out_req  .eq(0),
-                        self.ulpi_data_out .eq(0xFF),
+                        self.ulpi_data_out .eq(0),
                     ]
                     m.next = 'READ_TURNAROUND'
 
@@ -227,7 +250,6 @@ class ULPIRegisterWindow(Elaboratable):
                         self.ulpi_data_out .eq(self.COMMAND_REG_READ | self.address),
                         self.ulpi_out_req  .eq(1)
                     ]
-
 
 
             # READ_TURNAROUND: wait for the PHY to take control of the ULPI bus.
@@ -243,7 +265,6 @@ class ULPIRegisterWindow(Elaboratable):
 
                 # Latch in the data, and indicate that we have new, valid data.
                 m.d.sync += [
-                    #self.read_data .eq(self.ulpi_data_in),
                     self.read_data .eq(self.ulpi_data_in),
                     self.done      .eq(1)
                 ]
@@ -264,9 +285,8 @@ class TestULPIRegisters(LunaGatewareTestCase):
 
     @sync_test_case
     def test_idle_behavior(self):
-
-        # Ensure we apply a NOP whenever we're not actively performing a command.
-        self.assertEqual((yield self.dut.ulpi_data_out), 0xFF)
+        """ Ensure we apply a NOP whenever we're not actively performing a command. """
+        self.assertEqual((yield self.dut.ulpi_data_out), 0)
 
 
     @sync_test_case
@@ -308,6 +328,92 @@ class TestULPIRegisters(LunaGatewareTestCase):
 
         # Finally, we should return to idle.
         self.assertEqual((yield self.dut.busy), 0)
+
+    @sync_test_case
+    def test_interrupted_read(self):
+        """ Validates how a register read works when interrupted by a change in DIR. """
+
+        # Set up a read request while DIR is asserted.
+        yield self.dut.ulpi_dir.eq(1)
+        yield self.dut.address.eq(0)
+        yield from self.pulse(self.dut.read_request)
+
+        # We shouldn't try to output anything until DIR is de-asserted. 
+        yield from self.advance_cycles(1)
+        self.assertEqual((yield self.dut.ulpi_out_req), 0)
+        yield from self.advance_cycles(10)
+        self.assertEqual((yield self.dut.ulpi_out_req), 0)
+
+        # De-assert DIR, and let the platform apply a read command.
+        yield self.dut.ulpi_dir.eq(0)
+        yield from self.advance_cycles(2)
+        self.assertEqual((yield self.dut.ulpi_data_out), 0b11000000)
+
+        # Assert DIR again; interrupting the read. This should bring
+        # the platform back to its "waiting for the bus" state.
+        yield self.dut.ulpi_dir.eq(1)
+        yield from self.advance_cycles(2)
+        self.assertEqual((yield self.dut.ulpi_out_req), 0)
+
+        # Clear DIR, and validate that the device starts driving the command again
+        yield self.dut.ulpi_dir.eq(0)
+        yield from self.advance_cycles(2)
+        self.assertEqual((yield self.dut.ulpi_data_out), 0b11000000)
+
+        # Apply NXT so the read can finally continue.
+        yield self.dut.ulpi_next.eq(1)
+        yield
+
+        # We should then wait for a single bus turnaround cycle before reading.
+        yield
+
+        # And then should read whatever value is present.
+        yield self.dut.ulpi_data_in.eq(0x07)
+        yield
+        yield
+        self.assertEqual((yield self.dut.read_data), 0x07)
+
+        # Finally, we should return to idle.
+        self.assertEqual((yield self.dut.busy), 0)
+
+
+
+class ULPIRxEventDecoder(Elaboratable):
+    """ Simple piece of gateware that tracks receive events. """
+
+    def __init__(self):
+
+        #
+        # I/O port.
+        #
+        self.ulpi_data_in    = Signal(8)
+        self.ulpi_dir        = Signal()
+        self.ulpi_next       = Signal()
+
+        # Optional: signal that allows access to the last RxCmd byte.
+        self.last_rx_command = Signal(8)
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # An RxCmd is present when two conditions are met:
+        # - Direction has been high for more than one cycle.
+        # - NXT is low.
+
+        # To implement the first condition, we'll first create a delayed
+        # version of DIR, and then logically AND it with the current value.
+        direction_delayed = Signal()
+        m.d.sync += direction_delayed.eq(self.ulpi_dir)
+
+        receiving = Signal()
+        m.d.comb += receiving.eq(direction_delayed & self.ulpi_dir)
+
+        # Sample the DATA lines whenever these conditions are met.
+        with m.If(receiving & ~self.ulpi_next):
+            m.d.sync += self.last_rx_command.eq(self.ulpi_data_in)
+
+        return m
 
 
 if __name__ == "__main__":

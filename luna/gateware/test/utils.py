@@ -73,6 +73,17 @@ class LunaGatewareTestCase(FHDLTestCase):
         pass
 
 
+    def get_timestamp(self):
+        """ Returns the current timestamp in the simulation."""
+
+        # FIXME: figure out how to do this correctly
+        return self.sim._state.timestamp
+
+
+    def traces_of_interest(self):
+        """ Returns an interable of traces to include in any generated output. """
+        return ()
+
     def simulate(self, *, vcd_suffix=None):
         """ Runs our core simulation. """
 
@@ -85,7 +96,8 @@ class LunaGatewareTestCase(FHDLTestCase):
                 vcd_name = "{}_{}".format(vcd_name, vcd_suffix)
 
             # ... and run the simulation while writing them.
-            with self.sim.write_vcd(vcd_name + ".vcd", vcd_name + ".gtkw"):
+            traces = self.traces_of_interest()
+            with self.sim.write_vcd(vcd_name + ".vcd", vcd_name + ".gtkw", traces=traces):
                 self.sim.run()
 
         else:

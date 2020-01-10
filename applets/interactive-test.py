@@ -3,12 +3,15 @@
 # This file is part of LUNA.
 #
 
+import operator
+from functools import reduce
+
 from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetInserter
 from nmigen.lib.cdc import FFSynchronizer
 
 from luna.gateware.platform import get_appropriate_platform
 from luna.gateware.interface.spi import SPIRegisterInterface
-from luna.gateware.interface.ulpi import PHYResetController, ULPIRegisterWindow
+from luna.gateware.interface.ulpi import PHYResetController, ULPIRegisterWindow, ULPIRxEventDecoder
 
 REGISTER_ID            = 1
 REGISTER_LEDS          = 2
@@ -17,6 +20,10 @@ REGISTER_TARGET_POWER  = 3
 REGISTER_USER_IO_DIR   = 4
 REGISTER_USER_IO_IN    = 5
 REGISTER_USER_IO_OUT   = 6
+
+REGISTER_TARGET_ADDR   = 7
+REGISTER_TARGET_VALUE  = 8
+REGISTER_TARGET_RXCMD  = 9
 
 
 class InteractiveSelftest(Elaboratable):
@@ -34,7 +41,7 @@ class InteractiveSelftest(Elaboratable):
 
         7 -- target PHY ULPI register address
         8 -- target PHY ULPI register value
-        9 -- target ULPI state
+        9 -- last target PHY RxCmd
     """
 
 
@@ -49,8 +56,12 @@ class InteractiveSelftest(Elaboratable):
 
         # Generate a post-configuration / power-on reset for the USB PHYs.
         phy_power_on_reset = Signal()
+        phy_defer_startup  = Signal()
         m.submodules.por   = PHYResetController()
-        m.d.comb += phy_power_on_reset.eq(m.submodules.por.phy_reset)
+        m.d.comb +=  [ 
+            phy_power_on_reset .eq(m.submodules.por.phy_reset),
+            phy_defer_startup  .eq(m.submodules.por.phy_stop)
+        ]
 
         # Create a set of registers, and expose them over SPI.
         board_spi = platform.request("debug_spi")
@@ -120,13 +131,13 @@ class InteractiveSelftest(Elaboratable):
         user_io_out = spi_registers.add_register(REGISTER_USER_IO_OUT, size=4)
 
         # Grab and connect each of our user-I/O ports our GPIO registers.
-        for i in range(4):
-            pin = platform.request("user_io", i)
-            m.d.comb += [
-                pin.oe         .eq(user_io_ddr[i]),
-                user_io_in[i]  .eq(pin.i),
-                pin.o          .eq(user_io_out[i])
-            ]
+        #for i in range(4):
+            #pin = platform.request("user_io", i)
+            #m.d.comb += [
+                #pin.oe         .eq(user_io_ddr[i]),
+                #user_io_in[i]  .eq(pin.i),
+                #pin.o          .eq(user_io_out[i])
+            #]
 
 
         #
@@ -134,20 +145,28 @@ class InteractiveSelftest(Elaboratable):
         #
         target_ulpi    = platform.request("target_phy")
 
-        target_addr_change  = Signal()
-        target_read_data    = Signal(8)
-
-        target_address   = spi_registers.add_register(7, write_strobe=target_addr_change, size=6)
-        spi_registers.add_sfr(8, read=target_read_data)
-
-        ulpi_control = spi_registers.add_register(9, size=1)
-
-        spi_registers.add_sfr(10, read=target_ulpi.data.i)
-
-        # ULPI target PHY access.
+        # Target PHY register access.
         target_registers = ULPIRegisterWindow()
         m.submodules.target_phy = target_registers
 
+        # Target PHY RxCmd decoder.
+        target_rxcmd_decoder = ULPIRxEventDecoder()
+        m.submodules.target_rxcmd = target_rxcmd_decoder
+
+        target_addr_change  = Signal()
+        target_read_data    = Signal(8)
+
+        # ULPI register window.
+        target_address   = spi_registers.add_register(REGISTER_TARGET_ADDR, write_strobe=target_addr_change, size=6)
+        spi_registers.add_sfr(REGISTER_TARGET_VALUE, read=target_read_data)
+        spi_registers.add_sfr(REGISTER_TARGET_RXCMD, read=target_rxcmd_decoder.last_rx_command)
+
+        # Connect our RxCmd decoder.
+        m.d.comb += [
+            target_rxcmd_decoder.ulpi_data_in .eq(target_ulpi.data.i),
+            target_rxcmd_decoder.ulpi_dir     .eq(target_ulpi.dir),
+            target_rxcmd_decoder.ulpi_next    .eq(target_ulpi.nxt),
+        ]
 
         # Connect our register window and ULPI PHY.
         m.d.comb += [
@@ -169,16 +188,17 @@ class InteractiveSelftest(Elaboratable):
             target_registers.ulpi_dir     .eq(target_ulpi.dir),
             target_registers.ulpi_next    .eq(target_ulpi.nxt),
 
-            target_ulpi.stp               .eq(target_registers.ulpi_stop),
+            target_ulpi.stp               .eq(phy_defer_startup)
         ]
 
-        #user_io = Cat([platform.request("user_io", i, dir="o") for i in range(4)])
-        #m.d.comb += [
-        #    user_io[0].eq(target_ulpi.reset),
-        #    user_io[1].eq(target_registers.busy),
-        #    user_io[2].eq(target_ulpi.nxt),
-        #    user_io[3].eq(target_ulpi.dir)
-        #]
+        # Debug output.
+        user_io = Cat([platform.request("user_io", i, dir="o") for i in range(4)])
+        m.d.comb += [
+            user_io[0].eq(target_ulpi.reset),
+            user_io[1].eq(target_ulpi.stp),
+            user_io[2].eq(target_ulpi.nxt),
+            user_io[3].eq(target_ulpi.dir)
+        ]
 
         #
         # Structural connections.
