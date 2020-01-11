@@ -133,7 +133,7 @@ def set_up_for_flashing(device, log_function):
     except:
         pass
 
-    # Create a temporary buld directory, so we're not cluttering the user's working directory
+    # Create a temporary build directory, so we're not cluttering the user's working directory
     # with nMigen build output.
     build_dir = tempfile.mkdtemp(suffix="build")
 
