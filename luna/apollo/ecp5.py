@@ -440,6 +440,10 @@ class ECP5CommandBasedProgrammer(ECP5Programmer):
         time.sleep(50 / 1000)
 
 
+    def trigger_reconfiguration(self):
+        self._restart_configuration_process()
+
+
     def _capture_part_id(self):
         """ Reads and stores the device's part ID.
 
@@ -712,11 +716,6 @@ class ECP5_JTAGProgrammer(ECP5CommandBasedProgrammer):
             response = self.chain.shift_data(tdi=data, length=length, state_after='DRPAUSE')
         else:
             response = b""
-
-
-        # ???
-        # self.chain.run_test(2)
-
 
         # If the caller has requested we wait for completion, do so.
         if wait_for_completion:

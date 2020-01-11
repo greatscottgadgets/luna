@@ -20,9 +20,29 @@ void debug_spi_init(void);
 bool handle_debug_spi_send(uint8_t rhport, tusb_control_request_t const* request);
 bool handle_debug_spi_send_complete(uint8_t rhport, tusb_control_request_t const* request);
 
+
 /**
- * Request that changes the active LED pattern.
+ * Requests that sends a block of data over SPI to the configuration flash.
+ */
+bool handle_flash_spi_send(uint8_t rhport, tusb_control_request_t const* request);
+bool handle_flash_spi_send_complete(uint8_t rhport, tusb_control_request_t const* request);
+
+
+/**
+ * Request that reads the result of the last {debug, flash} SPI transfer.
  */
 bool handle_debug_spi_get_response(uint8_t rhport, tusb_control_request_t const* request);
+
+
+/**
+ * Request that grabs access to the configuration SPI lines.
+ */
+bool handle_take_configuration_spi(uint8_t rhport, tusb_control_request_t const* request);
+
+/*
+ * Request that releases access to the configuration SPI lines.
+ */
+bool handle_release_configuration_spi(uint8_t rhport, tusb_control_request_t const* request);
+
 
 #endif

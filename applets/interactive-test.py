@@ -9,9 +9,10 @@ from functools import reduce
 from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetInserter
 from nmigen.lib.cdc import FFSynchronizer
 
-from luna.gateware.platform import get_appropriate_platform
-from luna.gateware.interface.spi import SPIRegisterInterface
-from luna.gateware.interface.ulpi import UMTITranslator
+from luna.gateware.platform        import get_appropriate_platform
+from luna.gateware.interface.spi   import SPIRegisterInterface
+from luna.gateware.interface.ulpi  import UMTITranslator
+from luna.gateware.interface.flash import ECP5ConfigurationFlashInterface
 
 REGISTER_ID             = 1
 REGISTER_LEDS           = 2
@@ -148,21 +149,36 @@ class InteractiveSelftest(Elaboratable):
         #
         # ULPI PHY windows
         #
-        self.add_ulpi_registers(m,
+        self.add_ulpi_registers(m, platform,
             clock=clk_60MHz,
             ulpi_bus="target_phy",
             register_base=REGISTER_TARGET_ADDR
         )
-        self.add_ulpi_registers(m,
+        self.add_ulpi_registers(m, platform,
             clock=clk_60MHz,
             ulpi_bus="host_phy",
             register_base=REGISTER_HOST_ADDR
         )
-        self.add_ulpi_registers(m,
+        self.add_ulpi_registers(m, platform,
             clock=clk_60MHz,
             ulpi_bus="sideband_phy",
             register_base=REGISTER_SIDEBAND_ADDR
         )
+
+        #
+        # SPI flash passthrough connections.
+        #
+        flash_sdo = Signal()
+
+        spi_flash_bus = platform.request('spi_flash')
+        spi_flash_passthrough = ECP5ConfigurationFlashInterface(bus=spi_flash_bus)
+
+        m.submodules += spi_flash_passthrough 
+        m.d.comb += [
+            spi_flash_passthrough.sck   .eq(board_spi.sck),
+            spi_flash_passthrough.sdi   .eq(board_spi.sdi),
+            flash_sdo                   .eq(spi_flash_passthrough.sdo),
+        ]
 
 
         #
@@ -170,8 +186,8 @@ class InteractiveSelftest(Elaboratable):
         #
         sck = Signal()
         sdi = Signal()
-        sdo = Signal()
         cs  = Signal()
+        gateware_sdo = Signal()
 
         #
         # Synchronize each of our I/O SPI signals, where necessary.
@@ -179,20 +195,25 @@ class InteractiveSelftest(Elaboratable):
         m.submodules += FFSynchronizer(board_spi.sck, sck)
         m.submodules += FFSynchronizer(board_spi.sdi, sdi)
         m.submodules += FFSynchronizer(board_spi.cs,  cs)
-        m.d.comb     += board_spi.sdo.eq(sdo)
+
+        # Select the passthrough or gateware SPI based on our chip-select values.
+        with m.If(spi_registers.cs):
+            m.d.comb += board_spi.sdo.eq(gateware_sdo)
+        with m.Else():
+            m.d.comb += board_spi.sdo.eq(flash_sdo)
 
         # Connect our register interface to our board SPI.
         m.d.comb += [
-            spi_registers.sck.eq(sck),
-            spi_registers.sdi.eq(sdi),
-            sdo.eq(spi_registers.sdo),
-            spi_registers.cs .eq(cs)
+            spi_registers.sck .eq(sck),
+            spi_registers.sdi .eq(sdi),
+            gateware_sdo      .eq(spi_registers.sdo),
+            spi_registers.cs  .eq(cs)
         ]
 
         return m
 
 
-    def add_ulpi_registers(self, m, *, ulpi_bus, clock, register_base):
+    def add_ulpi_registers(self, m, platform, *, ulpi_bus, clock, register_base):
         """ Adds a set of ULPI registers to the active design. """
 
         target_ulpi    = platform.request(ulpi_bus)

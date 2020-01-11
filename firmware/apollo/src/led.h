@@ -21,12 +21,14 @@ typedef enum {
 
 
 /**
- * Different blink patterns with different semantic 
+ * Different blink patterns with different semantic meanings.
  */
 typedef enum {
   BLINK_IDLE = 500,
   BLINK_JTAG_CONNECTED = 150,
   BLINK_JTAG_UPLOADING = 50,
+
+  BLINK_FLASH_CONNECTED = 130,
 } blink_pattern_t;
 
 

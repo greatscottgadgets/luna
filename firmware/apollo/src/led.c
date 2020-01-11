@@ -149,5 +149,19 @@ void heartbeat_task(void)
       display_led_number(active_led + 1);
 
       break;
+
+    // Blink patterns for when the device is being used for SPI flash access.
+    // When these are displayed, 
+    case BLINK_FLASH_CONNECTED:
+
+      if (active_led == 5) {
+        active_led = 0;
+      }
+
+      leds_off();
+      display_led_number(active_led++);
+
+      break;
+
   }
 }

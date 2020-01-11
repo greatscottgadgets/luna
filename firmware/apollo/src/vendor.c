@@ -45,6 +45,9 @@ enum {
 	//
 	VENDOR_REQUEST_DEBUG_SPI_SEND          = 0x50,
 	VENDOR_REQUEST_DEBUG_SPI_READ_RESPONSE = 0x51,
+	VENDOR_REQUEST_FLASH_SPI_SEND          = 0x52,
+	VENDOR_REQUEST_TAKE_FLASH_LINES        = 0x53,
+	VENDOR_REQUEST_RELEASE_FLASH_LINES     = 0x54,
 
 
 	//
@@ -115,6 +118,12 @@ bool tud_vendor_control_request_cb(uint8_t rhport, tusb_control_request_t const*
 			return handle_debug_spi_send(rhport, request);
 		case VENDOR_REQUEST_DEBUG_SPI_READ_RESPONSE:
 			return handle_debug_spi_get_response(rhport, request);
+		case VENDOR_REQUEST_FLASH_SPI_SEND:
+			return handle_flash_spi_send(rhport, request);
+		case VENDOR_REQUEST_TAKE_FLASH_LINES:
+			return handle_take_configuration_spi(rhport, request);
+		case VENDOR_REQUEST_RELEASE_FLASH_LINES:
+			return handle_release_configuration_spi(rhport, request);
 
 		// Self-test requests.
 		case VENDOR_REQUEST_GET_RAIL_VOLTAGE:
@@ -137,6 +146,8 @@ bool tud_vendor_control_complete_cb(uint8_t rhport, tusb_control_request_t const
 	switch (request->bRequest) {
 		case VENDOR_REQUEST_DEBUG_SPI_SEND:
 			return handle_debug_spi_send_complete(rhport, request);
+		case VENDOR_REQUEST_FLASH_SPI_SEND:
+			return handle_flash_spi_send_complete(rhport, request);
 		default:
 			return true;
 	}

@@ -4,8 +4,9 @@
 
 import usb.core
 
-from .spi import DebugSPIConnection
-from .jtag import JTAGChain
+from .jtag  import JTAGChain
+from .flash import ConfigurationFlash
+from .spi   import DebugSPIConnection
 
 class DebuggerNotFound(IOError):
     pass
@@ -35,8 +36,9 @@ class ApolloDebugger:
         self.device = device
 
         # Create our basic interfaces, for debugging convenience.
-        self.spi = DebugSPIConnection(self)
-        self.jtag = JTAGChain(self)
+        self.jtag  = JTAGChain(self)
+        self.spi   = DebugSPIConnection(self)
+        self.flash = ConfigurationFlash(self)
 
 
     def out_request(self, number, value=0, index=0, data=None, timeout=5000):

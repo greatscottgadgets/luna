@@ -7,6 +7,7 @@
 #include <hal/include/hal_gpio.h>
 
 #include "spi.h"
+#include "led.h"
 
 // Selects whether we should use the SAMD SERCOM for SPI.
 // To select arbitrary pins for the SPI bus, uncomment this to use bitbang SPI.
@@ -17,20 +18,22 @@
  * Used when using bitbang mode for the debug SPI.
  */
 enum {
-	PIN_SCK = PIN_PA00,
+	PIN_SCK      = PIN_PA00,
 
-	PIN_SDI = PIN_PA12,
-	PIN_SDO = PIN_PA14,
+	PIN_SDI      = PIN_PA12,
+	PIN_SDO      = PIN_PA14,
 
-	PIN_CS  = PIN_PA01
+	PIN_FPGA_CS  = PIN_PA01,
+	PIN_FLASH_CS = PIN_PA04
 };
 
 
 // SPI comms buffers.
 // TODO: should these be unified into a single general buffer for requests,
 // for e.g. the smaller SAMD11?
-static uint8_t spi_in_buffer[32];
-static uint8_t spi_out_buffer[32];
+// 256 + 4 fits a SPI flash page and command
+static uint8_t spi_in_buffer[256 + 4];
+static uint8_t spi_out_buffer[256 + 4];
 
 #ifdef USE_SERCOM_FOR_SPI
 
@@ -62,14 +65,20 @@ void debug_spi_init(void)
 	gpio_set_pin_function(PIN_SDI, GPIO_PIN_FUNCTION_OFF);
 	gpio_set_pin_function(PIN_SCK, GPIO_PIN_FUNCTION_OFF);
 	gpio_set_pin_function(PIN_SDO, GPIO_PIN_FUNCTION_OFF);
-	gpio_set_pin_function(PIN_CS,  GPIO_PIN_FUNCTION_OFF);
+	gpio_set_pin_function(PIN_FPGA_CS,  GPIO_PIN_FUNCTION_OFF);
 
 	gpio_set_pin_direction(PIN_SDI, GPIO_DIRECTION_OUT);
 	gpio_set_pin_direction(PIN_SCK, GPIO_DIRECTION_OUT);
 	gpio_set_pin_direction(PIN_SDO, GPIO_DIRECTION_IN);
-	gpio_set_pin_direction(PIN_CS,  GPIO_DIRECTION_OUT);
+	gpio_set_pin_direction(PIN_FPGA_CS,  GPIO_DIRECTION_OUT);
 
-	gpio_set_pin_level(PIN_CS, true);
+	gpio_set_pin_level(PIN_FPGA_CS, true);
+
+	// Keep the configuration flash line as an input, but apply
+	// a weak pull-up to keep the pin from being selected while idle.
+	gpio_set_pin_direction(PIN_FLASH_CS, GPIO_DIRECTION_IN);
+	gpio_set_pin_pull_mode(PIN_FLASH_CS, GPIO_PULL_UP);
+
 }
 
 
@@ -132,14 +141,11 @@ static uint8_t debug_spi_exchange_byte(uint8_t to_send)
  */
 static void debug_spi_send(uint8_t *tx_buffer, uint8_t *rx_buffer, size_t length)
 {
-	gpio_set_pin_level(PIN_CS, false);
-
     for (size_t i = 0; i < length; ++i) {
         rx_buffer[i] = debug_spi_exchange_byte(tx_buffer[i]);
     }
-
-	gpio_set_pin_level(PIN_CS, true);
 }
+
 
 #endif
 
@@ -163,7 +169,10 @@ bool handle_debug_spi_send(uint8_t rhport, tusb_control_request_t const* request
 
 bool handle_debug_spi_send_complete(uint8_t rhport, tusb_control_request_t const* request)
 {
+	gpio_set_pin_level(PIN_FPGA_CS, false);
 	debug_spi_send(spi_out_buffer, spi_in_buffer, request->wLength);
+	gpio_set_pin_level(PIN_FPGA_CS, true);
+
 	return true;
 }
 
@@ -183,3 +192,68 @@ bool handle_debug_spi_get_response(uint8_t rhport, tusb_control_request_t const*
 	// Send up the contents of our IN buffer.
 	return tud_control_xfer(rhport, request, spi_in_buffer, length);
 }
+
+
+/**
+ * Request that sends a block of data over our debug SPI.
+ */
+bool handle_flash_spi_send(uint8_t rhport, tusb_control_request_t const* request)
+{
+	// If we've been handed too much data, stall.
+	if (request->wLength > sizeof(spi_out_buffer)) {
+		return false;
+	}
+
+	// Queue a transfer that will receive the relevant SPI data.
+	// We'll perform the send itself once the data transfer is complete.
+	return tud_control_xfer(rhport, request, spi_out_buffer, request->wLength);
+}
+
+
+bool handle_flash_spi_send_complete(uint8_t rhport, tusb_control_request_t const* request)
+{
+	// Ensure that we're actively sending...
+	gpio_set_pin_level(PIN_FLASH_CS, false);
+
+	// ... send the data...
+	debug_spi_send(spi_out_buffer, spi_in_buffer, request->wLength);
+
+	// ... and end the tranmission, unless we've been instructed to keep the line open.
+	if (!request->wValue) {
+		gpio_set_pin_level(PIN_FLASH_CS, true);
+	}
+
+	return true;
+}
+
+
+/**
+ * Request that grabs access to the configuration SPI lines.
+ */
+bool handle_take_configuration_spi(uint8_t rhport, tusb_control_request_t const* request)
+{
+	// Grab the SPI flash's CS pin...
+	gpio_set_pin_level(PIN_FLASH_CS, true);
+
+	gpio_set_pin_function(PIN_FLASH_CS,  GPIO_PIN_FUNCTION_OFF);
+	gpio_set_pin_direction(PIN_FLASH_CS, GPIO_DIRECTION_OUT);
+
+	// ... and set a blink pattern accordingly.
+	led_set_blink_pattern(BLINK_FLASH_CONNECTED);
+	return tud_control_xfer(rhport, request, NULL, 0);
+}
+
+
+/**
+ * Request that releases access to the configuration SPI lines.
+ */
+bool handle_release_configuration_spi(uint8_t rhport, tusb_control_request_t const* request)
+{
+	// Release the CS line, and then drop the blink pattern back to idle..
+	gpio_set_pin_direction(PIN_FLASH_CS, GPIO_DIRECTION_IN);
+	led_set_blink_pattern(BLINK_IDLE);
+
+	return tud_control_xfer(rhport, request, NULL, 0);
+}
+
+

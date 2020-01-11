@@ -44,10 +44,17 @@ class LUNAPlatformR01(LatticeECP5Platform):
         # Connection to our SPI flash; can be used to work with the flash
         # from e.g. a bootloader.
         Resource("spi_flash", 0,
-            Subsignal("sck",   Pins("N9",  dir="o")),
-            Subsignal("miso",  Pins("T7",  dir="i")),
-            Subsignal("mosi",  Pins("T8",  dir="o")),
-            Subsignal("cs",    PinsN("N8", dir="o")),
+
+            # SCK is on pin 9; but doesn't have a traditional I/O buffer.
+            # Instead, we'll need to drive a clock into a USRMCLK instance.
+            # See interfaces/flash.py for more information.
+            Subsignal("sdi",  Pins("T8",  dir="o")),
+            Subsignal("sdo",  Pins("T7",  dir="i")),
+
+            # In r0.1, the chip select line can either be driven by the FPGA
+            # or by the Debug Controller. Accordingly, we'll mark the line as
+            # bidirectional, and let the user decide.
+            Subsignal("cs",   PinsN("N8", dir="io")),
             Attrs(IO_TYPE="LVCMOS33")
         ),
 
@@ -135,8 +142,9 @@ class LUNAPlatformR01(LatticeECP5Platform):
 
     def toolchain_prepare(self, fragment, name, **kwargs):
         overrides = {
-            'ecppack_opts': '--idcode {}'.format(0x21111043)
+            'ecppack_opts': '--compress --idcode {} --freq 38.8'.format(0x21111043)
         }
+
         return super().toolchain_prepare(fragment, name, **overrides, **kwargs)
 
 
