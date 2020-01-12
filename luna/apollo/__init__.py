@@ -21,6 +21,7 @@ class ApolloDebugger:
     PRODUCT_ID = 0x05a5
 
     REQUEST_SET_LED_PATTERN = 0xa1
+    REQUEST_RECONFIGURE     = 0xc0
 
     LED_PATTERN_IDLE = 500
     LED_PATTERN_UPLOAD = 50
@@ -59,3 +60,11 @@ class ApolloDebugger:
 
     def set_led_pattern(self, number):
         self.out_request(self.REQUEST_SET_LED_PATTERN, number)
+
+
+    def soft_reset(self):
+        """ Resets the target (FPGA/etc) connected to the debug controller. """
+        try:
+            self.out_request(self.REQUEST_RECONFIGURE)
+        except usb.core.USBError:
+            pass

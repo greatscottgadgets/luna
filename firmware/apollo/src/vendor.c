@@ -8,13 +8,13 @@
  */
 
 
-
 #include <sam.h>
 #include <tusb.h>
 
 #include "spi.h"
 #include "led.h"
 #include "jtag.h"
+#include "fpga.h"
 #include "selftest.h"
 #include "debug_spi.h"
 
@@ -38,6 +38,9 @@ enum {
 	VENDOR_REQUEST_JTAG_GOTO_STATE         = 0xb5,
 	VENDOR_REQUEST_JTAG_GET_STATE          = 0xb6,
 	VENDOR_REQUEST_JTAG_BULK_SCAN          = 0xb7,
+
+	// General programming requests.
+	VENDOR_REQUEST_TRIGGER_RECONFIGURATION = 0xc0,
 
 
 	//
@@ -77,6 +80,16 @@ bool handle_set_led_pattern(uint8_t rhport, tusb_control_request_t const* reques
 }
 
 
+/**
+ * Request that changes the active LED pattern.
+ */
+bool handle_trigger_fpga_reconfiguration(uint8_t rhport, tusb_control_request_t const* request)
+{
+	trigger_fpga_reconfiguration();
+	return true;
+}
+
+
 
 /**
  * Primary vendor request handler.
@@ -88,6 +101,9 @@ bool tud_vendor_control_request_cb(uint8_t rhport, tusb_control_request_t const*
 	switch(request->bRequest) {
 		case VENDOR_REQUEST_GET_ID:
 			return handle_get_id_request(rhport, request);
+		case VENDOR_REQUEST_TRIGGER_RECONFIGURATION:
+			return handle_trigger_fpga_reconfiguration(rhport, request);
+
 
 		// JTAG requests
 		case VENDOR_REQUEST_JTAG_CLEAR_OUT_BUFFER:

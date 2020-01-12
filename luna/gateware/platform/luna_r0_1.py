@@ -5,9 +5,6 @@
 from nmigen.build import *
 from nmigen.vendor.lattice_ecp5 import *
 
-from luna.apollo import ApolloDebugger
-from luna.apollo.jtag import JTAGChain
-from luna.apollo.ecp5 import ECP5_JTAGProgrammer
 
 __all__ = ["LUNAPlatformR01"]
 
@@ -151,11 +148,48 @@ class LUNAPlatformR01(LatticeECP5Platform):
     def toolchain_program(self, products, name):
         """ Programs the relevant LUNA board via its sideband connection. """
 
+        from luna.apollo import ApolloDebugger
+        from luna.apollo.ecp5 import ECP5_JTAGProgrammer
+
         # Create our connection to the debug module.
         debugger = ApolloDebugger()
 
         # Grab our generated bitstream, and upload it to the FPGA.
         bitstream =  products.get("{}.bit".format(name))
-        with JTAGChain(debugger) as jtag:
+        with debugger.jtag as jtag:
             programmer = ECP5_JTAGProgrammer(jtag)
             programmer.configure(bitstream)
+
+
+    def toolchain_flash(self, products, name="top"):
+        """ Programs the LUNA board's flash via its sideband connection. """
+
+        from luna.apollo import ApolloDebugger
+        from luna.apollo.flash import ensure_flash_gateware_loaded
+
+        # Create our connection to the debug module.
+        debugger = ApolloDebugger()
+        ensure_flash_gateware_loaded(debugger, platform=self.__class__())
+
+        # Grab our generated bitstream, and upload it to the .
+        bitstream =  products.get("{}.bit".format(name))
+        with debugger.flash as flash:
+            flash.program(bitstream)
+
+        debugger.soft_reset()
+
+
+    def toolchain_erase(self):
+        """ Erases the LUNA board's flash. """
+
+        from luna.apollo import ApolloDebugger
+        from luna.apollo.flash import ensure_flash_gateware_loaded
+
+        # Create our connection to the debug module.
+        debugger = ApolloDebugger()
+        ensure_flash_gateware_loaded(debugger, platform=self.__class__())
+
+        with debugger.flash as flash:
+            flash.erase()
+
+        debugger.soft_reset()

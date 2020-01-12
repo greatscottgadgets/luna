@@ -441,7 +441,7 @@ class ECP5CommandBasedProgrammer(ECP5Programmer):
 
 
     def trigger_reconfiguration(self):
-        self._restart_configuration_process()
+        pass
 
 
     def _capture_part_id(self):
@@ -658,15 +658,13 @@ class ECP5MasterSerialDirect(ECP5Programmer):
 
 
 class ECP5_JTAGProgrammer(ECP5CommandBasedProgrammer):
-    """ Class that enables configuring ECP5 FPGAs via GreatFET boards. """
+    """ Class that enables configuring ECP5 FPGAs over JTAG. """
 
 
-    def __init__(self, jtag_chain, spi_bus=None, *args, **kwargs):
-        """ Creates a new ECP5 Slave SPI (SSPI) configuration interface.
-
-        Parameters:
+    def __init__(self, jtag_chain, *args, **kwargs):
+        """ Parameters:
             board -- The GreatFET board to use for configuration.
-            spi_bus -- The SPI bus to use for programming. If omitted, the board's
+            chain -- The JTAG chain used for programming.
                 default SPI bus will be used.
 
         See ECP5Programmer.__init__ for additional accepted arguments.

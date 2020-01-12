@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 # This file is part of LUNA.
 #
@@ -5,10 +6,9 @@
 import sys
 
 from nmigen import Signal, Module, Elaboratable, ClockDomain, ClockSignal, Cat
+
+from luna import top_level_cli
 from luna.gateware.platform.luna_r0_1 import LUNAPlatformR01
-
-from nmigen.back import verilog
-
 
 class Blinky(Elaboratable):
     """ Hardware module that validates basic LUNA functionality. """
@@ -36,11 +36,4 @@ class Blinky(Elaboratable):
 
 
 if __name__ == "__main__":
-
-    if len(sys.argv) == 2:
-        build_only = (sys.argv[1] == 'build')
-    else:
-        build_only = False
-
-    platform = LUNAPlatformR01()
-    platform.build(Blinky(), do_program=not build_only)
+    top_level_cli(Blinky)

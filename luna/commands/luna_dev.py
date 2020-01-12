@@ -10,18 +10,13 @@ import sys
 import ast
 import time
 import errno
-import shutil
-import tempfile
 import argparse
 
 from luna.apollo import ApolloDebugger
 from luna.apollo.jtag import JTAGChain, JTAGPatternError
 from luna.apollo.ecp5 import ECP5_JTAGProgrammer
+from luna.apollo.flash import ensure_flash_gateware_loaded
 from luna.apollo.onboard_jtag import *
-
-# Grab references to the gateware applets we'll need to perform some of the debug functions.
-from luna.gateware.platform import get_appropriate_platform
-from luna.gateware.applets.dc_flash import DebugControllerFlashBridge
 
 
 COMMAND_HELP_TEXT = \
@@ -89,9 +84,7 @@ def configure_ecp5(device, log_function, log_error, args):
 def reconfigure_ecp5(device, log_function, log_error, args):
     """ Command that requests the attached ECP5 reconfigure itself from its MSPI flash. """
 
-    with device.jtag as jtag:
-        programmer = ECP5_JTAGProgrammer(jtag)
-        programmer.trigger_reconfiguration()
+    device.soft_reset()
 
 
 def debug_spi(device, log_function, log_error, args):
@@ -122,40 +115,11 @@ def debug_spi_register(device, log_function, log_error, args):
     print("0x{:08x}".format(response))
 
 
-def set_up_for_flashing(device, log_function):
-    """ Sets up the device for flashing; e.g. by uploading a configuration image. """
-
-    # Check to see if we have a gateware loaded that responds with the right magic numbers.
-    # If so, we're already set up for flashing.
-    try:
-        if device.spi.register_read(1) == 0x53504946:
-            return
-    except:
-        pass
-
-    # Create a temporary build directory, so we're not cluttering the user's working directory
-    # with nMigen build output.
-    build_dir = tempfile.mkdtemp(suffix="build")
-
-    try:
-        # Build and upload a set of gateware that will give us access to the target flash.
-        log_function("No compatible gateware detected. Generating and uploading a flash-bridge gateware...")
-        target_platform = get_appropriate_platform()
-        target_platform.build(DebugControllerFlashBridge(), do_program=True, build_dir=build_dir)
-
-        # Validate that we seem to have an SPI flash.
-        with device.flash as flash:
-            info, _ = flash.read_flash_info()
-            assert(info is not None)
-        log_function("Flash bridge ready; target SPI should be accessible.\n")
-    finally:
-        shutil.rmtree(build_dir)
-
 
 
 def print_flash_info(device, log_function, log_error, args):
     """ Command that prints information about the connected SPI flash. """
-    set_up_for_flashing(device, log_function)
+    ensure_flash_gateware_loaded(device, log_function=log_function)
 
     with device.flash as flash:
         flash_id, description = flash.read_flash_info()
@@ -171,7 +135,7 @@ def print_flash_info(device, log_function, log_error, args):
 
 def erase_config_flash(device, log_function, log_error, args):
     """ Command that erases the connected configuration flash. """
-    set_up_for_flashing(device, log_function)
+    ensure_flash_gateware_loaded(device, log_function=log_function)
 
     with device.flash as flash:
         flash.erase()
@@ -179,7 +143,7 @@ def erase_config_flash(device, log_function, log_error, args):
 
 def program_config_flash(device, log_function, log_error, args):
     """ Command that programs a given bitstream into the device's configuration flash. """
-    set_up_for_flashing(device, log_function)
+    ensure_flash_gateware_loaded(device, log_function=log_function)
 
     with open(args.argument, "rb") as f:
         bitstream = f.read()
@@ -190,7 +154,7 @@ def program_config_flash(device, log_function, log_error, args):
 
 def read_out_config_flash(device, log_function, log_error, args):
     """ Command that programs a given bitstream into the device's configuration flash. """
-    set_up_for_flashing(device, log_function)
+    ensure_flash_gateware_loaded(device, log_function=log_function)
    
     # For now, always read back a ECP5-12F.
     read_back_length = 582376

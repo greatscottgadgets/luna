@@ -3,6 +3,8 @@
 #
 
 import time
+import shutil
+import tempfile
 
 # Vendor requests.
 REQUEST_TAKE_CONFIG_LINES       = 0x53
@@ -11,6 +13,9 @@ REQUEST_RELEASE_CONFIG_LINES    = 0x54
 REQUEST_FLASH_SPI_SEND          = 0x52
 REQUEST_FLASH_SPI_READ_RESPONSE = 0x51
 
+# Grab references to the gateware applets we'll need to perform some of the debug functions.
+from ..gateware.platform import get_appropriate_platform
+from ..gateware.applets.dc_flash import DebugControllerFlashBridge
 
 class ConfigurationFlash:
     """
@@ -242,3 +247,35 @@ class ConfigurationFlash:
             log_function("Read {} of {} bytes.".format(address, length))
 
         return data
+
+
+
+def ensure_flash_gateware_loaded(device, *, platform=None, log_function=lambda _ : None):
+    """ Sets up the device for flashing; e.g. by uploading a configuration image. """
+
+    # Check to see if we have a gateware loaded that responds with the right magic numbers.
+    # If so, we're already set up for flashing.
+    try:
+        if device.spi.register_read(1) == 0x53504946:
+            return
+    except:
+        pass
+
+    # Create a temporary build directory, so we're not cluttering the user's working directory
+    # with nMigen build output.
+    build_dir = tempfile.mkdtemp(suffix="build")
+
+    try:
+        # Build and upload a set of gateware that will give us access to the target flash.
+        log_function("No compatible gateware detected. Generating and uploading a flash-bridge gateware...")
+        target_platform = platform if platform else get_appropriate_platform()
+        target_platform.build(DebugControllerFlashBridge(), do_program=True, build_dir=build_dir)
+
+        # Validate that we seem to have an SPI flash.
+        with device.flash as flash:
+            info, _ = flash.read_flash_info()
+            assert(info is not None)
+        log_function("Flash bridge ready; target SPI should be accessible.\n")
+    finally:
+        shutil.rmtree(build_dir)
+

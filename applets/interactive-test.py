@@ -9,6 +9,7 @@ from functools import reduce
 from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetInserter
 from nmigen.lib.cdc import FFSynchronizer
 
+from luna                          import top_level_cli
 from luna.gateware.platform        import get_appropriate_platform
 from luna.gateware.interface.spi   import SPIRegisterInterface
 from luna.gateware.interface.ulpi  import UMTITranslator
@@ -237,7 +238,6 @@ class InteractiveSelftest(Elaboratable):
         )
 
 
-
 if __name__ == "__main__":
-    platform = get_appropriate_platform()
-    platform.build(InteractiveSelftest(), do_program=True)
+    top_level_cli(InteractiveSelftest)
+
