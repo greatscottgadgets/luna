@@ -61,7 +61,7 @@ class PHYResetController(Elaboratable):
             ]
 
             with m.State('IDLE'):
-                m.d.sync += cycles_in_reset.eq(0)
+                m.d.ulpi += cycles_in_reset.eq(0)
 
                 # Wait for a reset request.
                 with m.If(self.trigger):
@@ -69,20 +69,20 @@ class PHYResetController(Elaboratable):
 
             # RESETTING: hold the reset line active for the given amount of time
             with m.State('RESETTING'):
-                m.d.sync += cycles_in_reset.eq(cycles_in_reset + 1)
+                m.d.ulpi += cycles_in_reset.eq(cycles_in_reset + 1)
 
                 with m.If(cycles_in_reset + 1 == self.reset_length_cycles):
-                    m.d.sync += cycles_in_reset.eq(0)
+                    m.d.ulpi += cycles_in_reset.eq(0)
                     m.next = 'DEFERRING_STARTUP'
 
             # DEFERRING_STARTUP: Produce a signal that will defer startup for
             # the provided amount of time. This allows line state to stabilize
             # before the PHY will start interacting with us.
             with m.State('DEFERRING_STARTUP'):
-                m.d.sync += cycles_in_reset.eq(cycles_in_reset + 1)
+                m.d.ulpi += cycles_in_reset.eq(cycles_in_reset + 1)
 
                 with m.If(cycles_in_reset + 1 == self.stop_length_cycles):
-                    m.d.sync += cycles_in_reset.eq(0)
+                    m.d.ulpi += cycles_in_reset.eq(0)
                     m.next = 'IDLE'
 
 
@@ -180,7 +180,7 @@ class ULPIRegisterWindow(Elaboratable):
         current_write   = Signal(8)
 
         # Keep our control signals low unless explicitly asserted.
-        m.d.sync += [
+        m.d.ulpi += [
             self.ulpi_out_req.eq(0),
             self.ulpi_stop   .eq(0),
             self.done        .eq(0)
@@ -200,11 +200,11 @@ class ULPIRegisterWindow(Elaboratable):
                 # operation, as the controller should handle this,
                 # but it cleans up the output in our tests and allows
                 # this unit to be used standalone.
-                m.d.sync += self.ulpi_data_out.eq(0)
+                m.d.ulpi += self.ulpi_data_out.eq(0)
 
                 # Constantly latch in our arguments while IDLE.
                 # We'll stop latching these in as soon as we're busy.
-                m.d.sync += [
+                m.d.ulpi += [
                     current_address .eq(self.address),
                     current_write   .eq(self.write_data)
                 ]
@@ -227,7 +227,7 @@ class ULPIRegisterWindow(Elaboratable):
                     m.next = 'SEND_READ_ADDRESS'
 
                     # Once it is, start sending our command.
-                    m.d.sync += [
+                    m.d.ulpi += [
                         self.ulpi_data_out .eq(self.COMMAND_REG_READ | self.address),
                         self.ulpi_out_req  .eq(1)
                     ]
@@ -238,19 +238,19 @@ class ULPIRegisterWindow(Elaboratable):
             # to come into this state writing, as we need to lead with a
             # bus-turnaround cycle.
             with m.State('SEND_READ_ADDRESS'):
-                m.d.sync += self.ulpi_out_req.eq(1)
+                m.d.ulpi += self.ulpi_out_req.eq(1)
 
                 # If DIR has become asserted, we're being interrupted. 
                 # We'll have to restart the read after the interruption is over.
                 with m.If(self.ulpi_dir):
                     m.next = 'START_READ'
-                    m.d.sync += self.ulpi_out_req.eq(0)
+                    m.d.ulpi += self.ulpi_out_req.eq(0)
 
                 # If NXT becomes asserted without us being interrupted by
                 # DIR, then the PHY has accepted the read. Release our write
                 # request, so the next cycle can properly act as a bus turnaround.
                 with m.Elif(self.ulpi_next):
-                    m.d.sync += [
+                    m.d.ulpi += [
                         self.ulpi_out_req  .eq(0),
                         self.ulpi_data_out .eq(0),
                     ]
@@ -269,7 +269,7 @@ class ULPIRegisterWindow(Elaboratable):
                 m.next = 'IDLE'
 
                 # Latch in the data, and indicate that we have new, valid data.
-                m.d.sync += [
+                m.d.ulpi += [
                     self.read_data .eq(self.ulpi_data_in),
                     self.done      .eq(1)
                 ]
@@ -286,7 +286,7 @@ class ULPIRegisterWindow(Elaboratable):
                     m.next = 'SEND_WRITE_ADDRESS'
 
                     # Once it is, start sending our command.
-                    m.d.sync += [
+                    m.d.ulpi += [
                         self.ulpi_data_out .eq(self.COMMAND_REG_WRITE | self.address),
                         self.ulpi_out_req  .eq(1)
                     ]
@@ -294,34 +294,34 @@ class ULPIRegisterWindow(Elaboratable):
             # SEND_WRITE_ADDRESS: Continue sending the write address until the
             # target device accepts it.
             with m.State('SEND_WRITE_ADDRESS'):
-                m.d.sync += self.ulpi_out_req.eq(1)
+                m.d.ulpi += self.ulpi_out_req.eq(1)
 
                 # If DIR has become asserted, we're being interrupted. 
                 # We'll have to restart the write after the interruption is over.
                 with m.If(self.ulpi_dir):
                     m.next = 'START_WRITE'
-                    m.d.sync += self.ulpi_out_req.eq(0)
+                    m.d.ulpi += self.ulpi_out_req.eq(0)
 
                 # Hold our address until the PHY has accepted the command;
                 # and then move to presenting the PHY with the value to be written.
                 with m.Elif(self.ulpi_next):
-                    m.d.sync += self.ulpi_data_out.eq(self.write_data)
+                    m.d.ulpi += self.ulpi_data_out.eq(self.write_data)
                     m.next = 'HOLD_WRITE'
 
 
             # Hold the write data on the bus until the device acknowledges it.
             with m.State('HOLD_WRITE'):
-                m.d.sync += self.ulpi_out_req.eq(1)
+                m.d.ulpi += self.ulpi_out_req.eq(1)
 
                 # Handle interruption.
                 with m.If(self.ulpi_dir):
                     m.next = 'START_WRITE'
-                    m.d.sync += self.ulpi_out_req.eq(0)
+                    m.d.ulpi += self.ulpi_out_req.eq(0)
 
                 # Hold the data present until the device has accepted it.
                 # Once it has, pulse STP for a cycle to complete the transaction.
                 with m.Elif(self.ulpi_next):
-                    m.d.sync += [
+                    m.d.ulpi += [
                         self.ulpi_data_out.eq(0),
                         self.ulpi_out_req.eq(0),
                         self.ulpi_stop.eq(1)
@@ -538,14 +538,14 @@ class ULPIRxEventDecoder(Elaboratable):
         # To implement the first condition, we'll first create a delayed
         # version of DIR, and then logically AND it with the current value.
         direction_delayed = Signal()
-        m.d.sync += direction_delayed.eq(self.ulpi_dir)
+        m.d.ulpi += direction_delayed.eq(self.ulpi_dir)
 
         receiving = Signal()
         m.d.comb += receiving.eq(direction_delayed & self.ulpi_dir)
 
         # Sample the DATA lines whenever these conditions are met.
         with m.If(receiving & ~self.ulpi_next & ~self.register_operation_in_progress):
-            m.d.sync += self.last_rx_command.eq(self.ulpi_data_in)
+            m.d.ulpi += self.last_rx_command.eq(self.ulpi_data_in)
 
         # Break the most recent RxCmd into its UMTI-equivalent signals.
         # From table 3.8.1.2 in the ULPI spec; rev 1.1/Oct-20-2004.

@@ -9,11 +9,11 @@ from functools import reduce
 from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetInserter
 from nmigen.lib.cdc import FFSynchronizer
 
-from luna                          import top_level_cli
-from luna.gateware.platform        import get_appropriate_platform
-from luna.gateware.interface.spi   import SPIRegisterInterface
-from luna.gateware.interface.ulpi  import UMTITranslator
-from luna.gateware.interface.flash import ECP5ConfigurationFlashInterface
+from luna                             import top_level_cli
+from luna.gateware.architecture.clock import LunaECP5DomainGenerator
+from luna.gateware.interface.spi      import SPIRegisterInterface
+from luna.gateware.interface.ulpi     import UMTITranslator
+from luna.gateware.interface.flash    import ECP5ConfigurationFlashInterface
 
 REGISTER_ID             = 1
 REGISTER_LEDS           = 2
@@ -34,6 +34,7 @@ REGISTER_HOST_RXCMD     = 12
 REGISTER_SIDEBAND_ADDR  = 13
 REGISTER_SIDEBAND_VALUE = 14
 REGISTER_SIDEBAND_RXCMD = 15
+
 
 class InteractiveSelftest(Elaboratable):
     """ Hardware meant to demonstrate use of the Debug Controller's register interface.
@@ -64,11 +65,9 @@ class InteractiveSelftest(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-        clk_60MHz = platform.request(platform.default_clk)
-
-        # Drive the sync clock domain with our main clock.
-        m.domains.sync = ClockDomain()
-        m.d.comb += ClockSignal().eq(clk_60MHz)
+        # Generate our clock domains.
+        clocking = LunaECP5DomainGenerator()
+        m.submodules.clocking = clocking
 
         # Create a set of registers, and expose them over SPI.
         board_spi = platform.request("debug_spi")
@@ -151,17 +150,17 @@ class InteractiveSelftest(Elaboratable):
         # ULPI PHY windows
         #
         self.add_ulpi_registers(m, platform,
-            clock=clk_60MHz,
+            clock=clocking.clk_ulpi,
             ulpi_bus="target_phy",
             register_base=REGISTER_TARGET_ADDR
         )
         self.add_ulpi_registers(m, platform,
-            clock=clk_60MHz,
+            clock=clocking.clk_ulpi,
             ulpi_bus="host_phy",
             register_base=REGISTER_HOST_ADDR
         )
         self.add_ulpi_registers(m, platform,
-            clock=clk_60MHz,
+            clock=clocking.clk_ulpi,
             ulpi_bus="sideband_phy",
             register_base=REGISTER_SIDEBAND_ADDR
         )
