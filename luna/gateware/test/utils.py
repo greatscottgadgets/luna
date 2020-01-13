@@ -8,6 +8,7 @@ import unittest
 
 from functools import wraps
 
+from nmigen import Signal
 from nmigen.test.utils import FHDLTestCase
 from nmigen.back.pysim import Simulator
 
@@ -43,9 +44,11 @@ class LunaGatewareTestCase(FHDLTestCase):
     FRAGMENT_UNDER_TEST = None
     FRAGMENT_ARGUMENTS = {}
 
-    # Convenience property: if not None, a clock with the relevant frequency
+    # Convenience properties: if not None, a clock with the relevant frequency
     # will automatically be added.
-    CLOCK_FREQUENCY = 60e6
+    FAST_CLOCK_FREQUENCY = None
+    SYNC_CLOCK_FREQUENCY = 120e6
+    ULPI_CLOCK_FREQUENCY = None
 
 
     def instantiate_dut(self):
@@ -65,12 +68,18 @@ class LunaGatewareTestCase(FHDLTestCase):
         self.dut = self.instantiate_dut()
         self.sim = Simulator(self.dut)
 
-        if self.CLOCK_FREQUENCY:
-            self.sim.add_clock(1 / self.CLOCK_FREQUENCY)
+        if self.ULPI_CLOCK_FREQUENCY:
+            self.sim.add_clock(1 / self.ULPI_CLOCK_FREQUENCY, domain="ulpi")
+        if self.SYNC_CLOCK_FREQUENCY:
+            self.sim.add_clock(1 / self.SYNC_CLOCK_FREQUENCY, domain="sync")
+        if self.FAST_CLOCK_FREQUENCY:
+            self.sim.add_clock(1 / self.FAST_CLOCK_FREQUENCY, domain="fast")
+
 
 
     def initialize_signals(self):
-        pass
+        """ Provide an opportunity for the test apparatus to initialize siganls. """
+        yield Signal()
 
 
     def get_timestamp(self):

@@ -14,6 +14,7 @@ from luna.gateware.architecture.clock import LunaECP5DomainGenerator
 from luna.gateware.interface.spi      import SPIRegisterInterface
 from luna.gateware.interface.ulpi     import UMTITranslator
 from luna.gateware.interface.flash    import ECP5ConfigurationFlashInterface
+from luna.gateware.interface.psram    import HyperRAMInterface
 
 REGISTER_ID             = 1
 REGISTER_LEDS           = 2
@@ -35,6 +36,8 @@ REGISTER_SIDEBAND_ADDR  = 13
 REGISTER_SIDEBAND_VALUE = 14
 REGISTER_SIDEBAND_RXCMD = 15
 
+REGISTER_RAM_REG_ADDR   = 20
+REGISTER_RAM_VALUE      = 21
 
 class InteractiveSelftest(Elaboratable):
     """ Hardware meant to demonstrate use of the Debug Controller's register interface.
@@ -60,6 +63,9 @@ class InteractiveSelftest(Elaboratable):
         13 -- sideband PHY ULPI register address
         14 -- sideband PHY ULPI register value
         15 -- last sideband PHY RxCmd
+
+        20 -- HyperRAM register address
+        21 -- HyperRAM register value
     """
 
     def elaborate(self, platform):
@@ -127,7 +133,7 @@ class InteractiveSelftest(Elaboratable):
         #
 
         # Data direction register.
-        user_io_ddr = spi_registers.add_register(REGISTER_USER_IO_DIR, size=4)
+        user_io_dir = spi_registers.add_register(REGISTER_USER_IO_DIR, size=4)
 
         # Pin (input) state register.
         user_io_in  = Signal(4)
@@ -140,7 +146,7 @@ class InteractiveSelftest(Elaboratable):
         for i in range(4):
             pin = platform.request("user_io", i)
             m.d.comb += [
-                pin.oe         .eq(user_io_ddr[i]),
+                pin.oe         .eq(user_io_dir[i]),
                 user_io_in[i]  .eq(pin.i),
                 pin.o          .eq(user_io_out[i])
             ]
@@ -164,6 +170,31 @@ class InteractiveSelftest(Elaboratable):
             ulpi_bus="sideband_phy",
             register_base=REGISTER_SIDEBAND_ADDR
         )
+
+
+        #
+        # HyperRAM test connections.
+        #
+        ram_bus = platform.request('ram')
+        psram = HyperRAMInterface(bus=ram_bus)
+        m.submodules += psram
+
+        psram_address_changed = Signal()
+        psram_address = spi_registers.add_register(REGISTER_RAM_REG_ADDR, write_strobe=psram_address_changed)
+
+        spi_registers.add_sfr(REGISTER_RAM_VALUE, read=psram.read_data)
+
+        # Hook up our PSRAM.
+        m.d.comb += [
+            ram_bus.reset          .eq(0),
+            psram.single_page      .eq(0),
+            psram.perform_write    .eq(0),
+            psram.register_space   .eq(1),
+            psram.final_word       .eq(1),
+            psram.start_transfer   .eq(psram_address_changed),
+            psram.address          .eq(psram_address),
+        ]
+
 
         #
         # SPI flash passthrough connections.

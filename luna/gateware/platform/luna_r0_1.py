@@ -110,12 +110,13 @@ class LUNAPlatformR01(LatticeECP5Platform):
         Resource("target_vbus_fault",  0, Pins("K15", dir="i"), Attrs(IO_TYPE="LVCMOS33")),
 
         # HyperRAM (1V8 domain).
-        Resource("ram",
-            Subsignal("clk",   DiffPairs("B14", "A15", dir="o"), Attrs(IO_TYPE="LVCMOS18D")),
+        Resource("ram", 0,
+            Subsignal("clk",   Pins("B14", dir="o")),
+            Subsignal("clkN",  Pins("A15", dir="o")),
             Subsignal("dq",    Pins("A11 B10 B12 A12 B11 A10 B9 A9", dir="io")),
-            Subsignal("rwds",  Pins( "A13", dir="o")),
+            Subsignal("rwds",  Pins( "A13", dir="io")),
             Subsignal("cs",    PinsN("A14", dir="o")),
-            Subsignal("reset", Pins( "B13", dir="o")),
+            Subsignal("reset", PinsN("B13", dir="o")),
             Attrs(IO_TYPE="LVCMOS18")
         ),
 

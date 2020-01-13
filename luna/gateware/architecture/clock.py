@@ -4,8 +4,6 @@
 """ Clock domain generation logic for LUNA. """
 
 from abc import ABCMeta, abstractmethod
-
-
 from nmigen import Signal, Module, ClockDomain, ClockSignal, Elaboratable
 
 
@@ -61,15 +59,19 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
         m.domains.sync = ClockDomain()
         m.domains.ulpi = ClockDomain()
 
+        # Create a clock domain that shifts on the falling edges of the fast clock.
+        m.domains.fast_out = ClockDomain()
+
         # Generate and connect up our clocks.
         m.d.comb += [
-            self.clk_sync              .eq(self.generate_sync_clock(platform)),
-            self.clk_fast              .eq(self.generate_fast_clock(platform)),
-            self.clk_ulpi              .eq(self.generate_ulpi_clock(platform)),
+            self.clk_sync                  .eq(self.generate_sync_clock(platform)),
+            self.clk_fast                  .eq(self.generate_fast_clock(platform)),
+            self.clk_ulpi                  .eq(self.generate_ulpi_clock(platform)),
 
-            ClockSignal(domain="fast") .eq(self.clk_fast),
-            ClockSignal(domain="sync") .eq(self.clk_sync),
-            ClockSignal(domain="ulpi") .eq(self.clk_ulpi),
+            ClockSignal(domain="fast")     .eq(self.clk_fast),
+            ClockSignal(domain="fast_out") .eq(~self.clk_fast),
+            ClockSignal(domain="sync")     .eq(self.clk_sync),
+            ClockSignal(domain="ulpi")     .eq(self.clk_ulpi),
         ]
 
         return m
