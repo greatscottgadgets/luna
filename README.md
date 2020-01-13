@@ -10,3 +10,4 @@ This project is broken down into several directories:
   * `luna/utilities` -- utilities for working with LUNA boards; including for using the debug controller to load FPGA gateware
 * `firmware` -- firmware for the LUNA debug controller
 * `examples` -- simple LUNA-related examples; mostly gateware-targeted, currently
+* `applets` -- pre-made gateware applications that provide useful functionality on their own (e.g. are more than examples)
