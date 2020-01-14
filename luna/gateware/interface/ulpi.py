@@ -25,7 +25,7 @@ class PHYResetController(Elaboratable):
             reset_length   -- The length of a reset pulse, in seconds.
             stop_length    -- The length of time STP should be asserted after reset.
             power_on_reset -- If True or omitted, the reset will be applied once the firmware
-                            is configured.
+                              is configured.
         """
 
         from math import ceil

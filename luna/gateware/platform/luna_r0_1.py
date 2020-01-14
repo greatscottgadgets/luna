@@ -28,6 +28,9 @@ class LUNAPlatformR01(LatticeECP5Platform):
 
     device      = "LFE5U-12F"
     package     = "BG256"
+
+    # TODO: make this configurable to support multiple speed grades?
+    # Or split this into two revisions to support various speed grades.
     speed       = "6"
 
     default_clk = "clk_60MHz"

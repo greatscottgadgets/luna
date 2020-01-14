@@ -16,6 +16,17 @@ from luna.gateware.interface.ulpi     import UMTITranslator
 from luna.gateware.interface.flash    import ECP5ConfigurationFlashInterface
 from luna.gateware.interface.psram    import HyperRAMInterface
 
+#
+# Clock frequencies for each of the domains.
+# Can be modified to test at faster or slower frequencies.
+#
+CLOCK_FREQUENCIES = {
+    "fast": 60,
+    "sync": 60,
+    "ulpi": 60
+}
+
+
 REGISTER_ID             = 1
 REGISTER_LEDS           = 2
 REGISTER_TARGET_POWER   = 3
@@ -72,7 +83,7 @@ class InteractiveSelftest(Elaboratable):
         m = Module()
 
         # Generate our clock domains.
-        clocking = LunaECP5DomainGenerator()
+        clocking = LunaECP5DomainGenerator(clock_frequencies=CLOCK_FREQUENCIES)
         m.submodules.clocking = clocking
 
         # Create a set of registers, and expose them over SPI.
@@ -143,13 +154,18 @@ class InteractiveSelftest(Elaboratable):
         user_io_out = spi_registers.add_register(REGISTER_USER_IO_OUT, size=4)
 
         # Grab and connect each of our user-I/O ports our GPIO registers.
-        for i in range(4):
-            pin = platform.request("user_io", i)
-            m.d.comb += [
-                pin.oe         .eq(user_io_dir[i]),
-                user_io_in[i]  .eq(pin.i),
-                pin.o          .eq(user_io_out[i])
-            ]
+        #for i in range(4):
+        #    pin = platform.request("user_io", i)
+        #    m.d.comb += [
+        #        pin.oe         .eq(user_io_dir[i]),
+        #        user_io_in[i]  .eq(pin.i),
+        #        pin.o          .eq(user_io_out[i])
+        #    ]
+        user_io = Cat(platform.request("user_io", i, dir="o") for i in range(2))
+        m.d.comb += [
+            user_io[0].eq(ClockSignal("fast")),
+            user_io[1].eq(ClockSignal("sync")),
+        ]
 
 
         #
@@ -251,18 +267,34 @@ class InteractiveSelftest(Elaboratable):
         umti_adapter   = UMTITranslator(ulpi=target_ulpi, clock=clock)
         m.submodules  += umti_adapter
 
-        # ULPI register window.
+        register_address_change  = Signal()
+        register_value_change    = Signal()
+
+        # ULPI register address.
         spi_registers = m.submodules.spi_registers
         spi_registers.add_register(register_base + 0,
-            write_strobe=umti_adapter.manual_read,
+            write_strobe=register_address_change,
             value_signal=umti_adapter.address,
             size=6
         )
+        m.submodules.clocking.stretch_sync_strobe_to_ulpi(m,
+            strobe=register_address_change,
+            output=umti_adapter.manual_read,
+        )
+
+
+        # ULPI register value.
         spi_registers.add_sfr(register_base + 1,
             read=umti_adapter.read_data,
             write_signal=umti_adapter.write_data,
-            write_strobe=umti_adapter.manual_write
+            write_strobe=register_value_change
         )
+        m.submodules.clocking.stretch_sync_strobe_to_ulpi(m,
+            strobe=register_value_change,
+            output=umti_adapter.manual_write,
+        )
+
+
         spi_registers.add_sfr(register_base + 2,
             read=umti_adapter.last_rx_command
         )
