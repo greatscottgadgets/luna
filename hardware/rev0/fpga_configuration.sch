@@ -723,7 +723,6 @@ NoConn ~ 3550 4750
 NoConn ~ 3550 4850
 NoConn ~ 1550 2150
 NoConn ~ 1550 2250
-NoConn ~ 1550 2550
 Text HLabel 4650 2450 2    50   Input ~ 0
 SIDEBAND_PHY_1V8
 Text HLabel 4650 2750 2    50   Input ~ 0
@@ -891,23 +890,12 @@ Wire Wire Line
 	3550 3750 4150 3750
 Wire Wire Line
 	3550 3850 4150 3850
-Text Label 4150 3650 2    50   ~ 0
+Text Label 1100 2550 0    50   ~ 0
 FPGA_DONE
 Text Label 4150 3750 2    50   ~ 0
 ~FPGA_INIT
 Text Label 4150 3850 2    50   ~ 0
 ~FPGA_PROGRAM
-$Comp
-L MCU_Microchip_SAMD:ATSAMD21G18A-AUT U6
-U 1 1 5DCDF84F
-P 2550 3750
-F 0 "U6" H 3300 1950 50  0000 C CNN
-F 1 "ATSAMD21G18A-AUT" H 1500 1950 50  0000 C CNN
-F 2 "Package_QFP:TQFP-48_7x7mm_P0.5mm" H 1600 2000 50  0001 C CNN
-F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/SAMD21-Family-DataSheet-DS40001882D.pdf" H 2550 4750 50  0001 C CNN
-	1    2550 3750
-	-1   0    0    -1  
-$EndComp
 Wire Wire Line
 	2350 1850 2350 1750
 $Comp
@@ -946,4 +934,19 @@ Wire Wire Line
 	5850 2250 3550 2250
 NoConn ~ 9450 2700
 NoConn ~ 9450 2800
+$Comp
+L MCU_Microchip_SAMD:ATSAMD21G18A-AUT U6
+U 1 1 5DCDF84F
+P 2550 3750
+F 0 "U6" H 3300 1950 50  0000 C CNN
+F 1 "ATSAMD21G18A-AUT" H 1500 1950 50  0000 C CNN
+F 2 "Package_QFP:TQFP-48_7x7mm_P0.5mm" H 1600 2000 50  0001 C CNN
+F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/SAMD21-Family-DataSheet-DS40001882D.pdf" H 2550 4750 50  0001 C CNN
+	1    2550 3750
+	-1   0    0    -1  
+$EndComp
+Wire Wire Line
+	1100 2550 1550 2550
+Text HLabel 4150 3650 2    50   Output ~ 0
+DEBUG_SPI_CS
 $EndSCHEMATC

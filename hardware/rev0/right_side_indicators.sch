@@ -77,9 +77,7 @@ NoConn ~ 3150 3800
 NoConn ~ 3150 3900
 NoConn ~ 3150 4000
 NoConn ~ 3150 4100
-NoConn ~ 3150 4600
 NoConn ~ 3150 4800
-NoConn ~ 3150 4900
 NoConn ~ 3150 5000
 NoConn ~ 3150 5100
 NoConn ~ 3150 5200
@@ -113,13 +111,18 @@ UC_TX_FPGA_RX
 Wire Wire Line
 	3150 5400 3950 5400
 Wire Wire Line
-	3150 5500 3950 5500
-Wire Wire Line
 	3150 4400 3950 4400
 Text HLabel 3950 5400 2    50   Output ~ 0
 DEBUG_SPI_MISO
-Text HLabel 3950 5500 2    50   Input ~ 0
+Text HLabel 3950 4600 2    50   Input ~ 0
 DEBUG_SPI_CLK
 Text HLabel 3950 4400 2    50   Input ~ 0
 DEBUG_SPI_MOSI
+Text HLabel 3950 4900 2    50   Input ~ 0
+DEBUG_SPI_CS
+Wire Wire Line
+	3150 4900 3950 4900
+NoConn ~ 3150 5500
+Wire Wire Line
+	3150 4600 3950 4600
 $EndSCHEMATC

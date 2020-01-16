@@ -42,7 +42,7 @@ F 9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" H -1
 	2    2200 1950
 	1    0    0    -1  
 $EndComp
-Text HLabel 3700 4750 2    50   Input ~ 0
+Text HLabel 3700 4650 2    50   Input ~ 0
 CLKIN_60MHZ
 NoConn ~ 3150 2500
 NoConn ~ 3150 2800
@@ -93,9 +93,9 @@ USER_IO3
 Text HLabel 3750 3750 2    50   BiDi ~ 0
 USER_IO4
 Wire Wire Line
-	3150 4650 3700 4650
-Text HLabel 3700 4650 2    50   BiDi ~ 0
+	3150 4750 3700 4750
+Text HLabel 3700 4750 2    50   BiDi ~ 0
 USER_IO5
 Wire Wire Line
-	3150 4750 3700 4750
+	3150 4650 3700 4650
 $EndSCHEMATC
