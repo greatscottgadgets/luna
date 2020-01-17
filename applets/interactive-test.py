@@ -154,18 +154,13 @@ class InteractiveSelftest(Elaboratable):
         user_io_out = spi_registers.add_register(REGISTER_USER_IO_OUT, size=4)
 
         # Grab and connect each of our user-I/O ports our GPIO registers.
-        #for i in range(4):
-        #    pin = platform.request("user_io", i)
-        #    m.d.comb += [
-        #        pin.oe         .eq(user_io_dir[i]),
-        #        user_io_in[i]  .eq(pin.i),
-        #        pin.o          .eq(user_io_out[i])
-        #    ]
-        user_io = Cat(platform.request("user_io", i, dir="o") for i in range(2))
-        m.d.comb += [
-            user_io[0].eq(ClockSignal("fast")),
-            user_io[1].eq(ClockSignal("sync")),
-        ]
+        for i in range(4):
+            pin = platform.request("user_io", i)
+            m.d.comb += [
+                pin.oe         .eq(user_io_dir[i]),
+                user_io_in[i]  .eq(pin.i),
+                pin.o          .eq(user_io_out[i])
+            ]
 
 
         #
@@ -282,7 +277,6 @@ class InteractiveSelftest(Elaboratable):
             output=umti_adapter.manual_read,
         )
 
-
         # ULPI register value.
         spi_registers.add_sfr(register_base + 1,
             read=umti_adapter.read_data,
@@ -293,7 +287,6 @@ class InteractiveSelftest(Elaboratable):
             strobe=register_value_change,
             output=umti_adapter.manual_write,
         )
-
 
         spi_registers.add_sfr(register_base + 2,
             read=umti_adapter.last_rx_command

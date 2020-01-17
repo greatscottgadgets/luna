@@ -35,6 +35,18 @@ class LUNAPlatformR01(LatticeECP5Platform):
 
     default_clk = "clk_60MHz"
 
+    #
+    # Default clock frequencies for each of our clock domains.
+    #
+    # Different revisions have different FPGA speed grades, and thus the
+    # default frequencies will vary.
+    #
+    DEFAULT_CLOCK_FREQUENCIES_MHZ = {
+        "fast": 120,
+        "sync": 60,
+        "ulpi": 60
+    }
+
     resources   = [
 
         # Primary, discrete 60MHz oscillator.
@@ -114,13 +126,15 @@ class LUNAPlatformR01(LatticeECP5Platform):
 
         # HyperRAM (1V8 domain).
         Resource("ram", 0,
-            Subsignal("clk",   Pins("B14", dir="o")),
-            Subsignal("clkN",  Pins("A15", dir="o")),
+            # Note: our clock uses the pseudo-differential I/O present on the top tiles.
+            # This requires a recent version of trellis+nextpnr. If your build complains
+            # that LVCMOS18D is an invalid I/O type, you'll need to upgrade.
+            Subsignal("clk",   DiffPairs("B14", "A15", dir="o"), Attrs(IO_TYPE="LVCMOS18D")),
             Subsignal("dq",    Pins("A11 B10 B12 A12 B11 A10 B9 A9", dir="io")),
             Subsignal("rwds",  Pins( "A13", dir="io")),
             Subsignal("cs",    PinsN("A14", dir="o")),
             Subsignal("reset", PinsN("B13", dir="o")),
-            Attrs(IO_TYPE="LVCMOS18")
+            Attrs(IO_TYPE="LVCMOS18", SLEWRATE="FAST")
         ),
 
         # User I/O connections.
@@ -130,7 +144,6 @@ class LUNAPlatformR01(LatticeECP5Platform):
         Resource("user_io", 3, Pins("A2", dir="io"), Attrs(IO_TYPE="LVCMOS33")),
     ]
 
-    # Neighbor headers.
     connectors = [
 
         # User I/O connector.

@@ -29,8 +29,6 @@ class HyperRAMInterface(Elaboratable):
         I: start_transfer   -- Strobe that goes high for 1-8 cycles to request a read operation.
                             [This added duration allows other clock domains to easily perform requests.]
         I: final_word       -- Flag that indicates the current word is the last word of the transaction.
-                            For transfers that only need to read or write a single word (e.g. register transfers),
-                            this can be left high for the entire transfer.
 
         O: read_data[16]    -- word that holds the 16 bits most recently read from the PSRAM
         I: write_data[16]   -- word that accepts the data to output during this transaction
@@ -85,9 +83,6 @@ class HyperRAMInterface(Elaboratable):
             m.d.fast += self.bus.clk.eq(0)
         with m.Elif(advance_clock):
             m.d.fast += self.bus.clk.eq(~self.bus.clk)
-
-        # Create our psuedo-differnetial inverted clock.
-        m.d.comb += self.bus.clkN.eq(~self.bus.clk)
 
 
         #
