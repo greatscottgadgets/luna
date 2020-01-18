@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 setup(
 
     # Vitals
-    name='LUNA',
+    name='luna',
     license='BSD',
     url='https://github.com/greatscottgadgets/luna',
     author='Katherine J. Temkin',
