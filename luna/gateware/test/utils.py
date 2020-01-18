@@ -114,12 +114,14 @@ class LunaGatewareTestCase(FHDLTestCase):
 
 
     @staticmethod
-    def pulse(signal):
+    def pulse(signal, *, step_after=True):
         """ Helper method that asserts a signal for a cycle. """
         yield signal.eq(1)
         yield
         yield signal.eq(0)
-        yield
+
+        if step_after:
+            yield
 
 
     @staticmethod

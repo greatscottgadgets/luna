@@ -5,8 +5,7 @@
 
 import unittest
 
-from nmigen import *
-from nmigen.back.pysim import Simulator
+from nmigen import Signal, Module, Cat, Elaboratable
 
 from ..util import rising_edge_detector, falling_edge_detector
 from ..test.utils import LunaGatewareTestCase, sync_test_case
@@ -25,11 +24,12 @@ class SPIDeviceInterface(Elaboratable):
         I: word_out      -- the word to be loaded; latched in on next word_complete and while cs is low
     """
 
-    def __init__(self, *, word_size=8, clock_polarity=0, clock_phase=0):
+    def __init__(self, *, word_size=8, clock_polarity=0, clock_phase=0, msb_first=True):
 
         self.word_size      = word_size
         self.clock_polarity = clock_polarity
         self.clock_phase    = clock_phase
+        self.msb_first      = msb_first
 
         #
         # I/O port.
@@ -44,6 +44,7 @@ class SPIDeviceInterface(Elaboratable):
         # Data I/O
         self.word_in        = Signal(self.word_size)
         self.word_out       = Signal(self.word_size)
+        self.word_accepted  = Signal()
         self.word_complete  = Signal()
 
 
@@ -87,8 +88,23 @@ class SPIDeviceInterface(Elaboratable):
         current_tx   = Signal.like(self.word_out)
         current_rx   = Signal.like(self.word_in)
 
+        # Signal that tracks if this is our first bit of the word.
+        is_first_bit = Signal()
+
+        # A word is ready one cycle after we complete a transaction
+        # (and latch in the next word to be sent).
+        with m.If(self.word_accepted):
+            m.d.sync += [
+                self.word_in       .eq(current_rx),
+                self.word_complete .eq(1)
+            ]
+        with m.Else():
+            m.d.sync += self.word_complete.eq(0)
+
         # De-assert our control signals unless explicitly asserted.
-        m.d.sync += self.word_complete.eq(0)
+        m.d.sync += [
+            self.word_accepted .eq(0),
+        ]
 
         # If the chip is selected, process our I/O:
         with m.If(self.cs):
@@ -96,30 +112,154 @@ class SPIDeviceInterface(Elaboratable):
             # Shift in data on each sample edge.
             with m.If(sample_edge):
                 m.d.sync += [
-                    current_rx.eq(Cat(current_rx[1:], self.sdi)),
-                    bit_count.eq(bit_count + 1)
+                    bit_count    .eq(bit_count + 1),
+                    is_first_bit .eq(0)
                 ]
+
+                if self.msb_first:
+                    m.d.sync += current_rx.eq(Cat(self.sdi, current_rx[:-1]))
+                else:
+                    m.d.sync += current_rx.eq(Cat(current_rx[1:], self.sdi))
 
                 # If we're just completing a word, handle I/O.
                 with m.If(bit_count + 1 == self.word_size):
                     m.d.sync += [
-                        self.word_complete .eq(1),
-                        self.word_in       .eq(current_rx),
+                        self.word_accepted .eq(1),
                         current_tx         .eq(self.word_out)
                     ]
 
+
             # Shift out data on each output edge.
             with m.If(output_edge):
-                m.d.sync += [
-                    self.sdo.eq(current_tx[-1]),
-                    current_tx.eq(current_tx << 1),
-                ]
+                if self.msb_first:
+                    m.d.sync += Cat(current_tx[1:], self.sdo).eq(current_tx)
+                else:
+                    m.d.sync += Cat(self.sdo, current_tx[:-1]).eq(current_tx)
 
         with m.Else():
-            m.d.sync += current_tx.eq(self.word_out)
-            m.d.sync += bit_count.eq(0)
+            m.d.sync += [
+                current_tx   .eq(self.word_out),
+                bit_count    .eq(0),
+                is_first_bit .eq(1)
+            ]
 
         return m
+
+
+
+class SPIGatewareTestCase(LunaGatewareTestCase):
+    """ Extended version of the LunaGatewareTestCase.
+
+    Adds three SPI-simulation methods:
+        -spi_send_bit
+        -spi_exchange_byte
+        -spi_exchange_data
+    """
+
+    def spi_send_bit(self, bit):
+        """ Sends a single bit over the SPI bus. """
+        cycles_per_bit = 4
+
+        # Apply the new bit...
+        if hasattr(self.dut, 'sdi'):
+            yield self.dut.sdi.eq(bit)
+            yield from self.advance_cycles(cycles_per_bit)
+
+        # Create a RE of our serial clock.
+        yield self.dut.sck.eq(1)
+        yield from self.advance_cycles(cycles_per_bit)
+
+        # Read the data on the bus, and then create our falling edge.
+        return_value = (yield self.dut.sdo)
+        yield from self.advance_cycles(cycles_per_bit)
+
+        yield self.dut.sck.eq(0)
+        yield from self.advance_cycles(cycles_per_bit)
+
+        return return_value
+
+
+    def spi_exchange_byte(self, datum, *, msb_first=True):
+        """ Sends a by over the virtual SPI bus. """
+
+        bits = "{:08b}".format(datum)
+        data_received = ""
+
+        if not msb_first:
+            bits = bits[::-1]
+
+        # Send each of our bits...
+        for bit in bits:
+            received = yield from self.spi_send_bit(int(bit))
+            data_received += '1' if received else '0'
+
+        if not msb_first:
+            data_received = data_received[::-1]
+
+        return int(data_received, 2)
+
+
+    def spi_exchange_data(self, data, msb_first=True):
+        """ Sends a string of bytes over our virtual SPI bus. """
+
+        yield self.dut.cs.eq(1)
+        yield
+
+        response = bytearray()
+
+        for byte in data:
+            response_byte = yield from self.spi_exchange_byte(byte)
+            response.append(response_byte)
+
+        yield self.dut.cs.eq(0)
+        yield
+
+        return response
+
+
+
+class SPIDeviceInterfaceTest(SPIGatewareTestCase):
+    FRAGMENT_UNDER_TEST = SPIDeviceInterface
+    FRAGMENT_ARGUMENTS = dict(word_size=16, clock_polarity=1)
+
+    def initialize_signals(self):
+        yield self.dut.cs.eq(0)
+
+
+    @sync_test_case
+    def test_spi_interface(self):
+
+        # Ensure that we don't complete a word while CS is deasserted.
+        for _ in range(10):
+            self.assertEqual((yield self.dut.word_complete), 0)
+            yield
+
+        # Set the word we're expected to send, and then assert CS.
+        yield self.dut.word_out.eq(0xABCD)
+        yield
+
+        yield self.dut.cs.eq(1)
+        yield
+
+        # Verify that the SPI in/out behavior is what we expect.
+        response = yield from self.spi_exchange_data(b"\xCA\xFE")
+        self.assertEqual(response, b"\xAB\xCD")
+        self.assertEqual((yield self.dut.word_in), 0xCAFE)
+
+
+    @sync_test_case
+    def test_spi_transmit_second_word(self):
+
+        # Set the word we're expected to send, and then assert CS.
+        yield self.dut.word_out.eq(0x0f00)
+        yield
+
+        yield self.dut.cs.eq(1)
+        yield
+
+        # Verify that the SPI in/out behavior is what we expect.
+        response = yield from self.spi_exchange_data(b"\x00\x00")
+        self.assertEqual(response, b"\x0F\x00")
 
 
 
@@ -533,62 +673,10 @@ class SPIRegisterInterface(Elaboratable):
         return m
 
 
-class SPIRegisterInterfaceTest(LunaGatewareTestCase):
+
+
+class SPIRegisterInterfaceTest(SPIGatewareTestCase):
     """ Tests for the SPI command interface. """
-
-
-    def spi_send_bit(self, bit):
-        """ Sends a single bit over the SPI bus. """
-        cycles_per_bit = 4
-
-        # Apply the new bit...
-        yield self.dut.sdi.eq(bit)
-        yield from self.advance_cycles(cycles_per_bit)
-
-        # Create a RE of our serial clock.
-        yield self.dut.sck.eq(1)
-        yield from self.advance_cycles(cycles_per_bit)
-
-        # Read the data on the bus, and then create our falling edge.
-        return_value = (yield self.dut.sdo)
-        yield from self.advance_cycles(cycles_per_bit)
-
-        yield self.dut.sck.eq(0)
-        yield from self.advance_cycles(cycles_per_bit)
-
-        return return_value
-
-
-    def spi_exchange_byte(self, datum):
-        """ Sends a by over the virtual SPI bus. """
-
-        bits = "{:08b}".format(datum)
-        data_received = ""
-
-        # Send each of our bits...
-        for bit in bits:
-            received = yield from self.spi_send_bit(int(bit))
-            data_received += '1' if received else '0'
-
-        return int(data_received, 2)
-
-
-    def spi_exchange_data(self, data):
-        """ Sends a string of bytes over our virtual SPI bus. """
-
-        yield self.dut.cs.eq(1)
-        yield
-
-        response = bytearray()
-
-        for byte in data:
-            response_byte = yield from self.spi_exchange_byte(byte)
-            response.append(response_byte)
-
-        yield self.dut.cs.eq(0)
-        yield
-
-        return response
 
     def instantiate_dut(self):
 
