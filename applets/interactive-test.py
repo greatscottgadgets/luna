@@ -10,6 +10,7 @@ from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, 
 from nmigen.lib.cdc import FFSynchronizer
 
 from luna                             import top_level_cli
+from luna.gateware.utils.cdc          import synchronize
 from luna.gateware.architecture.clock import LunaECP5DomainGenerator
 from luna.gateware.interface.spi      import SPIRegisterInterface
 from luna.gateware.interface.ulpi     import UMTITranslator
@@ -52,7 +53,7 @@ REGISTER_RAM_VALUE      = 21
 
 class InteractiveSelftest(Elaboratable):
     """ Hardware meant to demonstrate use of the Debug Controller's register interface.
-    
+
     Registers:
         0 -- register/address size auto-negotiation for Apollo
         1 -- gateware ID register (TEST)
@@ -110,9 +111,9 @@ class InteractiveSelftest(Elaboratable):
         power_test_reg          = Signal(3)
         power_test_write_strobe = Signal()
         power_test_write_value  = Signal(2)
-        spi_registers.add_sfr(REGISTER_TARGET_POWER, 
-            read=power_test_reg, 
-            write_strobe=power_test_write_strobe, 
+        spi_registers.add_sfr(REGISTER_TARGET_POWER,
+            read=power_test_reg,
+            write_strobe=power_test_write_strobe,
             write_signal=power_test_write_value
         )
 
@@ -215,41 +216,31 @@ class InteractiveSelftest(Elaboratable):
         spi_flash_bus = platform.request('spi_flash')
         spi_flash_passthrough = ECP5ConfigurationFlashInterface(bus=spi_flash_bus)
 
-        m.submodules += spi_flash_passthrough 
+        m.submodules += spi_flash_passthrough
         m.d.comb += [
             spi_flash_passthrough.sck   .eq(board_spi.sck),
             spi_flash_passthrough.sdi   .eq(board_spi.sdi),
             flash_sdo                   .eq(spi_flash_passthrough.sdo),
         ]
 
-
-        #
-        # Structural connections.
-        #
-        sck = Signal()
-        sdi = Signal()
-        cs  = Signal()
-        gateware_sdo = Signal()
-
         #
         # Synchronize each of our I/O SPI signals, where necessary.
         #
-        m.submodules += FFSynchronizer(board_spi.sck, sck)
-        m.submodules += FFSynchronizer(board_spi.sdi, sdi)
-        m.submodules += FFSynchronizer(board_spi.cs,  cs)
+        spi = synchronize(m, board_spi)
 
         # Select the passthrough or gateware SPI based on our chip-select values.
-        with m.If(spi_registers.cs):
+        gateware_sdo = Signal()
+        with m.If(spi_registers.spi.cs):
             m.d.comb += board_spi.sdo.eq(gateware_sdo)
         with m.Else():
             m.d.comb += board_spi.sdo.eq(flash_sdo)
 
         # Connect our register interface to our board SPI.
         m.d.comb += [
-            spi_registers.sck .eq(sck),
-            spi_registers.sdi .eq(sdi),
-            gateware_sdo      .eq(spi_registers.sdo),
-            spi_registers.cs  .eq(cs)
+            spi_registers.spi.sck .eq(spi.sck),
+            spi_registers.spi.sdi .eq(spi.sdi),
+            gateware_sdo          .eq(spi_registers.spi.sdo),
+            spi_registers.spi.cs  .eq(spi.cs)
         ]
 
         return m

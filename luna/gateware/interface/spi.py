@@ -5,19 +5,29 @@
 
 import unittest
 
-from nmigen import Signal, Module, Cat, Elaboratable
+from nmigen import Signal, Module, Cat, Elaboratable, Record
+from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
 
 from ..util import rising_edge_detector, falling_edge_detector
 from ..test.utils import LunaGatewareTestCase, sync_test_case
 
+class SPIBus(Record):
+    """ Record representing an SPI bus. """
+
+    def __init__(self):
+        super().__init__([
+            ('sck', 1, DIR_FANIN),
+            ('sdi', 1, DIR_FANIN),
+            ('sdo', 1, DIR_FANOUT),
+            ('cs',  1, DIR_FANIN)
+        ])
+
+
 class SPIDeviceInterface(Elaboratable):
     """ Simple word-oriented SPI interface.
-    
+
     I/O signals:
-        I: sck           -- SPI clock, from the SPI master
-        I: sdi           -- SPI data in
-        O: sdo           -- SPI data out
-        I: cs            -- chip select, active high (as we assume your I/O will use PinsN)
+        B: spi           -- the SPI bus to work with
 
         O: word_in       -- the most recent word received
         O: word_complete -- strobe indicating a new word is present on word_in
@@ -36,10 +46,7 @@ class SPIDeviceInterface(Elaboratable):
         #
 
         # SPI
-        self.sck            = Signal()
-        self.sdi            = Signal()
-        self.sdo            = Signal()
-        self.cs             = Signal()
+        self.spi = SPIBus()
 
         # Data I/O
         self.word_in        = Signal(self.word_size)
@@ -49,8 +56,8 @@ class SPIDeviceInterface(Elaboratable):
 
 
     def spi_edge_detectors(self, m):
-        """ Generates edge detectors for the sample and output clocks, based on the current SPI mode. 
-        
+        """ Generates edge detectors for the sample and output clocks, based on the current SPI mode.
+
         Returns:
             sample_edge, output_edge -- signals that pulse high for a single cycle when we should
                                         sample and change our outputs, respectively
@@ -59,9 +66,9 @@ class SPIDeviceInterface(Elaboratable):
         # Select whether we're working with an inverted or un-inverted serial clock.
         serial_clock = Signal()
         if self.clock_polarity:
-            m.d.comb += serial_clock.eq(~self.sck)
+            m.d.comb += serial_clock.eq(~self.spi.sck)
         else:
-            m.d.comb += serial_clock.eq(self.sck)
+            m.d.comb += serial_clock.eq(self.spi.sck)
 
         # Generate the leading and trailing edge detectors.
         # Note that we use rising and falling edge detectors, but call these leading and
@@ -107,7 +114,7 @@ class SPIDeviceInterface(Elaboratable):
         ]
 
         # If the chip is selected, process our I/O:
-        with m.If(self.cs):
+        with m.If(self.spi.cs):
 
             # Shift in data on each sample edge.
             with m.If(sample_edge):
@@ -117,9 +124,9 @@ class SPIDeviceInterface(Elaboratable):
                 ]
 
                 if self.msb_first:
-                    m.d.sync += current_rx.eq(Cat(self.sdi, current_rx[:-1]))
+                    m.d.sync += current_rx.eq(Cat(self.spi.sdi, current_rx[:-1]))
                 else:
-                    m.d.sync += current_rx.eq(Cat(current_rx[1:], self.sdi))
+                    m.d.sync += current_rx.eq(Cat(current_rx[1:], self.spi.sdi))
 
                 # If we're just completing a word, handle I/O.
                 with m.If(bit_count + 1 == self.word_size):
@@ -132,9 +139,9 @@ class SPIDeviceInterface(Elaboratable):
             # Shift out data on each output edge.
             with m.If(output_edge):
                 if self.msb_first:
-                    m.d.sync += Cat(current_tx[1:], self.sdo).eq(current_tx)
+                    m.d.sync += Cat(current_tx[1:], self.spi.sdo).eq(current_tx)
                 else:
-                    m.d.sync += Cat(self.sdo, current_tx[:-1]).eq(current_tx)
+                    m.d.sync += Cat(self.spi.sdo, current_tx[:-1]).eq(current_tx)
 
         with m.Else():
             m.d.sync += [
@@ -159,21 +166,22 @@ class SPIGatewareTestCase(LunaGatewareTestCase):
     def spi_send_bit(self, bit):
         """ Sends a single bit over the SPI bus. """
         cycles_per_bit = 4
+        spi = self.dut.spi
 
         # Apply the new bit...
-        if hasattr(self.dut, 'sdi'):
-            yield self.dut.sdi.eq(bit)
+        if hasattr(spi, 'sdi'):
+            yield spi.sdi.eq(bit)
             yield from self.advance_cycles(cycles_per_bit)
 
         # Create a RE of our serial clock.
-        yield self.dut.sck.eq(1)
+        yield spi.sck.eq(1)
         yield from self.advance_cycles(cycles_per_bit)
 
         # Read the data on the bus, and then create our falling edge.
-        return_value = (yield self.dut.sdo)
+        return_value = (yield spi.sdo)
         yield from self.advance_cycles(cycles_per_bit)
 
-        yield self.dut.sck.eq(0)
+        yield spi.sck.eq(0)
         yield from self.advance_cycles(cycles_per_bit)
 
         return return_value
@@ -202,7 +210,7 @@ class SPIGatewareTestCase(LunaGatewareTestCase):
     def spi_exchange_data(self, data, msb_first=True):
         """ Sends a string of bytes over our virtual SPI bus. """
 
-        yield self.dut.cs.eq(1)
+        yield self.dut.spi.cs.eq(1)
         yield
 
         response = bytearray()
@@ -211,7 +219,7 @@ class SPIGatewareTestCase(LunaGatewareTestCase):
             response_byte = yield from self.spi_exchange_byte(byte)
             response.append(response_byte)
 
-        yield self.dut.cs.eq(0)
+        yield self.dut.spi.cs.eq(0)
         yield
 
         return response
@@ -223,7 +231,7 @@ class SPIDeviceInterfaceTest(SPIGatewareTestCase):
     FRAGMENT_ARGUMENTS = dict(word_size=16, clock_polarity=1)
 
     def initialize_signals(self):
-        yield self.dut.cs.eq(0)
+        yield self.dut.spi.cs.eq(0)
 
 
     @sync_test_case
@@ -238,7 +246,7 @@ class SPIDeviceInterfaceTest(SPIGatewareTestCase):
         yield self.dut.word_out.eq(0xABCD)
         yield
 
-        yield self.dut.cs.eq(1)
+        yield self.dut.spi.cs.eq(1)
         yield
 
         # Verify that the SPI in/out behavior is what we expect.
@@ -254,7 +262,7 @@ class SPIDeviceInterfaceTest(SPIGatewareTestCase):
         yield self.dut.word_out.eq(0x0f00)
         yield
 
-        yield self.dut.cs.eq(1)
+        yield self.dut.spi.cs.eq(1)
         yield
 
         # Verify that the SPI in/out behavior is what we expect.
@@ -291,10 +299,7 @@ class SPICommandInterface(Elaboratable):
         #
 
         # SPI
-        self.sck            = Signal()
-        self.sdi            = Signal()
-        self.sdo            = Signal()
-        self.cs             = Signal()
+        self.spi = SPIBus()
 
         # Command I/O.
         self.command        = Signal(self.command_size)
@@ -309,7 +314,9 @@ class SPICommandInterface(Elaboratable):
     def elaborate(self, platform):
 
         m = Module()
-        sample_edge = falling_edge_detector(m, self.sck)
+        spi = self.spi
+
+        sample_edge = falling_edge_detector(m, spi.sck)
 
         # Bit counter: counts the number of bits received.
         max_bit_count = max(self.word_size, self.command_size)
@@ -332,7 +339,7 @@ class SPICommandInterface(Elaboratable):
             with m.State("STALL"):
 
                 # Wait for CS to clear.
-                with m.If(~self.cs):
+                with m.If(~spi.cs):
                     m.next = 'IDLE'
 
 
@@ -341,7 +348,7 @@ class SPICommandInterface(Elaboratable):
             with m.State('IDLE'):
                 m.d.sync += bit_count.eq(0)
 
-                with m.If(self.cs):
+                with m.If(spi.cs):
                     m.next = 'RECEIVE_COMMAND'
 
 
@@ -353,7 +360,7 @@ class SPICommandInterface(Elaboratable):
                     with m.If(sample_edge):
                         m.d.sync += [
                             bit_count       .eq(bit_count + 1),
-                            current_command .eq(Cat(self.sdi, current_command[:-1]))
+                            current_command .eq(Cat(spi.sdi, current_command[:-1]))
                         ]
 
                 # ... and then pass that command out to our controller.
@@ -379,14 +386,14 @@ class SPICommandInterface(Elaboratable):
 
             # Finally, exchange data.
             with m.State('SHIFT_DATA'):
-                m.d.sync += self.sdo.eq(current_word[-1])
+                m.d.sync += spi.sdo.eq(current_word[-1])
 
                 # Continue shifting data until we have a full word.
                 with m.If(bit_count < self.word_size):
                     with m.If(sample_edge):
                         m.d.sync += [
                             bit_count    .eq(bit_count + 1),
-                            current_word .eq(Cat(self.sdi, current_word[:-1]))
+                            current_word .eq(Cat(spi.sdi, current_word[:-1]))
                         ]
 
                 # ... and then output that word on our bus.
@@ -426,7 +433,7 @@ class SPIRegisterInterface(Elaboratable):
     """
 
     def __init__(self, address_size=15, register_size=32, default_read_value=0, support_size_autonegotiation=True):
-        """ 
+        """
         Parameters:
             address_size       -- the size of an address, in bits; recommended to be one bit
                                   less than a binary number, as the write command is formed by adding a one-bit
@@ -434,9 +441,9 @@ class SPIRegisterInterface(Elaboratable):
             register_size      -- The size of any given register, in bits.
             default_read_value -- The read value read from a non-existent or write-only register.
 
-            support_size_autonegotiation -- 
-                If set, register 0 is used as a size auto-negotation register. Functionally equivalent to
-                calling .support_size_autonegotation(); see its documentation for details on autonegtoation.
+            support_size_autonegotiation --
+                If set, register 0 is used as a size auto-negotiation register. Functionally equivalent to
+                calling .support_size_autonegotiation(); see its documentation for details on autonegotiation.
         """
 
         self.address_size  = address_size
@@ -448,17 +455,14 @@ class SPIRegisterInterface(Elaboratable):
         #
 
         # Create our SPI I/O.
-        self.sck = Signal()
-        self.sdi = Signal()
-        self.sdo = Signal()
-        self.cs  = Signal()
+        self.spi = SPIBus()
 
         #
         # Internal details.
         #
 
         # Instantiate an SPI command transciever submodule.
-        self.interface = SPICommandInterface(command_size=address_size + 1, word_size=register_size) 
+        self.interface = SPICommandInterface(command_size=address_size + 1, word_size=register_size)
 
         # Create a new, empty dictionary mapping registers to their signals.
         self.registers = {}
@@ -480,8 +484,8 @@ class SPIRegisterInterface(Elaboratable):
 
     def support_size_autonegotiation(self):
         """ Support autonegotiation of register and address size. Consumes address 0.
-        
-        Auto-negotation of size is relatively simple: the host sends a string of zeroes over
+
+        Auto-negotiation of size is relatively simple: the host sends a string of zeroes over
         the SPI bus, and we respond with:
 
             -- as many zeroes as there are address bits
@@ -495,10 +499,10 @@ class SPIRegisterInterface(Elaboratable):
 
     def add_sfr(self, address, *, read=None, write_signal=None, write_strobe=None, read_strobe=None):
         """ Adds a special function register to the given command interface.
-        
-        Parameters: 
+
+        Parameters:
             address       -- the register's address, as a big-endian integer
-            read          -- a Signal or integer constant representing the 
+            read          -- a Signal or integer constant representing the
                              value to be read at the given address; if not provided, the default
                              value will be read
             read_strobe   -- a Signal that is asserted when a read is completed; if not provided,
@@ -523,10 +527,10 @@ class SPIRegisterInterface(Elaboratable):
 
     def add_read_only_register(self, address, *, read, read_strobe=None):
         """ Adds a read-only register.
-        
-        Parameters: 
+
+        Parameters:
             address       -- the register's address, as a big-endian integer
-            read          -- a Signal or integer constant representing the 
+            read          -- a Signal or integer constant representing the
                              value to be read at the given address; if not provided, the default
                              value will be read
             read_strobe   -- a Signal that is asserted when a read is completed; if not provided,
@@ -538,9 +542,9 @@ class SPIRegisterInterface(Elaboratable):
 
     def add_register(self, address, *, value_signal=None, size=None, name=None, read_strobe=None,
         write_strobe=None, reset=0):
-        """ Adds a standard, memory-backed register. 
-        
-            Parameters: 
+        """ Adds a standard, memory-backed register.
+
+            Parameters:
                 address       -- the register's address, as a big-endian integer
                 value_signal  -- the signal that will store the register's value; if omitted
                                  a storage register will be created automatically
@@ -629,10 +633,7 @@ class SPIRegisterInterface(Elaboratable):
         # Connect up our SPI transceiver submodule.
         m.submodules.interface = self.interface
         m.d.comb += [
-            self.interface.sck .eq(self.sck),
-            self.interface.sdi .eq(self.sdi),
-            self.sdo           .eq(self.interface.sdo),
-            self.interface.cs  .eq(self.cs),
+            self.interface.spi.connect(self.spi)
         ]
 
         # Split the command into our "write" and "address" signals.
@@ -691,8 +692,8 @@ class SPIRegisterInterfaceTest(SPIGatewareTestCase):
 
     def initialize_signals(self):
         # Start off with our clock low and the transaction idle.
-        yield self.dut.sck.eq(0)
-        yield self.dut.cs.eq(0)
+        yield self.dut.spi.sck.eq(0)
+        yield self.dut.spi.cs.eq(0)
 
 
     @sync_test_case

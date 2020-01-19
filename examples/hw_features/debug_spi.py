@@ -6,8 +6,9 @@
 from nmigen import Signal, Elaboratable, Module
 from nmigen.lib.cdc import FFSynchronizer
 
-from luna.gateware.platform import *
-from luna.gateware.interface.spi import SPIDeviceInterface
+from luna import top_level_cli
+from luna.gateware.utils.cdc import synchronize
+from luna.gateware.interface.spi import SPIDeviceInterface, SPIBus
 
 
 class DebugSPIExample(Elaboratable):
@@ -27,26 +28,11 @@ class DebugSPIExample(Elaboratable):
         # Use our command interface.
         m.submodules.interface = self.interface
 
-        sck = Signal()
-        sdi = Signal()
-        sdo = Signal()
-        cs  = Signal()
-
         #
-        # Synchronize each of our I/O SPI signals, where necessary.
+        # Synchronize and connect our SPI.
         #
-        m.submodules += FFSynchronizer(board_spi.sck, sck)
-        m.submodules += FFSynchronizer(board_spi.sdi, sdi)
-        m.submodules += FFSynchronizer(board_spi.cs,  cs)
-        m.d.comb     += board_spi.sdo.eq(sdo)
-
-        # Connect our command interface to our board SPI.
-        m.d.comb += [
-            self.interface.sck.eq(sck),
-            self.interface.sdi.eq(sdi),
-            sdo.eq(self.interface.sdo),
-            self.interface.cs .eq(cs)
-        ]
+        spi = synchronize(m, board_spi)
+        m.d.comb  += self.interface.spi.connect(spi)
 
         # Turn on a single LED, just to show something's running.
         led = platform.request('led', 0)
@@ -59,5 +45,4 @@ class DebugSPIExample(Elaboratable):
 
 
 if __name__ == "__main__":
-    platform = LUNAPlatformR01()
-    platform.build(DebugSPIExample(), do_program=True)
+    top_level_cli(DebugSPIExample)
