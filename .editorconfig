@@ -1,0 +1,19 @@
+# top-most EditorConfig file
+root = true
+
+# Set our default format parameters.
+[*]
+charset = utf-8
+indent_size = 4
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+max_line_length = 120
+
+# Use python standard indentation for python files.
+[*.py]
+indent_style = space
+
+# Use tabs for our C files, to match coding conventions of our submodues.
+[*.{c,h}]
+indent_style = tab
