@@ -50,7 +50,7 @@ class LUNAPlatformR01(LatticeECP5Platform):
     resources   = [
 
         # Primary, discrete 60MHz oscillator.
-        Resource("clk_60MHz", 0, Pins("A8", dir="i"), 
+        Resource("clk_60MHz", 0, Pins("A8", dir="i"),
             Clock(60e6), Attrs(IO_TYPE="LVCMOS33")),
 
         # Connection to our SPI flash; can be used to work with the flash
@@ -107,17 +107,17 @@ class LUNAPlatformR01(LatticeECP5Platform):
 
         # USB PHYs
         ULPIResource("sideband_phy",
-            data_sites="R2 R1 P2 P1 N1 M2 M1 L2", clk_site="R4", 
+            data_sites="R2 R1 P2 P1 N1 M2 M1 L2", clk_site="R4",
             dir_site="T3", nxt_site="T2", stp_site="T4", reset_site="R3"),
         ULPIResource("host_phy",
-            data_sites="G2 G1 F2 F1 E1 D1 C1 B1", clk_site="K2", 
+            data_sites="G2 G1 F2 F1 E1 D1 C1 B1", clk_site="K2",
             dir_site="J1", nxt_site="H2", stp_site="J2", reset_site="K1"),
         ULPIResource("target_phy",
-            data_sites="D16 E15 E16 F15 F16 G15 J16 K16", clk_site="B15", 
+            data_sites="D16 E15 E16 F15 F16 G15 J16 K16", clk_site="B15",
             dir_site="C15", nxt_site="C16", stp_site="B16", reset_site="G16"),
 
         # Target port power switching
-        # Note: the r0.1 boards that have been produced incorrectly use the AP22814B 
+        # Note: the r0.1 boards that have been produced incorrectly use the AP22814B
         # instead of the AP22814A. This inverts the load-switch enables.
         #
         Resource("power_a_port",       0, PinsN("C14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
