@@ -9,7 +9,7 @@ from nmigen import Signal, Module, Cat, Elaboratable, Record
 from nmigen.hdl.xfrm import DomainRenamer
 
 from ..util       import stretch_strobe_signal
-from ..test.utils import LunaGatewareTestCase, sync_test_case
+from ..test.utils import LunaGatewareTestCase, fast_domain_test_case
 
 
 class HyperRAMInterface(Elaboratable):
@@ -17,7 +17,7 @@ class HyperRAMInterface(Elaboratable):
 
     Intended to run at twice the frequency of the interfacing hardware -- e.g. to interface with
     something from LUNA's sync domain, while existing itself in the fast domain.
-    
+
     I/O port:
         B: bus              -- The primary physical connection to the DRAM chip.
         I: reset            -- An active-high signal used to provide a prolonged reset upon configuration.
@@ -247,7 +247,7 @@ class HyperRAMInterface(Elaboratable):
                 # any latency. Move directly to our SHIFT_DATA state.
                 with m.If(is_register & ~is_read):
                     m.next = 'STREAM_DATA'
-                
+
                 # Otherwise, react with either a short period of latency
                 # or a longer one, depending on what the RAM requested via
                 # RWDS.
@@ -322,6 +322,9 @@ class HyperRAMInterface(Elaboratable):
 
 class TestHyperRAMInterface(LunaGatewareTestCase):
 
+    FAST_CLOCK_FREQUENCY = 240e6
+    SYNC_CLOCK_FREQUENCY = None
+
     def instantiate_dut(self):
         # Create a record that recreates the layout of our RAM signals.
         self.ram_signals = Record([
@@ -334,10 +337,7 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
         ])
 
         # Create our HyperRAM interface...
-        interface = HyperRAMInterface(bus=self.ram_signals)
-
-        # ... and translate it so it operates in our sync domain, for easy testing.
-        return DomainRenamer({"fast": "sync", "fast_out": "sync"})(interface)
+        return HyperRAMInterface(bus=self.ram_signals)
 
 
     def assert_clock_pulses(self, times=1):
@@ -351,7 +351,7 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
 
 
 
-    @sync_test_case
+    @fast_domain_test_case
     def test_register_read(self):
 
         # Before we transact, CS should be de-asserted, and RWDS and DQ should be undriven.
@@ -386,6 +386,7 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
         # We should then move to shifting out our first command word,
         # which means we're driving DQ with the first word of our command.
         yield
+        yield
         self.assertEqual((yield self.ram_signals.cs),       1)
         self.assertEqual((yield self.ram_signals.clk),      0)
         self.assertEqual((yield self.ram_signals.dq.oe),    1)
@@ -418,7 +419,7 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
         # Once we finish scanning out the word, we should stop driving
         # the data lines, and should finish two latency periods before
         # sending any more data.
-        yield 
+        yield
         self.assertEqual((yield self.ram_signals.dq.oe),    0)
         self.assertEqual((yield self.ram_signals.rwds.oe),  0)
         self.assertEqual((yield self.ram_signals.clk),      0)
@@ -446,11 +447,11 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.read_data),      0xCAFE)
         self.assertEqual((yield self.dut.new_data_ready), 1)
 
-        # We're using the default setting where strobe_length = 2, 
-        # so our strobe should remain high for one cycle  _after_ the 
+        # We're using the default setting where strobe_length = 2,
+        # so our strobe should remain high for one cycle  _after_ the
         # relevant operation is complete.
         yield
-        self.assertEqual((yield self.dut.new_data_ready), 1)
+        self.assertEqual((yield self.dut.new_data_ready),  1)
         self.assertEqual((yield self.ram_signals.cs),      0)
         self.assertEqual((yield self.ram_signals.clk),     0)
         self.assertEqual((yield self.ram_signals.dq.oe),   0)

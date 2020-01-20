@@ -50,7 +50,7 @@ def fast_domain_test_case(process_function):
     Decorator that converts a function into a simple synchronous-process
     test case in the ULPI domain.
     """
-    return sync_test_case(process_function, domain='ulpi')
+    return sync_test_case(process_function, domain='fast')
 
 
 
@@ -91,6 +91,7 @@ class LunaGatewareTestCase(FHDLTestCase):
             self.sim.add_clock(1 / self.SYNC_CLOCK_FREQUENCY, domain="sync")
         if self.FAST_CLOCK_FREQUENCY:
             self.sim.add_clock(1 / self.FAST_CLOCK_FREQUENCY, domain="fast")
+            self.sim.add_clock(1 / self.FAST_CLOCK_FREQUENCY, domain="fast_out", phase=180)
 
 
 
