@@ -7,12 +7,12 @@ from nmigen import Signal, Module, Cat, Elaboratable
 
 import unittest
 from nmigen.back.pysim import Simulator
-from ..test import LunaGatewareTestCase, sync_test_case
+from ..test import LunaGatewareTestCase, ulpi_domain_test_case
 
 
 class PHYResetController(Elaboratable):
     """ Gateware that implements a short power-on-reset pulse to reset an attached PHY.
-    
+
     I/O ports:
 
         I: trigger   -- A signal that triggers a reset when high.
@@ -52,7 +52,7 @@ class PHYResetController(Elaboratable):
         cycles_in_reset = Signal(range(0, self.reset_length_cycles))
 
         reset_state = 'RESETTING' if self.power_on_reset else 'IDLE'
-        with m.FSM(reset=reset_state) as fsm:
+        with m.FSM(reset=reset_state, domain='ulpi') as fsm:
 
             # Drive the PHY reset whenever we're in the RESETTING cycle.
             m.d.comb += [
@@ -91,12 +91,14 @@ class PHYResetController(Elaboratable):
 
 class PHYResetControllerTest(LunaGatewareTestCase):
     FRAGMENT_UNDER_TEST = PHYResetController
-   
+
+    ULPI_CLOCK_FREQUENCY=60e6
+    SYNC_CLOCK_FREQUENCY = None
+
     def initialize_signals(self):
         yield self.dut.trigger.eq(0)
 
-
-    @sync_test_case
+    @ulpi_domain_test_case
     def test_power_on_reset(self):
 
         #
@@ -114,7 +116,7 @@ class PHYResetControllerTest(LunaGatewareTestCase):
         #
         # Then, after the relevant reset time, it should resume being unasserted.
         #
-        yield from self.advance_cycles(30)
+        yield from self.advance_cycles(31)
         self.assertEqual((yield self.dut.phy_reset), 0)
         self.assertEqual((yield self.dut.phy_stop),  1)
 
@@ -125,7 +127,7 @@ class PHYResetControllerTest(LunaGatewareTestCase):
 
 class ULPIRegisterWindow(Elaboratable):
     """ Gateware interface that handles ULPI register reads and writes.
-    
+
     I/O ports:
 
         # ULPI signals:
@@ -134,7 +136,7 @@ class ULPIRegisterWindow(Elaboratable):
         O: ulpi_out_en       -- true iff we're trying to drive the ULPI data lines
 
         # Controller signals:
-        O: busy              -- indicates when the register window is busy processing a transaction 
+        O: busy              -- indicates when the register window is busy processing a transaction
         I: address[6]        -- the address of the register to work with
         O: done              -- strobe that indicates when a register request is complete
 
@@ -186,7 +188,7 @@ class ULPIRegisterWindow(Elaboratable):
             self.done        .eq(0)
         ]
 
-        with m.FSM() as fsm:
+        with m.FSM(domain='ulpi') as fsm:
 
             # We're busy whenever we're not IDLE; indicate so.
             m.d.comb += self.busy.eq(~fsm.ongoing('IDLE'))
@@ -240,7 +242,7 @@ class ULPIRegisterWindow(Elaboratable):
             with m.State('SEND_READ_ADDRESS'):
                 m.d.ulpi += self.ulpi_out_req.eq(1)
 
-                # If DIR has become asserted, we're being interrupted. 
+                # If DIR has become asserted, we're being interrupted.
                 # We'll have to restart the read after the interruption is over.
                 with m.If(self.ulpi_dir):
                     m.next = 'START_READ'
@@ -296,7 +298,7 @@ class ULPIRegisterWindow(Elaboratable):
             with m.State('SEND_WRITE_ADDRESS'):
                 m.d.ulpi += self.ulpi_out_req.eq(1)
 
-                # If DIR has become asserted, we're being interrupted. 
+                # If DIR has become asserted, we're being interrupted.
                 # We'll have to restart the write after the interruption is over.
                 with m.If(self.ulpi_dir):
                     m.next = 'START_WRITE'
@@ -335,6 +337,9 @@ class ULPIRegisterWindow(Elaboratable):
 class TestULPIRegisters(LunaGatewareTestCase):
     FRAGMENT_UNDER_TEST = ULPIRegisterWindow
 
+    ULPI_CLOCK_FREQUENCY = 60e6
+    SYNC_CLOCK_FREQUENCY = None
+
     def initialize_signals(self):
         yield self.dut.ulpi_dir.eq(0)
 
@@ -342,13 +347,13 @@ class TestULPIRegisters(LunaGatewareTestCase):
         yield self.dut.write_request.eq(0)
 
 
-    @sync_test_case
+    @ulpi_domain_test_case
     def test_idle_behavior(self):
         """ Ensure we apply a NOP whenever we're not actively performing a command. """
         self.assertEqual((yield self.dut.ulpi_data_out), 0)
 
 
-    @sync_test_case
+    @ulpi_domain_test_case
     def test_register_read(self):
         """ Validates a register read. """
 
@@ -389,7 +394,7 @@ class TestULPIRegisters(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.busy), 0)
 
 
-    @sync_test_case
+    @ulpi_domain_test_case
     def test_interrupted_read(self):
         """ Validates how a register read works when interrupted by a change in DIR. """
 
@@ -398,7 +403,7 @@ class TestULPIRegisters(LunaGatewareTestCase):
         yield self.dut.address.eq(0)
         yield from self.pulse(self.dut.read_request)
 
-        # We shouldn't try to output anything until DIR is de-asserted. 
+        # We shouldn't try to output anything until DIR is de-asserted.
         yield from self.advance_cycles(1)
         self.assertEqual((yield self.dut.ulpi_out_req), 0)
         yield from self.advance_cycles(10)
@@ -437,7 +442,7 @@ class TestULPIRegisters(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.busy), 0)
 
 
-    @sync_test_case
+    @ulpi_domain_test_case
     def test_register_write(self):
 
         # Set up a write request.

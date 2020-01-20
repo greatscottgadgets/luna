@@ -13,14 +13,14 @@ from nmigen.test.utils import FHDLTestCase
 from nmigen.back.pysim import Simulator
 
 
-def sync_test_case(process_function):
+def sync_test_case(process_function, *, domain="sync"):
     """ Decorator that converts a function into a simple synchronous-process test case. """
 
     #
     # This function should automatically transform a given function into a pysim
     # synch process _without_ losing the function's binding on self. Accordingly,
     # we'll create a wrapper function that has self bound, and then a test case
-    # that's closed over that wrapper function's context. 
+    # that's closed over that wrapper function's context.
     #
     # This ensure that self is still accessible from the decorated function.
     #
@@ -31,10 +31,27 @@ def sync_test_case(process_function):
             yield from self.initialize_signals()
             yield from process_function(self)
 
-        self.sim.add_sync_process(test_case)
+        self.sim.add_sync_process(test_case, domain=domain)
         self.simulate(vcd_suffix=process_function.__name__)
 
     return run_test
+
+
+def ulpi_domain_test_case(process_function):
+    """
+    Decorator that converts a function into a simple synchronous-process
+    test case in the ULPI domain.
+    """
+    return sync_test_case(process_function, domain='ulpi')
+
+
+def fast_domain_test_case(process_function):
+    """
+    Decorator that converts a function into a simple synchronous-process
+    test case in the ULPI domain.
+    """
+    return sync_test_case(process_function, domain='ulpi')
+
 
 
 class LunaGatewareTestCase(FHDLTestCase):
@@ -82,16 +99,10 @@ class LunaGatewareTestCase(FHDLTestCase):
         yield Signal()
 
 
-    def get_timestamp(self):
-        """ Returns the current timestamp in the simulation."""
-
-        # FIXME: figure out how to do this correctly
-        return self.sim._state.timestamp
-
-
     def traces_of_interest(self):
         """ Returns an interable of traces to include in any generated output. """
         return ()
+
 
     def simulate(self, *, vcd_suffix=None):
         """ Runs our core simulation. """
