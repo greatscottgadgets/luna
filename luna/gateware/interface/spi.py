@@ -34,12 +34,21 @@ class SPIDeviceInterface(Elaboratable):
         I: word_out      -- the word to be loaded; latched in on next word_complete and while cs is low
     """
 
-    def __init__(self, *, word_size=8, clock_polarity=0, clock_phase=0, msb_first=True):
+    def __init__(self, *, word_size=8, clock_polarity=0, clock_phase=0, msb_first=True, cs_idles_high=False):
+        """
+        Parameters:
+            word_size      -- The size of each transmitted word, in bits.
+            clock_polarity -- The SPI-standard clock polarity. 0 for idle low, 1 for idle high.
+            clock_phase    -- The SPI-standard clock phase. 1 to capture on the leading edge, or 0 for on the trailing
+            msb_first      -- If true, or not provided, data will be transmitted MSB first (standard).
+            cs_idles_high  -- If provided, data will be captured when CS goes _low_, rather than high.
+        """
 
         self.word_size      = word_size
         self.clock_polarity = clock_polarity
         self.clock_phase    = clock_phase
         self.msb_first      = msb_first
+        self.cs_idles_high  = cs_idles_high
 
         #
         # I/O port.
@@ -114,7 +123,9 @@ class SPIDeviceInterface(Elaboratable):
         ]
 
         # If the chip is selected, process our I/O:
-        with m.If(self.spi.cs):
+        chip_selected = self.spi.cs if not self.cs_idles_high else ~self.spi.cs
+
+        with m.If(chip_selected):
 
             # Shift in data on each sample edge.
             with m.If(sample_edge):

@@ -3,19 +3,23 @@
 #
 """ Integrated logic analysis helpers. """
 
+import sys
 import unittest
 
-from nmigen import Signal, Module, Cat, Elaboratable, Memory, ClockDomain, DomainRenamer
-from nmigen.lib.cdc import FFSynchronizer
+from abc import ABCMeta, abstractmethod
+
+from nmigen          import Signal, Module, Cat, Elaboratable, Memory, ClockDomain, DomainRenamer
+from nmigen.lib.cdc  import FFSynchronizer
+from vcd             import VCDWriter
 
 from ..util          import rising_edge_detector
-from ..interface.spi import SPIDeviceInterface, SPIGatewareTestCase
+from ..interface.spi import SPIDeviceInterface, SPIBus, SPIGatewareTestCase
 from ..test.utils    import LunaGatewareTestCase, sync_test_case
 
 
 class IntegratedLogicAnalyzer(Elaboratable):
-    """ Super-simple integrated-logic-analyzer generator class for LUNA. 
-    
+    """ Super-simple integrated-logic-analyzer generator class for LUNA.
+
     I/O port:
         I: trigger                  -- A strobe that determines when we should start sampling.
         O: sampling                 -- Indicates when sampling is in progress.
@@ -26,23 +30,27 @@ class IntegratedLogicAnalyzer(Elaboratable):
                                        Can be broken apart by using Cat(*signals).
     """
 
-    def __init__(self, *, signals, sample_depth, domain="sync", samples_pretrigger=1):
+    def __init__(self, *, signals, sample_depth, domain="sync", sample_rate=60e6, samples_pretrigger=1):
         """
         Parameters:
             signals            -- An iterable of signals that should be captured by the ILA.
             sample_depth       -- The depth of the desired buffer, in samples.
             domain             -- The clock domain in which the ILA should operate.
+            sample_rate        -- Cosmetic indication of the sample rate. Used to format output.
             samples_pretrigger -- The number of our samples which should be captured _before_ the trigger.
                                   This also can act like an implicit synchronizer; so asynchronous inputs
-                                  are allowed if this number is >= 2. Note that the trigger strobe is read 
-                                  on the rising edge of the 
+                                  are allowed if this number is >= 2. Note that the trigger strobe is read
+                                  on the rising edge of the
         """
 
         self.domain             = domain
+        self.signals            = signals
         self.inputs             = Cat(*signals)
         self.sample_width       = len(self.inputs)
         self.sample_depth       = sample_depth
         self.samples_pretrigger = samples_pretrigger
+        self.sample_rate        = sample_rate
+        self.sample_period      = 1 / sample_rate
 
         #
         # Create a backing store for our samples.
@@ -136,7 +144,7 @@ class IntegratedLogicAnalyzer(Elaboratable):
                         self.complete .eq(1),
                         write_port.en .eq(0)
                     ]
-                    
+
 
         # Convert our sync domain to the domain requested by the user, if necessary.
         if self.domain != "sync":
@@ -243,7 +251,7 @@ class IntegratedLogicAnalyzerTest(LunaGatewareTestCase):
 
 
 
-class SyncSerialReadoutILA(Elaboratable):
+class SyncSerialILA(Elaboratable):
     """ Super-simple ILA that reads samples out over a simple unidirectional SPI.
     Create a receiver for this object by calling apollo.ila_receiver_for(<this>).
 
@@ -256,7 +264,7 @@ class SyncSerialReadoutILA(Elaboratable):
     ___                                                                ___
    CS |_______________________________________________________________|
           _   _   _   _   _   _   _   _   _   _   _   _   _   _   _   _
-   SCK  _| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| 
+   SCK  _| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_|
 
    SDO <6 ><5 ><4 ><3 ><2 ><1 ><0 ><XX><6 ><5 ><4 ><3 ><2 ><1 ><0 ><XX>
         |---------SAMPLE 0---------|    |---------SAMPLE 1---------|
@@ -272,7 +280,7 @@ class SyncSerialReadoutILA(Elaboratable):
     """
 
 
-    def __init__(self, clock_polarity=0, clock_phase=0, **kwargs):
+    def __init__(self, *, signals, sample_depth, clock_polarity=0, clock_phase=1, cs_idles_high=False, **kwargs):
         """
         Parameters:
             signals            -- An iterable of signals that should be captured by the ILA.
@@ -281,16 +289,18 @@ class SyncSerialReadoutILA(Elaboratable):
             samples_pretrigger -- The number of our samples which should be captured _before_ the trigger.
                                   This also can act like an implicit synchronizer; so asynchronous inputs
                                   are allowed if this number is >= 2.
-            clock_polarity     -- Clock polarity for the output SPI transciever.
-            clock_phase        -- Clock phase for the output SPI transciever.
+            clock_polarity     -- Clock polarity for the output SPI transciever. Optional.
+            clock_phase        -- Clock phase for the output SPI transciever. Optional.
+            cs_idles_high      -- If True, the CS line will be assumed to be asserted when cs=0.
+                                  If False or not provided, the CS line will be assumed to be asserted when cs=1
+                                  This can be used to share a simple two-device SPI bus, so two internal endpoints
+                                  can use the same CS line, with two opposite polarities.
         """
 
         #
         # I/O port
         #
-        self.sck = Signal()
-        self.sdo = Signal()
-        self.cs  = Signal()
+        self.spi = SPIBus()
 
         #
         # Init
@@ -306,7 +316,17 @@ class SyncSerialReadoutILA(Elaboratable):
         kwargs['domain'] = 'sync'
 
         # Create our core integrated logic analyzer.
-        self.ila = IntegratedLogicAnalyzer(**kwargs)
+        self.ila = IntegratedLogicAnalyzer(
+            signals=signals,
+            sample_depth=sample_depth,
+            **kwargs)
+
+        # Copy some core parameters from our inner ILA.
+        self.signals       = signals
+        self.sample_width  = self.ila.sample_width
+        self.sample_depth  = self.ila.sample_depth
+        self.sample_rate   = self.ila.sample_rate
+        self.sample_period = self.ila.sample_period
 
         # Figure out how many bytes we'll send per sample.
         self.bytes_per_sample = (self.ila.sample_width + 7) // 8
@@ -322,22 +342,20 @@ class SyncSerialReadoutILA(Elaboratable):
         m  = Module()
         m.submodules.ila = self.ila
 
-        transaction_start = rising_edge_detector(m, self.cs)
+        transaction_start = rising_edge_detector(m, self.spi.cs)
 
         # Connect up our SPI transciever to our public interface.
-        spi = SPIDeviceInterface(
+        interface = SPIDeviceInterface(
             word_size=self.bits_per_word,
             clock_polarity=self.clock_polarity,
             clock_phase=self.clock_phase
         )
-        m.submodules.spi = spi
+        m.submodules.spi = interface
         m.d.comb += [
-            spi.sck  .eq(self.sck),
-            self.sdo .eq(spi.sdo),
-            spi.cs   .eq(self.cs),
+            interface.spi      .connect(self.spi),
 
             # Always output the captured sample.
-            spi.word_out .eq(self.ila.captured_sample)
+            interface.word_out .eq(self.ila.captured_sample)
         ]
 
         # Count where we are in the current transmission.
@@ -345,15 +363,15 @@ class SyncSerialReadoutILA(Elaboratable):
 
         # Our first piece of data is latched in when the transaction
         # starts, so we'll move on to sample #1.
-        with m.If(self.cs):
+        with m.If(self.spi.cs):
             with m.If(transaction_start):
                 m.d.sync += current_sample_number.eq(1)
 
             # From then on, we'll move to the next sample whenever we're finished
             # scanning out a word (and thus our current samples are latched in).
-            with m.Elif(spi.word_complete):
+            with m.Elif(interface.word_complete):
                 m.d.sync += current_sample_number.eq(current_sample_number + 1)
-            
+
         # Whenever CS is low, we should be providing the very first sample,
         # so reset our sample counter to 0.
         with m.Else():
@@ -372,7 +390,7 @@ class SyncSerialReadoutILATest(SPIGatewareTestCase):
 
     def instantiate_dut(self):
         self.input_signal = Signal(12)
-        return SyncSerialReadoutILA(
+        return SyncSerialILA(
             signals=[self.input_signal],
             sample_depth=16,
             clock_polarity=1,
@@ -404,7 +422,7 @@ class SyncSerialReadoutILATest(SPIGatewareTestCase):
         self.assertEqual((yield self.dut.complete), 1)
 
         # Start the transaction, and exchange 16 bytes of data.
-        yield self.dut.cs.eq(1)
+        yield self.dut.spi.cs.eq(1)
         yield
 
         # Read our our result over SPI...
@@ -419,6 +437,99 @@ class SyncSerialReadoutILATest(SPIGatewareTestCase):
             expected = b"\x0f" + bytes([i])
             self.assertEqual(datum, expected)
             i += 1
+
+
+class ILAFrontend(metaclass=ABCMeta):
+    """ Class that communicates with an ILA module and emits useful output. """
+
+    def __init__(self, ila):
+        """
+        Parameters:
+            ila -- The ILA object to work with.
+        """
+        self.ila = ila
+        self.samples = None
+
+
+    @abstractmethod
+    def _read_samples(self):
+        """ Read samples from the target ILA. Should return an iterable of samples. """
+
+
+    def _parse_sample(self, raw_sample):
+        """ Converts a single binary sample to a dictionary of names -> sample values. """
+
+        position = 0
+        sample   = {}
+
+        # Split our raw, bits(0) signal into smaller slices, and associate them with their names.
+        for signal in self.ila.signals:
+            signal_width = len(signal)
+            signal_bits  = raw_sample[position : position + signal_width]
+
+            sample[signal.name] = signal_bits
+
+        return sample
+
+
+    def _parse_samples(self, raw_samples):
+        """ Converts raw, binary samples to dictionaries of name -> sample. """
+        return (self._parse_sample(sample) for sample in raw_samples)
+
+
+    def refresh(self):
+        """ Fetches the latest set of samples from the target ILA. """
+        self.samples = self._parse_samples(self._read_samples())
+
+
+    def enumerate_samples(self):
+        """ Returns an iterator that returns pairs of (timestamp, sample). """
+
+        # If we don't have any samples, fetch samples from the ILA.
+        if self.samples is None:
+            self.refresh()
+
+        timestamp = 0
+
+        # Iterate over each sample...
+        for sample in self.samples:
+            yield timestamp, sample
+
+            # ... and advance the timestamp by the relevant interval.
+            timestamp += self.ila.sample_period
+
+
+    def print_samples(self):
+        """ Simple method that prints each of our samples; for simple CLI debugging."""
+
+        for timestamp, sample in self.enumerate_samples():
+            timestamp_scaled = 1000000 * timestamp
+            print(f"{timestamp_scaled:08f}us: {sample}")
+
+
+    def emit_vcd(self, filename):
+
+        # Select the file-like object we're working with.
+        if filename == "-":
+            stream = sys.stdout
+            close_after = False
+        else:
+            stream = open(filename, 'w')
+            close_after = True
+
+        # Create our basic VCD.
+        with VCDWriter(stream, timescale=f"1 ns", date='today') as writer:
+
+            # Create named values for each of our signals.
+            signals = {}
+            for signal in self.ila.signals:
+                signals[signal.name] = writer.register_var('ila', signal.name, 'integer', size=len(signal))
+
+            # Dump the each of our samples into the VCD.
+            for timestamp, sample in self.enumerate_samples():
+                for signal_name, signal_value in sample.items():
+                    writer.change(signals[signal_name], timestamp / 1e-9, signal_value.to_int())
+
 
 
 if __name__ == "__main__":

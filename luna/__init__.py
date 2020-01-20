@@ -12,7 +12,11 @@ from .gateware.platform import get_appropriate_platform
 def top_level_cli(fragment, *pos_args, **kwargs):
     """ Runs a default CLI that assists in building and running gateware. """
 
-    parser = argparse.ArgumentParser(description="Gateware generation/upload script for '{}' gateware.".format(fragment.__name__))
+    # If this isn't a fragment directly, interpret it as an object that will build one.
+    if callable(fragment):
+        fragment = fragment(*pos_args, **kwargs)
+
+    parser = argparse.ArgumentParser(description="Gateware generation/upload script for '{}' gateware.".format(fragment.__class__.__name__))
     parser.add_argument('--output', '-o', metavar='filename', help="Build and output a bitstream to the given file.")
     parser.add_argument('--erase', '-E', action='store_true',
          help="Clears the relevant FPGA's flash before performing other options.")
@@ -27,10 +31,6 @@ def top_level_cli(fragment, *pos_args, **kwargs):
 
     args = parser.parse_args()
     platform = get_appropriate_platform()
-
-    # If this isn't a fragment directly, interpret it as an object that will build one.
-    if callable(fragment):
-        fragment = fragment(*pos_args, **kwargs)
 
     # If we have no other options set, build and upload the relevant file.
     if (args.output is None and not args.flash and not args.erase and not args.dry_run):
@@ -52,14 +52,14 @@ def top_level_cli(fragment, *pos_args, **kwargs):
             platform.toolchain_erase()
 
         products = platform.build(fragment,
-            do_program=args.upload, 
+            do_program=args.upload,
             build_dir=build_dir
         )
 
         # If we're flashing the FPGA's flash, do so.
         if args.flash:
             platform.toolchain_flash(products)
-        
+
         # If we're outputting a file, write it.
         if args.output:
             bitstream =  products.get("top.bit")
@@ -71,5 +71,7 @@ def top_level_cli(fragment, *pos_args, **kwargs):
         if not args.keep_files:
             shutil.rmtree(build_dir)
 
+    # Return the fragment we're working with, for convenience.
+    return fragment
 
-    
+

@@ -7,9 +7,21 @@ import usb.core
 from .jtag  import JTAGChain
 from .flash import ConfigurationFlash
 from .spi   import DebugSPIConnection
+from .ila   import ApolloILAFrontend
 
 class DebuggerNotFound(IOError):
     pass
+
+
+def create_ila_frontend(ila, *, use_cs_multiplexing=False):
+    """ Convenience method that instantiates an Apollo debug session and creates an ILA frontend from it.
+
+    Parameters:
+        ila -- The SyncSerialILA object we'll be connecting to.
+    """
+    debugger = ApolloDebugger()
+    return ApolloILAFrontend(debugger, ila=ila)
+
 
 
 class ApolloDebugger:
