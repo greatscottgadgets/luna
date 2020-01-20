@@ -15,7 +15,7 @@ class Blinky(Elaboratable):
 
 
     def elaborate(self, platform):
-        """ Generate the Binky tester. """
+        """ Generate the Blinky tester. """
 
         m = Module()
 
