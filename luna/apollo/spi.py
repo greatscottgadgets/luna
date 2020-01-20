@@ -15,17 +15,33 @@ class DebugSPIConnection:
 
         self.command_bytes  = None
         self.register_bytes = None
+        self.chunk_size     = 256 + 4
+
+
+    def _transfer_chunk(self, data_to_send, *, complete=True):
+        """ Transfers a set of data over SPI, and reads the response. """
+
+        # Transfer the data to be sent...
+        self._debugger.out_request(REQUEST_DEBUG_SPI_SEND, data=data_to_send, value=0 if complete else 1)
+
+        # ... and read the response.
+        return self._debugger.in_request(REQUEST_DEBUG_SPI_READ_RESPONSE, length=len(data_to_send))
 
 
     def transfer(self, data_to_send):
         """ Transfers a set of data over SPI, and reads the response. """
 
-        # Transfer the data to be sent...
-        self._debugger.out_request(REQUEST_DEBUG_SPI_SEND, data=data_to_send)
+        to_send  = bytearray(data_to_send)
+        response = bytearray()
 
-        # ... and read the response.
-        return self._debugger.in_request(REQUEST_DEBUG_SPI_READ_RESPONSE, length=len(data_to_send))
+        while to_send:
+            chunk = to_send[0:self.chunk_size]
+            del to_send[0:self.chunk_size]
 
+            response_chunk = self._transfer_chunk(chunk, complete=not to_send)
+            response.extend(response_chunk)
+
+        return response
 
 
     def _autodetect_command_shape(self):
@@ -35,7 +51,7 @@ class DebugSPIConnection:
 
         # Get the start of the transaction; e.g. the sequence of zeroes followed by the sequence of ones.
         autodetect_bits  = "{:0128b}".format(autodetect_value).rstrip('0')
-        
+
         # The leftover number of 0's is our command size in bits; the address size is one less than that.
         # The leftover number of 1's is our register size in bits.
         self.command_bytes  = autodetect_bits.count('0') // 8

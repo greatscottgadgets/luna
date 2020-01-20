@@ -102,7 +102,7 @@ static bool debug_spi_exchange_bit(bool bit_to_send)
 
     // Scan out our new bit.
     gpio_set_pin_level(PIN_SDI, bit_to_send);
-    
+
     // Create our rising edge.
 	half_bit_delay();
     gpio_set_pin_level(PIN_SCK, true);
@@ -171,7 +171,10 @@ bool handle_debug_spi_send_complete(uint8_t rhport, tusb_control_request_t const
 {
 	gpio_set_pin_level(PIN_FPGA_CS, false);
 	debug_spi_send(spi_out_buffer, spi_in_buffer, request->wLength);
-	gpio_set_pin_level(PIN_FPGA_CS, true);
+
+	if (!request->wValue) {
+		gpio_set_pin_level(PIN_FPGA_CS, true);
+	}
 
 	return true;
 }
@@ -255,5 +258,3 @@ bool handle_release_configuration_spi(uint8_t rhport, tusb_control_request_t con
 
 	return tud_control_xfer(rhport, request, NULL, 0);
 }
-
-
