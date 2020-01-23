@@ -20,7 +20,7 @@ def create_ila_frontend(ila, *, use_cs_multiplexing=False):
         ila -- The SyncSerialILA object we'll be connecting to.
     """
     debugger = ApolloDebugger()
-    return ApolloILAFrontend(debugger, ila=ila)
+    return ApolloILAFrontend(debugger, ila=ila, use_inverted_cs=use_cs_multiplexing)
 
 
 

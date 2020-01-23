@@ -27,6 +27,7 @@ jtag-scan  -- Prints information about devices on the onboard JTAG chain.
 flash-scan -- Attempts to detect any attached configuration flashes.
 svf        -- Plays a given SVF file over JTAG.
 spi        -- Sends the given list of bytes over debug-SPI, and returns the response.
+spi-inv    -- Sends the given list of bytes over SPI with inverted CS.
 spi-reg    -- Reads or writes to a provided register over the debug-SPI.
 """
 
@@ -87,7 +88,7 @@ def reconfigure_ecp5(device, log_function, log_error, args):
     device.soft_reset()
 
 
-def debug_spi(device, log_function, log_error, args):
+def debug_spi(device, log_function, log_error, args, *, invert_cs=False):
 
     # Try to figure out what data the user wants to send.
     data_raw = ast.literal_eval(args.argument)
@@ -95,9 +96,13 @@ def debug_spi(device, log_function, log_error, args):
         data_raw = [data_raw]
 
     data_to_send = bytes(data_raw)
-    response     = device.spi.transfer(data_to_send)
+    response     = device.spi.transfer(data_to_send, invert_cs=invert_cs)
 
     print("response: {}".format(response))
+
+
+def debug_spi_inv(device, log_function, log_error, args):
+    debug_spi(device, log_function, log_error, args, invert_cs=True)
 
 
 def debug_spi_register(device, log_function, log_error, args):
@@ -155,7 +160,7 @@ def program_config_flash(device, log_function, log_error, args):
 def read_out_config_flash(device, log_function, log_error, args):
     """ Command that programs a given bitstream into the device's configuration flash. """
     ensure_flash_gateware_loaded(device, log_function=log_function)
-   
+
     # For now, always read back a ECP5-12F.
     read_back_length = 582376
 
@@ -183,8 +188,9 @@ def main():
 
         # SPI debug exchanges
         'spi':         debug_spi,
+        'spi-inv':     debug_spi_inv,
         'spi-reg':     debug_spi_register,
-    
+
         # SPI flash commands
         'erase':       erase_config_flash,
         'program':     program_config_flash,

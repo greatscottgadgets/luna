@@ -46,7 +46,8 @@ class ApolloILAFrontend(ILAFrontend):
         total_to_read      = self.ila.sample_depth * sample_width_bytes
 
         # Fetch all of our samples from the given device.
-        all_samples = self._debugger.spi.transfer(b"\0" * total_to_read)
+        all_samples = \
+             self._debugger.spi.transfer(b"\0" * total_to_read, invert_cs=self._use_inverted_cs)
 
         return list(self._split_samples(all_samples))
 

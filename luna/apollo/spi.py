@@ -18,18 +18,29 @@ class DebugSPIConnection:
         self.chunk_size     = 256 + 4
 
 
-    def _transfer_chunk(self, data_to_send, *, complete=True):
+    def _transfer_chunk(self, data_to_send, *, complete=True, invert_cs=False):
         """ Transfers a set of data over SPI, and reads the response. """
 
         # Transfer the data to be sent...
-        self._debugger.out_request(REQUEST_DEBUG_SPI_SEND, data=data_to_send, value=0 if complete else 1)
+        self._debugger.out_request(REQUEST_DEBUG_SPI_SEND,
+            data=data_to_send,
+            value=0 if complete else 1,
+            index=1 if invert_cs else 0
+        )
 
         # ... and read the response.
         return self._debugger.in_request(REQUEST_DEBUG_SPI_READ_RESPONSE, length=len(data_to_send))
 
 
-    def transfer(self, data_to_send):
-        """ Transfers a set of data over SPI, and reads the response. """
+    def transfer(self, data_to_send, invert_cs=False):
+        """ Transfers a set of data over SPI, and reads the response.
+
+        Parameters:
+            data_to_send -- The data to be sent; also sets the length of received data.
+            invert_cs    -- Perform the transaction with CS high, rather than low.
+                            Useful for multiplexing two targets on the same SPI bus
+                            with a single CS line.
+        """
 
         to_send  = bytearray(data_to_send)
         response = bytearray()
@@ -38,7 +49,8 @@ class DebugSPIConnection:
             chunk = to_send[0:self.chunk_size]
             del to_send[0:self.chunk_size]
 
-            response_chunk = self._transfer_chunk(chunk, complete=not to_send)
+            response_chunk = \
+                self._transfer_chunk(chunk, complete=not to_send, invert_cs=invert_cs)
             response.extend(response_chunk)
 
         return response

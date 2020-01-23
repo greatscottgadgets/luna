@@ -724,6 +724,50 @@ class SPIRegisterInterfaceTest(SPIGatewareTestCase):
         self.assertEqual(bytes(data), b"\x00\x00\x12\x34\x56\x78")
 
 
+class SPIMultiplexer(Elaboratable):
+    """ Gateware that assists in connecting multiple SPI busses to the same shared lines. """
+
+    def __init__(self, multiplexed_busses):
+        """
+        Parameters:
+            multiplexed_busses -- A list of SPI busses to be multiplexed. The active bus will
+                                  be selected based on each bus's chip-select signals.
+        """
+        self.multiplexed_busses = multiplexed_busses
+
+        #
+        # I/O port
+        #
+        self.shared_lines = SPIBus()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Build our multiplexing logic.
+        is_first_entry = True
+        for bus in self.multiplexed_busses:
+            conditional = m.If if is_first_entry else m.Elif
+            is_first_entry = False
+
+            # Connect SDO only if this line is selected
+            with conditional(bus.cs):
+                m.d.comb += self.shared_lines.sdo.eq(bus.sdo)
+
+
+        # Connect each of our shared inputs.
+        for bus in self.multiplexed_busses:
+            m.d.comb += [
+                bus.sck .eq(self.shared_lines.sck),
+                bus.sdi .eq(self.shared_lines.sdi)
+            ]
+
+
+        return m
+
+
+
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,7 @@
 
 #include <tusb.h>
 #include <hal/include/hal_gpio.h>
+#include <bsp/board.h>
 
 #include "spi.h"
 #include "led.h"
@@ -153,6 +154,10 @@ static void debug_spi_send(uint8_t *tx_buffer, uint8_t *rx_buffer, size_t length
 
 /**
  * Request that sends a block of data over our debug SPI.
+ * 	wValue: 0 = this transaction ends a transfer;
+ *          1 = transaction will continue after
+ *  wIndex: 0 = this transaction should be made with CS low;
+ *          1 = this transaction should be made with CS high
  */
 bool handle_debug_spi_send(uint8_t rhport, tusb_control_request_t const* request)
 {
@@ -169,11 +174,21 @@ bool handle_debug_spi_send(uint8_t rhport, tusb_control_request_t const* request
 
 bool handle_debug_spi_send_complete(uint8_t rhport, tusb_control_request_t const* request)
 {
-	gpio_set_pin_level(PIN_FPGA_CS, false);
+	// Use an active-low CS if wIndex isn't set; or an active-high one otherwise.
+	bool cs_pin_active_level = request->wIndex ? true : false;
+
+	gpio_set_pin_level(PIN_FPGA_CS, cs_pin_active_level);
 	debug_spi_send(spi_out_buffer, spi_in_buffer, request->wLength);
 
 	if (!request->wValue) {
-		gpio_set_pin_level(PIN_FPGA_CS, true);
+		gpio_set_pin_level(PIN_FPGA_CS, !cs_pin_active_level);
+
+		// To support multiplexing the CS line, if this is an active-high-CS transaction,
+		// we'll pulse the cs_pin to its inactive level briefly, and then return CS
+		// to its normal "idle-high".
+		if (request->wIndex) {
+			gpio_set_pin_level(PIN_FPGA_CS, true);
+		}
 	}
 
 	return true;
@@ -223,6 +238,7 @@ bool handle_flash_spi_send_complete(uint8_t rhport, tusb_control_request_t const
 
 	// ... and end the tranmission, unless we've been instructed to keep the line open.
 	if (!request->wValue) {
+		board_delay(1);
 		gpio_set_pin_level(PIN_FLASH_CS, true);
 	}
 
