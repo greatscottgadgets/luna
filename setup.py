@@ -33,6 +33,10 @@ setup(
         ],
     },
 
+    extras_require = {
+        'console_tests': ["prompt_toolkit"]
+    },
+
     # Metadata
     classifiers = [
         'Programming Language :: Python',

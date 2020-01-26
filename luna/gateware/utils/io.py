@@ -10,7 +10,7 @@ from unittest import TestCase
 from nmigen import Record, Instance, Module, Signal, Cat
 from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
 
-def delayed(m, signal, delay, *, out=None):
+def delay(m, signal, interval, *, out=None):
     """ Creates a delayed copy of a given I/O signal.
 
     Currently only works at the FPGA's I/O boundary, and only on ECP5s.
@@ -39,10 +39,10 @@ def delayed(m, signal, delay, *, out=None):
 
         # If we have a vector of signals, but a integer delay,
         # convert that integer to a vector of same-valued delays.
-        if isinstance(delay, int):
-            delay = [delay] * len(signal)
+        if isinstance(interval, int):
+            interval = [interval] * len(signal)
 
-        return Cat(delayed(m, s, d, out=o) for s, d, o in zip(signal, delay, out))
+        return Cat(delay(m, s, d, out=o) for s, d, o in zip(signal, interval, out))
 
     #
     # Base case: create a delayed version of the relevant signal.
@@ -50,7 +50,7 @@ def delayed(m, signal, delay, *, out=None):
     m.submodules += Instance("DELAYG",
         i_A=signal,
         o_Z=out,
-        p_DEL_VALUE=delay
+        p_DEL_VALUE=interval
     )
 
     return out

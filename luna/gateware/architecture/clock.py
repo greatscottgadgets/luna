@@ -34,17 +34,11 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
         self.clk_fast     = Signal()
         self.clk_sync     = Signal()
         self.clk_ulpi     = Signal()
-        self.clk_fast_out = Signal()
 
 
     @abstractmethod
     def generate_fast_clock(self, m, platform):
         """ Method that returns our platform's fast clock; used for e.g. RAM interfacing. """
-
-
-    @abstractmethod
-    def generate_fast_out_clock(self, m, platform):
-        """ Method that returns our platform's fast clock; phase offset to accommodate any delays. """
 
 
     @abstractmethod
@@ -70,9 +64,6 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
         m.domains.sync = ClockDomain()
         m.domains.ulpi = ClockDomain()
 
-        # Create a clock domain that shifts on the falling edges of the fast clock.
-        m.domains.fast_out = ClockDomain(clk_edge="neg")
-
         # Call the hook that will create any submodules necessary for all clocks.
         self.create_submodules(m, platform)
 
@@ -81,10 +72,8 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
             self.clk_ulpi                  .eq(self.generate_ulpi_clock(m, platform)),
             self.clk_sync                  .eq(self.generate_sync_clock(m, platform)),
             self.clk_fast                  .eq(self.generate_fast_clock(m, platform)),
-            self.clk_fast_out              .eq(self.generate_fast_out_clock(m, platform)),
 
             ClockSignal(domain="fast")     .eq(self.clk_fast),
-            ClockSignal(domain="fast_out") .eq(self.clk_fast_out),
             ClockSignal(domain="sync")     .eq(self.clk_sync),
             ClockSignal(domain="ulpi")     .eq(self.clk_ulpi),
         ]
@@ -227,9 +216,6 @@ class LunaECP5DomainGenerator(LunaDomainGenerator):
         return self._clock_options[self.clock_frequencies['sync']]
 
     def generate_fast_clock(self, m, platform):
-        return self._clock_options[self.clock_frequencies['fast']]
-
-    def generate_fast_out_clock(self, m, platform):
         return self._clock_options[self.clock_frequencies['fast']]
 
 
