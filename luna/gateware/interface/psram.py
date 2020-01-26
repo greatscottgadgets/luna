@@ -5,11 +5,34 @@
 
 import unittest
 
-from nmigen import Signal, Module, Cat, Elaboratable, Record
-from nmigen.hdl.xfrm import DomainRenamer
+from nmigen import Signal, Module, Cat, Elaboratable, Record, ClockDomain, ClockSignal
+from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
 
 from ..util       import stretch_strobe_signal
+from ..utils.io   import delayed
 from ..test.utils import LunaGatewareTestCase, fast_domain_test_case
+
+
+class HyperBus(Record):
+    """ Record representing an HyperBus (DDR-ish connection for HyperRAM). """
+
+    def __init__(self):
+        super().__init__([
+            ('clk', 1, DIR_FANOUT),
+            ('dq',
+                ('i', 8, DIR_FANIN),
+                ('o', 8, DIR_FANOUT),
+                ('e', 1, DIR_FANOUT),
+            ),
+            ('rwds',
+                ('i', 1, DIR_FANIN),
+                ('o', 1, DIR_FANOUT),
+                ('e', 1, DIR_FANOUT),
+            ),
+            ('cs',     1, DIR_FANOUT),
+            ('reset',  1, DIR_FANOUT)
+        ])
+
 
 
 class HyperRAMInterface(Elaboratable):
@@ -40,12 +63,18 @@ class HyperRAMInterface(Elaboratable):
     LOW_LATENCY_EDGES  = 6
     HIGH_LATENCY_EDGES = 14
 
-    def __init__(self, *, bus, strobe_length=2):
+    def __init__(self, *, bus, strobe_length=2, in_skew=None, out_skew=None):
         """
         Parmeters:
             bus           -- The RAM record that should be connected to this RAM chip.
             strobe_length -- The number of fast-clock cycles any strobe should be asserted for.
+            data_skews    -- If provided, adds an input delay to each line of the data input.
+                             Can be provided as a single delay number, or an interable of eight
+                             delays to separately delay each of the input lines.
         """
+
+        self.in_skew  = in_skew
+        self.out_skew = out_skew
 
         #
         # I/O port.
@@ -66,12 +95,28 @@ class HyperRAMInterface(Elaboratable):
         self.new_data_ready   = Signal()
 
         # Data signals.
-        self.read_data         = Signal(16)
-        self.write_data        = Signal(16)
+        self.read_data        = Signal(16)
+        self.write_data       = Signal(16)
 
 
     def elaborate(self, platform):
         m = Module()
+
+        #
+        # Delayed input and output.
+        #
+
+        if self.in_skew is not None:
+            data_in = delayed(m, self.bus.dq.i, self.in_skew)
+        else:
+            data_in = self.bus.dq.i
+
+        if self.out_skew is not None:
+            data_out = Signal.like(self.bus.dq.o)
+            delayed(m, data_out, self.out_skew, out=self.bus.dq.o)
+        else:
+            data_out = self.bus.dq.o
+
 
         #
         # Transaction clock generator.
@@ -108,8 +153,13 @@ class HyperRAMInterface(Elaboratable):
         # One cycle delayed version of RWDS.
         # This is used to detect edges in RWDS during reads, which semantically mean
         # we should accept new data.
-        last_rwds = Signal()
+        last_rwds = Signal.like(self.bus.rwds.i)
         m.d.fast += last_rwds.eq(self.bus.rwds.i)
+
+        # One cycle delayed version of DQ.
+        # This lets us match up to the timing of RWDS.
+        last_dq = Signal.like(data_in)
+        m.d.fast += last_dq.eq(data_in)
 
         # Create a fast-domain version of our 'new data ready' signal.
         new_data_ready = Signal()
@@ -200,8 +250,8 @@ class HyperRAMInterface(Elaboratable):
 
                 # Output our first byte of our command.
                 m.d.fast_out += [
-                    self.bus.dq.o   .eq(command_byte),
-                    self.bus.dq.oe.eq(1)
+                    data_out       .eq(command_byte),
+                    self.bus.dq.oe .eq(1)
                 ]
 
             # Note: it's felt that this is more readable with each of these
@@ -211,35 +261,35 @@ class HyperRAMInterface(Elaboratable):
 
             with m.State('SHIFT_COMMAND1'):
                 m.d.fast_out += [
-                    self.bus.dq.o    .eq(current_address[19:27]),
+                    data_out         .eq(current_address[19:27]),
                     self.bus.dq.oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND2'
 
             with m.State('SHIFT_COMMAND2'):
                 m.d.fast_out += [
-                    self.bus.dq.o    .eq(current_address[11:19]),
+                    data_out         .eq(current_address[11:19]),
                     self.bus.dq.oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND3'
 
             with m.State('SHIFT_COMMAND3'):
                 m.d.fast_out += [
-                    self.bus.dq.o    .eq(current_address[ 3:16]),
+                    data_out         .eq(current_address[ 3:16]),
                     self.bus.dq.oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND4'
 
             with m.State('SHIFT_COMMAND4'):
                 m.d.fast_out += [
-                    self.bus.dq.o    .eq(0),
+                    data_out         .eq(0),
                     self.bus.dq.oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND5'
 
             with m.State('SHIFT_COMMAND5'):
                 m.d.fast_out += [
-                    self.bus.dq.o.eq(current_address[0:3]),
+                    data_out         .eq(current_address[0:3]),
                     self.bus.dq.oe   .eq(1)
                 ]
 
@@ -273,14 +323,11 @@ class HyperRAMInterface(Elaboratable):
 
             # STREAM_DATA_MSB -- scans in or out the first byte of data
             with m.State('READ_DATA_MSB'):
-                m.d.fast += [
-                    self.read_data[8:16] .eq(self.bus.dq.i),
-                ]
 
                 # If RWDS has changed, the host has just sent us new data.
                 with m.If(self.bus.rwds.i != last_rwds):
                     m.d.fast += [
-                        self.read_data[8:16] .eq(self.bus.dq.i),
+                        self.read_data[8:16] .eq(last_dq)
                     ]
                     m.next = 'READ_DATA_LSB'
 
@@ -292,7 +339,7 @@ class HyperRAMInterface(Elaboratable):
                 # Sample it, and indicate that we now have a valid piece of new data.
                 with m.If(self.bus.rwds.i != last_rwds):
                     m.d.fast += [
-                        self.read_data[0:8]  .eq(self.bus.dq.i),
+                        self.read_data[0:8]  .eq(last_dq),
                         new_data_ready       .eq(1)
                     ]
 
