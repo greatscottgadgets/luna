@@ -21,16 +21,6 @@ from luna.gateware.interface.psram    import HyperRAMInterface
 REGISTER_RAM_REG_ADDR   = 2
 REGISTER_RAM_VALUE      = 3
 
-#
-# Clock frequencies for each of the domains.
-# Can be modified to test at faster or slower frequencies.
-#
-CLOCK_FREQUENCIES = {
-    "fast": 240,
-    "sync": 60,
-    "ulpi": 60
-}
-
 
 class HyperRAMDiagnostic(Elaboratable):
     """
@@ -42,7 +32,7 @@ class HyperRAMDiagnostic(Elaboratable):
         m = Module()
 
         # Generate our clock domains.
-        clocking = LunaECP5DomainGenerator(clock_frequencies=CLOCK_FREQUENCIES)
+        clocking = LunaECP5DomainGenerator()
         m.submodules.clocking = clocking
 
         # Grab a reference to our debug-SPI bus.

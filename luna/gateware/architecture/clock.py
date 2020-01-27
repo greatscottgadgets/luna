@@ -101,17 +101,21 @@ class LunaECP5DomainGenerator(LunaDomainGenerator):
                                  be assumed to be a standard 60.
         """
         super().__init__(clock_signal_name=clock_signal_name)
-
-        # If we don't have a dictionary of clock frequencies, use the default.
-        if clock_frequencies is None:
-            self.clock_frequencies = self.DEFAULT_CLOCK_FREQUENCIES_MHZ
-        else:
-            self.clock_frequencies = clock_frequencies
+        self.clock_frequencies = clock_frequencies
 
 
     def create_submodules(self, m, platform):
 
         self._pll_lock   = Signal()
+
+
+        # Figure out our platform's clock frequencies -- grab the platform's
+        # defaults, and then override any with our local, caller-provided copies.
+        new_clock_frequencies = platform.DEFAULT_CLOCK_FREQUENCIES_MHZ.copy()
+        if self.clock_frequencies:
+            new_clock_frequencies.update(self.clock_frequencies)
+        self.clock_frequencies = new_clock_frequencies
+
 
         # Use the provided clock name for our input; or the default clock
         # if no name was provided.
