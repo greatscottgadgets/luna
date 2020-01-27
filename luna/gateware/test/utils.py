@@ -91,7 +91,6 @@ class LunaGatewareTestCase(FHDLTestCase):
             self.sim.add_clock(1 / self.SYNC_CLOCK_FREQUENCY, domain="sync")
         if self.FAST_CLOCK_FREQUENCY:
             self.sim.add_clock(1 / self.FAST_CLOCK_FREQUENCY, domain="fast")
-            self.sim.add_clock(1 / self.FAST_CLOCK_FREQUENCY, domain="fast_out", phase=180)
 
 
 

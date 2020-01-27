@@ -392,9 +392,9 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
 
         for _ in range(times):
             yield
-            self.assertEqual((yield self.ram_signals.clk), 0)
-            yield
             self.assertEqual((yield self.ram_signals.clk), 1)
+            yield
+            self.assertEqual((yield self.ram_signals.clk), 0)
 
 
 
@@ -435,27 +435,27 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
         yield
         yield
         self.assertEqual((yield self.ram_signals.cs),       1)
-        self.assertEqual((yield self.ram_signals.clk),      0)
+        self.assertEqual((yield self.ram_signals.clk),      1)
         self.assertEqual((yield self.ram_signals.dq.oe),    1)
         self.assertEqual((yield self.ram_signals.dq.o),  0xe0)
 
         # Next, on the falling edge of our clock, the next byte should be presented.
         yield
-        self.assertEqual((yield self.ram_signals.clk),      1)
+        self.assertEqual((yield self.ram_signals.clk),      0)
         self.assertEqual((yield self.ram_signals.dq.o),  0x17)
 
         # This should continue until we've shifted out a full command.
         yield
-        self.assertEqual((yield self.ram_signals.clk),      0)
+        self.assertEqual((yield self.ram_signals.clk),      1)
         self.assertEqual((yield self.ram_signals.dq.o),  0x79)
         yield
-        self.assertEqual((yield self.ram_signals.clk),      1)
+        self.assertEqual((yield self.ram_signals.clk),      0)
         self.assertEqual((yield self.ram_signals.dq.o),  0x9B)
         yield
-        self.assertEqual((yield self.ram_signals.clk),      0)
+        self.assertEqual((yield self.ram_signals.clk),      1)
         self.assertEqual((yield self.ram_signals.dq.o),  0x00)
         yield
-        self.assertEqual((yield self.ram_signals.clk),      1)
+        self.assertEqual((yield self.ram_signals.clk),      0)
         self.assertEqual((yield self.ram_signals.dq.o),  0x05)
 
         # Check that we've been driving our output this whole time,
@@ -469,14 +469,14 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
         yield
         self.assertEqual((yield self.ram_signals.dq.oe),    0)
         self.assertEqual((yield self.ram_signals.rwds.oe),  0)
-        self.assertEqual((yield self.ram_signals.clk),      0)
+        self.assertEqual((yield self.ram_signals.clk),      1)
 
         # By this point, the RAM will drive RWDS low.
         yield self.ram_signals.rwds.i.eq(0)
 
-        # Ensure the is still ticking...
+        # Ensure the clock still ticking...
         yield
-        self.assertEqual((yield self.ram_signals.clk),      1)
+        self.assertEqual((yield self.ram_signals.clk),      0)
 
         # ... and remains so for the remainder of the latency period.
         yield from self.assert_clock_pulses(6)
@@ -500,9 +500,12 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
         yield
         self.assertEqual((yield self.dut.new_data_ready),  1)
         self.assertEqual((yield self.ram_signals.cs),      0)
-        self.assertEqual((yield self.ram_signals.clk),     0)
         self.assertEqual((yield self.ram_signals.dq.oe),   0)
         self.assertEqual((yield self.ram_signals.rwds.oe), 0)
+
+        # Ensure that our clock drops back to '0' during idle cycles.
+        yield from self.advance_cycles(2)
+        self.assertEqual((yield self.ram_signals.clk),     0)
 
         # TODO: test recovery time
 
