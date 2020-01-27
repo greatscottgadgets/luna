@@ -26,7 +26,7 @@ REGISTER_RAM_VALUE      = 3
 # Can be modified to test at faster or slower frequencies.
 #
 CLOCK_FREQUENCIES = {
-    "fast": 120,
+    "fast": 240,
     "sync": 60,
     "ulpi": 60
 }
@@ -58,7 +58,7 @@ class HyperRAMDiagnostic(Elaboratable):
         # HyperRAM test connections.
         #
         ram_bus = platform.request('ram')
-        psram = HyperRAMInterface(bus=ram_bus, clock_skew=64)
+        psram = HyperRAMInterface(bus=ram_bus, **platform.ram_timings)
         m.submodules += psram
 
         psram_address_changed = Signal()
@@ -77,14 +77,6 @@ class HyperRAMDiagnostic(Elaboratable):
             psram.address          .eq(psram_address),
         ]
 
-        #user_io = Cat(platform.request("user_io", i, dir="o") for i in range(4))
-        #m.d.comb += [
-        #    user_io[0] .eq(psram.bus.cs),
-        #    user_io[1] .eq(psram.bus.clk),
-        #    user_io[2] .eq(psram.bus.rwds.i),
-        #    user_io[3] .eq(psram.bus.dq.i[7]),
-        #]
-
         # Return our elaborated module.
         return m
 
@@ -97,29 +89,41 @@ if __name__ == "__main__":
 
     print("Running basic HyperRAM diagnostics.")
 
+    iterations = 100
+
     passes   = 0
     failures = 0
+    failed_tests = set()
 
-    for i in range(100):
+    def test_id_read():
         debugger.spi.register_write(REGISTER_RAM_REG_ADDR, 0x0)
         debugger.spi.register_write(REGISTER_RAM_REG_ADDR, 0x0)
-        identification = debugger.spi.register_read(REGISTER_RAM_VALUE)
+        return debugger.spi.register_read(REGISTER_RAM_VALUE) == 0x0c81
+
+    def test_config_read():
         debugger.spi.register_write(REGISTER_RAM_REG_ADDR, 0x800)
         debugger.spi.register_write(REGISTER_RAM_REG_ADDR, 0x800)
-        configuration = debugger.spi.register_read(REGISTER_RAM_VALUE)
+        return debugger.spi.register_read(REGISTER_RAM_VALUE) == 0x8f1f
 
-        if (identification, configuration) == (0x0c81, 0x8f1f):
-            pprint(f".", end="")
-            passes += 1
-        else:
-            pprint(f"\n{i}: ✗ FAIL [{identification:04x}/{configuration:04x}]")
-            failures += 1
+    # Run each of our tests.
+    for test in (test_id_read, test_config_read):
+        for i in range(iterations):
 
+            if test():
+                pprint(f".", end="")
+                passes += 1
+            else:
+                pprint(f"✗", end="")
+
+                failures += 1
+                failed_tests.add(test)
+
+    fail_text = "<red>✗ FAILED</red>"
+    pass_text = "<green>✓ PASSED</green>"
     pprint(HTML("\n\n<b><u>Results:</u></b>"))
-    if failures:
-        pprint(HTML(f"    ID READ: <red>✗ FAILED</red>"))
-    else:
-        pprint(HTML(f"    ID READ: <green>✓ PASSED</green>"))
+
+    pprint(HTML(f"    ID READ:     {fail_text if test_id_read in failed_tests else pass_text}"))
+    pprint(HTML(f"    CONFIG READ: {fail_text if test_config_read in failed_tests else pass_text}"))
 
 
     print(f"\nDiagnostics completed with {passes} passes and {failures} failures.\n")

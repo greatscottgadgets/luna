@@ -47,6 +47,16 @@ class LUNAPlatformR01(LatticeECP5Platform):
         "ulpi": 60
     }
 
+    #
+    # Preferred DRAM bus I/O (de)-skewing constants.
+    #
+    ram_timings = dict(
+        clock_skew = 64
+    )
+
+    #
+    # I/O resources.
+    #
     resources   = [
 
         # Primary, discrete 60MHz oscillator.
