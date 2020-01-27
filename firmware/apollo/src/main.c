@@ -1,4 +1,4 @@
-/* 
+/*
  * The MIT License (MIT)
  *
  * Copyright (c) 2019 Katherine J. Temkin <kate@ktemkin.com>
@@ -36,6 +36,8 @@
 #include "spi.h"
 #include "jtag.h"
 #include "fpga.h"
+#include "uart.h"
+#include "console.h"
 #include "selftest.h"
 #include "debug_spi.h"
 
@@ -78,10 +80,14 @@ int main(void)
 	selftest_init();
 	debug_spi_init();
 
+	// Trigger an FPGA reconfiguration; so the FPGA automatically
+	// configures itself from its SPI ROM on reset. This effectively
+	// makes the RESET button reset both the uC and the FPGA.
 	trigger_fpga_reconfiguration();
 
 	while (1) {
 		tud_task(); // tinyusb device task
+		console_task();
 		heartbeat_task();
 	}
 

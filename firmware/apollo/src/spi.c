@@ -125,7 +125,7 @@ void spi_init(spi_target_t target, bool lsb_first, bool configure_pinmux, uint8_
 	// Software reset the SERCOM to restore initial values.
 	while(sercom->SPI.SYNCBUSY.bit.SWRST);
 	sercom->SPI.CTRLA.bit.SWRST = 1;
-	
+
 	// The SWRST bit becomes accessible again once the software reset is
 	// complete -- we'll use this to wait for the reset to be finshed.
 	while(sercom->SPI.SYNCBUSY.bit.SWRST);
@@ -172,7 +172,7 @@ void spi_init(spi_target_t target, bool lsb_first, bool configure_pinmux, uint8_
 uint8_t spi_send_byte(spi_target_t port, uint8_t data)
 {
 	volatile sercom_t *sercom = sercom_for_target(port);
-	
+
 	// Send the relevant data...
 	while(sercom->SPI.INTFLAG.bit.DRE == 0);
 	sercom->SPI.DATA.reg = data;
@@ -185,7 +185,7 @@ uint8_t spi_send_byte(spi_target_t port, uint8_t data)
 
 /**
  * Sends a block of data over the SPI bus.
- * 
+ *
  * @param port The port on which to perform the SPI transaction.
  * @param data_to_send The data to be transferred over the SPI bus.
  * @param data_received Any data received during the SPI transaction.

@@ -9,6 +9,7 @@
 
 #include "spi.h"
 #include "led.h"
+#include "uart.h"
 
 // Selects whether we should use the SAMD SERCOM for SPI.
 // To select arbitrary pins for the SPI bus, uncomment this to use bitbang SPI.
@@ -165,6 +166,9 @@ bool handle_debug_spi_send(uint8_t rhport, tusb_control_request_t const* request
 	if (request->wLength > sizeof(spi_out_buffer)) {
 		return false;
 	}
+
+	// TODO: don't run this on r0.2+ boards?
+	uart_release_pinmux();
 
 	// Queue a transfer that will receive the relevant SPI data.
 	// We'll perform the send itself once the data transfer is complete.

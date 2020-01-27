@@ -1,4 +1,4 @@
-/* 
+/*
  * The MIT License (MIT)
  *
  * Copyright (c) 2019 Katherine J. Temkin <kate@ktemkin.com>
@@ -75,7 +75,7 @@ enum
 	ITF_NUM_CDC = 0,
 	ITF_NUM_CDC_DATA,
 	ITF_NUM_DFU_RT,
-	ITF_NUM_TOTAL 
+	ITF_NUM_TOTAL
 };
 
 #define CONFIG_TOTAL_LEN    (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_DFU_RT_DESC_LEN)
@@ -87,7 +87,7 @@ uint8_t const desc_configuration[] =
 	TUD_CONFIG_DESCRIPTOR(ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
 
 	// Interface number, string index, EP notification address and size, EP data address (out, in) and size.
-	TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, 0x81, 8, 0x02, 0x82, 64),
+	TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, 0x81, 8, 0x02, 0x83, 64),
 
 	// Interface descriptor for the DFU runtime interface.
 	TUD_DFU_RT_DESCRIPTOR(ITF_NUM_DFU_RT, 5, 0x0d, 500, 4096),
@@ -124,7 +124,7 @@ static uint16_t _desc_str[34];
 
 /**
  * Returns a USB string descriptor that describes this device's unique ID.
- */ 
+ */
 static uint16_t *get_serial_number_string_descriptor(void)
 {
 	const unsigned serial_number_chars = 32;
@@ -135,13 +135,13 @@ static uint16_t *get_serial_number_string_descriptor(void)
 	// Read and save the device serial number as normal Base32.
 	//
 
-	// Documented in section 9.3.3 of D21 datasheet, page 32 (rev G), but no header file, 
+	// Documented in section 9.3.3 of D21 datasheet, page 32 (rev G), but no header file,
 	// these are not contiguous addresses.
 	const uint32_t	*ser[4] = {
-		(uint32_t *)0x0080A00C, 
-		(uint32_t *)0x0080A040, 
-		(uint32_t *)0x0080A044, 
-		(uint32_t *)0x0080A048 
+		(uint32_t *)0x0080A00C,
+		(uint32_t *)0x0080A040,
+		(uint32_t *)0x0080A044,
+		(uint32_t *)0x0080A048
 	};
 
 	// Populate the length and string type, as these are the first two bytes

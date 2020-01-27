@@ -18,6 +18,7 @@
 #include "led.h"
 #include "spi.h"
 #include "jtag.h"
+#include "uart.h"
 
 
 // JTAG comms buffers.
@@ -92,7 +93,7 @@ bool handle_jtag_request_scan(uint8_t rhport, tusb_control_request_t const* requ
 		return false;
 	}
 
-	// If we're going to advance state, always make sure the last bit is sent using the slow method, 
+	// If we're going to advance state, always make sure the last bit is sent using the slow method,
 	// so we can handle JTAG TAP state advancement on the last bit. If we don't have any bits to send slow,
 	// send the last byte slow.
 	if (!bits_to_send_slow && request->wIndex) {
@@ -107,7 +108,7 @@ bool handle_jtag_request_scan(uint8_t rhport, tusb_control_request_t const* requ
 	// Switch back to GPIO mode, and send the remainder using the slow method.
 	spi_release_pinmux(SPI_FPGA_JTAG);
 	if (bits_to_send_slow) {
-		jtag_tap_shift(jtag_out_buffer + bytes_to_send_bulk, jtag_in_buffer + bytes_to_send_bulk, 
+		jtag_tap_shift(jtag_out_buffer + bytes_to_send_bulk, jtag_in_buffer + bytes_to_send_bulk,
 				bits_to_send_slow, request->wIndex);
 	}
 	return tud_control_xfer(rhport, request, NULL, 0);
@@ -144,7 +145,7 @@ bool handle_jtag_go_to_state(uint8_t rhport, tusb_control_request_t const* reque
 bool handle_jtag_get_state(uint8_t rhport, tusb_control_request_t const* request)
 {
 	static uint8_t jtag_state;
-	
+
 	jtag_state = jtag_current_state();
 	return tud_control_xfer(rhport, request, &jtag_state, sizeof(jtag_state));
 }
