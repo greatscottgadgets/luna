@@ -242,7 +242,6 @@ bool handle_flash_spi_send_complete(uint8_t rhport, tusb_control_request_t const
 
 	// ... and end the tranmission, unless we've been instructed to keep the line open.
 	if (!request->wValue) {
-		board_delay(1);
 		gpio_set_pin_level(PIN_FLASH_CS, true);
 	}
 
@@ -274,6 +273,7 @@ bool handle_release_configuration_spi(uint8_t rhport, tusb_control_request_t con
 {
 	// Release the CS line, and then drop the blink pattern back to idle..
 	gpio_set_pin_direction(PIN_FLASH_CS, GPIO_DIRECTION_IN);
+	gpio_set_pin_pull_mode(PIN_FLASH_CS, GPIO_PULL_UP);
 	led_set_blink_pattern(BLINK_IDLE);
 
 	return tud_control_xfer(rhport, request, NULL, 0);

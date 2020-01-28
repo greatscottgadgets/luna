@@ -19,7 +19,7 @@ from ..gateware.applets.dc_flash import DebugControllerFlashBridge
 
 class ConfigurationFlash:
     """
-    Class representing a connection to an FPGA configuration flash. 
+    Class representing a connection to an FPGA configuration flash.
     Supports only the flashes used with LUNA boards; rather than being a general-case flasher.
     """
 
@@ -63,7 +63,7 @@ class ConfigurationFlash:
 
 
     def initialize(self):
-        """ 
+        """
         Starts a persistent connection to the relevant SPI flash.
         When possible, prefer using `with <object>` instead.
         """
@@ -112,7 +112,7 @@ class ConfigurationFlash:
     def read_flash_info(self):
         """ Reads the flash ID from the attached chip.
 
-        Returns: 
+        Returns:
             flash_id    -- A 16-bit number identifying the target flash
             description -- A string describing the flash chip
         """
@@ -150,7 +150,7 @@ class ConfigurationFlash:
     def _wait_for_completion(self):
         """ Waits for the device to complete the started write or erase command. """
 
-        # Spin until the busy 
+        # Spin until the busy
         while (self._read_status_register() & self.STATUS_BUSY_MASK):
             time.sleep(self.POLL_INTERVAL)
 
@@ -179,8 +179,8 @@ class ConfigurationFlash:
         # 1. our command
         data_out = bytearray()
         data_out.append(self.COMMAND_PAGE_PROGRAM)
-        
-        # 2. the address to write to 
+
+        # 2. the address to write to
         addr_bytes = address.to_bytes(3, byteorder='big')
         data_out.extend(addr_bytes)
 
@@ -201,7 +201,6 @@ class ConfigurationFlash:
         data = bytearray(data_bytes)
 
         # Start at the beginning of our flash, and work our way forward.
-        to_program      = len(data_bytes)
         current_address = 0
 
         # First, erase the target flash.
@@ -231,7 +230,7 @@ class ConfigurationFlash:
 
     def readback(self, length,  log_function=lambda _ : None):
         """ Reads the provided length back from the SPI configuration flash. """
-   
+
         data = bytearray()
         address = 0
         bytes_remaining = length
