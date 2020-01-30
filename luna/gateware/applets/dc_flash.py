@@ -10,7 +10,6 @@ from nmigen.lib.cdc import FFSynchronizer
 
 from luna.gateware.utils.cdc       import synchronize
 from luna.gateware.interface.spi   import SPIRegisterInterface
-from luna.gateware.interface.ulpi  import UMTITranslator
 from luna.gateware.interface.flash import ECP5ConfigurationFlashInterface
 
 REGISTER_ID             = 1
@@ -21,12 +20,6 @@ class DebugControllerFlashBridge(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-        clk_60MHz = platform.request(platform.default_clk)
-
-        # Drive the sync clock domain with our main clock.
-        m.domains.sync = ClockDomain()
-        m.d.comb += ClockSignal().eq(clk_60MHz)
-
         # Create a set of registers, and expose them over SPI.
         board_spi = platform.request("debug_spi")
         spi_registers = SPIRegisterInterface(default_read_value=-1)
@@ -35,10 +28,6 @@ class DebugControllerFlashBridge(Elaboratable):
         # Identify ourselves as the SPI flash bridge.
         spi_registers.add_read_only_register(REGISTER_ID, read=0x53504946)
 
-        #
-        # For now, keep resources on our right-side I/O network used.
-        #
-        platform.request("target_phy")
 
         #
         # SPI flash passthrough connections.
@@ -62,7 +51,7 @@ class DebugControllerFlashBridge(Elaboratable):
 
         # Select the passthrough or gateware SPI based on our chip-select values.
         gateware_sdo = Signal()
-        with m.If(spi_registers.spi.cs):
+        with m.If(board_spi.cs):
             m.d.comb += board_spi.sdo.eq(gateware_sdo)
         with m.Else():
             m.d.comb += board_spi.sdo.eq(flash_sdo)
