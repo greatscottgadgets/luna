@@ -12,6 +12,8 @@ from nmigen         import Record, Module, Signal
 from nmigen.lib.cdc import FFSynchronizer
 from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
 
+from ..test         import LunaGatewareTestCase, sync_test_case
+
 def synchronize(m, signal, *, output=None, o_domain='sync', stages=2):
     """ Convenience function. Synchronizes a signal, or equivalent collection.
 
@@ -90,6 +92,95 @@ class SynchronizedTest(TestCase):
         synchronize(m, record)
 
 
+def stretch_strobe_signal(m, strobe, *, to_cycles, output=None, domain=None, allow_delay=False):
+    """ Stretches a given strobe to the given number of cycles.
+
+    Parameters:
+        strobe    -- The strobe signal to stretch.
+        to_cycles -- The number of cycles to stretch the given strobe to. Must be >= 1.
+
+        output    -- If provided, the given signal will be used as the output signal.
+        domain    -- If provided, the given domain _object_ will be used in lieu of the sync domain.
+
+     Returns the output signal. If output is provided, this is the same signal; otherwise, it is the
+     signal that was created internally.
+     """
+
+    # Assume the sync domain if no domain is provided.
+    if domain is None:
+        domain = m.d.sync
+
+    # If we're not given an output signal to target, create one.
+    if output is None:
+        output = Signal()
+
+    # Special case: if to_cycles is '1', we don't need to modify the strobe.
+    # Connect it through directly.
+    if to_cycles == 1:
+        m.d.comb += output.eq(strobe)
+        return output
+
+    # Create a signal that shifts in our strobe constantly, so we
+    # have a memory of its last N values.
+    if allow_delay:
+        delayed_strobe = Signal(to_cycles)
+        domain += delayed_strobe.eq((delayed_strobe << 1) | strobe)
+        m.d.comb += output.eq(delayed_strobe != 0)
+    else:
+        delayed_strobe = Signal(to_cycles - 1)
+        domain += delayed_strobe.eq((delayed_strobe << 1) | strobe)
+        m.d.comb += output.eq(strobe | (delayed_strobe != 0))
+
+    return output
+
+
+class StrobeStretcherTest(LunaGatewareTestCase):
+    """ Test case for our strobe stretcher function. """
+
+
+    def instantiate_dut(self):
+        m = Module()
+
+        # Create a module that only has our stretched strobe signal.
+        m.strobe_in = Signal()
+        m.stretched_strobe = stretch_strobe_signal(m, m.strobe_in, to_cycles=2)
+
+        return m
+
+
+    def initialize_signals(self):
+        yield self.dut.strobe_in.eq(0)
+
+
+    @sync_test_case
+    def test_stretch(self):
+
+        # Ensure our stretched strobe stays 0 until it sees an input.
+        yield
+        self.assertEqual((yield self.dut.stretched_strobe), 0)
+        yield
+        self.assertEqual((yield self.dut.stretched_strobe), 0)
+
+        # Apply our strobe, and validate that we immediately see a '1'...
+        yield self.dut.strobe_in.eq(1)
+        yield
+        self.assertEqual((yield self.dut.stretched_strobe), 1)
+
+        # ... ensure that 1 lasts for a second cycle ...
+        yield self.dut.strobe_in.eq(0)
+        yield
+        self.assertEqual((yield self.dut.stretched_strobe), 1)
+
+        # ... and then returns to 0.
+        yield
+        self.assertEqual((yield self.dut.stretched_strobe), 0)
+
+        yield
+        self.assertEqual((yield self.dut.stretched_strobe), 0)
+
+
+
 if __name__ == "__main__":
     warnings.filterwarnings("error")
     unittest.main()
+

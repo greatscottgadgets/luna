@@ -3,125 +3,11 @@
 #
 """ ULPI interfacing hardware. """
 
-from nmigen import Signal, Module, Cat, Elaboratable
+from nmigen import Signal, Module, Cat, Elaboratable, ClockSignal, Record, ResetSignal
 
 import unittest
 from nmigen.back.pysim import Simulator
-from ..test import LunaGatewareTestCase, ulpi_domain_test_case
-
-
-class PHYResetController(Elaboratable):
-    """ Gateware that implements a short power-on-reset pulse to reset an attached PHY.
-
-    I/O ports:
-
-        I: trigger   -- A signal that triggers a reset when high.
-        O: phy_reset -- The signal to be delivered to the target PHY.
-    """
-
-    def __init__(self, *, clock_frequency=60e6, reset_length=2e-6, stop_length=2e-6, power_on_reset=True):
-        """ Params:
-
-            reset_length   -- The length of a reset pulse, in seconds.
-            stop_length    -- The length of time STP should be asserted after reset.
-            power_on_reset -- If True or omitted, the reset will be applied once the firmware
-                              is configured.
-        """
-
-        from math import ceil
-
-        self.power_on_reset = power_on_reset
-
-        # Compute the reset length in cycles.
-        clock_period = 1 / clock_frequency
-        self.reset_length_cycles = ceil(reset_length / clock_period)
-        self.stop_length_cycles  = ceil(stop_length  / clock_period)
-
-        #
-        # I/O port
-        #
-        self.trigger   = Signal()
-        self.phy_reset = Signal()
-        self.phy_stop  = Signal()
-
-
-    def elaborate(self, platform):
-        m = Module()
-
-        # Counter that stores how many cycles we've spent in reset.
-        cycles_in_reset = Signal(range(0, self.reset_length_cycles))
-
-        reset_state = 'RESETTING' if self.power_on_reset else 'IDLE'
-        with m.FSM(reset=reset_state, domain='ulpi') as fsm:
-
-            # Drive the PHY reset whenever we're in the RESETTING cycle.
-            m.d.comb += [
-                self.phy_reset.eq(fsm.ongoing('RESETTING')),
-                self.phy_stop.eq(~fsm.ongoing('IDLE'))
-            ]
-
-            with m.State('IDLE'):
-                m.d.ulpi += cycles_in_reset.eq(0)
-
-                # Wait for a reset request.
-                with m.If(self.trigger):
-                    m.next = 'RESETTING'
-
-            # RESETTING: hold the reset line active for the given amount of time
-            with m.State('RESETTING'):
-                m.d.ulpi += cycles_in_reset.eq(cycles_in_reset + 1)
-
-                with m.If(cycles_in_reset + 1 == self.reset_length_cycles):
-                    m.d.ulpi += cycles_in_reset.eq(0)
-                    m.next = 'DEFERRING_STARTUP'
-
-            # DEFERRING_STARTUP: Produce a signal that will defer startup for
-            # the provided amount of time. This allows line state to stabilize
-            # before the PHY will start interacting with us.
-            with m.State('DEFERRING_STARTUP'):
-                m.d.ulpi += cycles_in_reset.eq(cycles_in_reset + 1)
-
-                with m.If(cycles_in_reset + 1 == self.stop_length_cycles):
-                    m.d.ulpi += cycles_in_reset.eq(0)
-                    m.next = 'IDLE'
-
-
-        return m
-
-
-class PHYResetControllerTest(LunaGatewareTestCase):
-    FRAGMENT_UNDER_TEST = PHYResetController
-
-    ULPI_CLOCK_FREQUENCY=60e6
-    SYNC_CLOCK_FREQUENCY = None
-
-    def initialize_signals(self):
-        yield self.dut.trigger.eq(0)
-
-    @ulpi_domain_test_case
-    def test_power_on_reset(self):
-
-        #
-        # After power-on, the PHY should remain in reset for a while.
-        #
-        yield
-        self.assertEqual((yield self.dut.phy_reset), 1)
-
-        yield from self.advance_cycles(30)
-        self.assertEqual((yield self.dut.phy_reset), 1)
-
-        yield from self.advance_cycles(60)
-        self.assertEqual((yield self.dut.phy_reset), 1)
-
-        #
-        # Then, after the relevant reset time, it should resume being unasserted.
-        #
-        yield from self.advance_cycles(31)
-        self.assertEqual((yield self.dut.phy_reset), 0)
-        self.assertEqual((yield self.dut.phy_stop),  1)
-
-        yield from self.advance_cycles(120)
-        self.assertEqual((yield self.dut.phy_stop),  0)
+from ..test import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
 
 
 
@@ -510,14 +396,12 @@ class ULPIRxEventDecoder(Elaboratable):
         O: session_end     -- True iff a session has just ended.
     """
 
-    def __init__(self):
+    def __init__(self, *, ulpi_bus):
 
         #
         # I/O port.
         #
-        self.ulpi_data_in                   = Signal(8)
-        self.ulpi_dir                       = Signal()
-        self.ulpi_next                      = Signal()
+        self.ulpi = ulpi_bus
         self.register_operation_in_progress = Signal()
 
         # Optional: signal that allows access to the last RxCmd byte.
@@ -543,14 +427,14 @@ class ULPIRxEventDecoder(Elaboratable):
         # To implement the first condition, we'll first create a delayed
         # version of DIR, and then logically AND it with the current value.
         direction_delayed = Signal()
-        m.d.ulpi += direction_delayed.eq(self.ulpi_dir)
+        m.d.ulpi += direction_delayed.eq(self.ulpi.dir)
 
         receiving = Signal()
-        m.d.comb += receiving.eq(direction_delayed & self.ulpi_dir)
+        m.d.comb += receiving.eq(direction_delayed & self.ulpi.dir)
 
         # Sample the DATA lines whenever these conditions are met.
-        with m.If(receiving & ~self.ulpi_next & ~self.register_operation_in_progress):
-            m.d.ulpi += self.last_rx_command.eq(self.ulpi_data_in)
+        with m.If(receiving & ~self.ulpi.nxt & ~self.register_operation_in_progress):
+            m.d.ulpi += self.last_rx_command.eq(self.ulpi.data.i)
 
         # Break the most recent RxCmd into its UMTI-equivalent signals.
         # From table 3.8.1.2 in the ULPI spec; rev 1.1/Oct-20-2004.
@@ -565,6 +449,74 @@ class ULPIRxEventDecoder(Elaboratable):
         ]
 
         return m
+
+
+class ULPIRxEventDecoderTest(LunaGatewareTestCase):
+
+    ULPI_CLOCK_FREQUENCY=60e6
+    SYNC_CLOCK_FREQUENCY = None
+
+    def instantiate_dut(self):
+
+        self.ulpi = Record([
+            ("dir", 1),
+            ("nxt", 1),
+            ("data", [
+                ("i", 8),
+            ])
+        ])
+
+        return ULPIRxEventDecoder(ulpi_bus=self.ulpi)
+
+
+    def initialize_signals(self):
+        yield self.ulpi.dir.eq(0)
+        yield self.ulpi.nxt.eq(0)
+        yield self.ulpi.data.i.eq(0)
+        yield self.dut.register_operation_in_progress.eq(0)
+
+
+    @ulpi_domain_test_case
+    def test_decode(self):
+
+        # Provide a test value.
+        yield self.ulpi.data.i.eq(0xAB)
+
+        # First, set DIR and NXT at the same time, and verify that we
+        # don't register an RxEvent.
+        yield self.ulpi.dir.eq(1)
+        yield self.ulpi.nxt.eq(1)
+
+        yield from self.advance_cycles(5)
+        self.assertEqual((yield self.dut.last_rx_command), 0x00)
+
+        # Nothing should change when we drop DIR and NXT.
+        yield self.ulpi.dir.eq(0)
+        yield self.ulpi.nxt.eq(0)
+        yield
+        self.assertEqual((yield self.dut.last_rx_command), 0x00)
+
+
+        # Setting DIR but not NXT should trigger an RxEvent; but not
+        # until one cycle of "bus turnaround" has passed.
+        yield self.ulpi.dir.eq(1)
+
+        yield self.ulpi.data.i.eq(0x12)
+        yield
+        self.assertEqual((yield self.dut.last_rx_command), 0x00)
+
+        yield self.ulpi.data.i.eq(0b00011110)
+        yield from self.advance_cycles(2)
+
+        self.assertEqual((yield self.dut.last_rx_command), 0b00011110)
+
+        # Validate that we're decoding this RxCommand correctly.
+        self.assertEqual((yield self.dut.line_state),     0b10)
+        self.assertEqual((yield self.dut.vbus_valid),        1)
+        self.assertEqual((yield self.dut.rx_active),         1)
+        self.assertEqual((yield self.dut.rx_error),          0)
+        self.assertEqual((yield self.dut.host_disconnect),   0)
+
 
 
 class UMTITranslator(Elaboratable):
@@ -587,19 +539,19 @@ class UMTITranslator(Elaboratable):
 
     """
 
-    def __init__(self, *, ulpi, clock):
+    def __init__(self, *, ulpi):
         """ Params:
 
             ulpi -- The ULPI bus to communicate with.
         """
-
-        self.clock = clock
 
         #
         # I/O port
         #
         self.ulpi            = ulpi
         self.busy            = Signal()
+
+        self.vbus_valid      = Signal()
 
 
         # Diagnostic I/O.
@@ -616,10 +568,8 @@ class UMTITranslator(Elaboratable):
         m = Module()
 
         # Create the component parts of our ULPI interfacing hardware.
-        reset_manager   = PHYResetController()
         register_window = ULPIRegisterWindow()
-        rxevent_decoder = ULPIRxEventDecoder()
-        m.submodules.reset_manager   = reset_manager
+        rxevent_decoder = ULPIRxEventDecoder(ulpi_bus=self.ulpi)
         m.submodules.register_window = register_window
         m.submodules.rxevent_decoder = rxevent_decoder
 
@@ -633,16 +583,15 @@ class UMTITranslator(Elaboratable):
             self.busy                    .eq(register_window.busy),
 
             # Connect up our clock and reset signals.
-            self.ulpi.clk                .eq(self.clock),
-            self.ulpi.rst                .eq(reset_manager.phy_reset),
+            self.ulpi.clk                .eq(ClockSignal("ulpi")),
+            self.ulpi.rst                .eq(ResetSignal("ulpi")),
 
             # Connect our data inputs to the event decoder.
             # Note that the event decoder is purely passive.
-            rxevent_decoder.ulpi_dir      .eq(self.ulpi.data.i),
-            rxevent_decoder.ulpi_dir      .eq(self.ulpi.dir),
-            rxevent_decoder.ulpi_next     .eq(self.ulpi.nxt),
             rxevent_decoder.register_operation_in_progress.eq(register_window.busy),
             self.last_rx_command          .eq(rxevent_decoder.last_rx_command),
+
+            self.vbus_valid               .eq(rxevent_decoder.vbus_valid),
 
             # Connect our signals to our register window.
             register_window.ulpi_data_in  .eq(self.ulpi.data.i),

@@ -8,7 +8,7 @@ import unittest
 from nmigen import Signal, Module, Cat, Elaboratable, Record, ClockDomain, ClockSignal
 from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
 
-from ..util       import stretch_strobe_signal
+from ..utils.cdc  import stretch_strobe_signal
 from ..utils.io   import delay
 from ..test.utils import LunaGatewareTestCase, fast_domain_test_case
 

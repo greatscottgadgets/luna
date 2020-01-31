@@ -1,12 +1,127 @@
 #
 # This file is part of LUNA.
 #
-""" Clock domain generation logic for LUNA. """
+""" Clock and reset (CAR) controllers for LUNA. """
 
 from abc import ABCMeta, abstractmethod
-from nmigen import Signal, Module, ClockDomain, ClockSignal, Elaboratable, Instance
+from nmigen import Signal, Module, ClockDomain, ClockSignal, Elaboratable, Instance, ResetSignal
 
-from ..util import stretch_strobe_signal
+from ..utils.cdc import stretch_strobe_signal
+from ..test      import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
+
+
+class PHYResetController(Elaboratable):
+    """ Gateware that implements a short power-on-reset pulse to reset an attached PHY.
+
+    I/O ports:
+
+        I: trigger   -- A signal that triggers a reset when high.
+        O: phy_reset -- The signal to be delivered to the target PHY.
+    """
+
+    def __init__(self, *, clock_frequency=60e6, reset_length=2e-6, stop_length=2e-6, power_on_reset=True):
+        """ Params:
+
+            reset_length   -- The length of a reset pulse, in seconds.
+            stop_length    -- The length of time STP should be asserted after reset.
+            power_on_reset -- If True or omitted, the reset will be applied once the firmware
+                              is configured.
+        """
+
+        from math import ceil
+
+        self.power_on_reset = power_on_reset
+
+        # Compute the reset length in cycles.
+        clock_period = 1 / clock_frequency
+        self.reset_length_cycles = ceil(reset_length / clock_period)
+        self.stop_length_cycles  = ceil(stop_length  / clock_period)
+
+        #
+        # I/O port
+        #
+        self.trigger   = Signal()
+        self.phy_reset = Signal()
+        self.phy_stop  = Signal()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Counter that stores how many cycles we've spent in reset.
+        cycles_in_reset = Signal(range(0, self.reset_length_cycles))
+
+        reset_state = 'RESETTING' if self.power_on_reset else 'IDLE'
+        with m.FSM(reset=reset_state, domain='sync') as fsm:
+
+            # Drive the PHY reset whenever we're in the RESETTING cycle.
+            m.d.comb += [
+                self.phy_reset.eq(fsm.ongoing('RESETTING')),
+                self.phy_stop.eq(~fsm.ongoing('IDLE'))
+            ]
+
+            with m.State('IDLE'):
+                m.d.sync += cycles_in_reset.eq(0)
+
+                # Wait for a reset request.
+                with m.If(self.trigger):
+                    m.next = 'RESETTING'
+
+            # RESETTING: hold the reset line active for the given amount of time
+            with m.State('RESETTING'):
+                m.d.sync += cycles_in_reset.eq(cycles_in_reset + 1)
+
+                with m.If(cycles_in_reset + 1 == self.reset_length_cycles):
+                    m.d.sync += cycles_in_reset.eq(0)
+                    m.next = 'DEFERRING_STARTUP'
+
+            # DEFERRING_STARTUP: Produce a signal that will defer startup for
+            # the provided amount of time. This allows line state to stabilize
+            # before the PHY will start interacting with us.
+            with m.State('DEFERRING_STARTUP'):
+                m.d.sync += cycles_in_reset.eq(cycles_in_reset + 1)
+
+                with m.If(cycles_in_reset + 1 == self.stop_length_cycles):
+                    m.d.sync += cycles_in_reset.eq(0)
+                    m.next = 'IDLE'
+
+
+        return m
+
+
+
+class PHYResetControllerTest(LunaGatewareTestCase):
+    FRAGMENT_UNDER_TEST = PHYResetController
+
+    def initialize_signals(self):
+        yield self.dut.trigger.eq(0)
+
+    @sync_test_case
+    def test_power_on_reset(self):
+
+        #
+        # After power-on, the PHY should remain in reset for a while.
+        #
+        yield
+        self.assertEqual((yield self.dut.phy_reset), 1)
+
+        yield from self.advance_cycles(30)
+        self.assertEqual((yield self.dut.phy_reset), 1)
+
+        yield from self.advance_cycles(60)
+        self.assertEqual((yield self.dut.phy_reset), 1)
+
+        #
+        # Then, after the relevant reset time, it should resume being unasserted.
+        #
+        yield from self.advance_cycles(31)
+        self.assertEqual((yield self.dut.phy_reset), 0)
+        self.assertEqual((yield self.dut.phy_stop),  1)
+
+        yield from self.advance_cycles(120)
+        self.assertEqual((yield self.dut.phy_stop),  0)
+
+
 
 class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
     """ Helper that generates the clock domains used in a LUNA board.
@@ -15,9 +130,11 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
     should not require explicit boundary crossings.
 
     I/O port:
-        O: clk_fast -- The clock signal for our fast clock domain.
-        O: clk_sync -- The clock signal used for our sync clock domain.
-        O: clk_ulpi -- The clock signal used for our ulpi domain.
+        O: clk_fast      -- The clock signal for our fast clock domain.
+        O: clk_sync      -- The clock signal used for our sync clock domain.
+        O: clk_ulpi      -- The clock signal used for our ulpi domain.
+        O: ulpi_holdoff  -- Signal that indicates that the ULPI domain is immediately post-reset,
+                            and thus we should avoid transactions with the external PHY.
     """
 
     def __init__(self, *, clock_signal_name=None):
@@ -34,6 +151,9 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
         self.clk_fast     = Signal()
         self.clk_sync     = Signal()
         self.clk_ulpi     = Signal()
+
+
+        self.ulpi_holdoff = Signal()
 
 
     @abstractmethod
@@ -56,13 +176,26 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
         pass
 
 
+    def create_ulpi_reset(self, m, platform):
+        """
+        Function that should create our ulpi reset, and connect it to:
+            m.domains.ulpi.rst / self.ulpi_rst
+        """
+
+        m.submodules.ulpi_reset = controller = PHYResetController()
+        m.d.comb += [
+            ResetSignal("ulpi")  .eq(controller.phy_reset),
+            self.ulpi_holdoff    .eq(controller.phy_stop)
+        ]
+
+
     def elaborate(self, platform):
         m = Module()
 
         # Create our clock domains.
-        m.domains.fast = ClockDomain()
-        m.domains.sync = ClockDomain()
-        m.domains.ulpi = ClockDomain()
+        m.domains.fast = self.fast = ClockDomain()
+        m.domains.sync = self.sync = ClockDomain()
+        m.domains.ulpi = self.ulpi = ClockDomain()
 
         # Call the hook that will create any submodules necessary for all clocks.
         self.create_submodules(m, platform)
@@ -77,6 +210,9 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
             ClockSignal(domain="sync")     .eq(self.clk_sync),
             ClockSignal(domain="ulpi")     .eq(self.clk_ulpi),
         ]
+
+        # Call the hook that will connect up our reset signals.
+        self.create_ulpi_reset(m, platform)
 
         return m
 
@@ -211,6 +347,15 @@ class LunaECP5DomainGenerator(LunaDomainGenerator):
                 a_ICP_CURRENT="9",
                 a_LPF_RESISTOR="8"
         )
+
+
+        # Set up our global resets so the system is kept fully in reset until
+        # our core PLL is fully stable. This prevents us from internally clock
+        # glitching ourselves before our PLL is locked. :)
+        m.d.comb += [
+            ResetSignal("sync").eq(~self._pll_lock),
+            ResetSignal("fast").eq(~self._pll_lock),
+        ]
 
 
     def generate_ulpi_clock(self, m, platform):

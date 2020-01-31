@@ -1,3 +1,6 @@
+#
+# This file is part of LUNA.
+#
 
 from .utils import \
     LunaGatewareTestCase, \

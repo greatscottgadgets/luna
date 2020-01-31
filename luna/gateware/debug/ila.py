@@ -18,7 +18,7 @@ from nmigen.lib.cdc  import FFSynchronizer
 from vcd             import VCDWriter
 from vcd.gtkw        import GTKWSave
 
-from ..util          import rising_edge_detector
+from ..utils         import rising_edge_detector
 from ..interface.spi import SPIDeviceInterface, SPIBus, SPIGatewareTestCase
 from ..test.utils    import LunaGatewareTestCase, sync_test_case
 

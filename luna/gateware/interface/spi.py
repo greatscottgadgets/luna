@@ -8,7 +8,7 @@ import unittest
 from nmigen import Signal, Module, Cat, Elaboratable, Record
 from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
 
-from ..util import rising_edge_detector, falling_edge_detector
+from ..utils import rising_edge_detector, falling_edge_detector
 from ..test.utils import LunaGatewareTestCase, sync_test_case
 
 class SPIBus(Record):

@@ -11,7 +11,7 @@ from nmigen.lib.cdc import FFSynchronizer
 
 from luna                             import top_level_cli
 from luna.gateware.utils.cdc          import synchronize
-from luna.gateware.architecture.clock import LunaECP5DomainGenerator
+from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 from luna.gateware.interface.spi      import SPIRegisterInterface
 from luna.gateware.interface.ulpi     import UMTITranslator
 from luna.gateware.interface.flash    import ECP5ConfigurationFlashInterface
@@ -250,7 +250,7 @@ class InteractiveSelftest(Elaboratable):
         """ Adds a set of ULPI registers to the active design. """
 
         target_ulpi    = platform.request(ulpi_bus)
-        umti_adapter   = UMTITranslator(ulpi=target_ulpi, clock=clock)
+        umti_adapter   = UMTITranslator(ulpi=target_ulpi)
         m.submodules  += umti_adapter
 
         register_address_change  = Signal()
