@@ -2,8 +2,8 @@
 # This file is part of LUNA.
 #
 
-from nmigen.build import *
-from nmigen.vendor.lattice_ecp5 import *
+from nmigen.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock, DiffPairs, Connector
+from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
 
 
 __all__ = ["LUNAPlatformR01"]
@@ -13,12 +13,12 @@ def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset
     """ Generates a set of resources for a ULPI-connected USB PHY. """
 
     return Resource(name, 0,
-        Subsignal("data",  Pins(data_sites, dir="io")),
-        Subsignal("clk",   Pins(clk_site,   dir="o" )),
-        Subsignal("dir",   Pins(dir_site,   dir="i" )),
-        Subsignal("nxt",   Pins(nxt_site,   dir="i" )),
-        Subsignal("stp",   Pins(stp_site,   dir="o" )),
-        Subsignal("rst",   PinsN(reset_site,  dir="o" )),
+        Subsignal("data",  Pins(data_sites,  dir="io")),
+        Subsignal("clk",   Pins(clk_site,    dir="o" )),
+        Subsignal("dir",   Pins(dir_site,    dir="i" )),
+        Subsignal("nxt",   Pins(nxt_site,    dir="i" )),
+        Subsignal("stp",   Pins(stp_site,    dir="o" )),
+        Subsignal("rst",   PinsN(reset_site, dir="o" )),
         Attrs(IO_TYPE="LVCMOS33")
     )
 

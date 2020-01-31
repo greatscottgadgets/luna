@@ -141,3 +141,17 @@ class LunaGatewareTestCase(FHDLTestCase):
 
         for _ in range(cycles):
             yield
+
+
+    @staticmethod
+    def wait_until(strobe, *, timeout=None):
+        """ Helper method that advances time until a strobe signal becomes true. """
+
+        cycles_passed = 0
+
+        while not (yield strobe):
+            yield
+
+            cycles_passed += 1
+            if timeout and cycles_passed > timeout:
+                raise RuntimeError(f"Timeout waiting for '{strobe.name}' to go high!")

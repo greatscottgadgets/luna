@@ -1,9 +1,10 @@
+# nmigen: UnusedElaboratable=no
 #
 # This file is part of LUNA.
 #
 """ ULPI interfacing hardware. """
 
-from nmigen import Signal, Module, Cat, Elaboratable, ClockSignal, Record, ResetSignal
+from nmigen import Signal, Module, Cat, Elaboratable, ClockSignal, Record, ResetSignal, Const
 
 import unittest
 from nmigen.back.pysim import Simulator
@@ -212,7 +213,8 @@ class ULPIRegisterWindow(Elaboratable):
                     m.d.ulpi += [
                         self.ulpi_data_out.eq(0),
                         self.ulpi_out_req.eq(0),
-                        self.ulpi_stop.eq(1)
+                        self.ulpi_stop.eq(1),
+                        self.done.eq(1)
                     ]
                     m.next = 'IDLE'
 
@@ -389,7 +391,7 @@ class ULPIRxEventDecoder(Elaboratable):
 
         O: line_state[2]   -- The states of the two USB lines.
         O: rx_active       -- True when a packet receipt is active.
-        O: rx_error        -- True when a packet recieve parse has occurred.
+        O: rx_error        -- True when a packet receive error has occurred.
         O: host_disconnect -- True if the host has just disconnected.
         O: id_digital      -- Digital value of the ID pin.
         O: vbus_valid      -- True iff a valid VBUS voltage is present
@@ -413,6 +415,7 @@ class ULPIRxEventDecoder(Elaboratable):
         self.host_disconnect = Signal()
         self.id_digital      = Signal()
         self.vbus_valid      = Signal()
+        self.session_valid   = Signal()
         self.session_end     = Signal()
 
 
@@ -441,6 +444,7 @@ class ULPIRxEventDecoder(Elaboratable):
         m.d.comb += [
             self.line_state      .eq(self.last_rx_command[0:2]),
             self.vbus_valid      .eq(self.last_rx_command[2:4] == 0b11),
+            self.session_valid   .eq(self.last_rx_command[2:4] == 0b10),
             self.session_end     .eq(self.last_rx_command[2:4] == 0b00),
             self.rx_active       .eq(self.last_rx_command[4]),
             self.rx_error        .eq(self.last_rx_command[4:6] == 0b11),
@@ -453,7 +457,7 @@ class ULPIRxEventDecoder(Elaboratable):
 
 class ULPIRxEventDecoderTest(LunaGatewareTestCase):
 
-    ULPI_CLOCK_FREQUENCY=60e6
+    ULPI_CLOCK_FREQUENCY = 60e6
     SYNC_CLOCK_FREQUENCY = None
 
     def instantiate_dut(self):
@@ -518,6 +522,237 @@ class ULPIRxEventDecoderTest(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.host_disconnect),   0)
 
 
+class DataTranslator(Elaboratable):
+    """ Gateware that translates data-related signals to their UMTI equivalents.
+
+    I/O port:
+        I: data_in[8]  -- data to be transmitted; valid when tx_valid is asserted
+        O: data_out[8] -- data received from the PHY; valid when rx_valid is asserted
+
+        I: tx_valid    -- indicates that
+        O: rx_valid    -- indicates that the data present on data_out is new and valid data;
+                          goes high for a single ULPI clock cycle to indicate new data is ready
+        O: tx_ready    -- indicates the the PHY is ready to accept a new byte of data, and that the
+                          transmitter should move on to the next byte after the given cycle
+
+        O: rx_active   -- indicates that the PHY is actively receiving data from the host; data is
+                          slewed on data_out by rx_valid
+        O: rx_error    -- indicates that an error has occurred in the current transmission
+    """
+
+
+class ControlTranslator(Elaboratable):
+    """ Gateware that translates ULPI control signals to their UMTI equivalents.
+
+    I/O port:
+        I: bus_idle       -- Indicates that the ULPI bus is idle, and thus capable of
+                             performing register writes.
+
+        I: xcvr_select[2] -- selects the operating speed of the transciever;
+                             00 = HS, 01 = FS, 10 = LS, 11 = LS on FS bus
+        I: term_select    -- enables termination for the given operating mode; see spec
+        I: op_mode        -- selects the operating mode of the transciever;
+                             00 = normal, 01 = non-driving, 10 = disable bit-stuff/NRZI
+        I: suspend        -- places the transceiver into suspend mode; active high
+
+        I: id_pullup      -- when set, places a 100kR pull-up on the ID pin
+        I: dp_pulldown    -- when set, enables a 15kR pull-down on D+; intended for host mode
+        I: dm_pulldown    -- when set, enables a 15kR pull-down on D+; intended for host mode
+
+        I: chrg_vbus      -- when set, connects a resistor from VBUS to GND to discharge VBUS
+        I: dischrg_vbus   -- when set, connects a resistor from VBUS to 3V3 to charge VBUS above SessValid
+    """
+
+    def __init__(self, *, register_window, own_register_window=False):
+        """
+        Parmaeters:
+            register_window     -- The ULPI register window to work with.
+            own_register_window -- True iff we're the owner of this register window.
+                                   Typically, we'll use the register window for a broader controller;
+                                   but this can be set to True to indicate that we need to consider this
+                                   register window our own, and thus a submodule.
+        """
+
+        self.register_window = register_window
+        self.own_register_window = own_register_window
+
+        #
+        # I/O port
+        #
+        self.bus_idle     = Signal()
+
+        self.xcvr_select  = Signal(2, reset=0b01)
+        self.term_select  = Signal()
+        self.op_mode      = Signal(2)
+        self.suspend      = Signal()
+
+        self.id_pullup    = Signal()
+        self.dp_pulldown  = Signal(reset=1)
+        self.dm_pulldown  = Signal(reset=1)
+
+        self.charge_vbus  = Signal()
+        self.dischrg_vbus = Signal()
+
+        #
+        # Internal variables.
+        #
+        self._register_signals = {}
+
+
+    def add_composite_register(self, m, address, value, *, reset_value=0):
+        """ Adds a ULPI register that's composed of multiple control signals.
+
+        Params:
+            address      -- The register number in the ULPI register space.
+            value       -- An 8-bit signal composing the bits that should be placed in
+                           the given register.
+
+            reset_value -- If provided, the given value will be assumed as the reset value
+                        -- of the given register; allowing us to avoid an initial write.
+        """
+
+        current_register_value = Signal(8, reset=reset_value, name=f"current_register_value_{address:02x}")
+
+        # Create internal signals that request register updates.
+        write_requested = Signal(name=f"write_requested_{address:02x}")
+        write_value     = Signal(8, name=f"write_value_{address:02x}")
+        write_done      = Signal(name=f"write_done_{address:02x}")
+
+        self._register_signals[address] = {
+            'write_requested': write_requested,
+            'write_value':     write_value,
+            'write_done':      write_done
+        }
+
+        # If we've just finished a write, update our current register value.
+        with m.If(write_done):
+            m.d.ulpi += current_register_value.eq(write_value),
+
+        # If we have a mismatch between the requested and actual register value,
+        # request a write of the new value.
+        m.d.comb += write_requested.eq(current_register_value != value)
+        with m.If(current_register_value != value):
+            m.d.ulpi += write_value.eq(value)
+
+
+
+
+    def populate_ulpi_registers(self, m):
+        """ Creates translator objects that map our control signals to ULPI registers. """
+
+        # Function control.
+        function_control = Cat(self.xcvr_select, self.term_select, self.op_mode, Const(0), ~self.suspend, Const(0))
+        self.add_composite_register(m, 0x04, function_control, reset_value=0b01000001)
+
+        # OTG control.
+        otg_control = Cat(
+            self.id_pullup, self.dp_pulldown, self.dm_pulldown, self.dischrg_vbus,
+            self.charge_vbus, Const(0), Const(0), Const(0)
+        )
+        self.add_composite_register(m, 0x0A, otg_control, reset_value=0b00000110)
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        if self.own_register_window:
+            m.submodules.reg_window = self.register_window
+
+        # Add the registers that represent each of our signals.
+        self.populate_ulpi_registers(m)
+
+        # Generate logic to handle changes on each of our registers.
+        first_element = True
+        for address, signals in self._register_signals.items():
+
+            conditional = m.If if first_element else m.Elif
+            first_element = False
+
+            # If we're requesting a write on the given register, pass that to our
+            # register window.
+            with conditional(signals['write_requested']):
+                m.d.comb += [
+
+                    # Control signals.
+                    signals['write_done']              .eq(self.register_window.done),
+
+                    # Register window signals.
+                    self.register_window.address       .eq(address),
+                    self.register_window.write_data    .eq(signals['write_value']),
+                    self.register_window.write_request .eq(signals['write_requested'] & ~self.register_window.done)
+                ]
+
+        # If no register accesses are active, provide default signal values.
+        with m.Else():
+            m.d.comb += self.register_window.write_request.eq(0)
+
+        # Ensure our register window is never performing a read.
+        m.d.comb += self.register_window.read_request.eq(0)
+
+        return m
+
+
+
+class ControlTranslatorTest(LunaGatewareTestCase):
+
+    ULPI_CLOCK_FREQUENCY = 60e6
+    SYNC_CLOCK_FREQUENCY = None
+
+    def instantiate_dut(self):
+        self.reg_window = ULPIRegisterWindow()
+        return ControlTranslator(register_window=self.reg_window, own_register_window=True)
+
+
+    def initialize_signals(self):
+        dut = self.dut
+
+        # Initialize our register signals to their default values.
+        yield dut.xcvr_select.eq(1)
+        yield dut.dm_pulldown.eq(1)
+        yield dut.dp_pulldown.eq(1)
+
+
+    @ulpi_domain_test_case
+    def test_multiwrite_behavior(self):
+
+        # Give our initialization some time to settle,
+        # and verify that we haven't initiated anyting in that interim.
+        yield from self.advance_cycles(10)
+        self.assertEqual((yield self.reg_window.write_request), 0)
+
+        # Change signals that span two registers.
+        yield self.dut.op_mode.eq(0b11)
+        yield self.dut.dp_pulldown.eq(0)
+        yield self.dut.dm_pulldown.eq(0)
+        yield
+        yield
+
+        # Once we've changed these, we should start trying to apply
+        # our new value to the function control register.
+        self.assertEqual((yield self.reg_window.address),      0x04)
+        self.assertEqual((yield self.reg_window.write_data),   0b01011001)
+
+        # which should occur until the data and address are accepted.
+        yield self.reg_window.ulpi_next.eq(1)
+        yield from self.wait_until(self.reg_window.done, timeout=10)
+        yield
+        yield
+
+        # We should then experience a write to the function control register.
+        self.assertEqual((yield self.reg_window.address),      0x0A)
+        self.assertEqual((yield self.reg_window.write_data),   0b00000000)
+
+        # Wait for that action to complete..
+        yield self.reg_window.ulpi_next.eq(1)
+        yield from self.wait_until(self.reg_window.done, timeout=10)
+        yield
+        yield
+
+        # After which we shouldn't be trying to write anything at all.
+        self.assertEqual((yield self.reg_window.address),       0)
+        self.assertEqual((yield self.reg_window.write_data),    0)
+        self.assertEqual((yield self.reg_window.write_request), 0)
+
 
 class UMTITranslator(Elaboratable):
     """ Gateware that translates a ULPI interface into a simpler UMTI one.
@@ -539,6 +774,16 @@ class UMTITranslator(Elaboratable):
 
     """
 
+    # UMTI status signals translated from the ULPI bus.
+    RXEVENT_STATUS_SIGNALS = [
+        'line_state', 'vbus_valid', 'session_valid', 'session_end',
+        'rx_active', 'rx_error', 'host_disconnect', 'id_digital'
+    ]
+    DATA_STATUS_SIGNALS = [
+        'tx_valid', 'tx_ready', 'rx_active', 'rx_valid', 'rx_error'
+    ]
+
+
     def __init__(self, *, ulpi):
         """ Params:
 
@@ -551,8 +796,9 @@ class UMTITranslator(Elaboratable):
         self.ulpi            = ulpi
         self.busy            = Signal()
 
-        self.vbus_valid      = Signal()
-
+        # RxEvent-based flags.
+        for signal_name in self.RXEVENT_STATUS_SIGNALS:
+            self.__dict__[signal_name] = Signal()
 
         # Diagnostic I/O.
         self.last_rx_command = Signal(8)
@@ -591,8 +837,6 @@ class UMTITranslator(Elaboratable):
             rxevent_decoder.register_operation_in_progress.eq(register_window.busy),
             self.last_rx_command          .eq(rxevent_decoder.last_rx_command),
 
-            self.vbus_valid               .eq(rxevent_decoder.vbus_valid),
-
             # Connect our signals to our register window.
             register_window.ulpi_data_in  .eq(self.ulpi.data.i),
             register_window.ulpi_dir      .eq(self.ulpi.dir),
@@ -606,6 +850,11 @@ class UMTITranslator(Elaboratable):
             register_window.write_request .eq(self.manual_write),
             self.read_data                .eq(register_window.read_data)
         ]
+
+        # Connect our RxEvent status signals from our RxEvent decoder.
+        for signal_name in self.RXEVENT_STATUS_SIGNALS:
+            signal = getattr(rxevent_decoder, signal_name)
+            m.d.comb += self.__dict__[signal_name].eq(signal)
 
         return m
 
