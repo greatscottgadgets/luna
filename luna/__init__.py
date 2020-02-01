@@ -10,11 +10,11 @@ from nmigen import Elaboratable
 from .gateware.platform import get_appropriate_platform
 
 def top_level_cli(fragment, *pos_args, **kwargs):
-    """ Runs a default CLI that assists in building and running gateware. """
+    """ Runs a default CLI that assists in building and running gateware.
 
-    # If this isn't a fragment directly, interpret it as an object that will build one.
-    if callable(fragment):
-        fragment = fragment(*pos_args, **kwargs)
+        If the user's options resulted in the board being programmed, this returns the fragment
+        that was programmed onto the board. Otherwise, it returns None.
+    """
 
     parser = argparse.ArgumentParser(description="Gateware generation/upload script for '{}' gateware.".format(fragment.__class__.__name__))
     parser.add_argument('--output', '-o', metavar='filename', help="Build and output a bitstream to the given file.")
@@ -32,12 +32,16 @@ def top_level_cli(fragment, *pos_args, **kwargs):
     args = parser.parse_args()
     platform = get_appropriate_platform()
 
+    # If this isn't a fragment directly, interpret it as an object that will build one.
+    if callable(fragment):
+        fragment = fragment(*pos_args, **kwargs)
+
     # If we have no other options set, build and upload the relevant file.
     if (args.output is None and not args.flash and not args.erase and not args.dry_run):
         args.upload = True
 
     # Once the device is flashed, it will self-reconfigure, so we
-    # don't need an explicitly upload step; and it implicltly erases
+    # don't need an explicitly upload step; and it implicitly erases
     # the flash, so we don't need an erase step.
     if args.flash:
         args.erase = False
@@ -66,12 +70,15 @@ def top_level_cli(fragment, *pos_args, **kwargs):
             with open(args.output, "wb") as f:
                 f.write(bitstream)
 
+        # Return the fragment we're working with, for convenience.
+        if args.upload or args.flash:
+            return fragment
+
     # Clean up any directories we've created.
     finally:
         if not args.keep_files:
             shutil.rmtree(build_dir)
 
-    # Return the fragment we're working with, for convenience.
-    return fragment
+    return None
 
 

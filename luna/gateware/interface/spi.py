@@ -630,7 +630,7 @@ class SPIRegisterInterface(Elaboratable):
         # Create essentially the same connection with the read strobe.
         if connections['read_strobe'] is not None:
             m.d.comb += [
-                connections['write_strobe'].eq(~self._is_write & self.interface.word_complete & register_selected)
+                connections['read_strobe'].eq(~self._is_write & self.interface.word_complete & register_selected)
             ]
 
         # If we have any additional code that assists in elaborating this register, run it.

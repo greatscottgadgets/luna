@@ -8,6 +8,12 @@ from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
 
 __all__ = ["LUNAPlatformR01"]
 
+#
+# Note that r0.1+ have D+/D- swapped to avoid having to cross D+/D- in routing.
+#
+# This is supported by a PHY feature that allows you to swap pins 13 + 14.
+# You'll need to set
+#
 
 def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset_site):
     """ Generates a set of resources for a ULPI-connected USB PHY. """
@@ -19,7 +25,7 @@ def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset
         Subsignal("nxt",   Pins(nxt_site,    dir="i" )),
         Subsignal("stp",   Pins(stp_site,    dir="o" )),
         Subsignal("rst",   PinsN(reset_site, dir="o" )),
-        Attrs(IO_TYPE="LVCMOS33")
+        Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")
     )
 
 
@@ -53,6 +59,15 @@ class LUNAPlatformR01(LatticeECP5Platform):
     ram_timings = dict(
         clock_skew = 64
     )
+
+    # Provides any platform-specific ULPI registers necessary.
+    # This is the spot to put any platform-specific vendor registers that need
+    # to be written.
+    ulpi_extra_registers = {
+        0x39: 0b000110 # USB3343: swap D+ and D- to match the LUNA boards
+    }
+
+
 
     #
     # I/O resources.
@@ -148,10 +163,10 @@ class LUNAPlatformR01(LatticeECP5Platform):
         ),
 
         # User I/O connections.
-        Resource("user_io", 0, Pins("A5", dir="io"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("user_io", 1, Pins("A4", dir="io"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("user_io", 2, Pins("A3", dir="io"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("user_io", 3, Pins("A2", dir="io"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("user_io", 0, Pins("A5", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
+        Resource("user_io", 1, Pins("A4", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
+        Resource("user_io", 2, Pins("A3", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
+        Resource("user_io", 3, Pins("A2", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
     ]
 
     connectors = [

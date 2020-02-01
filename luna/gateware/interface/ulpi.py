@@ -8,7 +8,9 @@ from nmigen import Signal, Module, Cat, Elaboratable, ClockSignal, Record, Reset
 
 import unittest
 from nmigen.back.pysim import Simulator
-from ..test import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
+
+from ..test  import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
+from ..utils import rising_edge_detector, falling_edge_detector
 
 
 
@@ -396,6 +398,10 @@ class ULPIRxEventDecoder(Elaboratable):
         O: id_digital      -- Digital value of the ID pin.
         O: vbus_valid      -- True iff a valid VBUS voltage is present
         O: session_end     -- True iff a session has just ended.
+
+        # Strobes indicating signal changes.
+        O: rx_start        -- True iff an RxEvent has changed the value of RxActive from 0 -> 1.
+        O: rx_stop         -- True iff an RxEvent has changed the value of RxActive from 1 -> 0.
     """
 
     def __init__(self, *, ulpi_bus):
@@ -418,6 +424,10 @@ class ULPIRxEventDecoder(Elaboratable):
         self.session_valid   = Signal()
         self.session_end     = Signal()
 
+        # RxActive strobes.
+        self.rx_start        = Signal()
+        self.rx_stop         = Signal()
+
 
     def elaborate(self, platform):
         m = Module()
@@ -435,9 +445,23 @@ class ULPIRxEventDecoder(Elaboratable):
         receiving = Signal()
         m.d.comb += receiving.eq(direction_delayed & self.ulpi.dir)
 
+        # Default our strobes to 0, unless asserted.
+        m.d.ulpi += [
+            self.rx_start  .eq(0),
+            self.rx_stop   .eq(0)
+        ]
+
         # Sample the DATA lines whenever these conditions are met.
         with m.If(receiving & ~self.ulpi.nxt & ~self.register_operation_in_progress):
             m.d.ulpi += self.last_rx_command.eq(self.ulpi.data.i)
+
+            # If RxActive has just changed, strobe the start or stop signals,
+            rx_active = self.ulpi.data.i[4]
+            with m.If(~self.rx_active & rx_active):
+                m.d.ulpi += self.rx_start.eq(1)
+            with m.If(self.rx_active & ~rx_active):
+                m.d.ulpi += self.rx_stop.eq(1)
+
 
         # Break the most recent RxCmd into its UMTI-equivalent signals.
         # From table 3.8.1.2 in the ULPI spec; rev 1.1/Oct-20-2004.
@@ -522,26 +546,8 @@ class ULPIRxEventDecoderTest(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.host_disconnect),   0)
 
 
-class DataTranslator(Elaboratable):
-    """ Gateware that translates data-related signals to their UMTI equivalents.
 
-    I/O port:
-        I: data_in[8]  -- data to be transmitted; valid when tx_valid is asserted
-        O: data_out[8] -- data received from the PHY; valid when rx_valid is asserted
-
-        I: tx_valid    -- indicates that
-        O: rx_valid    -- indicates that the data present on data_out is new and valid data;
-                          goes high for a single ULPI clock cycle to indicate new data is ready
-        O: tx_ready    -- indicates the the PHY is ready to accept a new byte of data, and that the
-                          transmitter should move on to the next byte after the given cycle
-
-        O: rx_active   -- indicates that the PHY is actively receiving data from the host; data is
-                          slewed on data_out by rx_valid
-        O: rx_error    -- indicates that an error has occurred in the current transmission
-    """
-
-
-class ControlTranslator(Elaboratable):
+class ULPIControlTranslator(Elaboratable):
     """ Gateware that translates ULPI control signals to their UMTI equivalents.
 
     I/O port:
@@ -573,14 +579,12 @@ class ControlTranslator(Elaboratable):
                                    register window our own, and thus a submodule.
         """
 
-        self.register_window = register_window
+        self.register_window     = register_window
         self.own_register_window = own_register_window
 
         #
         # I/O port
         #
-        self.bus_idle     = Signal()
-
         self.xcvr_select  = Signal(2, reset=0b01)
         self.term_select  = Signal()
         self.op_mode      = Signal(2)
@@ -590,8 +594,11 @@ class ControlTranslator(Elaboratable):
         self.dp_pulldown  = Signal(reset=1)
         self.dm_pulldown  = Signal(reset=1)
 
-        self.charge_vbus  = Signal()
+        self.chrg_vbus    = Signal()
         self.dischrg_vbus = Signal()
+
+        # Extra/non-UMTI properties.
+        self.use_external_vbus_indicator = Signal(reset=1)
 
         #
         # Internal variables.
@@ -635,8 +642,6 @@ class ControlTranslator(Elaboratable):
             m.d.ulpi += write_value.eq(value)
 
 
-
-
     def populate_ulpi_registers(self, m):
         """ Creates translator objects that map our control signals to ULPI registers. """
 
@@ -647,7 +652,7 @@ class ControlTranslator(Elaboratable):
         # OTG control.
         otg_control = Cat(
             self.id_pullup, self.dp_pulldown, self.dm_pulldown, self.dischrg_vbus,
-            self.charge_vbus, Const(0), Const(0), Const(0)
+            self.chrg_vbus, Const(0), Const(0), self.use_external_vbus_indicator
         )
         self.add_composite_register(m, 0x0A, otg_control, reset_value=0b00000110)
 
@@ -692,7 +697,6 @@ class ControlTranslator(Elaboratable):
         return m
 
 
-
 class ControlTranslatorTest(LunaGatewareTestCase):
 
     ULPI_CLOCK_FREQUENCY = 60e6
@@ -700,7 +704,7 @@ class ControlTranslatorTest(LunaGatewareTestCase):
 
     def instantiate_dut(self):
         self.reg_window = ULPIRegisterWindow()
-        return ControlTranslator(register_window=self.reg_window, own_register_window=True)
+        return ULPIControlTranslator(register_window=self.reg_window, own_register_window=True)
 
 
     def initialize_signals(self):
@@ -710,6 +714,7 @@ class ControlTranslatorTest(LunaGatewareTestCase):
         yield dut.xcvr_select.eq(1)
         yield dut.dm_pulldown.eq(1)
         yield dut.dp_pulldown.eq(1)
+        yield dut.use_external_vbus_indicator.eq(0)
 
 
     @ulpi_domain_test_case
@@ -754,14 +759,34 @@ class ControlTranslatorTest(LunaGatewareTestCase):
         self.assertEqual((yield self.reg_window.write_request), 0)
 
 
+
 class UMTITranslator(Elaboratable):
     """ Gateware that translates a ULPI interface into a simpler UMTI one.
 
     I/O port:
 
-        B: ulpi          -- ULPI bus / interface record
         O: busy          -- signal that's true iff the ULPI interface is being used
                             for a register or transmit command
+
+        # See the UMTI specification for most signals.
+
+        # Data signals:
+        I: data_in[8]  -- data to be transmitted; valid when tx_valid is asserted
+        O: data_out[8] -- data received from the PHY; valid when rx_valid is asserted
+
+        I: tx_valid    -- set to true when data is to be transmitted; indicates the data_in
+                          byte is valid; de-asserting this line terminates the transmission
+        O: rx_valid    -- indicates that the data present on data_out is new and valid data;
+                          goes high for a single ULPI clock cycle to indicate new data is ready
+        O: tx_ready    -- indicates the the PHY is ready to accept a new byte of data, and that the
+                          transmitter should move on to the next byte after the given cycle
+
+        O: rx_active   -- indicates that the PHY is actively receiving data from the host; data is
+                          slewed on data_out by rx_valid
+        O: rx_error    -- indicates that an error has occurred in the current transmission
+
+        # Extra signals:
+        O: rx_complete -- strobe that goes high for one cycle when a packet rx is complete
 
         # Signals for diagnostic use:
         O: last_rxcmd    -- The byte content of the last RxCmd.
@@ -777,18 +802,38 @@ class UMTITranslator(Elaboratable):
     # UMTI status signals translated from the ULPI bus.
     RXEVENT_STATUS_SIGNALS = [
         'line_state', 'vbus_valid', 'session_valid', 'session_end',
-        'rx_active', 'rx_error', 'host_disconnect', 'id_digital'
+        'rx_error', 'host_disconnect', 'id_digital'
     ]
-    DATA_STATUS_SIGNALS = [
-        'tx_valid', 'tx_ready', 'rx_active', 'rx_valid', 'rx_error'
+
+    # Control signals that we control through our control translator.
+    CONTROL_SIGNALS = [
+        ('xcvr_select',  2), ('term_select', 1), ('op_mode',     2), ('suspend',   1),
+        ('id_pullup',    1), ('dm_pulldown', 1), ('dp_pulldown', 1), ('chrg_vbus', 1),
+        ('dischrg_vbus', 1), ('use_external_vbus_indicator', 1)
     ]
 
 
-    def __init__(self, *, ulpi):
+    def __dir__(self):
+        """ Extend our properties list of contain all of the above fields, for proper autocomplete. """
+
+        properties = list(super().__dir__())
+
+        properties.extend(self.RXEVENT_STATUS_SIGNALS)
+        properties.extend(self.DATA_STATUS_SIGNALS)
+        properties.extend(self.CONTROL_SIGNALS)
+
+        return properties
+
+
+    def __init__(self, *, ulpi, use_platform_registers=True):
         """ Params:
 
-            ulpi -- The ULPI bus to communicate with.
+            ulpi                   -- The ULPI bus to communicate with.
+            use_platform_registers -- If True (or not provided), any extra registers writes provided in
+                                      the platform definition will be applied automatically.
         """
+
+        self.use_platform_registers = use_platform_registers
 
         #
         # I/O port
@@ -796,28 +841,76 @@ class UMTITranslator(Elaboratable):
         self.ulpi            = ulpi
         self.busy            = Signal()
 
+        # Data signals.
+        self.data_out        = Signal(8)
+        self.rx_valid        = Signal()
+
+        self.data_in         = Signal(8)
+
+        # Status signals.
+        self.rx_active       = Signal()
+
         # RxEvent-based flags.
         for signal_name in self.RXEVENT_STATUS_SIGNALS:
-            self.__dict__[signal_name] = Signal()
+            self.__dict__[signal_name] = Signal(name=signal_name)
+
+        # Control signals.
+        for signal_name, size in self.CONTROL_SIGNALS:
+            self.__dict__[signal_name] = Signal(size, name=signal_name)
 
         # Diagnostic I/O.
         self.last_rx_command = Signal(8)
 
-        self.address         = Signal(6)
-        self.read_data       = Signal(8)
-        self.write_data      = Signal(8)
-        self.manual_read     = Signal()
-        self.manual_write    = Signal()
+        #
+        # Internal
+        #
+
+        #  Create a list of extra registers to be set.
+        self._extra_registers = {}
+
+
+    def add_extra_register(self, write_address, write_value, *, default_value=None):
+        """ Adds logic to configure an extra ULPI register. Useful for configuring vendor registers.
+
+        Params:
+            write_address -- The write address of the target ULPI register.
+            write_value   -- The value to be written. If a Signal is provided; the given register will be
+                             set post-reset, if necessary; and then dynamically updated each time the signal changes.
+                             If an integer constant is provided, this value will be written once upon startup.
+            default_value -- The default value the register is expected to have post-reset; used to determine
+                             if the value needs to be updated post-reset. If a Signal is provided for write_value,
+                             this must be provided; if an integer is provided for write_value, this is optional.
+        """
+
+        # Ensure we have a default_value if we have a Signal(); as this will determine
+        # whether we need to update the register post-reset.
+        if (default_value is None) and isinstance(write_value, Signal):
+            raise ValueError("if write_value is a signal, default_value must be provided")
+
+        # Otherwise, we'll pick a value that ensures the write always occurs.
+        elif default_value is None:
+            default_value = ~write_value
+
+        self._extra_registers[write_address] = {'value': write_value, 'default': default_value}
 
 
     def elaborate(self, platform):
         m = Module()
 
         # Create the component parts of our ULPI interfacing hardware.
-        register_window = ULPIRegisterWindow()
-        rxevent_decoder = ULPIRxEventDecoder(ulpi_bus=self.ulpi)
-        m.submodules.register_window = register_window
-        m.submodules.rxevent_decoder = rxevent_decoder
+        m.submodules.register_window    = register_window    = ULPIRegisterWindow()
+        m.submodules.control_translator = control_translator = ULPIControlTranslator(register_window=register_window)
+        m.submodules.rxevent_decoder    = rxevent_decoder    = ULPIRxEventDecoder(ulpi_bus=self.ulpi)
+
+        # If we're choosing to honor any registers defined in the platform file, apply those
+        # before continuing with elaboration.
+        if self.use_platform_registers and hasattr(platform, 'ulpi_extra_registers'):
+            for address, value in platform.ulpi_extra_registers.items():
+                self.add_extra_register(address, value)
+
+        # Add any extra registers provided by the user to our control translator.
+        for address, values in self._extra_registers.items():
+            control_translator.add_composite_register(m, address, values['value'], reset_value=values['default'])
 
         # Connect our ULPI control signals to each of our subcomponents.
         m.d.comb += [
@@ -844,17 +937,43 @@ class UMTITranslator(Elaboratable):
             self.ulpi.data.o              .eq(register_window.ulpi_data_out),
             self.ulpi.stp                 .eq(register_window.ulpi_stop),
 
-            register_window.address       .eq(self.address),
-            register_window.write_data    .eq(self.write_data),
-            register_window.read_request  .eq(self.manual_read),
-            register_window.write_request .eq(self.manual_write),
-            self.read_data                .eq(register_window.read_data)
         ]
 
         # Connect our RxEvent status signals from our RxEvent decoder.
         for signal_name in self.RXEVENT_STATUS_SIGNALS:
             signal = getattr(rxevent_decoder, signal_name)
             m.d.comb += self.__dict__[signal_name].eq(signal)
+
+        # Connect our control signals through the control translator.
+        for signal_name, _ in self.CONTROL_SIGNALS:
+            signal = getattr(control_translator, signal_name)
+            m.d.comb += signal.eq(self.__dict__[signal_name])
+
+
+        # RxActive handler:
+        # A transmission starts when DIR goes high with NXT, or when an RxEvent indicates
+        # a switch from RxActive = 0 to RxActive = 1. A transmission stops when DIR drops low,
+        # or when the RxEvent RxActive bit drops from 1 to 0, or an error occurs.
+        dir_rising_edge = rising_edge_detector(m, self.ulpi.dir, domain=m.d.ulpi)
+        dir_based_start = dir_rising_edge & self.ulpi.nxt
+
+        with m.If(~self.ulpi.dir | rxevent_decoder.rx_stop):
+            # TODO: this should probably also trigger if RxError
+            m.d.ulpi += self.rx_active.eq(0)
+        with m.Elif(dir_based_start | rxevent_decoder.rx_start):
+            m.d.ulpi += self.rx_active.eq(1)
+
+
+        # Data-out: we'll connect this almost direct through from our ULPI
+        # interface, as it's essentially the same as in the UMTI spec. We'll
+        # add a one cycle processing delay so it matches the rest of our signals.
+
+        # RxValid: equivalent to NXT whenever a Rx is active.
+        m.d.ulpi += [
+            self.data_out  .eq(self.ulpi.data.i),
+            self.rx_valid  .eq(self.ulpi.nxt & self.rx_active)
+        ]
+
 
         return m
 
