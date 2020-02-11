@@ -36,7 +36,7 @@ class USBAnalyzer(Elaboratable):
     # Support a maximum payload size of 1024B, plus a 1-byte PID and a 2-byte CRC16.
     MAX_PACKET_SIZE_BYTES = 1024 + 1 + 2
 
-    def __init__(self, *, umti_interface, mem_depth=4096):
+    def __init__(self, *, umti_interface, mem_depth=8192):
         """
         Parameters:
             umti_interface -- A record or elaboratable that presents a UMTI interface.
