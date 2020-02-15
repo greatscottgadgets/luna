@@ -298,6 +298,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         yield self.umti.rx_valid.eq(1)
         yield self.umti.data_out.eq(0)
         yield
+        yield
 
         # Provide some data.
         for i in range(1, 10):
@@ -343,6 +344,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         yield self.umti.rx_active.eq(1)
         yield self.umti.rx_valid.eq(1)
         yield self.umti.data_out.eq(0)
+        yield
 
         # Provide some data.
         yield from self.advance_stream(0xAB)
@@ -381,6 +383,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         yield self.umti.rx_active.eq(1)
         yield self.umti.rx_valid.eq(1)
         yield self.umti.data_out.eq(0)
+        yield
 
         # Provide some data.
         yield from self.advance_stream(0xAB)
@@ -444,6 +447,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         # Start our second packet.
         yield self.umti.rx_active.eq(1)
         yield self.umti.rx_valid.eq(1)
+        yield
 
         # Provide some data.
         for i in range(0, 4):
