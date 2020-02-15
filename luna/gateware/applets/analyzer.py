@@ -7,6 +7,7 @@
 
 import sys
 import time
+
 from datetime import datetime
 
 from nmigen import Signal, Elaboratable, Module
@@ -20,8 +21,8 @@ from luna.gateware.interface.ulpi     import UMTITranslator
 from luna.gateware.usb.analyzer       import USBAnalyzer
 
 # Temporary.
-from luna.apollo                      import ApolloDebugger, ApolloILAFrontend
-from luna.gateware.interface.spi      import SPIRegisterInterface, SPIMultiplexer, SPIBus
+from luna.apollo                      import ApolloDebugger
+from luna.gateware.interface.uart     import UARTTransmitter
 
 
 
@@ -41,6 +42,8 @@ class USBAnalyzerApplet(Elaboratable):
         - DRAM backing for analysis
     """
 
+    _BAUD_RATE = 115200 * 4
+
     def __init__(self, usb_speed=USB_SPEED_FULL):
         self.usb_speed = usb_speed
 
@@ -51,13 +54,6 @@ class USBAnalyzerApplet(Elaboratable):
         # Generate our clock domains.
         clocking = LunaECP5DomainGenerator()
         m.submodules.clocking = clocking
-
-        # Grab a reference to our debug-SPI bus.
-        board_spi = synchronize(m, platform.request("debug_spi"))
-
-        # Create our SPI-connected registers.
-        m.submodules.spi_registers = spi_registers = SPIRegisterInterface(7, 8)
-        m.d.comb += spi_registers.spi.connect(board_spi)
 
         # Create our UMTI translator.
         ulpi = platform.request("target_phy")
@@ -84,19 +80,25 @@ class USBAnalyzerApplet(Elaboratable):
             umti.term_select .eq(0)
         ]
 
-        read_strobe = Signal()
+        # Create our UART uplink.
+        uart = platform.request("uart")
+        clock_freq = platform.DEFAULT_CLOCK_FREQUENCIES_MHZ['sync'] * 1000000
+
+        transmitter = UARTTransmitter(divisor=clock_freq // self._BAUD_RATE)
+        m.submodules.transmitter = transmitter
 
         # Create a USB analyzer, and connect a register up to its output.
         m.submodules.analyzer = analyzer = USBAnalyzer(umti_interface=umti)
 
-        # Provide registers that indicate when there's data ready, and what the result is.
-        spi_registers.add_read_only_register(DATA_AVAILABLE,  read=analyzer.data_available)
-        spi_registers.add_read_only_register(ANALYZER_RESULT, read=analyzer.data_out, read_strobe=read_strobe)
-
         m.d.comb += [
 
+            # UART uplink
+            uart.tx                     .eq(transmitter.tx),
+
             # Internal connections.
-            analyzer.next               .eq(read_strobe),
+            transmitter.data            .eq(analyzer.data_out),
+            transmitter.send            .eq(analyzer.data_available),
+            analyzer.next               .eq(transmitter.accepted),
 
             # LED indicators.
             platform.request("led", 0)  .eq(analyzer.capturing),
@@ -120,6 +122,20 @@ class USBAnalyzerConnection:
     work without requiring changes in e.g. our ViewSB frontend.
     """
 
+    @staticmethod
+    def _find_serial_connection():
+        """ Attempts to find a serial connection to the USB analyzer. """
+        import serial.tools.list_ports
+
+        # Generate a search string including our VID/PID.
+        vid_pid = f"{ApolloDebugger.VENDOR_ID:04x}:{ApolloDebugger.PRODUCT_ID:04x}"
+
+        for port in serial.tools.list_ports.grep(vid_pid):
+            return serial.Serial(port.device, USBAnalyzerApplet._BAUD_RATE)
+
+        raise IOError("could not find a debug connection!")
+
+
     def __init__(self):
         """ Creates our connection to the USBAnalyzer. """
 
@@ -127,6 +143,7 @@ class USBAnalyzerConnection:
         # This should be replaced by a high-speed USB link soon; but for now
         # we'll use the slow debug connection.
         self._debugger = ApolloDebugger()
+        self._serial   = self._find_serial_connection()
 
 
     def build_and_configure(self, capture_speed):
@@ -140,18 +157,11 @@ class USBAnalyzerConnection:
         platform = get_appropriate_platform()
         platform.build(analyzer, do_program=True)
 
-
-    def _data_is_available(self):
-        return self._debugger.spi.register_read(DATA_AVAILABLE)
-
-    def _read_byte(self):
-        return self._debugger.spi.register_read(ANALYZER_RESULT)
+        self._serial.flush()
 
     def _get_next_byte(self):
-        while not self._data_is_available():
-            time.sleep(0.1)
-
-        return self._read_byte()
+        datum = self._serial.read(1)
+        return datum[0]
 
 
     def read_raw_packet(self):
@@ -163,8 +173,11 @@ class USBAnalyzerConnection:
             flags     -- Flags indicating connection status. Format TBD.
         """
 
+        size = 0
+
         # Read our two-byte header from the debugger...
-        size = (self._get_next_byte() << 16) | self._get_next_byte()
+        while not size:
+            size = (self._get_next_byte() << 16) | self._get_next_byte()
 
         # ... and read our packet.
         packet = bytearray([self._get_next_byte() for _ in range(size)])
