@@ -57,7 +57,7 @@ class USBAnalyzerApplet(Elaboratable):
 
         # Create our UTMI translator.
         ulpi = platform.request("target_phy")
-        m.submodules.umti = umti = UTMITranslator(ulpi=ulpi)
+        m.submodules.utmi = utmi = UTMITranslator(ulpi=ulpi)
 
         # Strap our power controls to be in VBUS passthrough by default,
         # on the target port.
@@ -70,14 +70,14 @@ class USBAnalyzerApplet(Elaboratable):
         m.d.comb += [
 
             # Set our mode to non-driving and to the desired speed.
-            umti.op_mode     .eq(0b01),
-            umti.xcvr_select .eq(self.usb_speed),
+            utmi.op_mode     .eq(0b01),
+            utmi.xcvr_select .eq(self.usb_speed),
 
             # Disable all of our terminations, as we want to participate in
             # passive observation.
-            umti.dm_pulldown .eq(0),
-            umti.dm_pulldown .eq(0),
-            umti.term_select .eq(0)
+            utmi.dm_pulldown .eq(0),
+            utmi.dm_pulldown .eq(0),
+            utmi.term_select .eq(0)
         ]
 
         # Create our UART uplink.
@@ -88,7 +88,7 @@ class USBAnalyzerApplet(Elaboratable):
         m.submodules.transmitter = transmitter
 
         # Create a USB analyzer, and connect a register up to its output.
-        m.submodules.analyzer = analyzer = USBAnalyzer(umti_interface=umti)
+        m.submodules.analyzer = analyzer = USBAnalyzer(utmi_interface=utmi)
 
         m.d.comb += [
 
@@ -105,9 +105,9 @@ class USBAnalyzerApplet(Elaboratable):
             platform.request("led", 1)  .eq(analyzer.data_available),
             platform.request("led", 2)  .eq(analyzer.overrun),
 
-            platform.request("led", 3)  .eq(umti.session_valid),
-            platform.request("led", 4)  .eq(umti.rx_active),
-            platform.request("led", 5)  .eq(umti.rx_error),
+            platform.request("led", 3)  .eq(utmi.session_valid),
+            platform.request("led", 4)  .eq(utmi.rx_active),
+            platform.request("led", 5)  .eq(utmi.rx_error),
         ]
 
         # Return our elaborated module.

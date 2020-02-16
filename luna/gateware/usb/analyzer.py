@@ -36,13 +36,13 @@ class USBAnalyzer(Elaboratable):
     # Support a maximum payload size of 1024B, plus a 1-byte PID and a 2-byte CRC16.
     MAX_PACKET_SIZE_BYTES = 1024 + 1 + 2
 
-    def __init__(self, *, umti_interface, mem_depth=8192):
+    def __init__(self, *, utmi_interface, mem_depth=8192):
         """
         Parameters:
-            umti_interface -- A record or elaboratable that presents a UTMI interface.
+            utmi_interface -- A record or elaboratable that presents a UTMI interface.
         """
 
-        self.umti = umti_interface
+        self.utmi = utmi_interface
 
         # Internal storage memory.
         self.mem = Memory(width=8, depth=mem_depth, name="analysis_ringbuffer")
@@ -144,7 +144,7 @@ class USBAnalyzer(Elaboratable):
 
                 # Wait until a transmission is active.
                 # TODO: add triggering logic?
-                with m.If(self.umti.rx_active):
+                with m.If(self.utmi.rx_active):
                     m.next = "CAPTURE"
                     m.d.ulpi += [
                         header_location  .eq(write_location),
@@ -152,7 +152,7 @@ class USBAnalyzer(Elaboratable):
                         packet_size      .eq(0),
                     ]
 
-                    #with m.If(self.umti.rx_valid):
+                    #with m.If(self.utmi.rx_valid):
                     #    m.d.ulpi += [
                     #        fifo_count   .eq(fifo_count + 1),
                     #    write_location   .eq(write_location + self.HEADER_SIZE_BYTES + 1),
@@ -160,7 +160,7 @@ class USBAnalyzer(Elaboratable):
                     #    ]
                     #    m.d.comb += [
                     #        mem_write_port.addr  .eq(write_location + self.HEADER_SIZE_BYTES),
-                    #        mem_write_port.data  .eq(self.umti.data_out),
+                    #        mem_write_port.data  .eq(self.utmi.data_out),
                     #        mem_write_port.en    .eq(1)
                     #    ]
 
@@ -171,13 +171,13 @@ class USBAnalyzer(Elaboratable):
                 # Capture data whenever RxValid is asserted.
                 m.d.comb += [
                     mem_write_port.addr  .eq(write_location),
-                    mem_write_port.data  .eq(self.umti.data_out),
-                    mem_write_port.en    .eq(self.umti.rx_valid & self.umti.rx_active),
-                    fifo_new_data        .eq(self.umti.rx_valid & self.umti.rx_active)
+                    mem_write_port.data  .eq(self.utmi.data_out),
+                    mem_write_port.en    .eq(self.utmi.rx_valid & self.utmi.rx_active),
+                    fifo_new_data        .eq(self.utmi.rx_valid & self.utmi.rx_active)
                 ]
 
                 # Advance the write pointer each time we receive a bit.
-                with m.If(self.umti.rx_valid & self.umti.rx_active):
+                with m.If(self.utmi.rx_valid & self.utmi.rx_active):
                     m.d.ulpi += [
                         write_location  .eq(write_location + 1),
                         packet_size     .eq(packet_size + 1)
@@ -189,7 +189,7 @@ class USBAnalyzer(Elaboratable):
                         m.next = "OVERRUN"
 
                 # If we've stopped receiving, move to the "finalize" state.
-                with m.If(~self.umti.rx_active):
+                with m.If(~self.utmi.rx_active):
 
                     # Optimization: if we didn't receive any data, there's no need
                     # to create a packet. Clear our header from the FIFO and disarm.
@@ -232,7 +232,7 @@ class USBAnalyzer(Elaboratable):
 
                 # Move to the next state, which will either be another capture,
                 # or our idle state, depending on whether we have another rx.
-                with m.If(self.umti.rx_active):
+                with m.If(self.utmi.rx_active):
                     m.next = "CAPTURE"
                     m.d.ulpi += [
                         header_location  .eq(write_location),
@@ -270,7 +270,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
     ULPI_CLOCK_FREQUENCY = 60e6
 
     def instantiate_dut(self):
-        self.umti = Record([
+        self.utmi = Record([
             ('data_in',     8),
             ('data_out',    8),
 
@@ -279,11 +279,11 @@ class USBAnalyzerTest(LunaGatewareTestCase):
             ('rx_error',    1),
             ('rx_complete', 1),
         ])
-        return USBAnalyzer(umti_interface=self.umti, mem_depth=128)
+        return USBAnalyzer(utmi_interface=self.utmi, mem_depth=128)
 
 
     def advance_stream(self, value):
-        yield self.umti.data_out.eq(value)
+        yield self.utmi.data_out.eq(value)
         yield
 
 
@@ -294,9 +294,9 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.capturing), 0)
 
         # Apply our first input, and validate that we start capturing.
-        yield self.umti.rx_active.eq(1)
-        yield self.umti.rx_valid.eq(1)
-        yield self.umti.data_out.eq(0)
+        yield self.utmi.rx_active.eq(1)
+        yield self.utmi.rx_valid.eq(1)
+        yield self.utmi.data_out.eq(0)
         yield
         yield
 
@@ -311,7 +311,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.data_available), 1)
 
         # End our packet.
-        yield self.umti.rx_active.eq(0)
+        yield self.utmi.rx_active.eq(0)
         yield from self.advance_stream(10)
 
         # Idle for several cycles.
@@ -341,16 +341,16 @@ class USBAnalyzerTest(LunaGatewareTestCase):
     def test_short_packet(self):
 
         # Apply our first input, and validate that we start capturing.
-        yield self.umti.rx_active.eq(1)
-        yield self.umti.rx_valid.eq(1)
-        yield self.umti.data_out.eq(0)
+        yield self.utmi.rx_active.eq(1)
+        yield self.utmi.rx_valid.eq(1)
+        yield self.utmi.data_out.eq(0)
         yield
 
         # Provide some data.
         yield from self.advance_stream(0xAB)
 
         # End our packet.
-        yield self.umti.rx_active.eq(0)
+        yield self.utmi.rx_active.eq(0)
         yield from self.advance_stream(10)
 
         # Idle for several cycles.
@@ -380,24 +380,24 @@ class USBAnalyzerTest(LunaGatewareTestCase):
     def test_rx_valid_low(self):
 
         # Apply our first input, and validate that we start capturing.
-        yield self.umti.rx_active.eq(1)
-        yield self.umti.rx_valid.eq(1)
-        yield self.umti.data_out.eq(0)
+        yield self.utmi.rx_active.eq(1)
+        yield self.utmi.rx_valid.eq(1)
+        yield self.utmi.data_out.eq(0)
         yield
 
         # Provide some data.
         yield from self.advance_stream(0xAB)
 
         # Provide a byte that shouldn't be counted.
-        yield self.umti.rx_valid.eq(0)
+        yield self.utmi.rx_valid.eq(0)
         yield from self.advance_stream(0xCD)
 
         # ... and another that should be.
-        yield self.umti.rx_valid.eq(1)
+        yield self.utmi.rx_valid.eq(1)
         yield from self.advance_stream(0xEF)
 
         # End our packet.
-        yield self.umti.rx_active.eq(0)
+        yield self.utmi.rx_active.eq(0)
         yield from self.advance_stream(10)
 
         # Idle for several cycles.
@@ -426,18 +426,18 @@ class USBAnalyzerTest(LunaGatewareTestCase):
     @ulpi_domain_test_case
     def test_multi_packet_with_overflow(self):
 
-        yield self.umti.rx_active.eq(1)
-        yield self.umti.rx_valid.eq(0)
+        yield self.utmi.rx_active.eq(1)
+        yield self.utmi.rx_valid.eq(0)
 
         yield
-        yield self.umti.rx_valid.eq(1)
+        yield self.utmi.rx_valid.eq(1)
 
         # Provide some data.
         for i in range(0, 10):
             yield from self.advance_stream(0x10 + i)
 
         # End our packet.
-        yield self.umti.rx_active.eq(0)
+        yield self.utmi.rx_active.eq(0)
         yield from self.advance_stream(10)
 
         # Idle for several cycles.
@@ -445,8 +445,8 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.capturing), 0)
 
         # Start our second packet.
-        yield self.umti.rx_active.eq(1)
-        yield self.umti.rx_valid.eq(1)
+        yield self.utmi.rx_active.eq(1)
+        yield self.utmi.rx_valid.eq(1)
         yield
 
         # Provide some data.
@@ -454,7 +454,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
             yield from self.advance_stream(0x30 + i)
 
         # End our packet.
-        yield self.umti.rx_active.eq(0)
+        yield self.utmi.rx_active.eq(0)
         yield from self.advance_stream(10)
 
         # Idle for several cycles.
@@ -462,8 +462,8 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.capturing), 0)
 
         # Start a third packet; which should cause an overflow.
-        yield self.umti.rx_active.eq(1)
-        yield self.umti.rx_valid.eq(1)
+        yield self.utmi.rx_active.eq(1)
+        yield self.utmi.rx_valid.eq(1)
 
         # Provide some data, and keep going until we overflow.
         for i in range(0, 110):
@@ -512,7 +512,7 @@ class USBAnalyzerStackTest(LunaGatewareTestCase):
         # We'll wrap the both in a module to establish a synthetic hierarchy.
         m = Module()
         m.submodules.translator = self.translator = UTMITranslator(ulpi=self.ulpi)
-        m.submodules.analyzer   = self.analyzer   = USBAnalyzer(umti_interface=self.translator, mem_depth=128)
+        m.submodules.analyzer   = self.analyzer   = USBAnalyzer(utmi_interface=self.translator, mem_depth=128)
         return m
 
 

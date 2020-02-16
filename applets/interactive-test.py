@@ -250,8 +250,8 @@ class InteractiveSelftest(Elaboratable):
         """ Adds a set of ULPI registers to the active design. """
 
         target_ulpi    = platform.request(ulpi_bus)
-        umti_adapter   = UTMITranslator(ulpi=target_ulpi)
-        m.submodules  += umti_adapter
+        utmi_adapter   = UTMITranslator(ulpi=target_ulpi)
+        m.submodules  += utmi_adapter
 
         register_address_change  = Signal()
         register_value_change    = Signal()
@@ -260,27 +260,27 @@ class InteractiveSelftest(Elaboratable):
         spi_registers = m.submodules.spi_registers
         spi_registers.add_register(register_base + 0,
             write_strobe=register_address_change,
-            value_signal=umti_adapter.address,
+            value_signal=utmi_adapter.address,
             size=6
         )
         m.submodules.clocking.stretch_sync_strobe_to_ulpi(m,
             strobe=register_address_change,
-            output=umti_adapter.manual_read,
+            output=utmi_adapter.manual_read,
         )
 
         # ULPI register value.
         spi_registers.add_sfr(register_base + 1,
-            read=umti_adapter.read_data,
-            write_signal=umti_adapter.write_data,
+            read=utmi_adapter.read_data,
+            write_signal=utmi_adapter.write_data,
             write_strobe=register_value_change
         )
         m.submodules.clocking.stretch_sync_strobe_to_ulpi(m,
             strobe=register_value_change,
-            output=umti_adapter.manual_write,
+            output=utmi_adapter.manual_write,
         )
 
         spi_registers.add_sfr(register_base + 2,
-            read=umti_adapter.last_rx_command
+            read=utmi_adapter.last_rx_command
         )
 
 
