@@ -17,7 +17,7 @@ from luna                             import get_appropriate_platform
 from luna.gateware.utils.cdc          import synchronize
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 
-from luna.gateware.interface.ulpi     import UMTITranslator
+from luna.gateware.interface.ulpi     import UTMITranslator
 from luna.gateware.usb.analyzer       import USBAnalyzer
 
 # Temporary.
@@ -55,9 +55,9 @@ class USBAnalyzerApplet(Elaboratable):
         clocking = LunaECP5DomainGenerator()
         m.submodules.clocking = clocking
 
-        # Create our UMTI translator.
+        # Create our UTMI translator.
         ulpi = platform.request("target_phy")
-        m.submodules.umti = umti = UMTITranslator(ulpi=ulpi)
+        m.submodules.umti = umti = UTMITranslator(ulpi=ulpi)
 
         # Strap our power controls to be in VBUS passthrough by default,
         # on the target port.

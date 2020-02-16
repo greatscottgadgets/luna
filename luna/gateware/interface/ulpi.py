@@ -463,7 +463,7 @@ class ULPIRxEventDecoder(Elaboratable):
                 m.d.ulpi += self.rx_stop.eq(1)
 
 
-        # Break the most recent RxCmd into its UMTI-equivalent signals.
+        # Break the most recent RxCmd into its UTMI-equivalent signals.
         # From table 3.8.1.2 in the ULPI spec; rev 1.1/Oct-20-2004.
         m.d.comb += [
             self.line_state      .eq(self.last_rx_command[0:2]),
@@ -548,7 +548,7 @@ class ULPIRxEventDecoderTest(LunaGatewareTestCase):
 
 
 class ULPIControlTranslator(Elaboratable):
-    """ Gateware that translates ULPI control signals to their UMTI equivalents.
+    """ Gateware that translates ULPI control signals to their UTMI equivalents.
 
     I/O port:
         I: bus_idle       -- Indicates that the ULPI bus is idle, and thus capable of
@@ -597,7 +597,7 @@ class ULPIControlTranslator(Elaboratable):
         self.chrg_vbus    = Signal()
         self.dischrg_vbus = Signal()
 
-        # Extra/non-UMTI properties.
+        # Extra/non-UTMI properties.
         self.use_external_vbus_indicator = Signal(reset=1)
 
         #
@@ -760,15 +760,15 @@ class ControlTranslatorTest(LunaGatewareTestCase):
 
 
 
-class UMTITranslator(Elaboratable):
-    """ Gateware that translates a ULPI interface into a simpler UMTI one.
+class UTMITranslator(Elaboratable):
+    """ Gateware that translates a ULPI interface into a simpler UTMI one.
 
     I/O port:
 
         O: busy          -- signal that's true iff the ULPI interface is being used
                             for a register or transmit command
 
-        # See the UMTI specification for most signals.
+        # See the UTMI specification for most signals.
 
         # Data signals:
         I: data_in[8]  -- data to be transmitted; valid when tx_valid is asserted
@@ -799,7 +799,7 @@ class UMTITranslator(Elaboratable):
 
     """
 
-    # UMTI status signals translated from the ULPI bus.
+    # UTMI status signals translated from the ULPI bus.
     RXEVENT_STATUS_SIGNALS = [
         'line_state', 'vbus_valid', 'session_valid', 'session_end',
         'rx_error', 'host_disconnect', 'id_digital'
@@ -965,7 +965,7 @@ class UMTITranslator(Elaboratable):
 
 
         # Data-out: we'll connect this almost direct through from our ULPI
-        # interface, as it's essentially the same as in the UMTI spec. We'll
+        # interface, as it's essentially the same as in the UTMI spec. We'll
         # add a one cycle processing delay so it matches the rest of our signals.
 
         # RxValid: equivalent to NXT whenever a Rx is active.

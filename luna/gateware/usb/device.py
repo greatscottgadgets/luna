@@ -11,6 +11,6 @@ from nmigen.back.pysim import Simulator
 from ...test           import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
 from ...utils          import rising_edge_detector, falling_edge_detector
 
-from ..ulpi            import UMTITranslator
+from ..ulpi            import UTMITranslator
 
 

@@ -19,8 +19,8 @@ class USBAnalyzer(Elaboratable):
     If you're looking to instantiate a full analyzer, you'll probably want to grab
     one of the DRAM-based ringbuffer variants (which are currently forthcoming).
 
-    If you're looking to use this with a ULPI PHY, rather than the FPGA-convenient UMTI interface,
-    grab the UMTITranslator from `luna.gateware.interface.ulpi`.
+    If you're looking to use this with a ULPI PHY, rather than the FPGA-convenient UTMI interface,
+    grab the UTMITranslator from `luna.gateware.interface.ulpi`.
 
     I/O port:
         O: data_available -- indicates that new data is available in the analysis stream
@@ -39,7 +39,7 @@ class USBAnalyzer(Elaboratable):
     def __init__(self, *, umti_interface, mem_depth=8192):
         """
         Parameters:
-            umti_interface -- A record or elaboratable that presents a UMTI interface.
+            umti_interface -- A record or elaboratable that presents a UTMI interface.
         """
 
         self.umti = umti_interface
@@ -493,7 +493,7 @@ class USBAnalyzerStackTest(LunaGatewareTestCase):
 
     def instantiate_dut(self):
 
-        from ..interface.ulpi import UMTITranslator
+        from ..interface.ulpi import UTMITranslator
 
         self.ulpi = Record([
             ('data', [
@@ -508,10 +508,10 @@ class USBAnalyzerStackTest(LunaGatewareTestCase):
             ('rst', 1)
         ])
 
-        # Create a stack of our UMTITranslator and our USBAnalyzer.
+        # Create a stack of our UTMITranslator and our USBAnalyzer.
         # We'll wrap the both in a module to establish a synthetic hierarchy.
         m = Module()
-        m.submodules.translator = self.translator = UMTITranslator(ulpi=self.ulpi)
+        m.submodules.translator = self.translator = UTMITranslator(ulpi=self.ulpi)
         m.submodules.analyzer   = self.analyzer   = USBAnalyzer(umti_interface=self.translator, mem_depth=128)
         return m
 

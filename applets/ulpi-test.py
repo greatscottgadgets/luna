@@ -23,7 +23,7 @@ from luna.gateware.utils.cdc          import synchronize
 from luna.gateware.utils              import rising_edge_detector
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 from luna.gateware.interface.spi      import SPIRegisterInterface, SPIMultiplexer, SPIBus
-from luna.gateware.interface.ulpi     import UMTITranslator
+from luna.gateware.interface.ulpi     import UTMITranslator
 from luna.gateware.usb.analyzer       import USBAnalyzer
 
 
@@ -49,9 +49,9 @@ class ULPIDiagnostic(Elaboratable):
         m.submodules.spi_registers = spi_registers = SPIRegisterInterface(7, 8)
         m.d.comb += spi_registers.spi.connect(board_spi)
 
-        # Create our UMTI translator.
+        # Create our UTMI translator.
         ulpi = platform.request("target_phy")
-        m.submodules.umti = umti = UMTITranslator(ulpi=ulpi)
+        m.submodules.umti = umti = UTMITranslator(ulpi=ulpi)
 
 
         # Strap our power controls to be in VBUS passthrough by default,
