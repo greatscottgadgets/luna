@@ -771,18 +771,18 @@ class UTMITranslator(Elaboratable):
         # See the UTMI specification for most signals.
 
         # Data signals:
-        I: data_in[8]  -- data to be transmitted; valid when tx_valid is asserted
-        O: data_out[8] -- data received from the PHY; valid when rx_valid is asserted
+        I: tx_data[8]  -- data to be transmitted; valid when tx_valid is asserted
+        O: rx_data[8]  -- data received from the PHY; valid when rx_valid is asserted
 
         I: tx_valid    -- set to true when data is to be transmitted; indicates the data_in
                           byte is valid; de-asserting this line terminates the transmission
-        O: rx_valid    -- indicates that the data present on data_out is new and valid data;
+        O: rx_valid    -- indicates that the data present on rx_data is new and valid data;
                           goes high for a single ULPI clock cycle to indicate new data is ready
         O: tx_ready    -- indicates the the PHY is ready to accept a new byte of data, and that the
                           transmitter should move on to the next byte after the given cycle
 
         O: rx_active   -- indicates that the PHY is actively receiving data from the host; data is
-                          slewed on data_out by rx_valid
+                          slewed on rx_data by rx_valid
         O: rx_error    -- indicates that an error has occurred in the current transmission
 
         # Extra signals:
@@ -842,7 +842,7 @@ class UTMITranslator(Elaboratable):
         self.busy            = Signal()
 
         # Data signals.
-        self.data_out        = Signal(8)
+        self.rx_data         = Signal(8)
         self.rx_valid        = Signal()
 
         self.data_in         = Signal(8)
@@ -970,7 +970,7 @@ class UTMITranslator(Elaboratable):
 
         # RxValid: equivalent to NXT whenever a Rx is active.
         m.d.ulpi += [
-            self.data_out  .eq(self.ulpi.data.i),
+            self.rx_data   .eq(self.ulpi.data.i),
             self.rx_valid  .eq(self.ulpi.nxt & self.rx_active)
         ]
 

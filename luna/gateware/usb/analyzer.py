@@ -152,18 +152,6 @@ class USBAnalyzer(Elaboratable):
                         packet_size      .eq(0),
                     ]
 
-                    #with m.If(self.utmi.rx_valid):
-                    #    m.d.ulpi += [
-                    #        fifo_count   .eq(fifo_count + 1),
-                    #    write_location   .eq(write_location + self.HEADER_SIZE_BYTES + 1),
-                    #        packet_size  .eq(1)
-                    #    ]
-                    #    m.d.comb += [
-                    #        mem_write_port.addr  .eq(write_location + self.HEADER_SIZE_BYTES),
-                    #        mem_write_port.data  .eq(self.utmi.data_out),
-                    #        mem_write_port.en    .eq(1)
-                    #    ]
-
 
             # Capture data until the packet is complete.
             with m.State("CAPTURE"):
@@ -171,7 +159,7 @@ class USBAnalyzer(Elaboratable):
                 # Capture data whenever RxValid is asserted.
                 m.d.comb += [
                     mem_write_port.addr  .eq(write_location),
-                    mem_write_port.data  .eq(self.utmi.data_out),
+                    mem_write_port.data  .eq(self.utmi.rx_data),
                     mem_write_port.en    .eq(self.utmi.rx_valid & self.utmi.rx_active),
                     fifo_new_data        .eq(self.utmi.rx_valid & self.utmi.rx_active)
                 ]
@@ -271,8 +259,8 @@ class USBAnalyzerTest(LunaGatewareTestCase):
 
     def instantiate_dut(self):
         self.utmi = Record([
-            ('data_in',     8),
-            ('data_out',    8),
+            ('tx_data',     8),
+            ('rx_data',    8),
 
             ('rx_valid',    1),
             ('rx_active',   1),
@@ -283,7 +271,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
 
 
     def advance_stream(self, value):
-        yield self.utmi.data_out.eq(value)
+        yield self.utmi.rx_data.eq(value)
         yield
 
 
@@ -296,7 +284,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         # Apply our first input, and validate that we start capturing.
         yield self.utmi.rx_active.eq(1)
         yield self.utmi.rx_valid.eq(1)
-        yield self.utmi.data_out.eq(0)
+        yield self.utmi.rx_data.eq(0)
         yield
         yield
 
@@ -343,7 +331,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         # Apply our first input, and validate that we start capturing.
         yield self.utmi.rx_active.eq(1)
         yield self.utmi.rx_valid.eq(1)
-        yield self.utmi.data_out.eq(0)
+        yield self.utmi.rx_data.eq(0)
         yield
 
         # Provide some data.
@@ -382,7 +370,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         # Apply our first input, and validate that we start capturing.
         yield self.utmi.rx_active.eq(1)
         yield self.utmi.rx_valid.eq(1)
-        yield self.utmi.data_out.eq(0)
+        yield self.utmi.rx_data.eq(0)
         yield
 
         # Provide some data.

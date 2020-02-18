@@ -1,0 +1,2 @@
+
+from .device import USBDevice
