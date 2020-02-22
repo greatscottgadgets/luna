@@ -1,14 +1,15 @@
 #
 # This file is part of LUNA.
 #
-""" Low-level USB transciever gateware -- exposes packet interfaces. """
+""" Low-level USB transciever gateware -- packetization interfaces. """
 
+import operator
 import unittest
+import functools
 
-from nmigen            import Signal, Module, Elaboratable, Memory, Cat, Const, Record
-from ...test           import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
+from nmigen            import Signal, Module, Elaboratable, Cat, Record, Array
+from ...test           import LunaGatewareTestCase, ulpi_domain_test_case
 
-from ...interface.ulpi import UTMITranslator
 
 class USBPacketizerTest(LunaGatewareTestCase):
     SYNC_CLOCK_FREQUENCY = None
@@ -46,6 +47,7 @@ class USBPacketizerTest(LunaGatewareTestCase):
 
 
     def provide_packet(self, *octets, cycle_after=True):
+        """ Provides an entire packet transaction at once; for convenience. """
         yield from self.start_packet()
         for b in octets:
             yield from self.provide_byte(b)
@@ -53,8 +55,6 @@ class USBPacketizerTest(LunaGatewareTestCase):
 
         if cycle_after:
             yield
-
-
 
 
 
@@ -79,7 +79,7 @@ class USBTokenDetector(Elaboratable):
     def __init__(self, *, utmi):
         """
         Parameters:
-            utmi -- The UMTI bus to observe.
+            utmi -- The UTMI bus to observe.
         """
         self.utmi = utmi
 
@@ -99,12 +99,11 @@ class USBTokenDetector(Elaboratable):
     def _generate_crc_for_token(token):
         """ Generates a 5-bit signal equivalent to the CRC check for the provided token packet. """
 
-        import functools, operator
-
         def xor_bits(*indices):
             bits = (token[len(token) - 1 - i] for i in indices)
             return functools.reduce(operator.__xor__, bits)
 
+        # Implements the CRC polynomial from the USB specification.
         return Cat(
              xor_bits(10, 9, 8, 5, 4, 2),
             ~xor_bits(10, 9, 8, 7, 4, 3, 1),
@@ -142,7 +141,7 @@ class USBTokenDetector(Elaboratable):
                     m.next = "IDLE"
 
                 with m.Elif(self.utmi.rx_valid):
-                    is_token     = (self.utmi.rx_data[0:1] == self.TOKEN_SUFFIX)
+                    is_token     = (self.utmi.rx_data[0:2] == self.TOKEN_SUFFIX)
                     is_valid_pid = (self.utmi.rx_data[0:4] == ~self.utmi.rx_data[4:8])
 
                     # If we have a valid token, move to capture it.
@@ -179,16 +178,6 @@ class USBTokenDetector(Elaboratable):
                 with m.Elif(self.utmi.rx_valid):
                     expected_crc = self._generate_crc_for_token(
                         Cat(token_data[0:8], self.utmi.rx_data[0:3]))
-
-                    self.crc_out = Signal.like(expected_crc)
-                    m.d.comb += self.crc_out.eq(expected_crc)
-
-                    self.crc_in = Signal(11)
-                    m.d.comb += self.crc_in.eq(Cat(token_data[0:8], self.utmi.rx_data[0:4]))
-
-                    self.crc_check = Signal(5)
-                    m.d.comb += self.crc_check.eq(self.utmi.rx_data[3:8])
-
 
                     # If the token has a valid CRC, capture it...
                     with m.If(self.utmi.rx_data[3:8] == expected_crc):
@@ -303,7 +292,7 @@ class USBHandshakeDetector(Elaboratable):
     def __init__(self, *, utmi):
         """
         Parameters:
-            utmi -- The UMTI bus to observe.
+            utmi -- The UTMI bus to observe.
         """
         self.utmi = utmi
 
@@ -410,6 +399,260 @@ class USBHandshakeDetectorTest(USBPacketizerTest):
     def test_nyet(self):
         yield from self.provide_packet(0b10010110)
         self.assertEqual((yield self.dut.nyet_detected), 1)
+
+
+class USBDataPacketCRC(Elaboratable):
+    """ Gateware that computes a running CRC16.
+
+    I/O port:
+        I: clear   -- Strobe that restarts the running CRC.
+
+        I: data[8] -- Data input.
+        I: valid   -- When high, the `data` input is used to update the CRC.
+
+        O: crc[16] -- CRC16 value.
+    """
+
+    def __init__(self, initial_value=0xFFFF):
+        """
+        Parameters
+            initial_value -- The initial value of the CRC shift register; the USB default
+                             is used if not provided.
+        """
+
+        self._initial_value = initial_value
+
+        #
+        # I/O port
+        #
+        self.clear = Signal()
+
+        self.data  = Signal(8)
+        self.valid = Signal()
+
+        self.crc   = Signal(16, reset=initial_value)
+
+
+    def _generate_next_crc(self, current_crc, data_in):
+        """ Generates the next round of a bytewise USB CRC16. """
+        xor_reduce = lambda bits : functools.reduce(operator.__xor__, bits)
+
+        # Extracted from the USB spec's definition of the CRC16 polynomial.
+        return Cat(
+            xor_reduce(data_in)      ^ xor_reduce(current_crc[ 8:16]),
+            xor_reduce(data_in[0:7]) ^ xor_reduce(current_crc[ 9:16]),
+            xor_reduce(data_in[6:8]) ^ xor_reduce(current_crc[ 8:10]),
+            xor_reduce(data_in[5:7]) ^ xor_reduce(current_crc[ 9:11]),
+            xor_reduce(data_in[4:6]) ^ xor_reduce(current_crc[10:12]),
+            xor_reduce(data_in[3:5]) ^ xor_reduce(current_crc[11:13]),
+            xor_reduce(data_in[2:4]) ^ xor_reduce(current_crc[12:14]),
+            xor_reduce(data_in[1:3]) ^ xor_reduce(current_crc[13:15]),
+
+            xor_reduce(data_in[0:2]) ^ xor_reduce(current_crc[14:16]) ^ current_crc[0],
+            data_in[0] ^ current_crc[1] ^ current_crc[15],
+            current_crc[2],
+            current_crc[3],
+            current_crc[4],
+            current_crc[5],
+            current_crc[6],
+            xor_reduce(data_in) ^ xor_reduce(current_crc[7:16]),
+        )
+
+
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        crc = Signal(16, reset=self._initial_value)
+
+        # If we're clearing our CRC in progress, move our holding register back to
+        # our initial value.
+        with m.If(self.clear):
+            m.d.ulpi += crc.eq(self._initial_value)
+
+        # Otherwise, update the CRC whenever we have new data.
+        with m.Elif(self.valid):
+            m.d.ulpi += crc.eq(self._generate_next_crc(crc, self.data))
+
+        m.d.comb += [
+            self.crc  .eq(~crc[::-1])
+        ]
+
+        return m
+
+
+class USBDataPacketDeserializer(Elaboratable):
+    """ Gateware that captures USB data packet contents and parallelizes them.
+
+    I/O port:
+        O: new_packet -- Strobe that pulses high for a single cycle when a new packet is delivered.
+        O: packet[]   -- Packet data for a the most recently received packet.
+        O: length[]   -- The length of the packet data presented on the packet[] output.
+    """
+
+    DATA_SUFFIX = 0b11
+
+    def __init__(self, *, utmi, max_packet_size=64):
+        """
+        Parameters:
+            utmi -- The UTMI bus to observe.
+            max_packet_size -- The maximum packet (payload) size to be deserialized, in bytes.
+        """
+
+        self.utmi = utmi
+        self._max_packet_size = max_packet_size
+
+        #
+        # I/O port
+        #
+        self.new_packet = Signal()
+
+        self.packet_id  = Signal(4)
+        self.packet     = Array(Signal(8, name=f"packet_{i}") for i in range(max_packet_size))
+        self.length     = Signal(range(0, max_packet_size + 1))
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        max_size_with_crc = self._max_packet_size + 2
+
+        # Submodule: CRC16 generator.
+        m.submodules.crc = crc = USBDataPacketCRC()
+        last_byte_crc = Signal(16)
+        last_word_crc = Signal(16)
+
+        # Currently captured PID.
+        active_pid         = Signal(4)
+
+        # Active packet transfer.
+        active_packet      = Array(Signal(8) for _ in range(max_size_with_crc))
+        position_in_packet = Signal(range(0, max_size_with_crc))
+
+        # Keeps track of the
+        last_word          = Signal(16)
+
+        # Keep our control signals + strobes un-asserted unless otherwise specified.
+        m.d.ulpi += self.new_packet  .eq(0)
+        m.d.comb += crc.clear        .eq(0)
+
+        with m.FSM(domain="ulpi"):
+
+            # IDLE -- waiting for a packet to be presented
+            with m.State("IDLE"):
+
+                with m.If(self.utmi.rx_active):
+                    m.next = "READ_PID"
+
+
+            # READ_PID -- read the packet's ID.
+            with m.State("READ_PID"):
+                # Clear our CRC; as we're potentially about to start a new packet.
+                m.d.comb += crc.clear.eq(1)
+
+                with m.If(~self.utmi.rx_active):
+                    m.next = "IDLE"
+
+                with m.Elif(self.utmi.rx_valid):
+                    is_data      = (self.utmi.rx_data[0:2] == self.DATA_SUFFIX)
+                    is_valid_pid = (self.utmi.rx_data[0:4] == ~self.utmi.rx_data[4:8])
+
+                    # If this is a data packet, capture it.
+                    with m.If(is_valid_pid & is_data):
+                        m.d.ulpi += [
+                            active_pid          .eq(self.utmi.rx_data),
+                            position_in_packet  .eq(0)
+                        ]
+                        m.next = "CAPTURE_DATA"
+
+                    # Otherwise, ignore this packet.
+                    with m.Else():
+                        m.next = "IRRELEVANT"
+
+
+            with m.State("CAPTURE_DATA"):
+
+                # Keep a running CRC of any data observed.
+                m.d.comb += [
+                    crc.valid  .eq(self.utmi.rx_valid),
+                    crc.data   .eq(self.utmi.rx_data)
+                ]
+
+                # If we have a new byte of data, capture it.
+                with m.If(self.utmi.rx_valid):
+
+                    # If this would over-fill our internal buffer, fail out.
+                    with m.If(position_in_packet >= max_size_with_crc):
+                        # TODO: potentially signal the babble?
+                        m.next = "IRRELEVANT"
+
+                    with m.Else():
+                        m.d.ulpi += [
+                            active_packet[position_in_packet]  .eq(self.utmi.rx_data),
+                            position_in_packet                 .eq(position_in_packet + 1),
+
+                            last_word  .eq(Cat(self.utmi.rx_data, last_word[0:8])),
+
+                            last_word_crc .eq(last_byte_crc),
+                            last_byte_crc .eq(crc.crc),
+                        ]
+
+
+                # If this is the end of our packet, validate our CRC and finish.
+                with m.If(~self.utmi.rx_active):
+
+                    with m.If(last_word_crc == last_word):
+                        m.d.ulpi += [
+                            self.packet_id   .eq(active_pid),
+                            self.length      .eq(position_in_packet - 2),
+                            self.new_packet  .eq(1)
+                        ]
+
+                        for i in range(self._max_packet_size):
+                            m.d.ulpi += self.packet[i].eq(active_packet[i]),
+
+
+            # IRRELEVANT -- we've encountered a malformed or non-handshake packet
+            with m.State("IRRELEVANT"):
+
+                with m.If(~self.utmi.rx_active):
+                    m.next = "IDLE"
+
+        return m
+
+
+
+class USBDataPacketDeserializerTest(USBPacketizerTest):
+    FRAGMENT_UNDER_TEST = USBDataPacketDeserializer
+
+    @ulpi_domain_test_case
+    def test_packet_rx(self):
+        yield from self.provide_packet(
+            0b11000011,                                     # PID
+            0b00100011, 0b01000101, 0b01100111, 0b10001001, # DATA
+            0b00011100, 0b00001110                          # CRC
+        )
+
+        # Ensure we've gotten a new packet.
+        self.assertEqual((yield self.dut.new_packet), 1, "packet not recognized")
+        self.assertEqual((yield self.dut.length),     4)
+        self.assertEqual((yield self.dut.packet[0]),  0b00100011)
+        self.assertEqual((yield self.dut.packet[1]),  0b01000101)
+        self.assertEqual((yield self.dut.packet[2]),  0b01100111)
+        self.assertEqual((yield self.dut.packet[3]),  0b10001001)
+
+
+    @ulpi_domain_test_case
+    def test_invalid_rx(self):
+        yield from self.provide_packet(
+            0b11000011,                                     # PID
+            0b11111111, 0b11111111, 0b11111111, 0b11111111, # DATA
+            0b00011100, 0b00001110                          # CRC
+        )
+
+        # Ensure we've gotten a new packet.
+        self.assertEqual((yield self.dut.new_packet), 0, 'accepted invalid CRC!')
 
 
 if __name__ == "__main__":
