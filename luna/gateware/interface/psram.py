@@ -296,7 +296,7 @@ class HyperRAMInterface(Elaboratable):
                 # If we have a register write, we don't need to handle
                 # any latency. Move directly to our SHIFT_DATA state.
                 with m.If(is_register & ~is_read):
-                    m.next = 'STREAM_DATA'
+                    m.next = 'WRITE_DATA_MSB'
 
                 # Otherwise, react with either a short period of latency
                 # or a longer one, depending on what the RAM requested via
@@ -363,6 +363,9 @@ class HyperRAMInterface(Elaboratable):
                 m.next = 'IDLE'
 
             # TODO: implement write shift states
+
+            with m.State("WRITE_DATA_MSB"):
+                pass
 
         return m
 

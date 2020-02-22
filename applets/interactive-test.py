@@ -6,14 +6,14 @@
 import operator
 from functools import reduce
 
-from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetInserter
+from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetSignal
 from nmigen.lib.cdc import FFSynchronizer
 
 from luna                             import top_level_cli
 from luna.gateware.utils.cdc          import synchronize
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 from luna.gateware.interface.spi      import SPIRegisterInterface
-from luna.gateware.interface.ulpi     import UTMITranslator
+from luna.gateware.interface.ulpi     import ULPIRegisterWindow
 from luna.gateware.interface.flash    import ECP5ConfigurationFlashInterface
 from luna.gateware.interface.psram    import HyperRAMInterface
 
@@ -249,9 +249,19 @@ class InteractiveSelftest(Elaboratable):
     def add_ulpi_registers(self, m, platform, *, ulpi_bus, clock, register_base):
         """ Adds a set of ULPI registers to the active design. """
 
-        target_ulpi    = platform.request(ulpi_bus)
-        utmi_adapter   = UTMITranslator(ulpi=target_ulpi)
-        m.submodules  += utmi_adapter
+        target_ulpi      = platform.request(ulpi_bus)
+        ulpi_reg_window  = ULPIRegisterWindow()
+        m.submodules  += ulpi_reg_window
+        m.d.comb += [
+            ulpi_reg_window.ulpi_data_in  .eq(target_ulpi.data.i),
+            ulpi_reg_window.ulpi_dir      .eq(target_ulpi.dir),
+            ulpi_reg_window.ulpi_next     .eq(target_ulpi.nxt),
+
+            target_ulpi.clk      .eq(ClockSignal("ulpi")),
+            target_ulpi.rst      .eq(ResetSignal("ulpi")),
+            target_ulpi.stp      .eq(ulpi_reg_window.ulpi_stop),
+            target_ulpi.data.oe  .eq(ulpi_reg_window.ulpi_out_req),
+        ]
 
         register_address_change  = Signal()
         register_value_change    = Signal()
@@ -260,27 +270,23 @@ class InteractiveSelftest(Elaboratable):
         spi_registers = m.submodules.spi_registers
         spi_registers.add_register(register_base + 0,
             write_strobe=register_address_change,
-            value_signal=utmi_adapter.address,
+            value_signal=ulpi_reg_window.address,
             size=6
         )
         m.submodules.clocking.stretch_sync_strobe_to_ulpi(m,
             strobe=register_address_change,
-            output=utmi_adapter.manual_read,
+            output=ulpi_reg_window.read_request,
         )
 
         # ULPI register value.
         spi_registers.add_sfr(register_base + 1,
-            read=utmi_adapter.read_data,
-            write_signal=utmi_adapter.write_data,
+            read=ulpi_reg_window.read_data,
+            write_signal=ulpi_reg_window.write_data,
             write_strobe=register_value_change
         )
         m.submodules.clocking.stretch_sync_strobe_to_ulpi(m,
             strobe=register_value_change,
-            output=utmi_adapter.manual_write,
-        )
-
-        spi_registers.add_sfr(register_base + 2,
-            read=utmi_adapter.last_rx_command
+            output=ulpi_reg_window.write_request
         )
 
 
