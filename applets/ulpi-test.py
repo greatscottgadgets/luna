@@ -20,7 +20,6 @@ from luna.gateware.debug.ila          import SyncSerialILA
 
 
 from luna.gateware.utils.cdc          import synchronize
-from luna.gateware.utils              import rising_edge_detector
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 from luna.gateware.interface.spi      import SPIRegisterInterface, SPIMultiplexer, SPIBus
 from luna.gateware.interface.ulpi     import UTMITranslator

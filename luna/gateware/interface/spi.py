@@ -6,9 +6,9 @@
 import unittest
 
 from nmigen import Signal, Module, Cat, Elaboratable, Record
+from nmigen.hdl.ast import Rose, Fell
 from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
 
-from ..utils import rising_edge_detector, falling_edge_detector
 from ..test.utils import LunaGatewareTestCase, sync_test_case
 
 class SPIBus(Record):
@@ -82,8 +82,8 @@ class SPIDeviceInterface(Elaboratable):
         # Generate the leading and trailing edge detectors.
         # Note that we use rising and falling edge detectors, but call these leading and
         # trailing edges, as our clock here may have been inverted.
-        leading_edge  = rising_edge_detector(m, serial_clock)
-        trailing_edge = falling_edge_detector(m, serial_clock)
+        leading_edge  = Rose(serial_clock)
+        trailing_edge = Fell(serial_clock)
 
         # Determine the sample and output edges based on the SPI clock phase.
         sample_edge = trailing_edge if self.clock_phase else leading_edge
@@ -327,7 +327,7 @@ class SPICommandInterface(Elaboratable):
         m = Module()
         spi = self.spi
 
-        sample_edge = falling_edge_detector(m, spi.sck)
+        sample_edge = Fell(spi.sck)
 
         # Bit counter: counts the number of bits received.
         max_bit_count = max(self.word_size, self.command_size)

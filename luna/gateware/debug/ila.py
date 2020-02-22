@@ -14,11 +14,11 @@ import subprocess
 from abc             import ABCMeta, abstractmethod
 
 from nmigen          import Signal, Module, Cat, Elaboratable, Memory, ClockDomain, DomainRenamer
+from nmigen.hdl.ast  import Rose
 from nmigen.lib.cdc  import FFSynchronizer
 from vcd             import VCDWriter
 from vcd.gtkw        import GTKWSave
 
-from ..utils         import rising_edge_detector
 from ..interface.spi import SPIDeviceInterface, SPIBus, SPIGatewareTestCase
 from ..test.utils    import LunaGatewareTestCase, sync_test_case
 
@@ -348,7 +348,7 @@ class SyncSerialILA(Elaboratable):
         m  = Module()
         m.submodules.ila = self.ila
 
-        transaction_start = rising_edge_detector(m, self.spi.cs)
+        transaction_start = Rose(self.spi.cs)
 
         # Connect up our SPI transciever to our public interface.
         interface = SPIDeviceInterface(

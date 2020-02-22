@@ -4,13 +4,13 @@
 #
 """ ULPI interfacing hardware. """
 
-from nmigen import Signal, Module, Cat, Elaboratable, ClockSignal, Record, ResetSignal, Const
-
 import unittest
-from nmigen.back.pysim import Simulator
 
-from ..test  import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
-from ..utils import rising_edge_detector, falling_edge_detector
+from nmigen         import Signal, Module, Cat, Elaboratable, ClockSignal, \
+                           Record, ResetSignal, Const
+from nmigen.hdl.ast import Rose, Fell, Past
+
+from ..test         import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
 
 
 
@@ -954,7 +954,7 @@ class UTMITranslator(Elaboratable):
         # A transmission starts when DIR goes high with NXT, or when an RxEvent indicates
         # a switch from RxActive = 0 to RxActive = 1. A transmission stops when DIR drops low,
         # or when the RxEvent RxActive bit drops from 1 to 0, or an error occurs.
-        dir_rising_edge = rising_edge_detector(m, self.ulpi.dir, domain=m.d.ulpi)
+        dir_rising_edge = Rose(self.ulpi.dir, domain='ulpi')
         dir_based_start = dir_rising_edge & self.ulpi.nxt
 
         with m.If(~self.ulpi.dir | rxevent_decoder.rx_stop):

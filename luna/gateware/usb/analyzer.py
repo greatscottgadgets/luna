@@ -10,7 +10,6 @@ from nmigen            import Signal, Module, Elaboratable, Memory, Record
 from nmigen.back.pysim import Simulator
 
 from ..test           import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
-from ..utils          import rising_edge_detector, falling_edge_detector
 
 
 class USBAnalyzer(Elaboratable):
