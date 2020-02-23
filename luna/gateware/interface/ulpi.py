@@ -760,6 +760,203 @@ class ControlTranslatorTest(LunaGatewareTestCase):
 
 
 
+class ULPITransmitTranslator(Elaboratable):
+    """ Accepts UTMI transmit signals, and converts them into ULPI equivalents.
+
+    I/O port:
+        I: tx_data[8]      -- The data to be transmitted.
+        I: tx_valid        -- Driven high to indicate we're trying to transmit.
+        O: tx_ready        -- Driven high when a given byte will be accepted on tx_data on the next clock edge.
+
+        I: op_mode[2]      -- The UTMI operating mode. Used to determine when NOPID commands should be issued;
+                              and when to force transmit errors.
+
+        I: bus_available   -- Should be asserted when the transmitter is able to control the bus.
+        I: starts_with_pid -- Should be asserted when the first byte on tx_data should be interpreted as a PID.
+        I: induce_error    -- When asserted during the fall of tx_valid,
+
+        O: ulpi_data_out   -- The data to be driven onto the ULPI transmit lines.
+        O: ulpi_data_en    -- Asserted when we're trying to drive the ULPI data lines.
+        I: ulpi_nxt        -- The NXT signal for the relevant ULPI bus.
+        O: ulpi_stp        -- The STP signal for the relevant ULPI bus.
+    """
+
+
+    # Prefix for ULPI transmit commands.
+    TRANSMIT_COMMAND = 0b01000000
+
+    # UTMI operating mode for "bit stuffing disabled".
+    OP_MODE_NO_BIT_STUFFING = 0b10
+
+
+    def __init__(self):
+
+        #
+        # I/O port.
+        #
+
+        self.tx_data         = Signal(8)
+        self.tx_valid        = Signal()
+        self.tx_ready        = Signal()
+
+        self.op_mode         = Signal(2)
+        self.bus_available   = Signal()
+
+        self.ulpi_data_out   = Signal.like(self.tx_data)
+        self.ulpi_data_en    = Signal()
+        self.ulpi_nxt        = Signal()
+        self.ulpi_stp        = Signal()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        bit_stuffing_disabled = (self.op_mode == self.OP_MODE_NO_BIT_STUFFING)
+
+        with m.FSM(domain="ulpi"):
+
+            # IDLE: our transmitter is ready and
+            with m.State('IDLE'):
+                m.d.comb += self.ulpi_stp.eq(0)
+
+                # Start once a transmit is started, and we can access the bus.
+                with m.If(self.tx_valid & self.bus_available):
+
+                    # If bit-stuffing is disabled, we'll need to prefix our transmission with a NOPID command.
+                    # In this case, we'll never accept the first byte (as we're not ready to transmit it, yet),
+                    # and thus TxReady will always be 0.
+                    with m.If(bit_stuffing_disabled):
+                        m.d.comb += [
+                            self.ulpi_data_en  .eq(1),
+                            self.ulpi_data_out .eq(self.TRANSMIT_COMMAND),
+                            self.tx_ready      .eq(0)
+                        ]
+
+                    # Otherwise, this transmission starts with a PID. Extract the PID from the first data byte
+                    # and present it as part of the Transmit Command. In this case, the NXT signal is
+                    # has the same meaning as the UTMI TxReady signal; and can be passed along directly.
+                    with m.Else():
+                        m.d.comb += [
+                            self.ulpi_data_en  .eq(1),
+                            self.ulpi_data_out .eq(self.TRANSMIT_COMMAND | self.tx_data[0:4]),
+                            self.tx_ready      .eq(self.ulpi_nxt)
+                        ]
+
+
+                    # Once the PHY has accepted the command byte, we're ready to move into our main transmit state.
+                    with m.If(self.ulpi_nxt):
+                        m.next = 'TRANSMIT'
+
+
+            # TRANSMIT: we're in the body of a transmit; the UTMI and ULPI interface signals
+            # are roughly equivalent; we'll just pass them through.
+            with m.State('TRANSMIT'):
+                m.d.comb += [
+                    self.ulpi_data_en  .eq(1),
+                    self.ulpi_data_out .eq(self.tx_data),
+                    self.tx_ready      .eq(self.ulpi_nxt),
+                    self.ulpi_stp      .eq(0),
+                ]
+
+                # Once the transmission has ended, we'll need to issue a ULPI stop.
+                with m.If(~self.tx_valid):
+
+                    # If we've disabled bit stuffing, we'll want to termainate by generating a bit-stuff error.
+                    with m.If(bit_stuffing_disabled):
+                        m.next = 'STOP_WITH_ERROR'
+
+                    # Otherwise, we'll generate a normal stop.
+                    with m.Else():
+                        m.next = 'STOP'
+
+
+            # STOP: our packet has just terminated; we'll generate a ULPI stop event for a single cycle.
+            # [ULPI: 3.8.2.2]
+            with m.State('STOP'):
+                m.d.comb += [
+                    self.ulpi_data_en  .eq(1),
+                    self.ulpi_data_out .eq(0),
+                    self.tx_ready      .eq(0),
+                    self.ulpi_stp      .eq(1),
+                ]
+                m.next = 'IDLE'
+
+
+            # STOP_WITH_ERROR: our packet has just terminated; we'll generate a ULPI stop event,
+            # but request that the PHY induce a bit-stuff error, instead of stopping gracefully.
+            with m.State('STOP_WITH_ERROR'):
+                # Drive 0xFF as we stop, to generate a bit-stuff error. [ULPI: 3.8.2.3]
+                m.d.comb += [
+                    self.ulpi_data_en  .eq(1),
+                    self.ulpi_data_out .eq(0xFF),
+                    self.tx_ready      .eq(0),
+                    self.ulpi_stp      .eq(1),
+                ]
+                m.next = 'IDLE'
+
+
+        return m
+
+
+class ULPITransmitTranslatorTest(LunaGatewareTestCase):
+    ULPI_CLOCK_FREQUENCY=60e6
+    SYNC_CLOCK_FREQUENCY=None
+
+    FRAGMENT_UNDER_TEST = ULPITransmitTranslator
+
+    def initialize_signals(self):
+        yield self.dut.bus_available.eq(1)
+
+    @ulpi_domain_test_case
+    def test_simple_transmit(self):
+        dut = self.dut
+
+        # We shouldn't try to transmit until we have a transmit request.
+        yield from self.advance_cycles(10)
+        self.assertEqual((yield dut.ulpi_data_en), 0)
+
+        # Present a simple SOF PID.
+        yield dut.tx_valid.eq(1)
+        yield dut.tx_data.eq(0xA5)
+        yield
+
+        # Our PID should have been translated into a transmit request, with
+        # our PID in the lower nibble.
+        self.assertEqual((yield dut.ulpi_data_en),  1)
+        self.assertEqual((yield dut.ulpi_data_out), 0b01000101)
+        self.assertEqual((yield dut.tx_ready),      0)
+        self.assertEqual((yield dut.ulpi_stp),      0)
+
+        # Our PID should remain there until we indicate we're ready.
+        yield dut.tx_data.eq(0x11)
+        self.advance_cycles(10)
+        self.assertEqual((yield dut.ulpi_data_out), 0b01000101)
+
+        # Once we're ready, we should accept the data from the link and continue.
+        yield dut.ulpi_nxt.eq(1)
+        yield
+        self.assertEqual((yield dut.tx_ready),      1)
+
+        # At which point we should present the relevant data directly.
+        yield
+        self.assertEqual((yield dut.ulpi_data_out), 0x11)
+
+        # Finally, once we stop our transaction...
+        yield dut.tx_valid.eq(0)
+        yield
+
+        # ... we should get a cycle of STP.
+        yield
+        self.assertEqual((yield dut.ulpi_data_out), 0)
+        self.assertEqual((yield dut.ulpi_stp),      1)
+
+        # ... followed by idle.
+        yield
+        self.assertEqual((yield dut.ulpi_stp),      0)
+
+
+
+
 class UTMITranslator(Elaboratable):
     """ Gateware that translates a ULPI interface into a simpler UTMI one.
 
@@ -845,7 +1042,9 @@ class UTMITranslator(Elaboratable):
         self.rx_data         = Signal(8)
         self.rx_valid        = Signal()
 
-        self.data_in         = Signal(8)
+        self.tx_data         = Signal(8)
+        self.tx_valid        = Signal()
+        self.tx_ready        = Signal()
 
         # Status signals.
         self.rx_active       = Signal()
