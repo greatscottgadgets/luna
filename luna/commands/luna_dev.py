@@ -10,6 +10,7 @@ import sys
 import ast
 import time
 import errno
+import logging
 import argparse
 
 from luna.apollo import ApolloDebugger
@@ -32,44 +33,52 @@ spi-reg    -- Reads or writes to a provided register over the debug-SPI.
 """
 
 
-def print_chain_info(device, log_function, log_error, args):
+def print_device_info(device, args):
+    """ Command that prints information about devices connected to the scan chain to the console. """
+
+    logging.info("Detected a LUNA device!")
+    logging.info(f"\tHardware revision: r{device.major}.{device.minor}")
+    logging.info(f"\tSerial number: r{device.serial_number}\n")
+
+
+def print_chain_info(device, args):
     """ Command that prints information about devices connected to the scan chain to the console. """
 
     with device.jtag as jtag:
-        log_function("Scanning for connected devices...")
+        logging.info("Scanning for connected devices...")
         detected_devices = jtag.enumerate()
 
         # If devices exist on the scan chain, print their information.
         if detected_devices:
-            log_function("{} device{} detected on the scan chain:\n".format(
+            logging.info("{} device{} detected on the scan chain:\n".format(
                         len(detected_devices), 's' if len(detected_devices) > 1 else ''))
 
             for device in detected_devices:
-                log_function("    {:08x} -- {}".format(device.idcode(), device.description()))
+                logging.info("    {:08x} -- {}".format(device.idcode(), device.description()))
 
 
-            log_function('')
+            logging.info('')
 
         else:
-            log_function("No devices found.\n")
+            logging.info("No devices found.\n")
 
 
-def play_svf_file(device, log_function, log_error, args):
+def play_svf_file(device, args):
     """ Command that prints the relevant flash chip's information to the console. """
 
     if not args.argument:
-        log_error("You must provide an SVF filename to play!\n")
+        logging.error("You must provide an SVF filename to play!\n")
         sys.exit(-1)
 
     with device.jtag as jtag:
         try:
-            jtag.play_svf_file(args.argument, log_function=log_function, error_log_function=log_error)
+            jtag.play_svf_file(args.argument)
         except JTAGPatternError:
             # Our SVF player has already logged the error to stderr.
-            log_error("")
+            logging.error("")
 
 
-def configure_ecp5(device, log_function, log_error, args):
+def configure_ecp5(device, args):
     """ Command that prints information about devices connected to the scan chain to the console. """
 
     with device.jtag as jtag:
@@ -82,13 +91,13 @@ def configure_ecp5(device, log_function, log_error, args):
         programmer.configure(bitstream)
 
 
-def reconfigure_ecp5(device, log_function, log_error, args):
+def reconfigure_ecp5(device, args):
     """ Command that requests the attached ECP5 reconfigure itself from its MSPI flash. """
 
     device.soft_reset()
 
 
-def debug_spi(device, log_function, log_error, args, *, invert_cs=False):
+def debug_spi(device, args, *, invert_cs=False):
 
     # Try to figure out what data the user wants to send.
     data_raw = ast.literal_eval(args.argument)
@@ -101,11 +110,11 @@ def debug_spi(device, log_function, log_error, args, *, invert_cs=False):
     print("response: {}".format(response))
 
 
-def debug_spi_inv(device, log_function, log_error, args):
-    debug_spi(device, log_function, log_error, args, invert_cs=True)
+def debug_spi_inv(device, args):
+    debug_spi(device, args, invert_cs=True)
 
 
-def debug_spi_register(device, log_function, log_error, args):
+def debug_spi_register(device, args):
 
     # Try to figure out what data the user wants to send.
     address = int(args.argument, 0)
@@ -122,44 +131,44 @@ def debug_spi_register(device, log_function, log_error, args):
 
 
 
-def print_flash_info(device, log_function, log_error, args):
+def print_flash_info(device, args):
     """ Command that prints information about the connected SPI flash. """
-    ensure_flash_gateware_loaded(device, log_function=log_function)
+    ensure_flash_gateware_loaded(device, log_function=logging.info)
 
     with device.flash as flash:
         flash_id, description = flash.read_flash_info()
 
     if flash_id is None:
-        log_error("No connected flash detected.\n")
+        logging.error("No connected flash detected.\n")
         sys.exit(-1)
     else:
-        log_function("Detected a configuration flash!")
-        log_function("    {:04x} -- {}".format(flash_id, description))
-        log_function()
+        logging.info("Detected a configuration flash!")
+        logging.info("    {:04x} -- {}".format(flash_id, description))
+        logging.info()
 
 
-def erase_config_flash(device, log_function, log_error, args):
+def erase_config_flash(device, args):
     """ Command that erases the connected configuration flash. """
-    ensure_flash_gateware_loaded(device, log_function=log_function)
+    ensure_flash_gateware_loaded(device, log_function=logging.info)
 
     with device.flash as flash:
         flash.erase()
 
 
-def program_config_flash(device, log_function, log_error, args):
+def program_config_flash(device, args):
     """ Command that programs a given bitstream into the device's configuration flash. """
-    ensure_flash_gateware_loaded(device, log_function=log_function)
+    ensure_flash_gateware_loaded(device, log_function=logging.info)
 
     with open(args.argument, "rb") as f:
         bitstream = f.read()
 
     with device.flash as flash:
-        flash.program(bitstream, log_function)
+        flash.program(bitstream, logging.info)
 
 
-def read_out_config_flash(device, log_function, log_error, args):
+def read_out_config_flash(device, args):
     """ Command that programs a given bitstream into the device's configuration flash. """
-    ensure_flash_gateware_loaded(device, log_function=log_function)
+    ensure_flash_gateware_loaded(device, log_function=logging.info)
 
     # For now, always read back a ECP5-12F.
     read_back_length = 582376
@@ -167,7 +176,7 @@ def read_out_config_flash(device, log_function, log_error, args):
     read_back_length = 512
 
     with device.flash as flash:
-        bitstream = flash.readback(read_back_length, log_function=log_function)
+        bitstream = flash.readback(read_back_length, log_function=logging.info)
 
     with open(args.argument, "wb") as f:
         f.write(bitstream)
@@ -178,6 +187,7 @@ def main():
 
     commands = {
         # Info queries
+        'info':        print_device_info,
         'jtag-scan':   print_chain_info,
         'flash-scan':  print_flash_info,
 
@@ -210,13 +220,12 @@ def main():
     args = parser.parse_args()
     device = ApolloDebugger()
 
-    # Grab our log functions.
-    # FIXME: select these
-    log_function, log_error = print, print
+    # Set up python's logging to act as a simple print, for now.
+    logging.basicConfig(level=logging.INFO, format="%(message)-s")
 
     # Execute the relevant command.
     command = commands[args.command]
-    command(device, log_function, log_error, args)
+    command(device, args)
 
 
 if __name__ == '__main__':

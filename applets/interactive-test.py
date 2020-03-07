@@ -17,6 +17,8 @@ from luna.gateware.interface.ulpi     import ULPIRegisterWindow
 from luna.gateware.interface.flash    import ECP5ConfigurationFlashInterface
 from luna.gateware.interface.psram    import HyperRAMInterface
 
+from luna.apollo.support.selftest     import ApolloSelfTestCase, named_test
+
 #
 # Clock frequencies for each of the domains.
 # Can be modified to test at faster or slower frequencies.
@@ -51,7 +53,7 @@ REGISTER_SIDEBAND_RXCMD = 15
 REGISTER_RAM_REG_ADDR   = 20
 REGISTER_RAM_VALUE      = 21
 
-class InteractiveSelftest(Elaboratable):
+class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
     """ Hardware meant to demonstrate use of the Debug Controller's register interface.
 
     Registers:
@@ -250,8 +252,10 @@ class InteractiveSelftest(Elaboratable):
         """ Adds a set of ULPI registers to the active design. """
 
         target_ulpi      = platform.request(ulpi_bus)
+
         ulpi_reg_window  = ULPIRegisterWindow()
         m.submodules  += ulpi_reg_window
+
         m.d.comb += [
             ulpi_reg_window.ulpi_data_in  .eq(target_ulpi.data.i),
             ulpi_reg_window.ulpi_dir      .eq(target_ulpi.dir),
@@ -260,7 +264,8 @@ class InteractiveSelftest(Elaboratable):
             target_ulpi.clk      .eq(ClockSignal("ulpi")),
             target_ulpi.rst      .eq(ResetSignal("ulpi")),
             target_ulpi.stp      .eq(ulpi_reg_window.ulpi_stop),
-            target_ulpi.data.oe  .eq(ulpi_reg_window.ulpi_out_req),
+            target_ulpi.data.o   .eq(ulpi_reg_window.ulpi_data_out),
+            target_ulpi.data.oe  .eq(~target_ulpi.dir)
         ]
 
         register_address_change  = Signal()
@@ -290,6 +295,79 @@ class InteractiveSelftest(Elaboratable):
         )
 
 
-if __name__ == "__main__":
-    top_level_cli(InteractiveSelftest)
+    def assertPhyRegister(self, phy_register_base: int, register: int, expected_value: int):
+        """ Asserts that a PHY register contains a given value.
 
+        Parameters:
+            phy_register_base -- The base address of the PHY window in the debug SPI
+                                 address range.
+            register          -- The PHY register to check.
+            value             -- The expected value of the relevant PHY register.
+        """
+
+        # Set the address of the ULPI register we're going to read from.
+        self.dut.spi.register_write(phy_register_base, register)
+
+        # ... and read back its value.
+        actual_value = self.dut.spi.register_read(phy_register_base + 1)
+
+        # Finally, validate it.
+        if actual_value != expected_value:
+            raise AssertionError(f"PHY register {register} was {actual_value}, not expected {expected_value}")
+
+
+    def assertPhyPresence(self, register_base: int):
+        """ Assertion that fails iff the given PHY isn't detected. """
+
+        # Check the value of our four ID registers, which should
+        # read 2404:0900 (vendor: microchip; product: USB3343).
+        self.assertPhyRegister(register_base, 0, 0x24)
+        self.assertPhyRegister(register_base, 1, 0x04)
+        self.assertPhyRegister(register_base, 2, 0x09)
+        self.assertPhyRegister(register_base, 3, 0x00)
+
+
+    def assertHyperRAMRegister(self, address: int, expected_value: int):
+        """ Assertion that fails iff a RAM register doesn't hold the expected value. """
+
+        self.dut.spi.register_write(REGISTER_RAM_REG_ADDR, address)
+        self.dut.spi.register_write(REGISTER_RAM_REG_ADDR, address)
+        actual_value =  self.dut.spi.register_read(REGISTER_RAM_VALUE)
+
+        if actual_value != expected_value:
+            raise AssertionError(f"PHY register {address} was {actual_value}, not expected {expected_value}")
+
+
+    @named_test("Debug module")
+    def test_debug_connection(self, dut):
+        self.assertRegisterValue(1, 0x54455354)
+
+
+    @named_test("Host PHY")
+    def test_host_phy(self, dut):
+        self.assertPhyPresence(REGISTER_HOST_ADDR)
+
+
+    @named_test("Target PHY")
+    def test_target_phy(self, dut):
+        self.assertPhyPresence(REGISTER_TARGET_ADDR)
+
+
+    @named_test("Sideband PHY")
+    def test_sideband_phy(self, dut):
+        self.assertPhyPresence(REGISTER_SIDEBAND_ADDR)
+
+
+    @named_test("HyperRAM")
+    def test_hyperram(self, dut):
+        self.assertHyperRAMRegister(0, 0x0c81)
+
+
+
+if __name__ == "__main__":
+    tester = top_level_cli(InteractiveSelftest)
+
+    if tester:
+        tester.run_tests()
+
+    print()

@@ -2,12 +2,19 @@
 # This file is part of LUNA.
 #
 
+import sys
 import shutil
+import logging
 import tempfile
 import argparse
 
 from nmigen import Elaboratable
 from .gateware.platform import get_appropriate_platform
+
+# Log formatting strings.
+LOG_FORMAT_COLOR = "\u001b[37;1m%(levelname)-8s| \u001b[0m\u001b[1m%(module)-12s|\u001b[0m %(message)s"
+LOG_FORMAT_PLAIN = "%(levelname)-8s:n%(module)-12s>%(message)s"
+
 
 def top_level_cli(fragment, *pos_args, **kwargs):
     """ Runs a default CLI that assists in building and running gateware.
@@ -16,7 +23,9 @@ def top_level_cli(fragment, *pos_args, **kwargs):
         that was programmed onto the board. Otherwise, it returns None.
     """
 
-    parser = argparse.ArgumentParser(description="Gateware generation/upload script for '{}' gateware.".format(fragment.__class__.__name__))
+    name = fragment.__name__ if callable(fragment) else fragment.__class__.__name__
+
+    parser = argparse.ArgumentParser(description=f"Gateware generation/upload script for '{name}' gateware.")
     parser.add_argument('--output', '-o', metavar='filename', help="Build and output a bitstream to the given file.")
     parser.add_argument('--erase', '-E', action='store_true',
          help="Clears the relevant FPGA's flash before performing other options.")
@@ -31,6 +40,14 @@ def top_level_cli(fragment, *pos_args, **kwargs):
 
     args = parser.parse_args()
     platform = get_appropriate_platform()
+
+    # Set up our logging / output.
+    if sys.stdout.isatty():
+        log_format = LOG_FORMAT_COLOR
+    else:
+        log_format = LOG_FORMAT_PLAIN
+
+    logging.basicConfig(level=logging.INFO, format=log_format)
 
     # If this isn't a fragment directly, interpret it as an object that will build one.
     if callable(fragment):
@@ -53,16 +70,25 @@ def top_level_cli(fragment, *pos_args, **kwargs):
     # Build the relevant files.
     try:
         if args.erase:
+            logging.info("Erasing flash...")
             platform.toolchain_erase()
+            logging.info("Erase complete.")
+
+        join_text = "and uploading gateware to attached" if args.upload else "for"
+        logging.info(f"Building {join_text} {platform.name}...")
 
         products = platform.build(fragment,
             do_program=args.upload,
             build_dir=build_dir
         )
 
+        logging.info(f"{'Upload' if args.upload else 'Build'} complete.")
+
         # If we're flashing the FPGA's flash, do so.
         if args.flash:
+            logging.info("Programming flash...")
             platform.toolchain_flash(products)
+            logging.info("Programming complete.")
 
         # If we're outputting a file, write it.
         if args.output:

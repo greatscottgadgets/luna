@@ -6,10 +6,10 @@ from nmigen.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock, DiffPai
 from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
 
 
-__all__ = ["LUNAPlatformR01"]
+__all__ = ["LUNAPlatformR02"]
 
 #
-# Note that r0.1+ have D+/D- swapped to avoid having to cross D+/D- in routing.
+# Note that r0.2+ have D+/D- swapped to avoid having to cross D+/D- in routing.
 #
 # This is supported by a PHY feature that allows you to swap pins 13 + 14.
 # You'll need to set
@@ -29,17 +29,14 @@ def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset
     )
 
 
-class LUNAPlatformRev0D1(LatticeECP5Platform):
+class LUNAPlatformRev0D2(LatticeECP5Platform):
     """ Board description for the pre-release r0.1 revision of LUNA. """
 
-    name        = "LUNA r0.1"
+    name        = "LUNA r0.2"
 
     device      = "LFE5U-12F"
     package     = "BG256"
-
-    # TODO: make this configurable to support multiple speed grades?
-    # Or split this into two revisions to support various speed grades.
-    speed       = "6"
+    speed       = "8"
 
     default_clk = "clk_60MHz"
 
@@ -50,8 +47,8 @@ class LUNAPlatformRev0D1(LatticeECP5Platform):
     # default frequencies will vary.
     #
     DEFAULT_CLOCK_FREQUENCIES_MHZ = {
-        "fast": 120,
-        "sync": 60,
+        "fast": 240,
+        "sync": 120,
         "ulpi": 60
     }
 
@@ -77,7 +74,7 @@ class LUNAPlatformRev0D1(LatticeECP5Platform):
     resources   = [
 
         # Primary, discrete 60MHz oscillator.
-        Resource("clk_60MHz", 0, Pins("A8", dir="i"),
+        Resource("clk_60MHz", 0, Pins("A7", dir="i"),
             Clock(60e6), Attrs(IO_TYPE="LVCMOS33")),
 
         # Connection to our SPI flash; can be used to work with the flash
@@ -117,10 +114,10 @@ class LUNAPlatformRev0D1(LatticeECP5Platform):
         # SPI bus connected to the debug controller, for simple register exchanges.
         # Note that the Debug Controller is the master on this bus.
         Resource("debug_spi", 0,
-            Subsignal("sck",  Pins( "R14", dir="i")),
+            Subsignal("sck",  Pins( "R13", dir="i")),
             Subsignal("sdi",  Pins( "P13", dir="i")),
             Subsignal("sdo",  Pins( "P11", dir="o")),
-            Subsignal("cs",   PinsN("T14", dir="i")),
+            Subsignal("cs",   PinsN("T13", dir="i")),
             Attrs(IO_TYPE="LVCMOS33")
         ),
 
@@ -143,12 +140,9 @@ class LUNAPlatformRev0D1(LatticeECP5Platform):
             data_sites="D16 E15 E16 F15 F16 G15 J16 K16", clk_site="B15",
             dir_site="C15", nxt_site="C16", stp_site="B16", reset_site="G16"),
 
-        # Target port power switching
-        # Note: the r0.1 boards that have been produced incorrectly use the AP22814B
-        # instead of the AP22814A. This inverts the load-switch enables.
-        #
-        Resource("power_a_port",       0, PinsN("C14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("pass_through_vbus",  0, PinsN("D14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        # Target port power switching.
+        Resource("power_a_port",       0, Pins("C14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("pass_through_vbus",  0, Pins("D14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
         Resource("target_vbus_fault",  0, Pins("K15", dir="i"), Attrs(IO_TYPE="LVCMOS33")),
 
         # HyperRAM (1V8 domain).

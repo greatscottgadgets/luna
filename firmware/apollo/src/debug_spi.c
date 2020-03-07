@@ -19,6 +19,9 @@
  * Pin locations for the debug SPI connection.
  * Used when using bitbang mode for the debug SPI.
  */
+
+#if (_BOARD_REVISION_MAJOR_ == 0) && (_BOARD_REVISION_MINOR_ == 1)
+
 enum {
 	PIN_SCK      = PIN_PA00,
 
@@ -28,6 +31,22 @@ enum {
 	PIN_FPGA_CS  = PIN_PA01,
 	PIN_FLASH_CS = PIN_PA04
 };
+
+#else
+
+
+enum {
+	PIN_SCK      = PIN_PA13,
+
+	PIN_SDI      = PIN_PA12,
+	PIN_SDO      = PIN_PA14,
+
+	PIN_FPGA_CS  = PIN_PA15,
+	PIN_FLASH_CS = PIN_PA04
+};
+
+
+#endif
 
 
 // SPI comms buffers.

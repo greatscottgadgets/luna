@@ -38,6 +38,25 @@ class ApolloDebugger:
     LED_PATTERN_IDLE = 500
     LED_PATTERN_UPLOAD = 50
 
+
+    @classmethod
+    def detect_connected_version(cls):
+        """ Attempts to determine the revision of the connected hardware.
+
+        Returns the relevant hardware's revision number, as (major, minor).
+        """
+
+        # Try to create a connection to our Apollo debug firmware.
+        device = usb.core.find(idVendor=cls.VENDOR_ID, idProduct=cls.PRODUCT_ID)
+        if device is None:
+            raise DebuggerNotFound()
+
+        # Once we have it, parse its bcdDevice, and return.
+        minor = device.bcdDevice & 0xFF
+        major = device.bcdDevice >> 8
+        return major, minor
+
+
     def __init__(self):
         """ Sets up a connection to the debugger. """
 
@@ -47,11 +66,26 @@ class ApolloDebugger:
             raise DebuggerNotFound()
 
         self.device = device
+        self.major, self.minor = self.get_hardware_revision()
 
         # Create our basic interfaces, for debugging convenience.
         self.jtag  = JTAGChain(self)
         self.spi   = DebugSPIConnection(self)
         self.flash = ConfigurationFlash(self)
+
+
+    @property
+    def serial_number(self):
+        """ Returns the device's serial number, as a string. """
+        return self.device.serial_number
+
+
+    def get_hardware_revision(self):
+        """ Returns the (major, minor) of the attached hardware revision. """
+
+        minor = self.device.bcdDevice & 0xFF
+        major = self.device.bcdDevice >> 8
+        return major, minor
 
 
     def out_request(self, number, value=0, index=0, data=None, timeout=5000):

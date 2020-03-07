@@ -3,6 +3,7 @@
 #
 
 import sys
+import logging
 
 from warnings import warn
 
@@ -14,7 +15,7 @@ REQUEST_JTAG_START            = 0xbf
 REQUEST_JTAG_CLEAR_OUT_BUFFER = 0xb0
 REQUEST_JTAG_SET_OUT_BUFFER   = 0xb1
 REQUEST_JTAG_GET_IN_BUFFER    = 0xb2
-REQUEST_JTAG_SCAN             = 0xb3 
+REQUEST_JTAG_SCAN             = 0xb3
 REQUEST_JTAG_RUN_CLOCK        = 0xb4
 REQUEST_JTAG_GO_TO_STATE      = 0xb5
 REQUEST_JTAG_GET_STATE        = 0xb6
@@ -133,7 +134,7 @@ class JTAGChain:
 
 
     def initialize(self):
-        """ 
+        """
         Starts use of a persistent JTAG connection.
         When possible prefer using 'with' on this object.
         """
@@ -514,7 +515,7 @@ class JTAGChain:
         return devices
 
 
-    def play_svf_instructions(self, svf_string, log_function=None, error_log_function=print):
+    def play_svf_instructions(self, svf_string, log_function=None, error_log_function=logging.error):
         """ Executes a string of JTAG SVF instructions, strumming the relevant scan chain.
 
         svf_string   -- A string containing valid JTAG SVF instructions to be executed.
@@ -527,7 +528,7 @@ class JTAGChain:
         parser.parse_file()
 
 
-    def play_svf_file(self, svf_file, log_function=None, error_log_function=print):
+    def play_svf_file(self, svf_file, log_function=None, error_log_function=logging.error):
         """ Executes the JTAG SVF instructions from the given file.
 
         svf_file     -- A filename or file object pointing to a JTAG SVF file.
@@ -552,7 +553,7 @@ class GreatfetSVFEventHandler(SVFEventHandler):
     """ SVF event handler that delegates handling of SVF instructions to a GreatFET JTAG interface. """
 
 
-    def __init__(self, interface, verbose_log_function=None, error_log_function=print):
+    def __init__(self, interface, verbose_log_function=None, error_log_function=logging.error):
         """ Creates a new SVF event handler.
 
         Parameters:

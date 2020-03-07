@@ -50,7 +50,7 @@ tusb_desc_device_t const desc_device =
 	// TODO: should we replace these with an OpenMoko VID/PID pair, to match other GSG products?
 	.idVendor           = 0x16d0,
 	.idProduct          = 0x05a5,
-	.bcdDevice          = 0x0100,
+	.bcdDevice          = (_BOARD_REVISION_MAJOR_ << 8) | _BOARD_REVISION_MINOR_,
 
 	.iManufacturer      = 0x01,
 	.iProduct           = 0x02,

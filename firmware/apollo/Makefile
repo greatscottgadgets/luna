@@ -4,6 +4,10 @@
 
 BOARD = luna
 
+# These should default to the latest revision; but can be set on the command line.
+BOARD_REVISION_MAJOR ?= 0
+BOARD_REVISION_MINOR ?= 2
+
 # Path to the TINYUSB library.
 TINYUSB_PATH = ../lib/tinyusb
 
@@ -24,6 +28,8 @@ endif
 CFLAGS += \
 	-Wno-unused-parameter \
 	-fstrict-volatile-bitfields \
+	-D_BOARD_REVISION_MAJOR_=$(BOARD_REVISION_MAJOR) \
+	-D_BOARD_REVISION_MINOR_=$(BOARD_REVISION_MINOR) \
 	-g
 
 INC += \
