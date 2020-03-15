@@ -298,6 +298,8 @@ class SPICommandInterface(Elaboratable):
         O: word_complete -- strobe indicating a new word is present on word_in
         I: word_to_send  -- the word to be loaded; latched in on next word_complete and while cs is low
 
+        O: idle          -- true iff the register interface is currently doing nothing
+        O: stalled       -- true iff the register interface cannot accept data until this transaction ends
     """
 
     def __init__(self, command_size=8, word_size=32):
@@ -321,6 +323,10 @@ class SPICommandInterface(Elaboratable):
         self.word_to_send   = Signal.like(self.word_received)
         self.word_complete  = Signal()
 
+        # Status
+        self.idle    = Signal()
+        self.stalled = Signal()
+
 
     def elaborate(self, platform):
 
@@ -343,7 +349,12 @@ class SPICommandInterface(Elaboratable):
             self.word_complete.eq(0)
         ]
 
-        with m.FSM():
+
+        with m.FSM() as fsm:
+            m.d.comb += [
+                self.idle     .eq(fsm.ongoing('IDLE')),
+                self.stalled  .eq(fsm.ongoing('STALL')),
+            ]
 
             # STALL: entered when we can't accept new bits -- either when
             # CS starts asserted, or when we've received more data than expected.
@@ -365,6 +376,8 @@ class SPICommandInterface(Elaboratable):
 
             # Once CS is low, we'll shift in our command.
             with m.State('RECEIVE_COMMAND'):
+
+                # If CS is de-asserted early; our transaction is being aborted.
                 with m.If(~spi.cs):
                     m.next = 'IDLE'
 
@@ -399,9 +412,11 @@ class SPICommandInterface(Elaboratable):
 
             # Finally, exchange data.
             with m.State('SHIFT_DATA'):
+
+                # If CS is de-asserted early; our transaction is being aborted.
                 with m.If(~spi.cs):
                     m.next = 'IDLE'
-                    
+
                 m.d.sync += spi.sdo.eq(current_word[-1])
 
                 # Continue shifting data until we have a full word.
@@ -445,6 +460,9 @@ class SPIRegisterInterface(Elaboratable):
         O: sdo           -- SPI data out
         I: cs            -- chip select, active high (as we assume your I/O will use PinsN)
 
+        O: idle          -- true iff the register interface is currently doing nothing
+        O: stalled       -- true iff the register interface cannot accept data until this transaction ends
+
     Other I/O ports are added dynamically with add_register().
     """
 
@@ -469,6 +487,8 @@ class SPIRegisterInterface(Elaboratable):
         #
         # I/O port
         #
+        self.idle    = Signal()
+        self.stalled = Signal()
 
         # Create our SPI I/O.
         self.spi = SPIBus()
@@ -649,7 +669,9 @@ class SPIRegisterInterface(Elaboratable):
         # Connect up our SPI transceiver submodule.
         m.submodules.interface = self.interface
         m.d.comb += [
-            self.interface.spi.connect(self.spi)
+            self.interface.spi  .connect(self.spi),
+            self.idle           .eq(self.interface.idle),
+            self.stalled        .eq(self.interface.stalled)
         ]
 
         # Split the command into our "write" and "address" signals.
@@ -691,7 +713,6 @@ class SPIRegisterInterface(Elaboratable):
 
 
 
-
 class SPIRegisterInterfaceTest(SPIGatewareTestCase):
     """ Tests for the SPI command interface. """
 
@@ -717,6 +738,7 @@ class SPIRegisterInterfaceTest(SPIGatewareTestCase):
         data = yield from self.spi_exchange_data([0, 1, 0, 0, 0, 0])
         self.assertEqual(bytes(data), b"\x00\x00\xde\xad\xbe\xef")
 
+
     @sync_test_case
     def test_write_behavior(self):
 
@@ -725,6 +747,24 @@ class SPIRegisterInterfaceTest(SPIGatewareTestCase):
         self.assertEqual(bytes(data), b"\x00\x00\x00\x00\x00\x00")
 
         # ... and then read the relevant data back.
+        data = yield from self.spi_exchange_data(b"\x00\x02\x12\x34\x56\x78")
+        self.assertEqual(bytes(data), b"\x00\x00\x12\x34\x56\x78")
+
+
+    @sync_test_case
+    def test_aborted_write_behavior(self):
+
+        # Set an initial value...
+        data = yield from self.spi_exchange_data(b"\x80\x02\x12\x34\x56\x78")
+
+        # ... and then perform an incomplete write.
+        data = yield from self.spi_exchange_data(b"\x80\x02\xAA\xBB")
+
+        # We should return to being idle after CS is de-asserted...
+        yield
+        self.assertEqual((yield self.dut.idle), 1)
+
+        # ... and our register data should not have changed.
         data = yield from self.spi_exchange_data(b"\x00\x02\x12\x34\x56\x78")
         self.assertEqual(bytes(data), b"\x00\x00\x12\x34\x56\x78")
 
