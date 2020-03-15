@@ -39,7 +39,6 @@ def top_level_cli(fragment, *pos_args, **kwargs):
          help="Keeps the local files in the default `build` folder.")
 
     args = parser.parse_args()
-    platform = get_appropriate_platform()
 
     # Set up our logging / output.
     if sys.stdout.isatty():
@@ -69,6 +68,8 @@ def top_level_cli(fragment, *pos_args, **kwargs):
 
     # Build the relevant files.
     try:
+        platform = get_appropriate_platform()
+
         if args.erase:
             logging.info("Erasing flash...")
             platform.toolchain_erase()
