@@ -2,7 +2,9 @@
 # Apollo debug controller firmware
 #
 
-BOARD = luna
+# By default, assume LUNA hardware.
+# Allow this to be overridden so we can run Apollo on other debug controllers.
+BOARD ?= luna
 
 # These should default to the latest revision; but can be set on the command line.
 BOARD_REVISION_MAJOR ?= 0
@@ -34,20 +36,33 @@ CFLAGS += \
 
 INC += \
 	src \
+	src/boards/$(BOARD) \
 	$(TOP)/hw \
-	$(TOP)/hw/mcu/microchip/samd/asf4/samd51/hpl/tc/ \
 
-SRC_C += \
-	hw/mcu/microchip/samd/asf4/samd21/hal/src/hal_adc_sync.c \
-	hw/mcu/microchip/samd/asf4/samd21/hpl/adc/hpl_adc.c
 
-# Build using all 'c' files in the src directory.
-SOURCES += $(wildcard src/*.c)
+# Include our per-board make definitions.
+include src/boards/$(BOARD)/board.mk
+
+# Build using all 'c' files in our source directories.
+SOURCES += $(wildcard src/*.c src/boards/$(BOARD)/*.c)
 SRC_C += $(addprefix $(CURRENT_PATH)/, $(SOURCES))
-
 
 # For now, take advantage of the example rules.
 include $(TINYUSB_PATH)/examples/rules.mk
 
+
+# Flashing using Saturn-V.
 dfu: _build/build-$(BOARD)/$(BOARD)-firmware.bin
 	dfu-util -a 0 -d 16d0:05a5 -D $<
+
+
+# Flashing using the Black Magic Probe,
+BMP_SERIAL ?= /dev/ttyACM0
+bmp: _build/build-$(BOARD)/$(BOARD)-firmware.elf
+	arm-none-eabi-gdb -nx --batch \
+	-ex 'target extended-remote $(BMP_SERIAL)' \
+	-ex 'monitor swdp_scan' \
+	-ex 'attach 1' \
+	-ex 'load' \
+	-ex 'kill' \
+	$<

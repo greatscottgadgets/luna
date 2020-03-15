@@ -6,19 +6,7 @@
 #ifndef __LED_H__
 #define __LED_H__
 
-#include <sam.h>
-
-// GPIO pins for each of the microcontroller LEDs.
-typedef enum {
-	LED_A = PIN_PA18, // Blue
-	LED_B = PIN_PA19, // Pink
-	LED_C = PIN_PA20, // White
-	LED_D = PIN_PA21, // Pink
-	LED_E = PIN_PA22, // Blue
-
-	LED_COUNT = 5
-} led_t;
-
+#include <apollo_board.h>
 
 /**
  * Different blink patterns with different semantic meanings.

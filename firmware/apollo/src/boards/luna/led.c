@@ -27,7 +27,7 @@ static blink_pattern_t blink_pattern = BLINK_IDLE;
 void led_set_blink_pattern(blink_pattern_t pattern)
 {
 	blink_pattern = pattern;
-  leds_off();
+	leds_off();
 }
 
 
@@ -151,7 +151,7 @@ void heartbeat_task(void)
       break;
 
     // Blink patterns for when the device is being used for SPI flash access.
-    // When these are displayed, 
+    // When these are displayed,
     case BLINK_FLASH_CONNECTED:
 
       if (active_led == 5) {

@@ -1,5 +1,5 @@
 /**
- * Code adapted from Arduino-JTAG; 
+ * Code adapted from Arduino-JTAG;
  *    portions copyright (c) 2015 Marcelo Roberto Jimenez <marcelo.jimenez (at) gmail (dot) com>.
  *    portions copyright (c) 2019 Katherine J. Temkin <kate@ktemkin.com>
  *    portions copyright (c) 2019 Great Scott Gadgets <ktemkin@greatscottgadgets.com>
@@ -9,25 +9,15 @@
 #include <string.h>
 
 #include <tusb.h>
-#include <sam.h>
-#include <hal/include/hal_gpio.h>
+#include <apollo_board.h>
 #include <bsp/board.h>
+
+#include <platform_jtag.h>
 
 #include "led.h"
 #include "jtag.h"
 
 void jtag_state_ack(bool tms);
-
-/**
- * GPIO pin numbers for each of the JTAG pins.
- */
-enum {
-	TDO_GPIO = PIN_PA10,
-	TDI_GPIO = PIN_PA08,
-	TCK_GPIO = PIN_PA09,
-	TMS_GPIO = PIN_PA11,
-};
-
 
 /*
  * Low nibble : TMS == 0
@@ -120,7 +110,6 @@ static const uint16_t tms_map[] = {
 
 static uint8_t current_state;
 
-
 uint8_t jtag_current_state(void)
 {
 	return current_state;
@@ -129,6 +118,15 @@ uint8_t jtag_current_state(void)
 void jtag_set_current_state(uint8_t state)
 {
 	current_state = state;
+}
+
+
+/**
+ * Hook for any per-platform initialization that needs to occur.
+ */
+__attribute__((weak)) void jtag_platform_init(void)
+{
+
 }
 
 
@@ -145,12 +143,7 @@ void jtag_init(void)
 	gpio_set_pin_direction(TCK_GPIO, GPIO_DIRECTION_OUT);
 	gpio_set_pin_direction(TMS_GPIO, GPIO_DIRECTION_OUT);
 
-	// Ensure the TDO GPIO is continuously sampled, rather
-	// than sampled on-demand. This allows us to significantly
-	// speak up TDO reads.
-	PORT->Group[0].CTRL.reg = (1 << TDO_GPIO);
-
-
+	jtag_platform_init();
 	jtag_set_current_state(STATE_TEST_LOGIC_RESET);
 }
 
@@ -160,13 +153,13 @@ void jtag_init(void)
  */
 void jtag_deinit(void)
 {
-	uint8_t gpio_pins[] = { 
-		TDO_GPIO, TDI_GPIO, TCK_GPIO, TMS_GPIO, 
+	uint16_t gpio_pins[] = {
+		TDO_GPIO, TDI_GPIO, TCK_GPIO, TMS_GPIO,
 	};
 
 	// Reset each of the JTAG pins to its unused state.
 	// FIXME: apply the recommended pull resistors?
-	for (unsigned i = 0; i < sizeof(gpio_pins); ++i) {
+	for (unsigned i = 0; i < TU_ARRAY_SIZE(gpio_pins); ++i) {
 		gpio_set_pin_direction(gpio_pins[i], GPIO_DIRECTION_IN);
 		gpio_set_pin_pull_mode(gpio_pins[i], GPIO_PULL_OFF);
 	}
@@ -174,34 +167,6 @@ void jtag_deinit(void)
 
 
 
-static inline void jtag_set_tms(void)
-{
-	PORT_IOBUS->Group[0].OUTSET.reg = (1 << TMS_GPIO);
-}
-
-
-static inline void jtag_clear_tms(void)
-{
-	PORT_IOBUS->Group[0].OUTCLR.reg = (1 << TMS_GPIO);
-}
-
-
-static inline void jtag_set_tdi(void)
-{
-	PORT_IOBUS->Group[0].OUTSET.reg = (1 << TDI_GPIO);
-}
-
-
-static inline void jtag_clear_tdi(void)
-{
-	PORT_IOBUS->Group[0].OUTCLR.reg = (1 << TDI_GPIO);
-}
-
-
-static inline bool jtag_read_tdo(void)
-{
-	return PORT_IOBUS->Group[0].IN.reg & (1 << TDO_GPIO);
-}
 
 
 static inline void jtag_pulse_clock(void)

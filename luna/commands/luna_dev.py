@@ -36,9 +36,9 @@ spi-reg    -- Reads or writes to a provided register over the debug-SPI.
 def print_device_info(device, args):
     """ Command that prints information about devices connected to the scan chain to the console. """
 
-    logging.info("Detected a LUNA device!")
-    logging.info(f"\tHardware revision: r{device.major}.{device.minor}")
-    logging.info(f"\tSerial number: r{device.serial_number}\n")
+    logging.info(f"Detected a {device.get_compatibility_string()} device!")
+    logging.info(f"\tHardware: {device.get_hardware_name()}")
+    logging.info(f"\tSerial number: {device.serial_number}\n")
 
 
 def print_chain_info(device, args):

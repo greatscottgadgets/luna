@@ -8,14 +8,13 @@
  */
 
 
-#include <sam.h>
+#include <apollo_board.h>
 #include <tusb.h>
 
-#include "spi.h"
 #include "led.h"
 #include "jtag.h"
 #include "fpga.h"
-#include "selftest.h"
+//#include "selftest.h"
 #include "debug_spi.h"
 
 
@@ -142,8 +141,10 @@ bool tud_vendor_control_request_cb(uint8_t rhport, tusb_control_request_t const*
 			return handle_release_configuration_spi(rhport, request);
 
 		// Self-test requests.
+		/*
 		case VENDOR_REQUEST_GET_RAIL_VOLTAGE:
 			return handle_get_rail_voltage(rhport, request);
+		*/
 
 		default:
 			return false;

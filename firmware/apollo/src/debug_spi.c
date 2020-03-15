@@ -1,82 +1,25 @@
 /**
  * Interface code for communicating with the FPGA over the Debug SPI connection.
  * This file is part of LUNA.
+ *
+ * More debug_spi code is typically implemented in boards/<board>/debug_spi.c.
  */
 
 #include <tusb.h>
-#include <hal/include/hal_gpio.h>
 #include <bsp/board.h>
+#include <apollo_board.h>
 
-#include "spi.h"
 #include "led.h"
 #include "uart.h"
-
-// Selects whether we should use the SAMD SERCOM for SPI.
-// To select arbitrary pins for the SPI bus, uncomment this to use bitbang SPI.
-//#define USE_SERCOM_FOR_SPI
-
-/**
- * Pin locations for the debug SPI connection.
- * Used when using bitbang mode for the debug SPI.
- */
-
-#if (_BOARD_REVISION_MAJOR_ == 0) && (_BOARD_REVISION_MINOR_ == 1)
-
-enum {
-	PIN_SCK      = PIN_PA00,
-
-	PIN_SDI      = PIN_PA12,
-	PIN_SDO      = PIN_PA14,
-
-	PIN_FPGA_CS  = PIN_PA01,
-	PIN_FLASH_CS = PIN_PA04
-};
-
-#else
-
-
-enum {
-	PIN_SCK      = PIN_PA13,
-
-	PIN_SDI      = PIN_PA12,
-	PIN_SDO      = PIN_PA14,
-
-	PIN_FPGA_CS  = PIN_PA15,
-	PIN_FLASH_CS = PIN_PA04
-};
-
-
-#endif
 
 
 // SPI comms buffers.
 // TODO: should these be unified into a single general buffer for requests,
 // for e.g. the smaller SAMD11?
 // 256 + 4 fits a SPI flash page and command
-static uint8_t spi_in_buffer[256 + 4];
-static uint8_t spi_out_buffer[256 + 4];
+uint8_t spi_in_buffer[256 + 4];
+uint8_t spi_out_buffer[256 + 4];
 
-#ifdef USE_SERCOM_FOR_SPI
-
-/**
- * Set up the debug SPI configuration.
- */
-void debug_spi_init(void)
-{
-	spi_init(SPI_FPGA_DEBUG, false, true, 100, 0, 0);
-}
-
-
-/**
- * Send data over the debug SPI.
- */
-static void debug_spi_send(void *data_to_send, void *data_to_receive, length)
-{
-	spi_send(SPI_FPGA_DEBUG, data_to_send, data_to_receive, length);
-}
-
-
-#else
 
 /**
  * Set up the debug SPI configuration.
@@ -95,18 +38,25 @@ void debug_spi_init(void)
 
 	gpio_set_pin_level(PIN_FPGA_CS, true);
 
+#ifdef _BOARD_HAS_CONFIG_FLASH_
+
 	// Keep the configuration flash line as an input, but apply
 	// a weak pull-up to keep the pin from being selected while idle.
 	gpio_set_pin_direction(PIN_FLASH_CS, GPIO_DIRECTION_IN);
 	gpio_set_pin_pull_mode(PIN_FLASH_CS, GPIO_PULL_UP);
 
+#endif
+
 }
 
 
+/**
+ * Delays transmission for a single arbitrary half-bit time.
+ */
 static void half_bit_delay(void)
 {
 	for (unsigned i = 0; i < 10; ++i) {
-		__NOP();
+		asm volatile("nop");
 	}
 }
 
@@ -160,16 +110,12 @@ static uint8_t debug_spi_exchange_byte(uint8_t to_send)
 /**
  * Transmits and receives a collection of bytes over the SPI bus.
  */
-static void debug_spi_send(uint8_t *tx_buffer, uint8_t *rx_buffer, size_t length)
+void debug_spi_send(uint8_t *tx_buffer, uint8_t *rx_buffer, size_t length)
 {
     for (size_t i = 0; i < length; ++i) {
         rx_buffer[i] = debug_spi_exchange_byte(tx_buffer[i]);
     }
 }
-
-
-#endif
-
 
 
 /**
@@ -236,48 +182,19 @@ bool handle_debug_spi_get_response(uint8_t rhport, tusb_control_request_t const*
 
 
 /**
- * Request that sends a block of data over our debug SPI.
- */
-bool handle_flash_spi_send(uint8_t rhport, tusb_control_request_t const* request)
-{
-	// If we've been handed too much data, stall.
-	if (request->wLength > sizeof(spi_out_buffer)) {
-		return false;
-	}
-
-	// Queue a transfer that will receive the relevant SPI data.
-	// We'll perform the send itself once the data transfer is complete.
-	return tud_control_xfer(rhport, request, spi_out_buffer, request->wLength);
-}
-
-
-bool handle_flash_spi_send_complete(uint8_t rhport, tusb_control_request_t const* request)
-{
-	// Ensure that we're actively sending...
-	gpio_set_pin_level(PIN_FLASH_CS, false);
-
-	// ... send the data...
-	debug_spi_send(spi_out_buffer, spi_in_buffer, request->wLength);
-
-	// ... and end the tranmission, unless we've been instructed to keep the line open.
-	if (!request->wValue) {
-		gpio_set_pin_level(PIN_FLASH_CS, true);
-	}
-
-	return true;
-}
-
-
-/**
  * Request that grabs access to the configuration SPI lines.
  */
 bool handle_take_configuration_spi(uint8_t rhport, tusb_control_request_t const* request)
 {
+#ifdef _BOARD_HAS_CONFIG_FLASH_
+
 	// Grab the SPI flash's CS pin...
 	gpio_set_pin_level(PIN_FLASH_CS, true);
 
 	gpio_set_pin_function(PIN_FLASH_CS,  GPIO_PIN_FUNCTION_OFF);
 	gpio_set_pin_direction(PIN_FLASH_CS, GPIO_DIRECTION_OUT);
+
+#endif
 
 	// ... and set a blink pattern accordingly.
 	led_set_blink_pattern(BLINK_FLASH_CONNECTED);
@@ -290,9 +207,13 @@ bool handle_take_configuration_spi(uint8_t rhport, tusb_control_request_t const*
  */
 bool handle_release_configuration_spi(uint8_t rhport, tusb_control_request_t const* request)
 {
+
+#ifdef _BOARD_HAS_CONFIG_FLASH_
 	// Release the CS line, and then drop the blink pattern back to idle..
 	gpio_set_pin_direction(PIN_FLASH_CS, GPIO_DIRECTION_IN);
 	gpio_set_pin_pull_mode(PIN_FLASH_CS, GPIO_PULL_UP);
+#endif
+
 	led_set_blink_pattern(BLINK_IDLE);
 
 	return tud_control_xfer(rhport, request, NULL, 0);

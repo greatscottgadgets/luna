@@ -39,6 +39,14 @@ class ApolloDebugger:
     LED_PATTERN_UPLOAD = 50
 
 
+    # External boards (non-LUNA boards) are indicated with a Major revision of 0xFF.
+    # Their minor revision then encodes the board type.
+    EXTERNAL_BOARD_MAJOR = 0xFF
+    EXTERNAL_BOARD_NAMES = {
+        0: "Daisho [rev 31-Oct-2014]"
+    }
+
+
     @classmethod
     def detect_connected_version(cls):
         """ Attempts to determine the revision of the connected hardware.
@@ -86,6 +94,23 @@ class ApolloDebugger:
         minor = self.device.bcdDevice & 0xFF
         major = self.device.bcdDevice >> 8
         return major, minor
+
+
+    def get_hardware_name(self):
+        """ Returns a string describing this piece of hardware. """
+
+        # If this is a non-LUNA board, we'll look up its name in our table.
+        if self.major == self.EXTERNAL_BOARD_MAJOR:
+            return self.EXTERNAL_BOARD_NAMES[self.minor]
+
+        # Otherwise, identify it by its revision number.
+        else:
+            return f"LUNA r{self.major}.{self.minor}"
+
+
+    def get_compatibility_string(self):
+        """ Returns 'LUNA' for a LUNA board; or 'LUNA-compatible' for supported external board."""
+        return 'LUNA-compatible' if (self.major == self.EXTERNAL_BOARD_MAJOR) else 'LUNA'
 
 
     def out_request(self, number, value=0, index=0, data=None, timeout=5000):
