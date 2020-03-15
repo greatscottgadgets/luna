@@ -125,10 +125,11 @@ def debug_spi_register(device, args):
         value = 0
         is_write = False
 
-    response = device.spi.register_transaction(address, is_write=is_write, value=value)
-    print("0x{:08x}".format(response))
-
-
+    try:
+        response = device.spi.register_transaction(address, is_write=is_write, value=value)
+        print("0x{:08x}".format(response))
+    except IOError as e:
+        logging.critical(f"{e}\n")
 
 
 def print_flash_info(device, args):

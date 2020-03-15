@@ -66,8 +66,20 @@ class DebugSPIConnection:
 
         # The leftover number of 0's is our command size in bits; the address size is one less than that.
         # The leftover number of 1's is our register size in bits.
-        self.command_bytes  = autodetect_bits.count('0') // 8
-        self.register_bytes = autodetect_bits.count('1') // 8
+        command_bits        = autodetect_bits.count('0')
+        register_bits       = autodetect_bits.count('1')
+        self.command_bytes  = command_bits // 8
+        self.register_bytes = register_bits // 8
+
+        # Sanity check our command-shape detection.
+        invalid_shape = \
+            (self.command_bytes  == 0) or \
+            (self.register_bytes == 0) or \
+            (command_bits  % 8   != 0) or \
+            (register_bits % 8   != 0)
+
+        if invalid_shape:
+            raise IOError("Failed to autonegotiate SPI address/register size.")
 
 
     def register_transaction(self, address, *, is_write, value=0):
