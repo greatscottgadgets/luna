@@ -365,6 +365,8 @@ class SPICommandInterface(Elaboratable):
 
             # Once CS is low, we'll shift in our command.
             with m.State('RECEIVE_COMMAND'):
+                with m.If(~spi.cs):
+                    m.next = 'IDLE'
 
                 # Continue shifting in data until we have a full command.
                 with m.If(bit_count < self.command_size):
@@ -397,6 +399,9 @@ class SPICommandInterface(Elaboratable):
 
             # Finally, exchange data.
             with m.State('SHIFT_DATA'):
+                with m.If(~spi.cs):
+                    m.next = 'IDLE'
+                    
                 m.d.sync += spi.sdo.eq(current_word[-1])
 
                 # Continue shifting data until we have a full word.
