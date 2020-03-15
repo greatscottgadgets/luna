@@ -1,6 +1,8 @@
 
 # LUNA -- a USB-hacking multitool [![Build Status](https://travis-ci.org/greatscottgadgets/luna.svg?branch=master)](https://travis-ci.org/greatscottgadgets/luna) [![GitHub license](https://img.shields.io/github/license/greatscottgadgets/luna.svg)](https://github.com/greatscottgadgets/luna/blob/master/LICENSE.txt)
 
+![LUNA r0.2](docs/images/board_readme.jpg)
+
 This is an early work-in-progress version of a USB multitool. LUNA isn't yet suited for end-users; but hardware development has reached a point where current-revision boards (r0.2+) make good development platforms for early community developers.
 
 Building this board yourself isn't for the faint of heart -- as it requires placing two BGA components, including a large FPGA. Still, if you're proficient with rework and FPGA development, feel free to join in the fun!
