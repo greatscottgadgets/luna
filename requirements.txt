@@ -1,5 +1,5 @@
 tox
 pyusb
--e git://github.com/m-labs/nmigen.git#egg=nmigen
+-e git://github.com/nmigen/nmigen.git#egg=nmigen
 pyvcd~=0.1.6
 pyserial~=3.4
