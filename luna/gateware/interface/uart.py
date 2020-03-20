@@ -5,11 +5,10 @@
 
 import unittest
 
-from abc import ABCMeta
-from enum import Enum, auto
-from nmigen import Elaboratable, Module, Signal, Cat
+from nmigen     import Elaboratable, Module, Signal, Cat
+from nmigen_soc import wishbone, memory
 
-from ..test import LunaGatewareTestCase, sync_test_case
+from ..test         import LunaGatewareTestCase, sync_test_case
 
 
 class UARTTransmitter(Elaboratable):
@@ -197,6 +196,47 @@ class UARTTransmitterTest(LunaGatewareTestCase):
         yield from self.advance_bit()
         self.assertEqual((yield dut.idle), 1)
 
+
+class UARTTransmitterPeripheral(Elaboratable):
+    """ Wishbone-attached variant of our UARTTransmitter.
+
+    I/O port:
+        O: tx   -- The UART line to use for transmission.
+        B: bus  -- Wishbone interface used for UART connections.
+    """
+
+    # TODO: include a variant of misoc/LiteX's autoregister mechanism
+
+    def __init__(self, divisor):
+        """
+        Parameters:
+            divisor -- number of `sync` clock cycles per bit period
+        """
+
+        self.divisor = divisor
+
+        #
+        # I/O port
+        #
+        self.tx  = Signal()
+        self.bus = wishbone.Interface(addr_width=0, data_width=8)
+        self.bus.memory_map = memory.MemoryMap(addr_width=1, data_width=8)
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Create our UART transmitter, and connect it directly to our
+        # wishbone bus.
+        m.submodules.tx = tx = UARTTransmitter(divisor=self.divisor)
+        m.d.comb += [
+            tx.send.eq(self.bus.cyc & self.bus.stb & self.bus.we),
+            tx.data.eq(self.bus.dat_w),
+
+            self.bus.ack.eq(tx.accepted),
+            self.tx.eq(tx.tx)
+        ]
+        return m
 
 
 
