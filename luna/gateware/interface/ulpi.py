@@ -567,6 +567,8 @@ class ULPIControlTranslator(Elaboratable):
 
         I: chrg_vbus      -- when set, connects a resistor from VBUS to GND to discharge VBUS
         I: dischrg_vbus   -- when set, connects a resistor from VBUS to 3V3 to charge VBUS above SessValid
+
+        O: busy           -- true iff the control translator is actively performing an operation
     """
 
     def __init__(self, *, register_window, own_register_window=False):
@@ -585,6 +587,7 @@ class ULPIControlTranslator(Elaboratable):
         #
         # I/O port
         #
+        self.bus_idle     = Signal()
         self.xcvr_select  = Signal(2, reset=0b01)
         self.term_select  = Signal()
         self.op_mode      = Signal(2)
@@ -596,6 +599,8 @@ class ULPIControlTranslator(Elaboratable):
 
         self.chrg_vbus    = Signal()
         self.dischrg_vbus = Signal()
+
+        self.busy         = Signal()
 
         # Extra/non-UTMI properties.
         self.use_external_vbus_indicator = Signal(reset=1)
@@ -676,6 +681,15 @@ class ULPIControlTranslator(Elaboratable):
             # If we're requesting a write on the given register, pass that to our
             # register window.
             with conditional(signals['write_requested']):
+
+                # Keep track of when we'll be okay to start a write:
+                # it's when there's a write request, we're not complete.
+                # and the bus is idle. We'll use this below.
+                request_write = \
+                    signals['write_requested'] & \
+                    ~self.register_window.done & \
+                    self.bus_idle
+
                 m.d.comb += [
 
                     # Control signals.
@@ -684,12 +698,18 @@ class ULPIControlTranslator(Elaboratable):
                     # Register window signals.
                     self.register_window.address       .eq(address),
                     self.register_window.write_data    .eq(signals['write_value']),
-                    self.register_window.write_request .eq(signals['write_requested'] & ~self.register_window.done)
+                    self.register_window.write_request .eq(request_write),
+
+                    # Status signals
+                    self.busy                          .eq(request_write | self.register_window.busy)
                 ]
 
         # If no register accesses are active, provide default signal values.
         with m.Else():
-            m.d.comb += self.register_window.write_request.eq(0)
+            m.d.comb += [
+                self.register_window.write_request.eq(0),
+                self.busy.eq(self.register_window.busy)
+            ]
 
         # Ensure our register window is never performing a read.
         m.d.comb += self.register_window.read_request.eq(0)
@@ -715,6 +735,7 @@ class ControlTranslatorTest(LunaGatewareTestCase):
         yield dut.dm_pulldown.eq(1)
         yield dut.dp_pulldown.eq(1)
         yield dut.use_external_vbus_indicator.eq(0)
+        yield dut.bus_idle.eq(1)
 
 
     @ulpi_domain_test_case
@@ -771,14 +792,14 @@ class ULPITransmitTranslator(Elaboratable):
         I: op_mode[2]      -- The UTMI operating mode. Used to determine when NOPID commands should be issued;
                               and when to force transmit errors.
 
-        I: bus_available   -- Should be asserted when the transmitter is able to control the bus.
-        I: starts_with_pid -- Should be asserted when the first byte on tx_data should be interpreted as a PID.
-        I: induce_error    -- When asserted during the fall of tx_valid,
+        I: bus_idle        -- Should be asserted when the transmitter is able to control the bus.
 
         O: ulpi_data_out   -- The data to be driven onto the ULPI transmit lines.
-        O: ulpi_data_en    -- Asserted when we're trying to drive the ULPI data lines.
+        O: ulpi_out_req    -- Asserted when we're trying to drive the ULPI data lines.
         I: ulpi_nxt        -- The NXT signal for the relevant ULPI bus.
         O: ulpi_stp        -- The STP signal for the relevant ULPI bus.
+
+        O: busy            -- True iff this module is using the bus.
     """
 
 
@@ -800,34 +821,43 @@ class ULPITransmitTranslator(Elaboratable):
         self.tx_ready        = Signal()
 
         self.op_mode         = Signal(2)
-        self.bus_available   = Signal()
+        self.bus_idle        = Signal()
 
+        self.ulpi_out_req    = Signal()
         self.ulpi_data_out   = Signal.like(self.tx_data)
-        self.ulpi_data_en    = Signal()
         self.ulpi_nxt        = Signal()
         self.ulpi_stp        = Signal()
+
+        self.busy            = Signal()
 
 
     def elaborate(self, platform):
         m = Module()
-
         bit_stuffing_disabled = (self.op_mode == self.OP_MODE_NO_BIT_STUFFING)
 
-        with m.FSM(domain="ulpi"):
+        # De-assert our control signals unless asserted.
+        m.d.comb += [
+            self.ulpi_out_req  .eq(0)
+        ]
+
+        with m.FSM(domain="ulpi") as fsm:
+
+            # Mark ourselves as busy whenever we're not in idle.
+            m.d.comb += self.busy.eq(~fsm.ongoing('IDLE'))
 
             # IDLE: our transmitter is ready and
             with m.State('IDLE'):
                 m.d.comb += self.ulpi_stp.eq(0)
 
                 # Start once a transmit is started, and we can access the bus.
-                with m.If(self.tx_valid & self.bus_available):
+                with m.If(self.tx_valid & self.bus_idle):
 
                     # If bit-stuffing is disabled, we'll need to prefix our transmission with a NOPID command.
                     # In this case, we'll never accept the first byte (as we're not ready to transmit it, yet),
                     # and thus TxReady will always be 0.
                     with m.If(bit_stuffing_disabled):
                         m.d.comb += [
-                            self.ulpi_data_en  .eq(1),
+                            self.ulpi_out_req  .eq(1),
                             self.ulpi_data_out .eq(self.TRANSMIT_COMMAND),
                             self.tx_ready      .eq(0)
                         ]
@@ -837,7 +867,7 @@ class ULPITransmitTranslator(Elaboratable):
                     # has the same meaning as the UTMI TxReady signal; and can be passed along directly.
                     with m.Else():
                         m.d.comb += [
-                            self.ulpi_data_en  .eq(1),
+                            self.ulpi_out_req  .eq(1),
                             self.ulpi_data_out .eq(self.TRANSMIT_COMMAND | self.tx_data[0:4]),
                             self.tx_ready      .eq(self.ulpi_nxt)
                         ]
@@ -852,7 +882,7 @@ class ULPITransmitTranslator(Elaboratable):
             # are roughly equivalent; we'll just pass them through.
             with m.State('TRANSMIT'):
                 m.d.comb += [
-                    self.ulpi_data_en  .eq(1),
+                    self.ulpi_out_req  .eq(1),
                     self.ulpi_data_out .eq(self.tx_data),
                     self.tx_ready      .eq(self.ulpi_nxt),
                     self.ulpi_stp      .eq(0),
@@ -874,7 +904,7 @@ class ULPITransmitTranslator(Elaboratable):
             # [ULPI: 3.8.2.2]
             with m.State('STOP'):
                 m.d.comb += [
-                    self.ulpi_data_en  .eq(1),
+                    self.ulpi_out_req  .eq(1),
                     self.ulpi_data_out .eq(0),
                     self.tx_ready      .eq(0),
                     self.ulpi_stp      .eq(1),
@@ -887,7 +917,7 @@ class ULPITransmitTranslator(Elaboratable):
             with m.State('STOP_WITH_ERROR'):
                 # Drive 0xFF as we stop, to generate a bit-stuff error. [ULPI: 3.8.2.3]
                 m.d.comb += [
-                    self.ulpi_data_en  .eq(1),
+                    self.ulpi_out_req  .eq(1),
                     self.ulpi_data_out .eq(0xFF),
                     self.tx_ready      .eq(0),
                     self.ulpi_stp      .eq(1),
@@ -905,7 +935,7 @@ class ULPITransmitTranslatorTest(LunaGatewareTestCase):
     FRAGMENT_UNDER_TEST = ULPITransmitTranslator
 
     def initialize_signals(self):
-        yield self.dut.bus_available.eq(1)
+        yield self.dut.bus_idle.eq(1)
 
     @ulpi_domain_test_case
     def test_simple_transmit(self):
@@ -913,7 +943,7 @@ class ULPITransmitTranslatorTest(LunaGatewareTestCase):
 
         # We shouldn't try to transmit until we have a transmit request.
         yield from self.advance_cycles(10)
-        self.assertEqual((yield dut.ulpi_data_en), 0)
+        self.assertEqual((yield dut.ulpi_out_req), 0)
 
         # Present a simple SOF PID.
         yield dut.tx_valid.eq(1)
@@ -922,7 +952,7 @@ class ULPITransmitTranslatorTest(LunaGatewareTestCase):
 
         # Our PID should have been translated into a transmit request, with
         # our PID in the lower nibble.
-        self.assertEqual((yield dut.ulpi_data_en),  1)
+        self.assertEqual((yield dut.ulpi_out_req),  1)
         self.assertEqual((yield dut.ulpi_data_out), 0b01000101)
         self.assertEqual((yield dut.tx_ready),      0)
         self.assertEqual((yield dut.ulpi_stp),      0)
@@ -1097,9 +1127,10 @@ class UTMITranslator(Elaboratable):
         m = Module()
 
         # Create the component parts of our ULPI interfacing hardware.
-        m.submodules.register_window    = register_window    = ULPIRegisterWindow()
-        m.submodules.control_translator = control_translator = ULPIControlTranslator(register_window=register_window)
-        m.submodules.rxevent_decoder    = rxevent_decoder    = ULPIRxEventDecoder(ulpi_bus=self.ulpi)
+        m.submodules.register_window     = register_window     = ULPIRegisterWindow()
+        m.submodules.control_translator  = control_translator  = ULPIControlTranslator(register_window=register_window)
+        m.submodules.rxevent_decoder     = rxevent_decoder     = ULPIRxEventDecoder(ulpi_bus=self.ulpi)
+        m.submodules.transmit_translator = transmit_translator = ULPITransmitTranslator()
 
         # If we're choosing to honor any registers defined in the platform file, apply those
         # before continuing with elaboration.
@@ -1129,14 +1160,38 @@ class UTMITranslator(Elaboratable):
             rxevent_decoder.register_operation_in_progress.eq(register_window.busy),
             self.last_rx_command          .eq(rxevent_decoder.last_rx_command),
 
-            # Connect our signals to our register window.
+            # Connect our inputs to our transmit translator.
+            transmit_translator.ulpi_nxt  .eq(self.ulpi.nxt),
+            transmit_translator.op_mode   .eq(self.op_mode),
+            transmit_translator.bus_idle  .eq(~control_translator.busy),
+            transmit_translator.tx_data   .eq(self.tx_data),
+            transmit_translator.tx_valid  .eq(self.tx_valid),
+            self.tx_ready                 .eq(self.tx_ready),
+
+            # Connect our inputs to our control translator / register window.
+            control_translator.bus_idle   .eq(~transmit_translator.busy),
             register_window.ulpi_data_in  .eq(self.ulpi.data.i),
             register_window.ulpi_dir      .eq(self.ulpi.dir),
             register_window.ulpi_next     .eq(self.ulpi.nxt),
-            self.ulpi.data.o              .eq(register_window.ulpi_data_out),
-            self.ulpi.stp                 .eq(register_window.ulpi_stop),
-
         ]
+
+        # Control our the source of our ULPI data output.
+        # If a transmit request is active, prioritize that over
+        # any register reads/writes.
+        with m.If(transmit_translator.ulpi_out_req):
+            m.d.comb += [
+                self.ulpi.data.o  .eq(transmit_translator.ulpi_data_out),
+                self.ulpi.stp     .eq(transmit_translator.ulpi_stp)
+            ]
+        # Otherwise, yield control to the register handler.
+        # This is a slight optimization: since it properly generates NOPs
+        # while not in use, we can let it handle idle, as well, saving a mux.
+        with m.Else():
+            m.d.comb += [
+                self.ulpi.data.o  .eq(register_window.ulpi_data_out),
+                self.ulpi.stp     .eq(register_window.ulpi_stop)
+            ]
+
 
         # Connect our RxEvent status signals from our RxEvent decoder.
         for signal_name in self.RXEVENT_STATUS_SIGNALS:
@@ -1152,9 +1207,10 @@ class UTMITranslator(Elaboratable):
         # RxActive handler:
         # A transmission starts when DIR goes high with NXT, or when an RxEvent indicates
         # a switch from RxActive = 0 to RxActive = 1. A transmission stops when DIR drops low,
-        # or when the RxEvent RxActive bit drops from 1 to 0, or an error occurs.
-        dir_rising_edge = Rose(self.ulpi.dir, domain='ulpi')
+        # or when the RxEvent RxActive bit drops from 1 to 0, or an error occurs.A
+        dir_rising_edge = Rose(self.ulpi.dir.i, domain='ulpi')
         dir_based_start = dir_rising_edge & self.ulpi.nxt
+
 
         with m.If(~self.ulpi.dir | rxevent_decoder.rx_stop):
             # TODO: this should probably also trigger if RxError
@@ -1172,7 +1228,6 @@ class UTMITranslator(Elaboratable):
             self.rx_data   .eq(self.ulpi.data.i),
             self.rx_valid  .eq(self.ulpi.nxt & self.rx_active)
         ]
-
 
         return m
 

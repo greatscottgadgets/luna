@@ -490,7 +490,7 @@ class USBAnalyzerStackTest(LunaGatewareTestCase):
             ]),
             ('nxt', 1),
             ('stp', 1),
-            ('dir', 1),
+            ('dir', [('i', 1)]),
             ('clk', 1),
             ('rst', 1)
         ])
