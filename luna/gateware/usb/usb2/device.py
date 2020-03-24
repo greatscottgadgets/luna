@@ -8,7 +8,8 @@ import unittest
 from nmigen            import Signal, Module, Elaboratable, Memory, Cat, Const, Record
 from ...test           import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
 
-from .packet           import USBTokenDetector
+from .packet           import USBTokenDetector, USBDataPacketDeserializer
+from .control          import USBControlEndpoint
 from ...interface.ulpi import UTMITranslator
 
 
@@ -17,6 +18,16 @@ class USBDevice(Elaboratable):
 
     Can be instantiated directly, and used to build a USB device,
     or can be subclassed to create custom device types.
+
+    The I/O for this device is generically created dynamically; but
+    a few signals are exposed:
+
+        I: connect          -- Held high to keep the current USB device connected; or
+                               held low to disconnect.
+
+        O: frame_number[11] -- The current USB frame number.
+        O: sof_detected     -- Pulses for one cycle each time a SOF is detected; and thus our
+                               frame number has changed.
     """
 
     def __init__(self, *, bus):
@@ -26,35 +37,67 @@ class USBDevice(Elaboratable):
         """
 
         # If this looks more like a ULPI bus than a UTMI bus, translate it.
-        if hasattr('rx_valid'):
-            self.umti       = UTMITranslator(ulpi=bus)
-            self.translator = self.umti
+        if not hasattr(bus, 'rx_valid'):
+            self.utmi       = UTMITranslator(ulpi=bus)
+            self.translator = self.utmi
 
         # Otherwise, use it directly.
         else:
             self.utmi       = bus
             self.translator = None
 
+
         #
         # I/O port
         #
+        self.connect      = Signal()
+
+        self.frame_number = Signal(11)
         self.sof_detected = Signal()
 
+        # Debug I/O.
+        self.last_request = Signal(8)
+        self.new_packet   = Signal()
 
 
     def elaborate(self, platform):
         m = Module()
 
-        # If we have a bus translator
+        # If we have a bus translator, include it in our submodules.
         if self.translator:
             m.submodules.translator = self.translator
 
-        # Create our internal token detector.
-        m.submodules.token_detector = token_detector = USBTokenDetector(utmi=self.utmi)
 
-        # Pass through select status signals.
+        # Device operating state controls.
         m.d.comb += [
-            self.sof_detected  .eq(token_detector.new_frame)
+
+            # Disable our host-mode pulldowns; as we're a device.
+            self.utmi.dm_pulldown  .eq(0),
+
+            # Connect our termination whenever the device is connected.
+            # TODO: support high-speed termination disconnect.
+            self.utmi.term_select  .eq(self.connect),
+
+            # For now, fix us into FS mode.
+            self.utmi.op_mode      .eq(0b00),
+            self.utmi.xcvr_select  .eq(0b01)
+        ]
+
+        # Create our internal packet detectors:
+        # - A token detector, which will identify and parse the tokens that start transactions.
+        m.submodules.token_detector    = token_detector     = USBTokenDetector(utmi=self.utmi)
+
+        # TODO: abstract this into an add-control-endpoint request
+        m.submodules.control_ep = control_ep = USBControlEndpoint(utmi=self.utmi, tokenizer=token_detector)
+
+        # Pass through our global device-state signals.
+        m.d.comb += [
+            self.sof_detected  .eq(token_detector.new_frame),
+            self.frame_number  .eq(token_detector.frame),
+
+            # Debug only.
+            self.last_request  .eq(control_ep.last_request),
+            self.new_packet    .eq(control_ep.new_packet)
         ]
 
         return m

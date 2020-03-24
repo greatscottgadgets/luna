@@ -151,7 +151,7 @@ class USBTokenDetector(Elaboratable):
 
                     # Otherwise, ignore this packet as a non-token.
                     with m.Else():
-                        m.next = "NON_TOKEN"
+                        m.next = "IRRELEVANT"
 
 
             with m.State("READ_TOKEN_0"):
@@ -187,7 +187,7 @@ class USBTokenDetector(Elaboratable):
                     # ... otherwise, we'll ignore the whole token, as we can't tell
                     # if this token was meant for us.
                     with m.Else():
-                        m.next = "NON_TOKEN"
+                        m.next = "IRRELEVANT"
 
             # TOKEN_COMPLETE: we've received a full token; and now need to wait
             # for the packet to be complete.
@@ -207,21 +207,23 @@ class USBTokenDetector(Elaboratable):
                             self.new_frame  .eq(1),
                         ]
 
-                    # Otherwise, extract the address and endpoint from the token.
+                    # Otherwise, extract the address and endpoint from the token,
+                    # and report the captured pid.
                     with m.Else():
                         m.d.ulpi += [
                             Cat(self.address, self.endpoint).eq(token_data),
-                            self.new_token  .eq(1)
+                            self.pid        .eq(current_pid),
+                            self.new_token  .eq(1),
                         ]
 
                 # Otherwise, if we get more data, we've received a malformed
                 # token -- which we'll ignore.
                 with m.Elif(self.utmi.rx_valid):
-                    m.next="NON_TOKEN"
+                    m.next="IRRELEVANT"
 
 
             # NON_TOKEN -- we've encountered a non-token packet; wait for it to end
-            with m.State("NON_TOKEN"):
+            with m.State("IRRELEVANT"):
 
                 with m.If(~self.utmi.rx_active):
                     m.next = "IDLE"
@@ -249,6 +251,9 @@ class USBTokenDetectorTest(USBPacketizerTest):
         self.assertEqual((yield dut.new_token), 1)
         self.assertEqual((yield dut.new_frame), 0)
 
+        # Validate that we got the expected PID.
+        self.assertEqual((yield dut.pid), 0b0001)
+
         # Validate that we got the expected address / endpoint.
         self.assertEqual((yield dut.address), 0x3a)
         self.assertEqual((yield dut.endpoint), 0xa)
@@ -269,6 +274,7 @@ class USBTokenDetectorTest(USBPacketizerTest):
 
         # Validate that we got the expected address / endpoint.
         self.assertEqual((yield dut.frame), 0x53a)
+
 
 
 class USBHandshakeDetector(Elaboratable):
@@ -457,8 +463,6 @@ class USBDataPacketCRC(Elaboratable):
             current_crc[6],
             xor_reduce(data_in) ^ xor_reduce(current_crc[7:16]),
         )
-
-
 
 
     def elaborate(self, platform):
