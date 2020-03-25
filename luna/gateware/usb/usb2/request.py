@@ -16,8 +16,6 @@ class USBSetupDecoder(Elaboratable):
     """ Gateware responsible for detecting Setup transactions.
 
     I/O port:
-        I: address[7] -- The device's current address. Used to ignore packets
-                         addressed to other devices.
         I: speed      -- The device's current operating speed. Should be a USBSpeed
                          enumeration value -- 0 for high, 1 for full, 2 for low.
 
@@ -41,7 +39,6 @@ class USBSetupDecoder(Elaboratable):
         #
         # I/O port.
         #
-        self.address       = Signal(7)
         self.speed         = Signal(2)
 
         self.new_packet    = Signal()
@@ -82,13 +79,11 @@ class USBSetupDecoder(Elaboratable):
 
             # IDLE -- we haven't yet detected a SETUP transaction directed at us
             with m.State('IDLE'):
-
-                address_matches = (self.tokenizer.address == self.address)
                 pid_matches     = (self.tokenizer.pid     == self.SETUP_PID)
 
                 # If we're just received a new SETUP token addressed to us,
                 # the next data packet is going to be for us.
-                with m.If(address_matches & pid_matches & self.tokenizer.new_token):
+                with m.If(pid_matches & self.tokenizer.new_token):
                     m.next = 'READ_DATA'
 
 
@@ -187,9 +182,6 @@ class USBSetupDecoderTest(USBPacketizerTest):
 
 
     def initialize_signals(self):
-
-        # Start off with an "unconfigured" address.
-        yield self.dut.address.eq(0)
 
         # Assume high speed.
         yield self.dut.speed.eq(USBSpeed.HIGH)

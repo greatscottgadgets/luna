@@ -63,7 +63,11 @@ class USBTokenDetector(Elaboratable):
 
     I/O port:
         O  pid[4]      -- The Packet ID of the most recent token.
-        O: address[7]  -- The address provided in the most recent token.
+        *: address[7]  -- If this token detector is not filtering by address, this is an output,
+                          which contains the address provided in the most recent token.
+                          If this detector -is- filtering by address, this is an input that indicates
+                          the address that must be matched to generate events.
+                          This mode can be selected via the `filter_by_address` constructor argument.
         O: endpoint[4] -- The endpoint indicated by the most recent token.
         O: new_token   -- Strobe asserted for a single cycle when a new token
                           packet has been received.
@@ -76,12 +80,15 @@ class USBTokenDetector(Elaboratable):
     SOF_PID      = 0b0101
     TOKEN_SUFFIX =   0b01
 
-    def __init__(self, *, utmi):
+    def __init__(self, *, utmi, filter_by_address=True):
         """
         Parameters:
-            utmi -- The UTMI bus to observe.
+            utmi              -- The UTMI bus to observe.
+            filter_by_address -- If true, this detector will only report events for the address
+                                 supplied in the address[] field.
         """
         self.utmi = utmi
+        self.filter_by_address = filter_by_address
 
         #
         # I/O port
@@ -210,11 +217,23 @@ class USBTokenDetector(Elaboratable):
                     # Otherwise, extract the address and endpoint from the token,
                     # and report the captured pid.
                     with m.Else():
-                        m.d.ulpi += [
-                            Cat(self.address, self.endpoint).eq(token_data),
-                            self.pid        .eq(current_pid),
-                            self.new_token  .eq(1),
-                        ]
+
+                        # If we're filtering by address, only count this token if it's releveant to our address.
+                        # Otherwise, always count tokens -- we'll report the address on the output.
+                        token_applicable = (token_data[0:7] == self.address) if self.filter_by_address else True
+                        with m.If(token_applicable):
+                            m.d.ulpi += [
+                                self.pid        .eq(current_pid),
+                                self.new_token  .eq(1),
+                            ]
+
+                            # If we're filtering by address, only output the endpoint
+                            # signal. Otherwise, report the address as well.
+                            if self.filter_by_address:
+                                m.d.ulpi += self.endpoint.eq(token_data[7:])
+                            else:
+                                m.d.ulpi += Cat(self.address, self.endpoint).eq(token_data),
+
 
                 # Otherwise, if we get more data, we've received a malformed
                 # token -- which we'll ignore.
@@ -238,6 +257,9 @@ class USBTokenDetectorTest(USBPacketizerTest):
     def test_valid_token(self):
         dut = self.dut
 
+        # Assume our device is at address 0x3a.
+        yield dut.address.eq(0x3a)
+
         # When idle, we should have no new-packet events.
         yield from self.advance_cycles(10)
         self.assertEqual((yield dut.new_frame), 0)
@@ -255,7 +277,6 @@ class USBTokenDetectorTest(USBPacketizerTest):
         self.assertEqual((yield dut.pid), 0b0001)
 
         # Validate that we got the expected address / endpoint.
-        self.assertEqual((yield dut.address), 0x3a)
         self.assertEqual((yield dut.endpoint), 0xa)
 
         # Ensure that our strobe returns to 0, afterwards.
@@ -275,6 +296,21 @@ class USBTokenDetectorTest(USBPacketizerTest):
         # Validate that we got the expected address / endpoint.
         self.assertEqual((yield dut.frame), 0x53a)
 
+
+    @ulpi_domain_test_case
+    def test_token_to_other_device(self):
+        dut = self.dut
+
+        # Assume our device is at 0x1f.
+        yield dut.address.eq(0x1f)
+
+        # From: https://usb.org/sites/default/files/crcdes.pdf
+        # out to 0x3a, endpoint 0xa => 0xE1 5C BC
+        yield from self.provide_packet(0b11100001, 0b00111010, 0b00111101)
+
+        # Validate that we did not count this as a token received,
+        # as it wasn't for us.
+        self.assertEqual((yield dut.new_token), 0)
 
 
 class USBHandshakeDetector(Elaboratable):
