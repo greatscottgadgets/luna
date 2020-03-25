@@ -212,7 +212,7 @@ class USBSetupDecoderTest(USBPacketizerTest):
             0xcd, 0xab,   # value  0xABCD (little endian)
             0x23, 0x01,   # index  0x0123
             0x78, 0x56,   # length 0x5678
-            0xa2, 0x3b    # CRC
+            0x3b, 0xa2,   # CRC
         )
 
 

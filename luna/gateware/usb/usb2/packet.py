@@ -596,7 +596,7 @@ class USBDataPacketDeserializer(Elaboratable):
                             active_packet[position_in_packet]  .eq(self.utmi.rx_data),
                             position_in_packet                 .eq(position_in_packet + 1),
 
-                            last_word  .eq(Cat(self.utmi.rx_data, last_word[0:8])),
+                            last_word     .eq(Cat(last_word[8:], self.utmi.rx_data)),
 
                             last_word_crc .eq(last_byte_crc),
                             last_byte_crc .eq(crc.crc),
@@ -635,7 +635,7 @@ class USBDataPacketDeserializerTest(USBPacketizerTest):
         yield from self.provide_packet(
             0b11000011,                                     # PID
             0b00100011, 0b01000101, 0b01100111, 0b10001001, # DATA
-            0b00011100, 0b00001110                          # CRC
+            0b00001110, 0b00011100                          # CRC
         )
 
         # Ensure we've gotten a new packet.
@@ -648,6 +648,17 @@ class USBDataPacketDeserializerTest(USBPacketizerTest):
 
 
     @ulpi_domain_test_case
+    def test_captured_usb_sample(self):
+        yield from self.provide_packet(
+            0xC3,                                           # PID: Data
+            0x00, 0x05, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, # DATA
+            0xEB, 0xBC                                      # CRC
+        )
+
+        # Ensure we've gotten a new packet.
+        self.assertEqual((yield self.dut.new_packet), 1, "packet not recognized")
+
+    @ulpi_domain_test_case
     def test_invalid_rx(self):
         yield from self.provide_packet(
             0b11000011,                                     # PID
@@ -657,6 +668,7 @@ class USBDataPacketDeserializerTest(USBPacketizerTest):
 
         # Ensure we've gotten a new packet.
         self.assertEqual((yield self.dut.new_packet), 0, 'accepted invalid CRC!')
+
 
 
 if __name__ == "__main__":
