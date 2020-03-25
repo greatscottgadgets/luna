@@ -16,7 +16,6 @@ class USBControlEndpoint(Elaboratable):
 
     I/O port:
 
-
         # Diagnostic I/O.
         last_request[8] -- Request number of the last request.
     """
@@ -33,6 +32,7 @@ class USBControlEndpoint(Elaboratable):
         #
         # I/O Port
         #
+        self.issue_ack    = Signal()
 
         # Debug outputs
         self.last_request = Signal(8)
@@ -45,6 +45,9 @@ class USBControlEndpoint(Elaboratable):
         # Create our SETUP packet decoder.
         m.submodules.setup_decoder = setup_decoder = \
              USBSetupDecoder(utmi=self.utmi, tokenizer=self.tokenizer)
+        m.d.comb += [
+            self.issue_ack  .eq(setup_decoder.ack)
+        ]
 
         # Debug output.
         m.d.comb += [

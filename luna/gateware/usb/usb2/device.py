@@ -8,7 +8,7 @@ import unittest
 from nmigen            import Signal, Module, Elaboratable, Memory, Cat, Const, Record
 from ...test           import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
 
-from .packet           import USBTokenDetector, USBDataPacketDeserializer
+from .packet           import USBTokenDetector, USBHandshakeGenerator
 from .control          import USBControlEndpoint
 from ...interface.ulpi import UTMITranslator
 
@@ -83,12 +83,24 @@ class USBDevice(Elaboratable):
             self.utmi.xcvr_select  .eq(0b01)
         ]
 
-        # Create our internal packet detectors:
+        # Create our internal packet components:
         # - A token detector, which will identify and parse the tokens that start transactions.
-        m.submodules.token_detector    = token_detector     = USBTokenDetector(utmi=self.utmi)
+        # - A handshake generator, which will assist in generating response packets.
+        m.submodules.token_detector      = token_detector      = USBTokenDetector(utmi=self.utmi)
+        m.submodules.handshake_generator = handshake_generator = USBHandshakeGenerator()
 
         # TODO: abstract this into an add-control-endpoint request
         m.submodules.control_ep = control_ep = USBControlEndpoint(utmi=self.utmi, tokenizer=token_detector)
+
+        # TODO: implement bus-access logic
+        m.d.comb += [
+            self.utmi.tx_data              .eq(handshake_generator.tx_data),
+            self.utmi.tx_valid             .eq(handshake_generator.tx_valid),
+
+            handshake_generator.tx_ready   .eq(self.utmi.tx_ready),
+            handshake_generator.issue_ack  .eq(control_ep.issue_ack)
+
+        ]
 
         # Pass through our global device-state signals.
         m.d.comb += [

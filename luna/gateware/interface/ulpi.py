@@ -890,39 +890,21 @@ class ULPITransmitTranslator(Elaboratable):
 
                 # Once the transmission has ended, we'll need to issue a ULPI stop.
                 with m.If(~self.tx_valid):
+                    m.next = 'IDLE'
+
+                    # STOP: our packet has just terminated; we'll generate a ULPI stop event for a single cycle.
+                    # [ULPI: 3.8.2.2]
+                    m.d.comb += self.ulpi_stp.eq(1)
 
                     # If we've disabled bit stuffing, we'll want to termainate by generating a bit-stuff error.
                     with m.If(bit_stuffing_disabled):
-                        m.next = 'STOP_WITH_ERROR'
+
+                        # Drive 0xFF as we stop, to generate a bit-stuff error. [ULPI: 3.8.2.3]
+                        m.d.comb += self.ulpi_data_out .eq(0xFF)
 
                     # Otherwise, we'll generate a normal stop.
                     with m.Else():
-                        m.next = 'STOP'
-
-
-            # STOP: our packet has just terminated; we'll generate a ULPI stop event for a single cycle.
-            # [ULPI: 3.8.2.2]
-            with m.State('STOP'):
-                m.d.comb += [
-                    self.ulpi_out_req  .eq(1),
-                    self.ulpi_data_out .eq(0),
-                    self.tx_ready      .eq(0),
-                    self.ulpi_stp      .eq(1),
-                ]
-                m.next = 'IDLE'
-
-
-            # STOP_WITH_ERROR: our packet has just terminated; we'll generate a ULPI stop event,
-            # but request that the PHY induce a bit-stuff error, instead of stopping gracefully.
-            with m.State('STOP_WITH_ERROR'):
-                # Drive 0xFF as we stop, to generate a bit-stuff error. [ULPI: 3.8.2.3]
-                m.d.comb += [
-                    self.ulpi_out_req  .eq(1),
-                    self.ulpi_data_out .eq(0xFF),
-                    self.tx_ready      .eq(0),
-                    self.ulpi_stp      .eq(1),
-                ]
-                m.next = 'IDLE'
+                        m.d.comb += self.ulpi_data_out .eq(0)
 
 
         return m
@@ -958,7 +940,6 @@ class ULPITransmitTranslatorTest(LunaGatewareTestCase):
         self.assertEqual((yield dut.ulpi_stp),      0)
 
         # Our PID should remain there until we indicate we're ready.
-        yield dut.tx_data.eq(0x11)
         self.advance_cycles(10)
         self.assertEqual((yield dut.ulpi_data_out), 0b01000101)
 
@@ -966,6 +947,8 @@ class ULPITransmitTranslatorTest(LunaGatewareTestCase):
         yield dut.ulpi_nxt.eq(1)
         yield
         self.assertEqual((yield dut.tx_ready),      1)
+        yield dut.tx_data.eq(0x11)
+        yield
 
         # At which point we should present the relevant data directly.
         yield
@@ -976,7 +959,6 @@ class ULPITransmitTranslatorTest(LunaGatewareTestCase):
         yield
 
         # ... we should get a cycle of STP.
-        yield
         self.assertEqual((yield dut.ulpi_data_out), 0)
         self.assertEqual((yield dut.ulpi_stp),      1)
 
@@ -985,6 +967,37 @@ class ULPITransmitTranslatorTest(LunaGatewareTestCase):
         self.assertEqual((yield dut.ulpi_stp),      0)
 
 
+    @ulpi_domain_test_case
+    def test_handshake(self):
+        dut = self.dut
+
+        # Present a simple ACK PID.
+        yield dut.tx_valid.eq(1)
+        yield dut.tx_data.eq(0b11010010)
+        yield
+
+        # Our PID should have been translated into a transmit request, with
+        # our PID in the lower nibble.
+        self.assertEqual((yield dut.ulpi_out_req),  1)
+        self.assertEqual((yield dut.ulpi_data_out), 0b01000010)
+        self.assertEqual((yield dut.tx_ready),      0)
+        self.assertEqual((yield dut.ulpi_stp),      0)
+
+        # Once the PHY accepts the data, it'll assert NXT.
+        yield dut.ulpi_nxt.eq(1)
+        yield
+
+        # ... which will trigger the transmitter to drop tx_valid.
+        yield dut.tx_valid.eq(0)
+
+        # ... we should get a cycle of STP.
+        yield
+        #self.assertEqual((yield dut.ulpi_data_out), 0)
+        #self.assertEqual((yield dut.ulpi_stp),      1)
+
+        # ... followed by idle.
+        yield
+        self.assertEqual((yield dut.ulpi_stp),      0)
 
 
 class UTMITranslator(Elaboratable):
@@ -999,14 +1012,14 @@ class UTMITranslator(Elaboratable):
 
         # Data signals:
         I: tx_data[8]  -- data to be transmitted; valid when tx_valid is asserted
-        O: rx_data[8]  -- data received from the PHY; valid when rx_valid is asserted
-
         I: tx_valid    -- set to true when data is to be transmitted; indicates the data_in
                           byte is valid; de-asserting this line terminates the transmission
-        O: rx_valid    -- indicates that the data present on rx_data is new and valid data;
-                          goes high for a single ULPI clock cycle to indicate new data is ready
         O: tx_ready    -- indicates the the PHY is ready to accept a new byte of data, and that the
                           transmitter should move on to the next byte after the given cycle
+
+        O: rx_data[8]  -- data received from the PHY; valid when rx_valid is asserted
+        O: rx_valid    -- indicates that the data present on rx_data is new and valid data;
+                          goes high for a single ULPI clock cycle to indicate new data is ready
 
         O: rx_active   -- indicates that the PHY is actively receiving data from the host; data is
                           slewed on rx_data by rx_valid
@@ -1166,7 +1179,7 @@ class UTMITranslator(Elaboratable):
             transmit_translator.bus_idle  .eq(~control_translator.busy),
             transmit_translator.tx_data   .eq(self.tx_data),
             transmit_translator.tx_valid  .eq(self.tx_valid),
-            self.tx_ready                 .eq(self.tx_ready),
+            self.tx_ready                 .eq(transmit_translator.tx_ready),
 
             # Connect our inputs to our control translator / register window.
             control_translator.bus_idle   .eq(~transmit_translator.busy),

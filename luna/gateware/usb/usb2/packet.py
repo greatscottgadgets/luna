@@ -626,7 +626,6 @@ class USBDataPacketDeserializer(Elaboratable):
         return m
 
 
-
 class USBDataPacketDeserializerTest(USBPacketizerTest):
     FRAGMENT_UNDER_TEST = USBDataPacketDeserializer
 
@@ -668,6 +667,141 @@ class USBDataPacketDeserializerTest(USBPacketizerTest):
 
         # Ensure we've gotten a new packet.
         self.assertEqual((yield self.dut.new_packet), 0, 'accepted invalid CRC!')
+
+
+class USBHandshakeGenerator(Elaboratable):
+    """ Module that generates handshake packets, on request.
+
+    I/O port:
+        I: issue_ack   -- Pulsed to generate an ACK handshake packet.
+        I: issue_nak   -- Pulsed to generate a  NAK handshake packet.
+        I: issue_stall -- Pulsed to generate a STALL handshake.
+
+        # UTMI-equivalent signals,
+        I: tx_ready    -- UTMI "data will be accepted" signal.
+        O: tx_data[8]  -- Data to be transmitted.
+        O: tx_valid    -- True if this module is transmitting data.
+    """
+
+    # Full contents of an ACK, NAK, and STALL packet.
+    # These include the four check bits; which consist of the inverted PID.
+    PACKET_ACK   = 0b11010010
+    PACKET_NAK   = 0b01011010
+    PACKET_STALL = 0b00011110
+
+    def __init__(self):
+
+        #
+        # I/O port
+        #
+        self.issue_ack   = Signal()
+        self.issue_nak   = Signal()
+        self.issue_stall = Signal()
+
+        self.tx_ready    = Signal()
+        self.tx_data     = Signal(8)
+        self.tx_valid    = Signal()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        with m.FSM(domain="ulpi"):
+
+            # IDLE -- we haven't yet received a request to transmit
+            with m.State('IDLE'):
+                m.d.comb += self.tx_valid.eq(0)
+
+                # Wait until we have an ACK, NAK, or STALL request;
+                # Then set our data value to the appropriate PID,
+                # in preparation for the next cycle.
+
+                with m.If(self.issue_ack):
+                    m.d.ulpi += self.tx_data  .eq(self.PACKET_ACK),
+                    m.next = 'TRANSMIT'
+
+                with m.If(self.issue_nak):
+                    m.d.ulpi += self.tx_data  .eq(self.PACKET_NAK),
+                    m.next = 'TRANSMIT'
+
+                with m.If(self.issue_stall):
+                    m.d.ulpi += self.tx_data  .eq(self.PACKET_STALL),
+                    m.next = 'TRANSMIT'
+
+
+            # TRANSMIT -- send the handshake.
+            with m.State('TRANSMIT'):
+                m.d.comb += self.tx_valid.eq(1)
+
+                # Once we know the transmission will be accepted, we're done!
+                # Move back to IDLE.
+                with m.If(self.tx_ready):
+                    m.next = 'IDLE'
+
+        return m
+
+
+class USBHandshakeGeneratorTest(LunaGatewareTestCase):
+    SYNC_CLOCK_FREQUENCY = None
+    ULPI_CLOCK_FREQUENCY = 60e6
+
+    FRAGMENT_UNDER_TEST  = USBHandshakeGenerator
+
+
+    @ulpi_domain_test_case
+    def test_ack_generation(self):
+        dut = self.dut
+
+        # Before we request anything, our data shouldn't be valid.
+        self.assertEqual((yield dut.tx_valid), 0)
+
+        # When we request an ACK...
+        yield dut.issue_ack.eq(1)
+        yield
+        yield dut.issue_ack.eq(0)
+
+        # ... we should see an ACK packet on our data lines...
+        yield
+        self.assertEqual((yield dut.tx_data), USBHandshakeGenerator.PACKET_ACK)
+
+        # ... our transmit request should be valid.
+        self.assertEqual((yield dut.tx_valid), 1)
+
+        # It should remain valid...
+        yield from self.advance_cycles(10)
+        self.assertEqual((yield dut.tx_valid), 1)
+
+        # ... until the UTMI transceiver marks it as accepted...
+        yield dut.tx_ready.eq(1)
+        yield
+
+        # ... when our packet should be marked as invalid.
+        yield
+        self.assertEqual((yield dut.tx_valid), 0)
+
+
+    @ulpi_domain_test_case
+    def test_already_ready(self):
+        dut = self.dut
+
+        # Start off with our transmitter ready to receive.
+        yield dut.tx_ready.eq(1)
+
+        # When we request an ACK...
+        yield dut.issue_ack.eq(1)
+        yield
+        yield dut.issue_ack.eq(0)
+
+        # ... we should see an ACK packet on our data lines...
+        yield
+        self.assertEqual((yield dut.tx_data), USBHandshakeGenerator.PACKET_ACK)
+
+        # ... our transmit request should be valid...
+        self.assertEqual((yield dut.tx_valid), 1)
+
+        # ... and then drop out of being valid after one cycle.
+        yield
+        self.assertEqual((yield dut.tx_valid), 0)
 
 
 
