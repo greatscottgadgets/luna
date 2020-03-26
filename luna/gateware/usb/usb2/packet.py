@@ -7,21 +7,25 @@ import operator
 import unittest
 import functools
 
-from nmigen            import Signal, Module, Elaboratable, Cat, Record, Array
+from nmigen            import Signal, Module, Elaboratable, Cat, Array
+from nmigen.hdl.rec    import Record, DIR_FANIN, DIR_FANOUT
+
+from ...interface.utmi import UTMITransmitInterface
 from ...test           import LunaGatewareTestCase, ulpi_domain_test_case
+
 
 
 class USBPacketizerTest(LunaGatewareTestCase):
     SYNC_CLOCK_FREQUENCY = None
     ULPI_CLOCK_FREQUENCY = 60e6
 
-    def instantiate_dut(self):
+    def instantiate_dut(self, extra_arguments={}):
         self.utmi = Record([
             ("rx_data",   8),
             ("rx_active", 1),
             ("rx_valid",  1)
         ])
-        return self.FRAGMENT_UNDER_TEST(utmi=self.utmi)
+        return self.FRAGMENT_UNDER_TEST(utmi=self.utmi, **extra_arguments)
 
     def provide_byte(self, byte):
         """ Provides a given byte on the UTMI receive data for one cycle. """
@@ -443,16 +447,33 @@ class USBHandshakeDetectorTest(USBPacketizerTest):
         self.assertEqual((yield self.dut.nyet_detected), 1)
 
 
+class DataCRCInterface(Record):
+    """ Record providing an interface to a USB CRC-16 generator. """
+
+    def __init__(self):
+        super().__init__([
+            # Signal indicating that a new CRC computation should be started.
+            ('start', 1,  DIR_FANIN),
+
+            # Signal holding the value of the current CRC.
+            ('crc',   16, DIR_FANOUT)
+        ])
+
+
 class USBDataPacketCRC(Elaboratable):
     """ Gateware that computes a running CRC16.
 
+    By default, this module has no connections to the modules that use it.
+
+    These are added using .add_interface(); this module supports an arbitrary
+    number of connection interfaces; see .add_interface() for restrictions.
+
     I/O port:
-        I: clear   -- Strobe that restarts the running CRC.
+        I: rx_data[8]   -- Receive data input.
+        I: rx_valid     -- When high, the `rx_data` input is used to update the CRC.
 
-        I: data[8] -- Data input.
-        I: valid   -- When high, the `data` input is used to update the CRC.
-
-        O: crc[16] -- CRC16 value.
+        I: tx_data[8]   -- Transmit data input.
+        I: tx_valid     -- When high, the `tx_data` input is used to update the CRC.
     """
 
     def __init__(self, initial_value=0xFFFF):
@@ -464,15 +485,32 @@ class USBDataPacketCRC(Elaboratable):
 
         self._initial_value = initial_value
 
+        # List of interfaces to work with.
+        # This list is populated dynamically by calling .add_interface().
+        self._interfaces    = []
+
         #
         # I/O port
         #
         self.clear = Signal()
 
-        self.data  = Signal(8)
-        self.valid = Signal()
+        self.rx_data  = Signal(8)
+        self.rx_valid = Signal()
+
+        self.tx_data  = Signal(8)
+        self.tx_valid = Signal()
 
         self.crc   = Signal(16, reset=initial_value)
+
+
+    def add_interface(self, interface : DataCRCInterface):
+        """ Adds an interface to the CRC generator module.
+
+        Each interface can reset the CRC; and can read the current CRC value.
+        No arbitration is performed; it's assumed that no more than one interface
+        will be computing a running CRC at at time.
+        """
+        self._interfaces.append(interface)
 
 
     def _generate_next_crc(self, current_crc, data_in):
@@ -504,53 +542,75 @@ class USBDataPacketCRC(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-        crc = Signal(16, reset=self._initial_value)
+        # Register that contains the running CRCs.
+        crc        = Signal(16, reset=self._initial_value)
+
+        # Signal that contains the output version of our active CRC.
+        output_crc = Signal.like(crc)
+
+        # We'll clear our CRC whenever any of our interfaces request it.
+        start_signals = (interface.start for interface in self._interfaces)
+        clear = functools.reduce(operator.__or__, start_signals)
 
         # If we're clearing our CRC in progress, move our holding register back to
         # our initial value.
-        with m.If(self.clear):
+        with m.If(clear):
             m.d.ulpi += crc.eq(self._initial_value)
 
         # Otherwise, update the CRC whenever we have new data.
-        with m.Elif(self.valid):
-            m.d.ulpi += crc.eq(self._generate_next_crc(crc, self.data))
+        with m.Elif(self.rx_valid):
+            m.d.ulpi += crc.eq(self._generate_next_crc(crc, self.rx_data))
+        with m.Elif(self.tx_valid):
+            m.d.ulpi += crc.eq(self._generate_next_crc(crc, self.tx_data))
 
-        m.d.comb += [
-            self.crc  .eq(~crc[::-1])
-        ]
+        # Convert from our intermediary "running CRC" format into the current CRC-16...
+        m.d.comb += output_crc.eq(~crc[::-1])
+
+        # ... and connect it to each of our interfaces.
+        for interface in self._interfaces:
+            m.d.comb += interface.crc.eq(output_crc)
 
         return m
+
 
 
 class USBDataPacketDeserializer(Elaboratable):
     """ Gateware that captures USB data packet contents and parallelizes them.
 
     I/O port:
-        O: new_packet -- Strobe that pulses high for a single cycle when a new packet is delivered.
-        O: packet[]   -- Packet data for a the most recently received packet.
-        O: length[]   -- The length of the packet data presented on the packet[] output.
+        *: data_crc        -- Connection to the CRC generator.
+
+        O: new_packet      -- Strobe that pulses high for a single cycle when a new packet is delivered.
+        O: packet_id[4]    -- The packet ID of the captured PID.
+
+        O: packet[]        -- Packet data for a the most recently received packet.
+        O: length[]        -- The length of the packet data presented on the packet[] output.
     """
 
     DATA_SUFFIX = 0b11
 
-    def __init__(self, *, utmi, max_packet_size=64):
+    def __init__(self, *, utmi, max_packet_size=64, create_crc_generator=False):
         """
         Parameters:
-            utmi -- The UTMI bus to observe.
-            max_packet_size -- The maximum packet (payload) size to be deserialized, in bytes.
+            utmi                 -- The UTMI bus to observe.
+            max_packet_size      -- The maximum packet (payload) size to be deserialized, in bytes.
+            create_crc_generator -- If True, a submodule CRC generator will be created. Excellent for testing.
         """
 
-        self.utmi = utmi
-        self._max_packet_size = max_packet_size
+        self.utmi                 = utmi
+        self._max_packet_size     = max_packet_size
+        self.create_crc_generator = create_crc_generator
 
         #
         # I/O port
         #
-        self.new_packet = Signal()
+        self.data_crc    = DataCRCInterface()
 
-        self.packet_id  = Signal(4)
-        self.packet     = Array(Signal(8, name=f"packet_{i}") for i in range(max_packet_size))
-        self.length     = Signal(range(0, max_packet_size + 1))
+        self.new_packet  = Signal()
+
+        self.packet_id   = Signal(4)
+        self.packet      = Array(Signal(8, name=f"packet_{i}") for i in range(max_packet_size))
+        self.length      = Signal(range(0, max_packet_size + 1))
 
 
     def elaborate(self, platform):
@@ -558,8 +618,19 @@ class USBDataPacketDeserializer(Elaboratable):
 
         max_size_with_crc = self._max_packet_size + 2
 
-        # Submodule: CRC16 generator.
-        m.submodules.crc = crc = USBDataPacketCRC()
+        # If we're creating an internal CRC generator, create a submodule
+        # and hook it up.
+        if self.create_crc_generator:
+            m.submodules.crc = crc = USBDataPacketCRC()
+            crc.add_interface(self.data_crc)
+
+            m.d.comb += [
+                crc.rx_data           .eq(self.utmi.rx_data),
+                crc.rx_valid          .eq(self.utmi.rx_valid),
+                crc.tx_valid           .eq(0)
+            ]
+
+        # CRC-16 tracking signals.
         last_byte_crc = Signal(16)
         last_word_crc = Signal(16)
 
@@ -574,8 +645,8 @@ class USBDataPacketDeserializer(Elaboratable):
         last_word          = Signal(16)
 
         # Keep our control signals + strobes un-asserted unless otherwise specified.
-        m.d.ulpi += self.new_packet  .eq(0)
-        m.d.comb += crc.clear        .eq(0)
+        m.d.ulpi += self.new_packet      .eq(0)
+        m.d.comb += self.data_crc.start  .eq(0)
 
         with m.FSM(domain="ulpi"):
 
@@ -585,11 +656,10 @@ class USBDataPacketDeserializer(Elaboratable):
                 with m.If(self.utmi.rx_active):
                     m.next = "READ_PID"
 
-
             # READ_PID -- read the packet's ID.
             with m.State("READ_PID"):
                 # Clear our CRC; as we're potentially about to start a new packet.
-                m.d.comb += crc.clear.eq(1)
+                m.d.comb += self.data_crc.start.eq(1)
 
                 with m.If(~self.utmi.rx_active):
                     m.next = "IDLE"
@@ -613,12 +683,6 @@ class USBDataPacketDeserializer(Elaboratable):
 
             with m.State("CAPTURE_DATA"):
 
-                # Keep a running CRC of any data observed.
-                m.d.comb += [
-                    crc.valid  .eq(self.utmi.rx_valid),
-                    crc.data   .eq(self.utmi.rx_data)
-                ]
-
                 # If we have a new byte of data, capture it.
                 with m.If(self.utmi.rx_valid):
 
@@ -635,7 +699,7 @@ class USBDataPacketDeserializer(Elaboratable):
                             last_word     .eq(Cat(last_word[8:], self.utmi.rx_data)),
 
                             last_word_crc .eq(last_byte_crc),
-                            last_byte_crc .eq(crc.crc),
+                            last_byte_crc .eq(self.data_crc.crc),
                         ]
 
 
@@ -664,6 +728,10 @@ class USBDataPacketDeserializer(Elaboratable):
 
 class USBDataPacketDeserializerTest(USBPacketizerTest):
     FRAGMENT_UNDER_TEST = USBDataPacketDeserializer
+
+    def instantiate_dut(self):
+        return super().instantiate_dut(extra_arguments={'create_crc_generator': True})
+
 
     @ulpi_domain_test_case
     def test_packet_rx(self):

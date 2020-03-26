@@ -9,21 +9,22 @@ from nmigen            import Signal, Module, Elaboratable, Cat, Record
 from ...test           import ulpi_domain_test_case
 
 from .                 import USBSpeed
-from .packet           import USBTokenDetector, USBDataPacketDeserializer, USBPacketizerTest
+from .packet           import USBTokenDetector, USBDataPacketDeserializer, USBPacketizerTest, DataCRCInterface
 
 
 class USBSetupDecoder(Elaboratable):
     """ Gateware responsible for detecting Setup transactions.
 
     I/O port:
-        I: speed      -- The device's current operating speed. Should be a USBSpeed
-                         enumeration value -- 0 for high, 1 for full, 2 for low.
+        *: crc_interface  -- Interface to our data-CRC generator.
+        I: speed          -- The device's current operating speed. Should be a USBSpeed
+                             enumeration value -- 0 for high, 1 for full, 2 for low.
 
     """
 
     SETUP_PID = 0b1101
 
-    def __init__(self, *, utmi, tokenizer, own_tokenizer=False):
+    def __init__(self, *, utmi, tokenizer, own_tokenizer=False, standalone=False):
         """
         Paremeters:
             utmi           -- The UTMI bus we'll monitor for data. We'll consider this read-only.
@@ -31,14 +32,18 @@ class USBSetupDecoder(Elaboratable):
 
             own_tokenizer  -- Debug parameter. When set this module will consider the tokenizer to be a
                               submodule of this module. Allows for cleaner simulations.
+            standalone     -- Debug parameter. If true, this module will operate without external components;
+                              i.e. without an internal data-CRC generator.
         """
         self.utmi          = utmi
         self.tokenizer     = tokenizer
         self.own_tokenizer = own_tokenizer
+        self.standalone    = standalone
 
         #
         # I/O port.
         #
+        self.data_crc      = DataCRCInterface()
         self.speed         = Signal(2)
 
         self.new_packet    = Signal()
@@ -62,7 +67,9 @@ class USBSetupDecoder(Elaboratable):
 
         # Create a data-packet-deserializer, which we'll use to capture the
         # contents of the setup data packets.
-        m.submodules.data_handler = data_handler = USBDataPacketDeserializer(utmi=self.utmi, max_packet_size=8)
+        m.submodules.data_handler = data_handler = \
+            USBDataPacketDeserializer(utmi=self.utmi, max_packet_size=8, create_crc_generator=self.standalone)
+        m.d.comb += self.data_crc.connect(data_handler.data_crc)
 
         # Create a counter that will track our interpacket delays.
         # This should be able to count up to 80 (exclusive), in order to count
@@ -178,7 +185,7 @@ class USBSetupDecoderTest(USBPacketizerTest):
         self.tokenizer = USBTokenDetector(utmi=self.utmi)
 
         # ... and our setup detector, around it.
-        return USBSetupDecoder(utmi=self.utmi, tokenizer=self.tokenizer, own_tokenizer=True)
+        return USBSetupDecoder(utmi=self.utmi, tokenizer=self.tokenizer, own_tokenizer=True, standalone=True)
 
 
     def initialize_signals(self):
@@ -284,4 +291,4 @@ class USBSetupDecoderTest(USBPacketizerTest):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(warnings="ignore")

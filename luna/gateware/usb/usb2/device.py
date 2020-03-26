@@ -8,7 +8,7 @@ import unittest
 from nmigen            import Signal, Module, Elaboratable, Memory, Cat, Const, Record
 from ...test           import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
 
-from .packet           import USBTokenDetector, USBHandshakeGenerator
+from .packet           import USBTokenDetector, USBHandshakeGenerator, USBDataPacketCRC
 from .control          import USBControlEndpoint
 from ...interface.ulpi import UTMITranslator
 
@@ -99,12 +99,20 @@ class USBDevice(Elaboratable):
         # Create our internal packet components:
         # - A token detector, which will identify and parse the tokens that start transactions.
         # - A handshake generator, which will assist in generating response packets.
+        # - A data CRC16 handler, which will compute data packet CRCs.
+        # - A setup packet parser, which will capture and parse SETUP packets.
         m.submodules.token_detector      = token_detector      = USBTokenDetector(utmi=self.utmi)
         m.submodules.handshake_generator = handshake_generator = USBHandshakeGenerator()
+        m.submodules.data_crc            = data_crc            = USBDataPacketCRC()
 
         # Ensure our token detector only responds to tokens addressed to us.
         m.d.ulpi += token_detector.address.eq(address)
 
+        # Hook up our data_crc to our receive inputs.
+        m.d.comb += [
+            data_crc.rx_data   .eq(self.utmi.rx_data),
+            data_crc.rx_valid  .eq(self.utmi.rx_valid)
+        ]
 
         #
         # Endpoint generation.
@@ -112,6 +120,7 @@ class USBDevice(Elaboratable):
 
         # TODO: abstract this into an add-control-endpoint function
         m.submodules.control_ep = control_ep = USBControlEndpoint(utmi=self.utmi, tokenizer=token_detector)
+        data_crc.add_interface(control_ep.data_crc)
 
 
         #
@@ -125,8 +134,11 @@ class USBDevice(Elaboratable):
 
             handshake_generator.tx_ready     .eq(self.utmi.tx_ready),
             handshake_generator.issue_ack    .eq(control_ep.issue_ack),
-            handshake_generator.issue_stall  .eq(control_ep.issue_stall)
+            handshake_generator.issue_stall  .eq(control_ep.issue_stall),
 
+            # Currently, we haven't hooked up the logic that drives our transmit-CRC generation.
+            # We'll thus tie the tx-valid signal to 0.
+            data_crc.tx_valid  .eq(0)
         ]
 
         #
