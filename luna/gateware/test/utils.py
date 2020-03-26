@@ -101,7 +101,9 @@ class LunaGatewareTestCase(FHDLTestCase):
 
     def traces_of_interest(self):
         """ Returns an interable of traces to include in any generated output. """
-        return ()
+
+        # Default to including all signals.
+        return self.sim._signal_names
 
 
     def simulate(self, *, vcd_suffix=None):
