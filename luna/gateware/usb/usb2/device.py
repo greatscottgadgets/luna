@@ -129,10 +129,8 @@ class USBDevice(Elaboratable):
 
         # TODO: implement bus-access logic
         m.d.comb += [
-            self.utmi.tx_data                .eq(handshake_generator.tx_data),
-            self.utmi.tx_valid               .eq(handshake_generator.tx_valid),
+            handshake_generator.tx_interface .attach(self.utmi),
 
-            handshake_generator.tx_ready     .eq(self.utmi.tx_ready),
             handshake_generator.issue_ack    .eq(control_ep.issue_ack),
             handshake_generator.issue_stall  .eq(control_ep.issue_stall),
 
