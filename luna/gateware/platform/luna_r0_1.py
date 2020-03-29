@@ -52,7 +52,7 @@ class LUNAPlatformRev0D1(LatticeECP5Platform):
     DEFAULT_CLOCK_FREQUENCIES_MHZ = {
         "fast": 120,
         "sync": 60,
-        "ulpi": 60
+        "usb":  60
     }
 
     #

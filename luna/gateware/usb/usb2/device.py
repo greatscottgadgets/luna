@@ -6,7 +6,7 @@
 import unittest
 
 from nmigen            import Signal, Module, Elaboratable, Memory, Cat, Const, Record
-from ...test           import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
+from ...test           import LunaGatewareTestCase, usb_domain_test_case, sync_test_case
 
 from .packet           import USBTokenDetector, USBHandshakeGenerator, USBDataPacketCRC, USBInterpacketTimer
 from .control          import USBControlEndpoint
@@ -107,7 +107,7 @@ class USBDevice(Elaboratable):
         m.submodules.timer               = timer               = USBInterpacketTimer()
 
         # Ensure our token detector only responds to tokens addressed to us.
-        m.d.ulpi += token_detector.address.eq(address)
+        m.d.usb += token_detector.address.eq(address)
 
         # Hook up our data_crc to our receive inputs.
         m.d.comb += [

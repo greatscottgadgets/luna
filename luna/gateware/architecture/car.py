@@ -9,7 +9,7 @@ from abc import ABCMeta, abstractmethod
 from nmigen import Signal, Module, ClockDomain, ClockSignal, Elaboratable, Instance, ResetSignal
 
 from ..utils.cdc import stretch_strobe_signal
-from ..test      import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
+from ..test      import LunaGatewareTestCase, usb_domain_test_case, sync_test_case
 
 
 class PHYResetController(Elaboratable):
@@ -134,8 +134,8 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
     I/O port:
         O: clk_fast      -- The clock signal for our fast clock domain.
         O: clk_sync      -- The clock signal used for our sync clock domain.
-        O: clk_ulpi      -- The clock signal used for our ulpi domain.
-        O: ulpi_holdoff  -- Signal that indicates that the ULPI domain is immediately post-reset,
+        O: clk_usb       -- The clock signal used for our USB domain.
+        O: usb_holdoff   -- Signal that indicates that the USB domain is immediately post-reset,
                             and thus we should avoid transactions with the external PHY.
     """
 
@@ -152,10 +152,9 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
         #
         self.clk_fast     = Signal()
         self.clk_sync     = Signal()
-        self.clk_ulpi     = Signal()
+        self.clk_usb      = Signal()
 
-
-        self.ulpi_holdoff = Signal()
+        self.usb_holdoff  = Signal()
 
 
     @abstractmethod
@@ -169,7 +168,7 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
 
 
     @abstractmethod
-    def generate_ulpi_clock(self, m, platform):
+    def generate_usb_clock(self, m, platform):
         """ Method that generates a 60MHz clock used for ULPI interfacing. """
 
 
@@ -178,16 +177,16 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
         pass
 
 
-    def create_ulpi_reset(self, m, platform):
+    def create_usb_reset(self, m, platform):
         """
-        Function that should create our ulpi reset, and connect it to:
-            m.domains.ulpi.rst / self.ulpi_rst
+        Function that should create our USB reset, and connect it to:
+            m.domains.usb.rst / self.usb_rst
         """
 
-        m.submodules.ulpi_reset = controller = PHYResetController()
+        m.submodules.usb_reset = controller = PHYResetController()
         m.d.comb += [
-            ResetSignal("ulpi")  .eq(controller.phy_reset),
-            self.ulpi_holdoff    .eq(controller.phy_stop)
+            ResetSignal("usb")  .eq(controller.phy_reset),
+            self.usb_holdoff    .eq(controller.phy_stop)
         ]
 
 
@@ -197,24 +196,24 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
         # Create our clock domains.
         m.domains.fast = self.fast = ClockDomain()
         m.domains.sync = self.sync = ClockDomain()
-        m.domains.ulpi = self.ulpi = ClockDomain()
+        m.domains.usb  = self.usb  = ClockDomain()
 
         # Call the hook that will create any submodules necessary for all clocks.
         self.create_submodules(m, platform)
 
         # Generate and connect up our clocks.
         m.d.comb += [
-            self.clk_ulpi                  .eq(self.generate_ulpi_clock(m, platform)),
+            self.clk_usb                   .eq(self.generate_usb_clock(m, platform)),
             self.clk_sync                  .eq(self.generate_sync_clock(m, platform)),
             self.clk_fast                  .eq(self.generate_fast_clock(m, platform)),
 
             ClockSignal(domain="fast")     .eq(self.clk_fast),
             ClockSignal(domain="sync")     .eq(self.clk_sync),
-            ClockSignal(domain="ulpi")     .eq(self.clk_ulpi),
+            ClockSignal(domain="usb")      .eq(self.clk_usb),
         ]
 
         # Call the hook that will connect up our reset signals.
-        self.create_ulpi_reset(m, platform)
+        self.create_usb_reset(m, platform)
 
         return m
 
@@ -232,16 +231,16 @@ class LunaECP5DomainGenerator(LunaDomainGenerator):
     DEFAULT_CLOCK_FREQUENCIES_MHZ = {
         "fast": 240,
         "sync": 120,
-        "ulpi": 60
+        "usb":  60
     }
 
     def __init__(self, *, clock_frequencies=None, clock_signal_name=None):
         """
         Parameters:
-            clock_frequencies -- A dictionary mapping 'fast', 'sync', and 'ulpi' to the clock
+            clock_frequencies -- A dictionary mapping 'fast', 'sync', and 'usb' to the clock
                                  frequencies for those domains, in MHz. Valid choices for each
                                  domain are 60, 120, and 240. If not provided, fast will be
-                                 assumed to be 240, sync will assumed to be 120, and ulpi will
+                                 assumed to be 240, sync will assumed to be 120, and usb will
                                  be assumed to be a standard 60.
         """
         super().__init__(clock_signal_name=clock_signal_name)
@@ -378,8 +377,8 @@ class LunaECP5DomainGenerator(LunaDomainGenerator):
         ]
 
 
-    def generate_ulpi_clock(self, m, platform):
-        return self._clock_options[self.clock_frequencies['ulpi']]
+    def generate_usb_clock(self, m, platform):
+        return self._clock_options[self.clock_frequencies['usb']]
 
     def generate_sync_clock(self, m, platform):
         return self._clock_options[self.clock_frequencies['sync']]
@@ -388,10 +387,12 @@ class LunaECP5DomainGenerator(LunaDomainGenerator):
         return self._clock_options[self.clock_frequencies['fast']]
 
 
-    def stretch_sync_strobe_to_ulpi(self, m, strobe, output=None, allow_delay=False):
+    def stretch_sync_strobe_to_usb(self, m, strobe, output=None, allow_delay=False):
         """
-        Helper that stretches a strobe from the `sync` domain to communicate with the `ulpi` domain.
-        Works for any chosen frequency in which f(ulpi) < f(sync).
+        Helper that stretches a strobe from the `sync` domain to communicate with the `usn` domain.
+        Works for any chosen frequency in which f(usb) < f(sync).
         """
-        to_cycles = self.clock_frequencies['sync'] // self.clock_frequencies['ulpi']
+
+        # TODO: replace with nMigen's pulsesynchronizer?
+        to_cycles = self.clock_frequencies['sync'] // self.clock_frequencies['usb']
         return stretch_strobe_signal(m, strobe, output=output, to_cycles=to_cycles, allow_delay=allow_delay)

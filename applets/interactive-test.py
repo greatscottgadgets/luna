@@ -26,7 +26,7 @@ from luna.apollo.support.selftest     import ApolloSelfTestCase, named_test
 CLOCK_FREQUENCIES = {
     "fast": 60,
     "sync": 60,
-    "ulpi": 60
+    "usb":  60
 }
 
 
@@ -170,17 +170,14 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
         # ULPI PHY windows
         #
         self.add_ulpi_registers(m, platform,
-            clock=clocking.clk_ulpi,
             ulpi_bus="target_phy",
             register_base=REGISTER_TARGET_ADDR
         )
         self.add_ulpi_registers(m, platform,
-            clock=clocking.clk_ulpi,
             ulpi_bus="host_phy",
             register_base=REGISTER_HOST_ADDR
         )
         self.add_ulpi_registers(m, platform,
-            clock=clocking.clk_ulpi,
             ulpi_bus="sideband_phy",
             register_base=REGISTER_SIDEBAND_ADDR
         )
@@ -248,7 +245,7 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
         return m
 
 
-    def add_ulpi_registers(self, m, platform, *, ulpi_bus, clock, register_base):
+    def add_ulpi_registers(self, m, platform, *, ulpi_bus, register_base):
         """ Adds a set of ULPI registers to the active design. """
 
         target_ulpi      = platform.request(ulpi_bus)
@@ -261,8 +258,8 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
             ulpi_reg_window.ulpi_dir      .eq(target_ulpi.dir),
             ulpi_reg_window.ulpi_next     .eq(target_ulpi.nxt),
 
-            target_ulpi.clk      .eq(ClockSignal("ulpi")),
-            target_ulpi.rst      .eq(ResetSignal("ulpi")),
+            target_ulpi.clk      .eq(ClockSignal("usb")),
+            target_ulpi.rst      .eq(ResetSignal("usb")),
             target_ulpi.stp      .eq(ulpi_reg_window.ulpi_stop),
             target_ulpi.data.o   .eq(ulpi_reg_window.ulpi_data_out),
             target_ulpi.data.oe  .eq(~target_ulpi.dir)
@@ -278,7 +275,7 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
             value_signal=ulpi_reg_window.address,
             size=6
         )
-        m.submodules.clocking.stretch_sync_strobe_to_ulpi(m,
+        m.submodules.clocking.stretch_sync_strobe_to_usb(m,
             strobe=register_address_change,
             output=ulpi_reg_window.read_request,
         )
@@ -289,7 +286,7 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
             write_signal=ulpi_reg_window.write_data,
             write_strobe=register_value_change
         )
-        m.submodules.clocking.stretch_sync_strobe_to_ulpi(m,
+        m.submodules.clocking.stretch_sync_strobe_to_usb(m,
             strobe=register_value_change,
             output=ulpi_reg_window.write_request
         )

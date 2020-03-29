@@ -9,7 +9,7 @@ import unittest
 from nmigen            import Signal, Module, Elaboratable, Memory, Record
 from nmigen.back.pysim import Simulator
 
-from ..test           import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
+from ..test           import LunaGatewareTestCase, usb_domain_test_case, sync_test_case
 
 
 class USBAnalyzer(Elaboratable):
@@ -66,8 +66,8 @@ class USBAnalyzer(Elaboratable):
         m = Module()
 
         # Memory read and write ports.
-        m.submodules.read  = mem_read_port  = self.mem.read_port(domain="ulpi")
-        m.submodules.write = mem_write_port = self.mem.write_port(domain="ulpi")
+        m.submodules.read  = mem_read_port  = self.mem.read_port(domain="usb")
+        m.submodules.write = mem_write_port = self.mem.write_port(domain="usb")
 
         # Store the memory address of our active packet header, which will store
         # packet metadata like the packet size.
@@ -102,7 +102,7 @@ class USBAnalyzer(Elaboratable):
 
         # Once our consumer has accepted our current data, move to the next address.
         with m.If(self.next & self.data_available):
-            m.d.ulpi += read_location.eq(read_location + 1)
+            m.d.usb += read_location.eq(read_location + 1)
 
 
         #
@@ -124,15 +124,15 @@ class USBAnalyzer(Elaboratable):
 
         # Otherwise, add when data's added, and subtract when data's removed.
         with m.Elif(data_push):
-            m.d.ulpi += fifo_count.eq(fifo_count + 1)
+            m.d.usb += fifo_count.eq(fifo_count + 1)
         with m.Elif(data_pop):
-            m.d.ulpi += fifo_count.eq(fifo_count - 1)
+            m.d.usb += fifo_count.eq(fifo_count - 1)
 
 
         #
         # Core analysis FSM.
         #
-        with m.FSM(domain="ulpi") as f:
+        with m.FSM(domain="usb") as f:
             m.d.comb += [
                 self.overrun   .eq(f.ongoing("OVERRUN")),
                 self.capturing .eq(f.ongoing("CAPTURE")),
@@ -145,7 +145,7 @@ class USBAnalyzer(Elaboratable):
                 # TODO: add triggering logic?
                 with m.If(self.utmi.rx_active):
                     m.next = "CAPTURE"
-                    m.d.ulpi += [
+                    m.d.usb += [
                         header_location  .eq(write_location),
                         write_location   .eq(write_location + self.HEADER_SIZE_BYTES),
                         packet_size      .eq(0),
@@ -165,7 +165,7 @@ class USBAnalyzer(Elaboratable):
 
                 # Advance the write pointer each time we receive a bit.
                 with m.If(self.utmi.rx_valid & self.utmi.rx_active):
-                    m.d.ulpi += [
+                    m.d.usb += [
                         write_location  .eq(write_location + 1),
                         packet_size     .eq(packet_size + 1)
                     ]
@@ -182,7 +182,7 @@ class USBAnalyzer(Elaboratable):
                     # to create a packet. Clear our header from the FIFO and disarm.
                     with m.If(packet_size == 0):
                         m.next = "IDLE"
-                        m.d.ulpi += [
+                        m.d.usb += [
                             write_location.eq(header_location)
                         ]
                     with m.Else():
@@ -221,7 +221,7 @@ class USBAnalyzer(Elaboratable):
                 # or our idle state, depending on whether we have another rx.
                 with m.If(self.utmi.rx_active):
                     m.next = "CAPTURE"
-                    m.d.ulpi += [
+                    m.d.usb += [
                         header_location  .eq(write_location),
                         write_location   .eq(write_location + self.HEADER_SIZE_BYTES),
                         packet_size      .eq(0),
@@ -254,7 +254,7 @@ class USBAnalyzer(Elaboratable):
 class USBAnalyzerTest(LunaGatewareTestCase):
 
     SYNC_CLOCK_FREQUENCY = None
-    ULPI_CLOCK_FREQUENCY = 60e6
+    USB_CLOCK_FREQUENCY = 60e6
 
     def instantiate_dut(self):
         self.utmi = Record([
@@ -274,7 +274,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         yield
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_single_packet(self):
 
         # Ensure we're not capturing until a transaction starts.
@@ -324,7 +324,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.data_available), 0)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_short_packet(self):
 
         # Apply our first input, and validate that we start capturing.
@@ -363,7 +363,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.data_available), 0)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_rx_valid_low(self):
 
         # Apply our first input, and validate that we start capturing.
@@ -410,7 +410,7 @@ class USBAnalyzerTest(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.data_available), 0)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_multi_packet_with_overflow(self):
 
         yield self.utmi.rx_active.eq(1)
@@ -475,7 +475,7 @@ class USBAnalyzerStackTest(LunaGatewareTestCase):
     """ Test that evaluates a full-stack USB analyzer setup. """
 
     SYNC_CLOCK_FREQUENCY = None
-    ULPI_CLOCK_FREQUENCY = 60e6
+    USB_CLOCK_FREQUENCY = 60e6
 
 
     def instantiate_dut(self):
@@ -513,7 +513,7 @@ class USBAnalyzerStackTest(LunaGatewareTestCase):
         yield self.translator.use_external_vbus_indicator.eq(0)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_simple_analysis(self):
         yield from self.advance_cycles(10)
 

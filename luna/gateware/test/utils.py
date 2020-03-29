@@ -37,18 +37,18 @@ def sync_test_case(process_function, *, domain="sync"):
     return run_test
 
 
-def ulpi_domain_test_case(process_function):
+def usb_domain_test_case(process_function):
     """
     Decorator that converts a function into a simple synchronous-process
-    test case in the ULPI domain.
+    test case in the USB domain.
     """
-    return sync_test_case(process_function, domain='ulpi')
+    return sync_test_case(process_function, domain='usb')
 
 
 def fast_domain_test_case(process_function):
     """
     Decorator that converts a function into a simple synchronous-process
-    test case in the ULPI domain.
+    test case in the fast domain.
     """
     return sync_test_case(process_function, domain='fast')
 
@@ -65,7 +65,7 @@ class LunaGatewareTestCase(FHDLTestCase):
     # will automatically be added.
     FAST_CLOCK_FREQUENCY = None
     SYNC_CLOCK_FREQUENCY = 120e6
-    ULPI_CLOCK_FREQUENCY = None
+    USB_CLOCK_FREQUENCY  = None
 
 
     def instantiate_dut(self):
@@ -85,8 +85,8 @@ class LunaGatewareTestCase(FHDLTestCase):
         self.dut = self.instantiate_dut()
         self.sim = Simulator(self.dut)
 
-        if self.ULPI_CLOCK_FREQUENCY:
-            self.sim.add_clock(1 / self.ULPI_CLOCK_FREQUENCY, domain="ulpi")
+        if self.USB_CLOCK_FREQUENCY:
+            self.sim.add_clock(1 / self.USB_CLOCK_FREQUENCY, domain="usb")
         if self.SYNC_CLOCK_FREQUENCY:
             self.sim.add_clock(1 / self.SYNC_CLOCK_FREQUENCY, domain="sync")
         if self.FAST_CLOCK_FREQUENCY:

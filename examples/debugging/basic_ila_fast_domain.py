@@ -20,7 +20,7 @@ from luna.apollo                      import create_ila_frontend
 CLOCK_FREQUENCIES = {
     "fast": 240,
     "sync": 120,
-    "ulpi": 60
+    "usb":  60
 }
 
 class ILAExample(Elaboratable):

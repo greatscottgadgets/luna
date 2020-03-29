@@ -10,7 +10,7 @@ from nmigen         import Signal, Module, Cat, Elaboratable, ClockSignal, \
                            Record, ResetSignal, Const
 from nmigen.hdl.ast import Rose, Fell, Past
 
-from ..test         import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
+from ..test         import LunaGatewareTestCase, usb_domain_test_case, sync_test_case
 
 
 
@@ -71,13 +71,13 @@ class ULPIRegisterWindow(Elaboratable):
         current_write   = Signal(8)
 
         # Keep our control signals low unless explicitly asserted.
-        m.d.ulpi += [
+        m.d.usb += [
             self.ulpi_out_req.eq(0),
             self.ulpi_stop   .eq(0),
             self.done        .eq(0)
         ]
 
-        with m.FSM(domain='ulpi') as fsm:
+        with m.FSM(domain="usb") as fsm:
 
             # We're busy whenever we're not IDLE; indicate so.
             m.d.comb += self.busy.eq(~fsm.ongoing('IDLE'))
@@ -91,11 +91,11 @@ class ULPIRegisterWindow(Elaboratable):
                 # operation, as the controller should handle this,
                 # but it cleans up the output in our tests and allows
                 # this unit to be used standalone.
-                m.d.ulpi += self.ulpi_data_out.eq(0)
+                m.d.usb += self.ulpi_data_out.eq(0)
 
                 # Constantly latch in our arguments while IDLE.
                 # We'll stop latching these in as soon as we're busy.
-                m.d.ulpi += [
+                m.d.usb += [
                     current_address .eq(self.address),
                     current_write   .eq(self.write_data)
                 ]
@@ -118,7 +118,7 @@ class ULPIRegisterWindow(Elaboratable):
                     m.next = 'SEND_READ_ADDRESS'
 
                     # Once it is, start sending our command.
-                    m.d.ulpi += [
+                    m.d.usb += [
                         self.ulpi_data_out .eq(self.COMMAND_REG_READ | self.address),
                         self.ulpi_out_req  .eq(1)
                     ]
@@ -129,19 +129,19 @@ class ULPIRegisterWindow(Elaboratable):
             # to come into this state writing, as we need to lead with a
             # bus-turnaround cycle.
             with m.State('SEND_READ_ADDRESS'):
-                m.d.ulpi += self.ulpi_out_req.eq(1)
+                m.d.usb += self.ulpi_out_req.eq(1)
 
                 # If DIR has become asserted, we're being interrupted.
                 # We'll have to restart the read after the interruption is over.
                 with m.If(self.ulpi_dir):
                     m.next = 'START_READ'
-                    m.d.ulpi += self.ulpi_out_req.eq(0)
+                    m.d.usb += self.ulpi_out_req.eq(0)
 
                 # If NXT becomes asserted without us being interrupted by
                 # DIR, then the PHY has accepted the read. Release our write
                 # request, so the next cycle can properly act as a bus turnaround.
                 with m.Elif(self.ulpi_next):
-                    m.d.ulpi += [
+                    m.d.usb += [
                         self.ulpi_out_req  .eq(0),
                         self.ulpi_data_out .eq(0),
                     ]
@@ -160,7 +160,7 @@ class ULPIRegisterWindow(Elaboratable):
                 m.next = 'IDLE'
 
                 # Latch in the data, and indicate that we have new, valid data.
-                m.d.ulpi += [
+                m.d.usb += [
                     self.read_data .eq(self.ulpi_data_in),
                     self.done      .eq(1)
                 ]
@@ -177,7 +177,7 @@ class ULPIRegisterWindow(Elaboratable):
                     m.next = 'SEND_WRITE_ADDRESS'
 
                     # Once it is, start sending our command.
-                    m.d.ulpi += [
+                    m.d.usb += [
                         self.ulpi_data_out .eq(self.COMMAND_REG_WRITE | self.address),
                         self.ulpi_out_req  .eq(1)
                     ]
@@ -185,34 +185,34 @@ class ULPIRegisterWindow(Elaboratable):
             # SEND_WRITE_ADDRESS: Continue sending the write address until the
             # target device accepts it.
             with m.State('SEND_WRITE_ADDRESS'):
-                m.d.ulpi += self.ulpi_out_req.eq(1)
+                m.d.usb += self.ulpi_out_req.eq(1)
 
                 # If DIR has become asserted, we're being interrupted.
                 # We'll have to restart the write after the interruption is over.
                 with m.If(self.ulpi_dir):
                     m.next = 'START_WRITE'
-                    m.d.ulpi += self.ulpi_out_req.eq(0)
+                    m.d.usb += self.ulpi_out_req.eq(0)
 
                 # Hold our address until the PHY has accepted the command;
                 # and then move to presenting the PHY with the value to be written.
                 with m.Elif(self.ulpi_next):
-                    m.d.ulpi += self.ulpi_data_out.eq(self.write_data)
+                    m.d.usb += self.ulpi_data_out.eq(self.write_data)
                     m.next = 'HOLD_WRITE'
 
 
             # Hold the write data on the bus until the device acknowledges it.
             with m.State('HOLD_WRITE'):
-                m.d.ulpi += self.ulpi_out_req.eq(1)
+                m.d.usb += self.ulpi_out_req.eq(1)
 
                 # Handle interruption.
                 with m.If(self.ulpi_dir):
                     m.next = 'START_WRITE'
-                    m.d.ulpi += self.ulpi_out_req.eq(0)
+                    m.d.usb += self.ulpi_out_req.eq(0)
 
                 # Hold the data present until the device has accepted it.
                 # Once it has, pulse STP for a cycle to complete the transaction.
                 with m.Elif(self.ulpi_next):
-                    m.d.ulpi += [
+                    m.d.usb += [
                         self.ulpi_data_out.eq(0),
                         self.ulpi_out_req.eq(0),
                         self.ulpi_stop.eq(1),
@@ -227,7 +227,7 @@ class ULPIRegisterWindow(Elaboratable):
 class TestULPIRegisters(LunaGatewareTestCase):
     FRAGMENT_UNDER_TEST = ULPIRegisterWindow
 
-    ULPI_CLOCK_FREQUENCY = 60e6
+    USB_CLOCK_FREQUENCY = 60e6
     SYNC_CLOCK_FREQUENCY = None
 
     def initialize_signals(self):
@@ -237,13 +237,13 @@ class TestULPIRegisters(LunaGatewareTestCase):
         yield self.dut.write_request.eq(0)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_idle_behavior(self):
         """ Ensure we apply a NOP whenever we're not actively performing a command. """
         self.assertEqual((yield self.dut.ulpi_data_out), 0)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_register_read(self):
         """ Validates a register read. """
 
@@ -284,7 +284,7 @@ class TestULPIRegisters(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.busy), 0)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_interrupted_read(self):
         """ Validates how a register read works when interrupted by a change in DIR. """
 
@@ -332,7 +332,7 @@ class TestULPIRegisters(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.busy), 0)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_register_write(self):
 
         # Set up a write request.
@@ -440,27 +440,27 @@ class ULPIRxEventDecoder(Elaboratable):
         # To implement the first condition, we'll first create a delayed
         # version of DIR, and then logically AND it with the current value.
         direction_delayed = Signal()
-        m.d.ulpi += direction_delayed.eq(self.ulpi.dir)
+        m.d.usb += direction_delayed.eq(self.ulpi.dir)
 
         receiving = Signal()
         m.d.comb += receiving.eq(direction_delayed & self.ulpi.dir)
 
         # Default our strobes to 0, unless asserted.
-        m.d.ulpi += [
+        m.d.usb += [
             self.rx_start  .eq(0),
             self.rx_stop   .eq(0)
         ]
 
         # Sample the DATA lines whenever these conditions are met.
         with m.If(receiving & ~self.ulpi.nxt & ~self.register_operation_in_progress):
-            m.d.ulpi += self.last_rx_command.eq(self.ulpi.data.i)
+            m.d.usb += self.last_rx_command.eq(self.ulpi.data.i)
 
             # If RxActive has just changed, strobe the start or stop signals,
             rx_active = self.ulpi.data.i[4]
             with m.If(~self.rx_active & rx_active):
-                m.d.ulpi += self.rx_start.eq(1)
+                m.d.usb += self.rx_start.eq(1)
             with m.If(self.rx_active & ~rx_active):
-                m.d.ulpi += self.rx_stop.eq(1)
+                m.d.usb += self.rx_stop.eq(1)
 
 
         # Break the most recent RxCmd into its UTMI-equivalent signals.
@@ -481,7 +481,7 @@ class ULPIRxEventDecoder(Elaboratable):
 
 class ULPIRxEventDecoderTest(LunaGatewareTestCase):
 
-    ULPI_CLOCK_FREQUENCY = 60e6
+    USB_CLOCK_FREQUENCY = 60e6
     SYNC_CLOCK_FREQUENCY = None
 
     def instantiate_dut(self):
@@ -504,7 +504,7 @@ class ULPIRxEventDecoderTest(LunaGatewareTestCase):
         yield self.dut.register_operation_in_progress.eq(0)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_decode(self):
 
         # Provide a test value.
@@ -638,13 +638,13 @@ class ULPIControlTranslator(Elaboratable):
 
         # If we've just finished a write, update our current register value.
         with m.If(write_done):
-            m.d.ulpi += current_register_value.eq(write_value),
+            m.d.usb += current_register_value.eq(write_value),
 
         # If we have a mismatch between the requested and actual register value,
         # request a write of the new value.
         m.d.comb += write_requested.eq(current_register_value != value)
         with m.If(current_register_value != value):
-            m.d.ulpi += write_value.eq(value)
+            m.d.usb += write_value.eq(value)
 
 
     def populate_ulpi_registers(self, m):
@@ -719,7 +719,7 @@ class ULPIControlTranslator(Elaboratable):
 
 class ControlTranslatorTest(LunaGatewareTestCase):
 
-    ULPI_CLOCK_FREQUENCY = 60e6
+    USB_CLOCK_FREQUENCY = 60e6
     SYNC_CLOCK_FREQUENCY = None
 
     def instantiate_dut(self):
@@ -738,7 +738,7 @@ class ControlTranslatorTest(LunaGatewareTestCase):
         yield dut.bus_idle.eq(1)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_multiwrite_behavior(self):
 
         # Give our initialization some time to settle,
@@ -840,7 +840,7 @@ class ULPITransmitTranslator(Elaboratable):
             self.ulpi_out_req  .eq(0)
         ]
 
-        with m.FSM(domain="ulpi") as fsm:
+        with m.FSM(domain="usb") as fsm:
 
             # Mark ourselves as busy whenever we're not in idle.
             m.d.comb += self.busy.eq(~fsm.ongoing('IDLE'))
@@ -911,7 +911,7 @@ class ULPITransmitTranslator(Elaboratable):
 
 
 class ULPITransmitTranslatorTest(LunaGatewareTestCase):
-    ULPI_CLOCK_FREQUENCY=60e6
+    USB_CLOCK_FREQUENCY=60e6
     SYNC_CLOCK_FREQUENCY=None
 
     FRAGMENT_UNDER_TEST = ULPITransmitTranslator
@@ -919,7 +919,7 @@ class ULPITransmitTranslatorTest(LunaGatewareTestCase):
     def initialize_signals(self):
         yield self.dut.bus_idle.eq(1)
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_simple_transmit(self):
         dut = self.dut
 
@@ -967,7 +967,7 @@ class ULPITransmitTranslatorTest(LunaGatewareTestCase):
         self.assertEqual((yield dut.ulpi_stp),      0)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_handshake(self):
         dut = self.dut
 
@@ -1165,8 +1165,8 @@ class UTMITranslator(Elaboratable):
             self.busy                    .eq(register_window.busy),
 
             # Connect up our clock and reset signals.
-            self.ulpi.clk                .eq(ClockSignal("ulpi")),
-            self.ulpi.rst                .eq(ResetSignal("ulpi")),
+            self.ulpi.clk                .eq(ClockSignal("usb")),
+            self.ulpi.rst                .eq(ResetSignal("usb")),
 
             # Connect our data inputs to the event decoder.
             # Note that the event decoder is purely passive.
@@ -1221,15 +1221,15 @@ class UTMITranslator(Elaboratable):
         # A transmission starts when DIR goes high with NXT, or when an RxEvent indicates
         # a switch from RxActive = 0 to RxActive = 1. A transmission stops when DIR drops low,
         # or when the RxEvent RxActive bit drops from 1 to 0, or an error occurs.A
-        dir_rising_edge = Rose(self.ulpi.dir.i, domain='ulpi')
+        dir_rising_edge = Rose(self.ulpi.dir.i, domain="usb")
         dir_based_start = dir_rising_edge & self.ulpi.nxt
 
 
         with m.If(~self.ulpi.dir | rxevent_decoder.rx_stop):
             # TODO: this should probably also trigger if RxError
-            m.d.ulpi += self.rx_active.eq(0)
+            m.d.usb += self.rx_active.eq(0)
         with m.Elif(dir_based_start | rxevent_decoder.rx_start):
-            m.d.ulpi += self.rx_active.eq(1)
+            m.d.usb += self.rx_active.eq(1)
 
 
         # Data-out: we'll connect this almost direct through from our ULPI
@@ -1237,7 +1237,7 @@ class UTMITranslator(Elaboratable):
         # add a one cycle processing delay so it matches the rest of our signals.
 
         # RxValid: equivalent to NXT whenever a Rx is active.
-        m.d.ulpi += [
+        m.d.usb += [
             self.rx_data   .eq(self.ulpi.data.i),
             self.rx_valid  .eq(self.ulpi.nxt & self.rx_active)
         ]

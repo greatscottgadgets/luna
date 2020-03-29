@@ -13,7 +13,7 @@ from nmigen.hdl.rec    import Record, DIR_FANIN, DIR_FANOUT
 from ..usb2            import USBSpeed
 from ...interface      import USBOutStreamInterface
 from ...interface.utmi import UTMITransmitInterface
-from ...test           import LunaGatewareTestCase, ulpi_domain_test_case
+from ...test           import LunaGatewareTestCase, usb_domain_test_case
 
 
 class DataCRCInterface(Record):
@@ -31,7 +31,7 @@ class DataCRCInterface(Record):
 
 class USBPacketizerTest(LunaGatewareTestCase):
     SYNC_CLOCK_FREQUENCY = None
-    ULPI_CLOCK_FREQUENCY = 60e6
+    USB_CLOCK_FREQUENCY = 60e6
 
     def instantiate_dut(self, extra_arguments={}):
         self.utmi = Record([
@@ -145,13 +145,13 @@ class USBTokenDetector(Elaboratable):
         current_pid      = Signal.like(self.pid)
 
         # Keep our strobes un-asserted unless otherwise specified.
-        m.d.ulpi += [
+        m.d.usb += [
             self.new_frame  .eq(0),
             self.new_token  .eq(0)
         ]
 
 
-        with m.FSM(domain="ulpi"):
+        with m.FSM(domain="usb"):
 
             # IDLE -- waiting for a packet to be presented
             with m.State("IDLE"):
@@ -171,7 +171,7 @@ class USBTokenDetector(Elaboratable):
 
                     # If we have a valid token, move to capture it.
                     with m.If(is_token & is_valid_pid):
-                        m.d.ulpi += current_pid.eq(self.utmi.rx_data)
+                        m.d.usb += current_pid.eq(self.utmi.rx_data)
                         m.next = "READ_TOKEN_0"
 
                     # Otherwise, ignore this packet as a non-token.
@@ -189,7 +189,7 @@ class USBTokenDetector(Elaboratable):
 
                 # If we have a new byte, grab it, and move on to the next.
                 with m.Elif(self.utmi.rx_valid):
-                    m.d.ulpi += token_data.eq(self.utmi.rx_data)
+                    m.d.usb += token_data.eq(self.utmi.rx_data)
                     m.next = "READ_TOKEN_1"
 
 
@@ -206,7 +206,7 @@ class USBTokenDetector(Elaboratable):
 
                     # If the token has a valid CRC, capture it...
                     with m.If(self.utmi.rx_data[3:8] == expected_crc):
-                        m.d.ulpi += token_data[8:].eq(self.utmi.rx_data)
+                        m.d.usb += token_data[8:].eq(self.utmi.rx_data)
                         m.next = "TOKEN_COMPLETE"
 
                     # ... otherwise, we'll ignore the whole token, as we can't tell
@@ -227,7 +227,7 @@ class USBTokenDetector(Elaboratable):
                     # the frame number from this, rather than our typical
                     # token fields.
                     with m.If(current_pid == self.SOF_PID):
-                        m.d.ulpi += [
+                        m.d.usb += [
                             self.frame      .eq(token_data),
                             self.new_frame  .eq(1),
                         ]
@@ -240,7 +240,7 @@ class USBTokenDetector(Elaboratable):
                         # Otherwise, always count tokens -- we'll report the address on the output.
                         token_applicable = (token_data[0:7] == self.address) if self.filter_by_address else True
                         with m.If(token_applicable):
-                            m.d.ulpi += [
+                            m.d.usb += [
                                 self.pid        .eq(current_pid),
                                 self.new_token  .eq(1),
                             ]
@@ -248,9 +248,9 @@ class USBTokenDetector(Elaboratable):
                             # If we're filtering by address, only output the endpoint
                             # signal. Otherwise, report the address as well.
                             if self.filter_by_address:
-                                m.d.ulpi += self.endpoint.eq(token_data[7:])
+                                m.d.usb += self.endpoint.eq(token_data[7:])
                             else:
-                                m.d.ulpi += Cat(self.address, self.endpoint).eq(token_data),
+                                m.d.usb += Cat(self.address, self.endpoint).eq(token_data),
 
 
                 # Otherwise, if we get more data, we've received a malformed
@@ -271,7 +271,7 @@ class USBTokenDetector(Elaboratable):
 class USBTokenDetectorTest(USBPacketizerTest):
     FRAGMENT_UNDER_TEST = USBTokenDetector
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_valid_token(self):
         dut = self.dut
 
@@ -302,7 +302,7 @@ class USBTokenDetectorTest(USBPacketizerTest):
         self.assertEqual((yield dut.new_token), 0)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_valid_start_of_frame(self):
         dut = self.dut
         yield from self.provide_packet(0b10100101, 0b00111010, 0b00111101)
@@ -315,7 +315,7 @@ class USBTokenDetectorTest(USBPacketizerTest):
         self.assertEqual((yield dut.frame), 0x53a)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_token_to_other_device(self):
         dut = self.dut
 
@@ -372,7 +372,7 @@ class USBHandshakeDetector(Elaboratable):
         active_pid = Signal(4)
 
         # Keep our strobes un-asserted unless otherwise specified.
-        m.d.ulpi += [
+        m.d.usb += [
             self.ack_detected    .eq(0),
             self.nak_detected    .eq(0),
             self.stall_detected  .eq(0),
@@ -380,7 +380,7 @@ class USBHandshakeDetector(Elaboratable):
         ]
 
 
-        with m.FSM(domain="ulpi"):
+        with m.FSM(domain="usb"):
 
             # IDLE -- waiting for a packet to be presented
             with m.State("IDLE"):
@@ -399,7 +399,7 @@ class USBHandshakeDetector(Elaboratable):
 
                     # If we have a valid PID, move to capture it.
                     with m.If(is_valid_pid):
-                        m.d.ulpi += active_pid.eq(self.utmi.rx_data)
+                        m.d.usb += active_pid.eq(self.utmi.rx_data)
                         m.next = "AWAIT_COMPLETION"
 
                     # Otherwise, ignore this packet as a non-token.
@@ -414,7 +414,7 @@ class USBHandshakeDetector(Elaboratable):
                 # Once our receive is complete, we can parse the PID
                 # and identify the event.
                 with m.If(~self.utmi.rx_active):
-                    m.d.ulpi += [
+                    m.d.usb += [
                         self.ack_detected    .eq(active_pid == self.ACK_PID),
                         self.nak_detected    .eq(active_pid == self.NAK_PID),
                         self.stall_detected  .eq(active_pid == self.STALL_PID),
@@ -440,22 +440,22 @@ class USBHandshakeDetector(Elaboratable):
 class USBHandshakeDetectorTest(USBPacketizerTest):
     FRAGMENT_UNDER_TEST = USBHandshakeDetector
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_ack(self):
         yield from self.provide_packet(0b11010010)
         self.assertEqual((yield self.dut.ack_detected), 1)
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_nak(self):
         yield from self.provide_packet(0b01011010)
         self.assertEqual((yield self.dut.nak_detected), 1)
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_stall(self):
         yield from self.provide_packet(0b00011110)
         self.assertEqual((yield self.dut.stall_detected), 1)
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_nyet(self):
         yield from self.provide_packet(0b10010110)
         self.assertEqual((yield self.dut.nyet_detected), 1)
@@ -557,13 +557,13 @@ class USBDataPacketCRC(Elaboratable):
         # If we're clearing our CRC in progress, move our holding register back to
         # our initial value.
         with m.If(clear):
-            m.d.ulpi += crc.eq(self._initial_value)
+            m.d.usb += crc.eq(self._initial_value)
 
         # Otherwise, update the CRC whenever we have new data.
         with m.Elif(self.rx_valid):
-            m.d.ulpi += crc.eq(self._generate_next_crc(crc, self.rx_data))
+            m.d.usb += crc.eq(self._generate_next_crc(crc, self.rx_data))
         with m.Elif(self.tx_valid):
-            m.d.ulpi += crc.eq(self._generate_next_crc(crc, self.tx_data))
+            m.d.usb += crc.eq(self._generate_next_crc(crc, self.tx_data))
 
         # Convert from our intermediary "running CRC" format into the current CRC-16...
         m.d.comb += output_crc.eq(~crc[::-1])
@@ -646,10 +646,10 @@ class USBDataPacketDeserializer(Elaboratable):
         last_word          = Signal(16)
 
         # Keep our control signals + strobes un-asserted unless otherwise specified.
-        m.d.ulpi += self.new_packet      .eq(0)
+        m.d.usb += self.new_packet      .eq(0)
         m.d.comb += self.data_crc.start  .eq(0)
 
-        with m.FSM(domain="ulpi"):
+        with m.FSM(domain="usb"):
 
             # IDLE -- waiting for a packet to be presented
             with m.State("IDLE"):
@@ -671,7 +671,7 @@ class USBDataPacketDeserializer(Elaboratable):
 
                     # If this is a data packet, capture it.
                     with m.If(is_valid_pid & is_data):
-                        m.d.ulpi += [
+                        m.d.usb += [
                             active_pid          .eq(self.utmi.rx_data),
                             position_in_packet  .eq(0)
                         ]
@@ -693,7 +693,7 @@ class USBDataPacketDeserializer(Elaboratable):
                         m.next = "IRRELEVANT"
 
                     with m.Else():
-                        m.d.ulpi += [
+                        m.d.usb += [
                             active_packet[position_in_packet]  .eq(self.utmi.rx_data),
                             position_in_packet                 .eq(position_in_packet + 1),
 
@@ -708,14 +708,14 @@ class USBDataPacketDeserializer(Elaboratable):
                 with m.If(~self.utmi.rx_active):
 
                     with m.If(last_word_crc == last_word):
-                        m.d.ulpi += [
+                        m.d.usb += [
                             self.packet_id   .eq(active_pid),
                             self.length      .eq(position_in_packet - 2),
                             self.new_packet  .eq(1)
                         ]
 
                         for i in range(self._max_packet_size):
-                            m.d.ulpi += self.packet[i].eq(active_packet[i]),
+                            m.d.usb += self.packet[i].eq(active_packet[i]),
 
                         m.next = "IDLE"
 
@@ -735,7 +735,7 @@ class USBDataPacketDeserializerTest(USBPacketizerTest):
         return super().instantiate_dut(extra_arguments={'create_crc_generator': True})
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_packet_rx(self):
         yield from self.provide_packet(
             0b11000011,                                     # PID
@@ -752,7 +752,7 @@ class USBDataPacketDeserializerTest(USBPacketizerTest):
         self.assertEqual((yield self.dut.packet[3]),  0b10001001)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_captured_usb_sample(self):
         yield from self.provide_packet(
             0xC3,                                           # PID: Data
@@ -763,7 +763,7 @@ class USBDataPacketDeserializerTest(USBPacketizerTest):
         # Ensure we've gotten a new packet.
         self.assertEqual((yield self.dut.new_packet), 1, "packet not recognized")
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_invalid_rx(self):
         yield from self.provide_packet(
             0b11000011,                                     # PID
@@ -842,7 +842,7 @@ class USBDataPacketGenerator(Elaboratable):
                 crc.tx_valid          .eq(self.tx.ready)
             ]
 
-        with m.FSM(domain="ulpi"):
+        with m.FSM(domain="usb"):
 
             # IDLE -- waiting for an active transmission to start.
             with m.State('IDLE'):
@@ -892,7 +892,7 @@ class USBDataPacketGenerator(Elaboratable):
             with m.State('SEND_CRC_FIRST'):
 
                 # Capture the current CRC for use in the next byte...
-                m.d.ulpi += remaining_crc.eq(self.crc.crc[8:])
+                m.d.usb += remaining_crc.eq(self.crc.crc[8:])
 
                 # Send the relevant CRC byte...
                 m.d.comb += [
@@ -921,7 +921,7 @@ class USBDataPacketGenerator(Elaboratable):
 
 class USBDataPacketGeneratorTest(LunaGatewareTestCase):
     SYNC_CLOCK_FREQUENCY = None
-    ULPI_CLOCK_FREQUENCY = 60e6
+    USB_CLOCK_FREQUENCY = 60e6
 
     FRAGMENT_UNDER_TEST = USBDataPacketGenerator
     FRAGMENT_ARGUMENTS  = {'standalone': True}
@@ -931,7 +931,7 @@ class USBDataPacketGeneratorTest(LunaGatewareTestCase):
         yield self.dut.tx.ready.eq(1)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_simple_data_generation(self):
         dut    = self.dut
         stream = self.dut.stream
@@ -1039,7 +1039,7 @@ class USBHandshakeGenerator(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-        with m.FSM(domain="ulpi"):
+        with m.FSM(domain="usb"):
 
             # IDLE -- we haven't yet received a request to transmit
             with m.State('IDLE'):
@@ -1050,15 +1050,15 @@ class USBHandshakeGenerator(Elaboratable):
                 # in preparation for the next cycle.
 
                 with m.If(self.issue_ack):
-                    m.d.ulpi += self.tx_interface.data  .eq(self.PACKET_ACK),
+                    m.d.usb += self.tx_interface.data  .eq(self.PACKET_ACK),
                     m.next = 'TRANSMIT'
 
                 with m.If(self.issue_nak):
-                    m.d.ulpi += self.tx_interface.data  .eq(self.PACKET_NAK),
+                    m.d.usb += self.tx_interface.data  .eq(self.PACKET_NAK),
                     m.next = 'TRANSMIT'
 
                 with m.If(self.issue_stall):
-                    m.d.ulpi += self.tx_interface.data  .eq(self.PACKET_STALL),
+                    m.d.usb += self.tx_interface.data  .eq(self.PACKET_STALL),
                     m.next = 'TRANSMIT'
 
 
@@ -1076,12 +1076,12 @@ class USBHandshakeGenerator(Elaboratable):
 
 class USBHandshakeGeneratorTest(LunaGatewareTestCase):
     SYNC_CLOCK_FREQUENCY = None
-    ULPI_CLOCK_FREQUENCY = 60e6
+    USB_CLOCK_FREQUENCY = 60e6
 
     FRAGMENT_UNDER_TEST  = USBHandshakeGenerator
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_ack_generation(self):
         dut = self.dut
 
@@ -1113,7 +1113,7 @@ class USBHandshakeGeneratorTest(LunaGatewareTestCase):
         self.assertEqual((yield dut.tx_interface.valid), 0)
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_already_ready(self):
         dut = self.dut
 
@@ -1255,9 +1255,9 @@ class USBInterpacketTimer(Elaboratable):
 
         # When a reset is requested, start the counter from 0.
         with m.If(any_reset):
-            m.d.ulpi += counter.eq(0)
+            m.d.usb += counter.eq(0)
         with m.Elif(counter < self.LS_TX_TO_RX_TIMEOUT + 1):
-            m.d.ulpi += counter.eq(counter + 1)
+            m.d.usb += counter.eq(counter + 1)
 
         #
         # Create our counter-progress strobes.
@@ -1299,7 +1299,7 @@ class USBInterpacketTimer(Elaboratable):
 
 class USBInterpacketTimerTest(LunaGatewareTestCase):
     SYNC_CLOCK_FREQUENCY = None
-    ULPI_CLOCK_FREQUENCY = 60e6
+    USB_CLOCK_FREQUENCY = 60e6
 
     def instantiate_dut(self):
         dut = USBInterpacketTimer()

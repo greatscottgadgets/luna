@@ -98,9 +98,10 @@ class ULPIDiagnostic(Elaboratable):
             analyzer.next               .eq(read_strobe)
         ]
 
+
         # Debug output.
         m.d.comb += [
-            platform.request("user_io", 0, dir="o") .eq(ClockSignal("ulpi")),
+            platform.request("user_io", 0, dir="o") .eq(ClockSignal("usb")),
             platform.request("user_io", 1, dir="o") .eq(ulpi.dir),
             platform.request("user_io", 2, dir="o") .eq(ulpi.nxt),
             platform.request("user_io", 3, dir="o") .eq(analyzer.sampling),

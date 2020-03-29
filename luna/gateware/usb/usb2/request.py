@@ -6,7 +6,7 @@
 import unittest
 
 from nmigen            import Signal, Module, Elaboratable, Cat, Record
-from ...test           import ulpi_domain_test_case
+from ...test           import usb_domain_test_case
 
 from .                 import USBSpeed
 from .packet           import USBTokenDetector, USBDataPacketDeserializer, USBPacketizerTest
@@ -98,11 +98,11 @@ class USBSetupDecoder(Elaboratable):
         m.d.comb += self._start_interpacket_timer.eq(data_handler.new_packet)
 
         # Keep our output signals de-asserted unless specified.
-        m.d.ulpi += [
+        m.d.usb += [
             self.new_packet  .eq(0),
         ]
 
-        with m.FSM(domain="ulpi"):
+        with m.FSM(domain="usb"):
 
             # IDLE -- we haven't yet detected a SETUP transaction directed at us
             with m.State('IDLE'):
@@ -131,7 +131,7 @@ class USBSetupDecoder(Elaboratable):
 
                         request_type = Cat(self.recipient, self.type, self.is_in_request)
 
-                        m.d.ulpi += [
+                        m.d.usb += [
 
                             # Parse the setup data itself...
                             request_type     .eq(data_handler.packet[0]),
@@ -220,7 +220,7 @@ class USBSetupDecoderTest(USBPacketizerTest):
         )
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_valid_sequence_receive(self):
         dut = self.dut
 
@@ -247,7 +247,7 @@ class USBSetupDecoderTest(USBPacketizerTest):
         self.assertEqual((yield dut.length),        0x5678  )
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_fs_interpacket_delay(self):
         dut = self.dut
 
@@ -270,7 +270,7 @@ class USBSetupDecoderTest(USBPacketizerTest):
 
 
 
-    @ulpi_domain_test_case
+    @usb_domain_test_case
     def test_short_setup_packet(self):
         dut = self.dut
 

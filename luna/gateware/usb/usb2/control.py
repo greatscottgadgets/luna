@@ -6,7 +6,7 @@
 import unittest
 
 from nmigen            import Signal, Module, Elaboratable, Cat, Record, Array
-from ...test           import LunaGatewareTestCase, ulpi_domain_test_case
+from ...test           import LunaGatewareTestCase, usb_domain_test_case
 
 from .packet           import DataCRCInterface
 from .request          import USBSetupDecoder
