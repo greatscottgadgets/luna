@@ -9,7 +9,8 @@ from nmigen            import Signal, Module, Elaboratable, Cat, Record
 from ...test           import ulpi_domain_test_case
 
 from .                 import USBSpeed
-from .packet           import USBTokenDetector, USBDataPacketDeserializer, USBPacketizerTest, DataCRCInterface
+from .packet           import USBTokenDetector, USBDataPacketDeserializer, USBPacketizerTest
+from .packet           import DataCRCInterface, USBInterpacketTimer
 
 
 class USBSetupDecoder(Elaboratable):
@@ -24,21 +25,31 @@ class USBSetupDecoder(Elaboratable):
 
     SETUP_PID = 0b1101
 
-    def __init__(self, *, utmi, tokenizer, own_tokenizer=False, standalone=False):
+    def __init__(self, *, utmi, tokenizer, timer, own_tokenizer=False, standalone=False):
         """
         Paremeters:
             utmi           -- The UTMI bus we'll monitor for data. We'll consider this read-only.
             tokenizer      -- The USBTokenDetector detecting token packets for us. Considered read-only.
 
-            own_tokenizer  -- Debug parameter. When set this module will consider the tokenizer to be a
-                              submodule of this module. Allows for cleaner simulations.
             standalone     -- Debug parameter. If true, this module will operate without external components;
-                              i.e. without an internal data-CRC generator.
+                              i.e. without an internal data-CRC generator, or tokenizer. In this case, tokenizer
+                              and timer should be set to None; and will be ignored.
         """
         self.utmi          = utmi
+        self.timer         = timer
         self.tokenizer     = tokenizer
-        self.own_tokenizer = own_tokenizer
         self.standalone    = standalone
+
+        #
+        # Control/timing signals for our timer instance.
+        #
+
+        # Interpacket timer reset; should be pulsed when we receive new data.
+        self._start_interpacket_timer = Signal()
+        self.timer.add_reset_condition(self._start_interpacket_timer)
+
+        # Interpacket delay complete: pulses when it's safe to transmit our ACK.
+        self._interpacket_delay_complete = self.timer.get_transmit_allowed_strobe()
 
         #
         # I/O port.
@@ -62,8 +73,19 @@ class USBSetupDecoder(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-        if self.own_tokenizer:
+        # If we're standalone, generate the things we need.
+        if self.standalone:
+
+            # Create our tokenizer...
+            self.tokenizer = USBTokenDetector(utmi=self.utmi)
             m.submodules.tokenizer = self.tokenizer
+
+            # ... and our interpacket delay measuremen timer.
+            self.timer = USBInterpacketTimer()
+            m.submodules.timer = self.timer
+
+            # Hook up our timer to our speed input.
+            m.d.comb += self.timer.speed.eq(self.speed)
 
         # Create a data-packet-deserializer, which we'll use to capture the
         # contents of the setup data packets.
@@ -71,15 +93,13 @@ class USBSetupDecoder(Elaboratable):
             USBDataPacketDeserializer(utmi=self.utmi, max_packet_size=8, create_crc_generator=self.standalone)
         m.d.comb += self.data_crc.connect(data_handler.data_crc)
 
-        # Create a counter that will track our interpacket delays.
-        # This should be able to count up to 80 (exclusive), in order to count
-        # out low-speed interpacket delays, which are 80 ULPI cycles [ULPI 1.1, Figure 18].
-        delay_cycles_left = Signal(range(0, 80))
+        # Instruct our interpacket timer to begin counting when we complete receiving
+        # our setup packet. This will allow us to track interpacket delays.
+        m.d.comb += self._start_interpacket_timer.eq(data_handler.new_packet)
 
         # Keep our output signals de-asserted unless specified.
         m.d.ulpi += [
             self.new_packet  .eq(0),
-            self.ack         .eq(0)
         ]
 
         with m.FSM(domain="ulpi"):
@@ -128,31 +148,23 @@ class USBSetupDecoder(Elaboratable):
 
                         # We'll now need to wait a receive-transmit delay before initiating our ACK.
                         # Per the USB 2.0 and ULPI 1.1 specifications:
-                        #   - A FS/LS device needs to wait 2 bit periods before transmitting [USB2, 7.1.18.1].
-                        #     Two FS bit periods is equivalent to 10 ULPI clocks, and two LS periods is
-                        #     equivalent to 80 ULPI clocks [ULPI 1.1, Figure 18].
                         #   - A HS device needs to wait 8 HS bit periods before transmitting [USB2, 7.1.18.2].
                         #     Each ULPI cycle is 8 HS bit periods, so we'll only need to wait one cycle.
+                        #   - We'll use our interpacket delay timer for everything else.
                         with m.If(self.speed == USBSpeed.HIGH):
 
                             # If we're a high speed device, we only need to wait for a single ULPI cycle.
                             # Processing delays mean we've already met our interpacket delay; and we can ACK
                             # immediately.
-                            m.d.ulpi += self.ack.eq(1)
+                            m.d.comb += self.ack.eq(1)
                             m.next = "IDLE"
 
                         # For other cases, handle the interpacket delay by waiting.
-                        # We'll wait for two cycles less than the minimum required, to account for both
-                        # -this- cycle, and the cycle it will take for ACK to reach the handshake generator.
-                        with m.Elif(self.speed == USBSpeed.FULL):
-                            m.d.ulpi += delay_cycles_left.eq(8)
-                            m.next = "INTERPACKET_DELAY"
-
                         with m.Else():
-                            m.d.ulpi += delay_cycles_left.eq(78)
                             m.next = "INTERPACKET_DELAY"
 
-                    # Otherwise, this isn't; ignore it.
+
+                    # Otherwise, this isn't; and we should ignore it. [USB2, 8.5.3]
                     with m.Else():
                         m.next = "IDLE"
 
@@ -160,14 +172,10 @@ class USBSetupDecoder(Elaboratable):
             # INTERPACKET -- wait for an inter-packet delay before responding
             with m.State('INTERPACKET_DELAY'):
 
-                # Decrement our counter...
-                m.d.ulpi += delay_cycles_left.eq(delay_cycles_left - 1)
-
                 # ... and once it equals zero, ACK and return to idle.
-                with m.If(delay_cycles_left == 0):
-                    m.d.ulpi += self.ack.eq(1)
+                with m.If(self._interpacket_delay_complete):
+                    m.d.comb += self.ack.eq(1)
                     m.next = "IDLE"
-
 
         return m
 
@@ -181,11 +189,8 @@ class USBSetupDecoderTest(USBPacketizerTest):
             ("rx_valid",  1)
         ])
 
-        # Create our token detector...
-        self.tokenizer = USBTokenDetector(utmi=self.utmi)
-
         # ... and our setup detector, around it.
-        return USBSetupDecoder(utmi=self.utmi, tokenizer=self.tokenizer, own_tokenizer=True, standalone=True)
+        return USBSetupDecoder(utmi=self.utmi, tokenizer=None, timer=None, standalone=True)
 
 
     def initialize_signals(self):
@@ -225,12 +230,12 @@ class USBSetupDecoderTest(USBPacketizerTest):
         # Simulate the host sending basic setup data.
         yield from self.provide_reference_setup_transaction()
 
+        # We're high speed, so we should be ACK'ing immediately.
+        self.assertEqual((yield dut.ack), 1)
+
         # We now should have received a new setup request.
         yield
         self.assertEqual((yield dut.new_packet), 1)
-
-        # We're high speed, so we should be ACK'ing immediately.
-        self.assertEqual((yield dut.ack), 1)
 
         # Validate that its values are as we expect.
         self.assertEqual((yield dut.is_in_request), 0       )
@@ -260,7 +265,7 @@ class USBSetupDecoderTest(USBPacketizerTest):
         self.assertEqual((yield dut.ack), 0)
 
         # After our minimum interpacket delay, we should see an ACK.
-        yield from self.advance_cycles(9)
+        yield from self.advance_cycles(10)
         self.assertEqual((yield dut.ack), 1)
 
 

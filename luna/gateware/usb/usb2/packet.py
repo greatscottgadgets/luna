@@ -10,9 +10,24 @@ import functools
 from nmigen            import Signal, Module, Elaboratable, Cat, Array, Const
 from nmigen.hdl.rec    import Record, DIR_FANIN, DIR_FANOUT
 
+from ..usb2            import USBSpeed
 from ...interface      import USBOutStreamInterface
 from ...interface.utmi import UTMITransmitInterface
 from ...test           import LunaGatewareTestCase, ulpi_domain_test_case
+
+
+class DataCRCInterface(Record):
+    """ Record providing an interface to a USB CRC-16 generator. """
+
+    def __init__(self):
+        super().__init__([
+            # Signal indicating that a new CRC computation should be started.
+            ('start', 1,  DIR_FANIN),
+
+            # Signal holding the value of the current CRC.
+            ('crc',   16, DIR_FANOUT)
+        ])
+
 
 class USBPacketizerTest(LunaGatewareTestCase):
     SYNC_CLOCK_FREQUENCY = None
@@ -446,18 +461,6 @@ class USBHandshakeDetectorTest(USBPacketizerTest):
         self.assertEqual((yield self.dut.nyet_detected), 1)
 
 
-class DataCRCInterface(Record):
-    """ Record providing an interface to a USB CRC-16 generator. """
-
-    def __init__(self):
-        super().__init__([
-            # Signal indicating that a new CRC computation should be started.
-            ('start', 1,  DIR_FANIN),
-
-            # Signal holding the value of the current CRC.
-            ('crc',   16, DIR_FANOUT)
-        ])
-
 
 class USBDataPacketCRC(Elaboratable):
     """ Gateware that computes a running CRC16.
@@ -572,7 +575,6 @@ class USBDataPacketCRC(Elaboratable):
         return m
 
 
-
 class USBDataPacketDeserializer(Elaboratable):
     """ Gateware that captures USB data packet contents and parallelizes them.
 
@@ -640,7 +642,7 @@ class USBDataPacketDeserializer(Elaboratable):
         active_packet      = Array(Signal(8) for _ in range(max_size_with_crc))
         position_in_packet = Signal(range(0, max_size_with_crc))
 
-        # Keeps track of the
+        # Keeps track of the most recently received word; for CRC comparison.
         last_word          = Signal(16)
 
         # Keep our control signals + strobes un-asserted unless otherwise specified.
@@ -715,6 +717,7 @@ class USBDataPacketDeserializer(Elaboratable):
                         for i in range(self._max_packet_size):
                             m.d.ulpi += self.packet[i].eq(active_packet[i]),
 
+                        m.next = "IDLE"
 
             # IRRELEVANT -- we've encountered a malformed or non-handshake packet
             with m.State("IRRELEVANT"):
@@ -1132,6 +1135,227 @@ class USBHandshakeGeneratorTest(LunaGatewareTestCase):
         # ... and then drop out of being valid after one cycle.
         yield
         self.assertEqual((yield dut.tx_interface.valid), 0)
+
+
+class USBInterpacketTimer(Elaboratable):
+    """ Module that tracks inter-packet timings, enforcing spec-mandated packet gaps.
+
+    I/O port:
+        I: speed[2]       -- The device's current operating speed. Should be a USBSpeed
+                             enumeration value -- 0 for high, 1 for full, 2 for low.
+
+        Other ports are added dynamically, and control reset conditions (add_reset_condition)
+        and timer outputs (get_*_strobe).
+    """
+
+    # Per the USB 2.0 and ULPI 1.1 specifications, after receipt:
+    #   - A FS/LS device needs to wait 2 bit periods before transmitting; and must
+    #     respond before 6.5 bit times pass. [USB2, 7.1.18.1]
+    #   - Two FS bit periods is equivalent to 10 ULPI clocks, and two LS periods is
+    #     equivalent to 80 ULPI clocks. 6.5 FS bit periods is equivalent to 32 ULPI clocks,
+    #     and 6.5 LS bit periods is equivalent to 260 ULPI clocks. [ULPI 1.1, Figure 18].
+    #   - A HS device needs to wait 8 HS bit periods before transmitting [USB2, 7.1.18.2].
+    #     Each ULPI cycle is 8 HS bit periods, so we'll only need to wait one cycle.
+    HS_RX_TO_TX_DELAY = (  1,  24)
+    FS_RX_TO_TX_DELAY = ( 10,  32)
+    LS_RX_TO_TX_DELAY = ( 80, 260)
+
+    # Per the USB 2.0 and ULPI 1.1 specifications, after transission:
+    #   - A FS/LS can assume it won't receive a response after 16 bit times [USB2, 7.1.18.1].
+    #     This is equivalent to 80 ULPI clocks (FS), or 640 ULPI clocks (LS).
+    #   - A HS device can assume it won't receive a response after 736 bit times.
+    #     This is equivalent to 92 ULPI clocks.
+    HS_TX_TO_RX_TIMEOUT =  92
+    FS_TX_TO_RX_TIMEOUT =  80
+    LS_TX_TO_RX_TIMEOUT = 640
+
+
+    def __init__(self):
+
+        # List of signals that serve as timer resets.
+        self._resets                   = []
+
+        # Lists of signals that subscribe to our counter events.
+        self._rx_to_tx_min_strobes     = []
+        self._rx_to_tx_max_strobes     = []
+        self._tx_to_rx_timeout_strobes = []
+
+        #
+        # I/O port
+        #
+        self.speed = Signal(2)
+
+
+    def add_reset_condition(self, condition):
+        """ Adds a signal to the list of conditions under which this counter will reset. """
+        self._resets.append(condition)
+
+
+    def get_transmit_allowed_strobe(self, name=None):
+        """ Creates a new signal that strobes high when the counter reaches the minimum allowed interpacket delay.
+
+        This is intended to be used to figure out when transmit is allowed after e.g. receiving
+        an IN token.
+        """
+
+        # Create our strobe, and track it for elaboration.
+        strobe = Signal(name=name)
+        self._rx_to_tx_min_strobes.append(strobe)
+
+        return strobe
+
+
+    def get_transmit_expected_strobe(self, name=None):
+        """ Creates a new signal that pulses after a "transmit-after-receive" timeout.
+
+        This timeout is used when a transmission is expected following a receipt. If this strobe
+        pulses high before the transmission arrives, we can assume the transmission isn't coming.
+
+        This is used e.g. to track how long before we e.g. give up on receiving an ACK handshake
+        from the host.
+        """
+
+        # Create our strobe, and track it for elaboration.
+        strobe = Signal(name=name)
+        self._rx_to_tx_max_strobes.append(strobe)
+
+        return strobe
+
+
+    def get_receive_expected_strobe(self, name=None):
+        """ Creates a new signal that pulses after a "receive-after-transmit" timeout.
+
+        This timeout is used when a receipt is expected following a transmit. If this strobe
+        pulses high before the receipt arrives, we can assume the rx won't happen.
+        """
+
+        # Create our strobe, and track it for elaboration.
+        strobe = Signal(name=name)
+        self._tx_to_rx_timeout_strobes.append(strobe)
+
+        return strobe
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Internal signals representing each of our timeouts.
+        rx_to_tx_at_min  = Signal()
+        rx_to_tx_at_max  = Signal()
+        tx_to_rx_timeout = Signal()
+
+        # Create a counter that will track our interpacket delays.
+        # This should be able to count up to our longest delay. We'll allow our
+        # counter to be able to increment one past its maximum, and let it saturate
+        # there, after the count.
+        counter = Signal(range(0, self.LS_TX_TO_RX_TIMEOUT + 2))
+
+        # Reset our timer whenever any of our users request a reset.
+        any_reset = functools.reduce(operator.__or__, self._resets)
+
+        # When a reset is requested, start the counter from 0.
+        with m.If(any_reset):
+            m.d.ulpi += counter.eq(0)
+        with m.Elif(counter < self.LS_TX_TO_RX_TIMEOUT + 1):
+            m.d.ulpi += counter.eq(counter + 1)
+
+        #
+        # Create our counter-progress strobes.
+        # This could be made less repetitive, but spreading it out here
+        # makes the documentation above clearer.
+        #
+        with m.If(self.speed == USBSpeed.HIGH):
+            m.d.comb += [
+                rx_to_tx_at_min   .eq(counter == self.HS_RX_TO_TX_DELAY[0]),
+                rx_to_tx_at_max   .eq(counter == self.HS_RX_TO_TX_DELAY[1]),
+                tx_to_rx_timeout  .eq(counter == self.HS_TX_TO_RX_TIMEOUT)
+            ]
+        with m.Elif(self.speed == USBSpeed.FULL):
+            m.d.comb += [
+                rx_to_tx_at_min   .eq(counter == self.FS_RX_TO_TX_DELAY[0]),
+                rx_to_tx_at_max   .eq(counter == self.FS_RX_TO_TX_DELAY[1]),
+                tx_to_rx_timeout  .eq(counter == self.FS_TX_TO_RX_TIMEOUT)
+            ]
+        with m.Else():
+            m.d.comb += [
+                rx_to_tx_at_min   .eq(counter == self.LS_RX_TO_TX_DELAY[0]),
+                rx_to_tx_at_max   .eq(counter == self.LS_RX_TO_TX_DELAY[1]),
+                tx_to_rx_timeout  .eq(counter == self.LS_TX_TO_RX_TIMEOUT)
+            ]
+
+        # Tie our strobes to each of our consumers.
+        for strobe in self._rx_to_tx_min_strobes:
+            m.d.comb += strobe.eq(rx_to_tx_at_min)
+
+        for strobe in self._rx_to_tx_max_strobes:
+            m.d.comb += strobe.eq(rx_to_tx_at_max)
+
+        for strobe in self._tx_to_rx_timeout_strobes:
+            m.d.comb += strobe.eq(tx_to_rx_timeout)
+
+
+        return m
+
+
+class USBInterpacketTimerTest(LunaGatewareTestCase):
+    SYNC_CLOCK_FREQUENCY = None
+    ULPI_CLOCK_FREQUENCY = 60e6
+
+    def instantiate_dut(self):
+        dut = USBInterpacketTimer()
+
+        # Timer reset.
+        self.reset            = Signal()
+        dut.add_reset_condition(self.reset)
+
+        # Timer outputs
+        self.rx_to_tx_min     = dut.get_transmit_allowed_strobe()
+        self.rx_to_tx_max     = dut.get_transmit_expected_strobe()
+        self.tx_to_rx_timeout = dut.get_receive_expected_strobe()
+
+        return dut
+
+
+    def initialize_signals(self):
+        yield self.dut.speed(USBSpeed.FULL)
+
+
+    def test_resets_and_delays(self):
+        yield from self.advance_cycles(4)
+
+        # Trigger a cycle reset.
+        yield self.reset.eq(1)
+        yield
+        yield self.reset.eq(0)
+
+        # We should start off with no timer outputs high.
+        self.assertEqual((yield self.rx_to_tx_min),     0)
+        self.assertEqual((yield self.rx_to_tx_max),     0)
+        self.assertEqual((yield self.tx_to_rx_timeout), 0)
+
+        # 10 cycles later, we should see our first timer output.
+        yield from self.advance_cycles(10)
+        self.assertEqual((yield self.rx_to_tx_min),     1)
+        self.assertEqual((yield self.rx_to_tx_max),     0)
+        self.assertEqual((yield self.tx_to_rx_timeout), 0)
+
+        # 22 cycles later (32 total), we should see our second timer output.
+        yield from self.advance_cycles(22)
+        self.assertEqual((yield self.rx_to_tx_min),     0)
+        self.assertEqual((yield self.rx_to_tx_max),     1)
+        self.assertEqual((yield self.tx_to_rx_timeout), 0)
+
+        # 58 cycles later (80 total), we should see our third timer output.
+        yield from self.advance_cycles(22)
+        self.assertEqual((yield self.rx_to_tx_min),     0)
+        self.assertEqual((yield self.rx_to_tx_max),     0)
+        self.assertEqual((yield self.tx_to_rx_timeout), 1)
+
+        # Ensure that the timers don't go high again.
+        for _ in range(32):
+            self.assertEqual((yield self.rx_to_tx_min),     0)
+            self.assertEqual((yield self.rx_to_tx_max),     0)
+            self.assertEqual((yield self.tx_to_rx_timeout), 0)
 
 
 if __name__ == "__main__":

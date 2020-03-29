@@ -8,7 +8,7 @@ import unittest
 from nmigen            import Signal, Module, Elaboratable, Memory, Cat, Const, Record
 from ...test           import LunaGatewareTestCase, ulpi_domain_test_case, sync_test_case
 
-from .packet           import USBTokenDetector, USBHandshakeGenerator, USBDataPacketCRC
+from .packet           import USBTokenDetector, USBHandshakeGenerator, USBDataPacketCRC, USBInterpacketTimer
 from .control          import USBControlEndpoint
 from ...interface.ulpi import UTMITranslator
 
@@ -100,10 +100,11 @@ class USBDevice(Elaboratable):
         # - A token detector, which will identify and parse the tokens that start transactions.
         # - A handshake generator, which will assist in generating response packets.
         # - A data CRC16 handler, which will compute data packet CRCs.
-        # - A setup packet parser, which will capture and parse SETUP packets.
+        # - An interpacket delay timer, which will enforce interpacket delays.
         m.submodules.token_detector      = token_detector      = USBTokenDetector(utmi=self.utmi)
         m.submodules.handshake_generator = handshake_generator = USBHandshakeGenerator()
         m.submodules.data_crc            = data_crc            = USBDataPacketCRC()
+        m.submodules.timer               = timer               = USBInterpacketTimer()
 
         # Ensure our token detector only responds to tokens addressed to us.
         m.d.ulpi += token_detector.address.eq(address)
@@ -119,7 +120,7 @@ class USBDevice(Elaboratable):
         #
 
         # TODO: abstract this into an add-control-endpoint function
-        m.submodules.control_ep = control_ep = USBControlEndpoint(utmi=self.utmi, tokenizer=token_detector)
+        m.submodules.control_ep = control_ep = USBControlEndpoint(utmi=self.utmi, tokenizer=token_detector, timer=timer)
         data_crc.add_interface(control_ep.data_crc)
 
 

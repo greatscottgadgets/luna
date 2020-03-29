@@ -29,14 +29,21 @@ class USBControlEndpoint(Elaboratable):
         last_request[8] -- Request number of the last request.
     """
 
-    def __init__(self, *, utmi, tokenizer):
+    def __init__(self, *, utmi, tokenizer, timer):
         """
         Parameters:
             utmi       -- The UTMI bus we'll monitor for data. We'll consider this read-only.
             tokenizer  -- The USBTokenDetector detecting token packets for us. Considered read-only.
+            timer      -- The interpacket timer we'll use for timing.
         """
         self.utmi         = utmi
         self.tokenizer    = tokenizer
+        self.timer        = timer
+
+        # Create our setup decoder.
+        # Note that this must be created during this initialization; as its initialization
+        # makes subordinate connections.
+        self.setup_decoder = USBSetupDecoder(utmi=self.utmi, tokenizer=self.tokenizer, timer=self.timer)
 
         #
         # I/O Port
@@ -56,17 +63,16 @@ class USBControlEndpoint(Elaboratable):
         m = Module()
 
         # Create our SETUP packet decoder.
-        m.submodules.setup_decoder = setup_decoder = \
-             USBSetupDecoder(utmi=self.utmi, tokenizer=self.tokenizer)
-        m.d.comb += self.data_crc.connect(setup_decoder.data_crc)
+        m.submodules.setup_decoder = self.setup_decoder
+        m.d.comb += self.data_crc.connect(self.setup_decoder.data_crc)
 
         # Automatically acknowledge any valid SETUP packet.
-        m.d.comb += self.issue_ack.eq(setup_decoder.ack)
+        m.d.comb += self.issue_ack.eq(self.setup_decoder.ack)
 
         # Debug output.
         m.d.comb += [
-            self.last_request  .eq(setup_decoder.request),
-            self.new_packet    .eq(setup_decoder.new_packet),
+            self.last_request  .eq(self.setup_decoder.request),
+            self.new_packet    .eq(self.setup_decoder.new_packet),
         ]
 
         return m
