@@ -44,6 +44,9 @@ class USBSetupDecoder(Elaboratable):
         # Control/timing signals for our timer instance.
         #
 
+        if self.standalone:
+            self.timer = USBInterpacketTimer()
+
         # Interpacket timer reset; should be pulsed when we receive new data.
         self._start_interpacket_timer = Signal()
         self.timer.add_reset_condition(self._start_interpacket_timer)
@@ -80,11 +83,8 @@ class USBSetupDecoder(Elaboratable):
             self.tokenizer = USBTokenDetector(utmi=self.utmi)
             m.submodules.tokenizer = self.tokenizer
 
-            # ... and our interpacket delay measuremen timer.
-            self.timer = USBInterpacketTimer()
+            # ... and hook up our timer.
             m.submodules.timer = self.timer
-
-            # Hook up our timer to our speed input.
             m.d.comb += self.timer.speed.eq(self.speed)
 
         # Create a data-packet-deserializer, which we'll use to capture the
