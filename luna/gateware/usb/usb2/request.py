@@ -6,71 +6,111 @@
 import unittest
 
 from nmigen            import Signal, Module, Elaboratable, Cat, Record
-from ...test           import usb_domain_test_case
+from nmigen.hdl.rec    import Record, DIR_FANOUT, DIR_FANIN
+
 
 from .                 import USBSpeed
 from .packet           import USBTokenDetector, USBDataPacketDeserializer, USBPacketizerTest
-from .packet           import DataCRCInterface, USBInterpacketTimer
+from .packet           import DataCRCInterface, USBInterpacketTimer, TokenDetectorInterface
+from .packet           import InterpacketTimerInterface, HandshakeInterface
+
+from ...test           import LunaGatewareTestCase, usb_domain_test_case
+
+
+class SetupPacket(Record):
+    """ Record capturing the content of a setup packet.
+
+    Components (O = output from setup parser; read-only input to others):
+        O: new_packet    -- Strobe; indicates that a new setup packet has been received,
+                            and thus this data has been updated.
+
+        O: is_in_request -- High if the current request is an 'in' request.
+        O: type[2]       -- Request type for the current request.
+        O: recipient[5]  -- Recipient of the relevant request.
+
+        O: request[8]    -- Request number.
+        O: value[16]     -- Value argument for the setup request.
+        O: index[16]     -- Index argument for the setup request.
+        O: length[16]    -- Length of the relevant setup request.
+    """
+
+    def __init__(self):
+        super().__init__([
+            ('received',       1, DIR_FANOUT),
+
+            ('is_in_request',  1, DIR_FANOUT),
+            ('type',           2, DIR_FANOUT),
+            ('recipient',      5, DIR_FANOUT),
+
+            ('request',        8, DIR_FANOUT),
+            ('value',         16, DIR_FANOUT),
+            ('index',         16, DIR_FANOUT),
+            ('length',        16, DIR_FANOUT),
+        ])
+
+
+class RequestHandlerInterface:
+    """ Record representing a connection between a control endpoint and a request handler.
+
+    Components (I = input to request handler; O = output to control interface):
+        I: setup.*          -- Carries the most recent setup request to the handler.
+
+        I: data_requested   -- Pulsed to indicate that a data-phase IN token has been issued,
+                               and it's now time to respond (post-inter-packet delay).
+        I: status_requested -- Pulsed to indicate that a response to our status phase has been
+                               requested.
+
+        O: handshake        -- Carries handshake generation requests.
+    """
+
+    def __init__(self):
+        self.setup            = SetupPacket()
+
+        self.data_requested   = Signal()
+        self.status_requested = Signal()
+
+        self.handshake        = HandshakeInterface()
+
 
 
 class USBSetupDecoder(Elaboratable):
     """ Gateware responsible for detecting Setup transactions.
 
     I/O port:
-        *: crc_interface  -- Interface to our data-CRC generator.
-        I: speed          -- The device's current operating speed. Should be a USBSpeed
-                             enumeration value -- 0 for high, 1 for full, 2 for low.
+        *: data_crc  -- Interface to the device's data-CRC generator.
+        *: tokenizer -- Interface to the device's token detector.
+        *: timer     -- Interface to the device's interpacket timer.
 
+        I: speed     -- The device's current operating speed. Should be a USBSpeed
+                        enumeration value -- 0 for high, 1 for full, 2 for low.
+        *: packet    -- The SetupPacket record carrying our parsed output.
+        I: ack       -- True when we're requesting that an ACK be generated.
     """
-
     SETUP_PID = 0b1101
 
-    def __init__(self, *, utmi, tokenizer, timer, own_tokenizer=False, standalone=False):
+    def __init__(self, *, utmi, standalone=False):
         """
         Paremeters:
             utmi           -- The UTMI bus we'll monitor for data. We'll consider this read-only.
-            tokenizer      -- The USBTokenDetector detecting token packets for us. Considered read-only.
 
             standalone     -- Debug parameter. If true, this module will operate without external components;
                               i.e. without an internal data-CRC generator, or tokenizer. In this case, tokenizer
                               and timer should be set to None; and will be ignored.
         """
         self.utmi          = utmi
-        self.timer         = timer
-        self.tokenizer     = tokenizer
         self.standalone    = standalone
-
-        #
-        # Control/timing signals for our timer instance.
-        #
-
-        if self.standalone:
-            self.timer = USBInterpacketTimer()
-
-        # Interpacket timer reset; should be pulsed when we receive new data.
-        self._start_interpacket_timer = Signal()
-        self.timer.add_reset_condition(self._start_interpacket_timer)
-
-        # Interpacket delay complete: pulses when it's safe to transmit our ACK.
-        self._interpacket_delay_complete = self.timer.get_transmit_allowed_strobe()
 
         #
         # I/O port.
         #
         self.data_crc      = DataCRCInterface()
+        self.tokenizer     = TokenDetectorInterface()
+        self.timer         = InterpacketTimerInterface()
         self.speed         = Signal(2)
 
-        self.new_packet    = Signal()
+
+        self.packet        = SetupPacket()
         self.ack           = Signal()
-
-        self.is_in_request = Signal()
-        self.type          = Signal(2)
-        self.recipient     = Signal(5)
-
-        self.request       = Signal(8)
-        self.value         = Signal(16)
-        self.index         = Signal(16)
-        self.length        = Signal(16)
 
 
     def elaborate(self, platform):
@@ -80,12 +120,15 @@ class USBSetupDecoder(Elaboratable):
         if self.standalone:
 
             # Create our tokenizer...
-            self.tokenizer = USBTokenDetector(utmi=self.utmi)
-            m.submodules.tokenizer = self.tokenizer
+            m.submodules.tokenizer = tokenizer = USBTokenDetector(utmi=self.utmi)
+            m.d.comb += tokenizer.interface.connect(self.tokenizer)
 
-            # ... and hook up our timer.
-            m.submodules.timer = self.timer
-            m.d.comb += self.timer.speed.eq(self.speed)
+            # ... and our timer.
+            m.submodules.timer = timer = USBInterpacketTimer()
+            timer.add_interface(self.timer)
+
+            m.d.comb += timer.speed.eq(self.speed)
+
 
         # Create a data-packet-deserializer, which we'll use to capture the
         # contents of the setup data packets.
@@ -95,11 +138,11 @@ class USBSetupDecoder(Elaboratable):
 
         # Instruct our interpacket timer to begin counting when we complete receiving
         # our setup packet. This will allow us to track interpacket delays.
-        m.d.comb += self._start_interpacket_timer.eq(data_handler.new_packet)
+        m.d.comb += self.timer.start.eq(data_handler.new_packet)
 
         # Keep our output signals de-asserted unless specified.
         m.d.usb += [
-            self.new_packet  .eq(0),
+            self.packet.received  .eq(0),
         ]
 
         with m.FSM(domain="usb"):
@@ -129,22 +172,22 @@ class USBSetupDecoder(Elaboratable):
                     # If we got exactly eight bytes, this is a valid setup packet.
                     with m.If(data_handler.length == 8):
 
-                        request_type = Cat(self.recipient, self.type, self.is_in_request)
+                        # Collect the signals that make up our bmRequestType [USB2, 9.3].
+                        request_type = Cat(self.packet.recipient, self.packet.type, self.packet.is_in_request)
 
                         m.d.usb += [
 
                             # Parse the setup data itself...
                             request_type     .eq(data_handler.packet[0]),
-                            self.request     .eq(data_handler.packet[1]),
-                            self.value       .eq(Cat(data_handler.packet[2], data_handler.packet[3])),
-                            self.index       .eq(Cat(data_handler.packet[4], data_handler.packet[5])),
-                            self.length      .eq(Cat(data_handler.packet[6], data_handler.packet[7])),
+                            self.packet.request     .eq(data_handler.packet[1]),
+                            self.packet.value       .eq(Cat(data_handler.packet[2], data_handler.packet[3])),
+                            self.packet.index       .eq(Cat(data_handler.packet[4], data_handler.packet[5])),
+                            self.packet.length      .eq(Cat(data_handler.packet[6], data_handler.packet[7])),
 
                             # ... and indicate that we have new data.
-                            self.new_packet  .eq(1),
+                            self.packet.received  .eq(1),
 
                         ]
-
 
                         # We'll now need to wait a receive-transmit delay before initiating our ACK.
                         # Per the USB 2.0 and ULPI 1.1 specifications:
@@ -173,7 +216,7 @@ class USBSetupDecoder(Elaboratable):
             with m.State('INTERPACKET_DELAY'):
 
                 # ... and once it equals zero, ACK and return to idle.
-                with m.If(self._interpacket_delay_complete):
+                with m.If(self.timer.tx_allowed):
                     m.d.comb += self.ack.eq(1)
                     m.next = "IDLE"
 
@@ -181,16 +224,8 @@ class USBSetupDecoder(Elaboratable):
 
 
 class USBSetupDecoderTest(USBPacketizerTest):
-
-    def instantiate_dut(self):
-        self.utmi = Record([
-            ("rx_data",   8),
-            ("rx_active", 1),
-            ("rx_valid",  1)
-        ])
-
-        # ... and our setup detector, around it.
-        return USBSetupDecoder(utmi=self.utmi, tokenizer=None, timer=None, standalone=True)
+    FRAGMENT_UNDER_TEST = USBSetupDecoder
+    FRAGMENT_ARGUMENTS = {'standalone': True}
 
 
     def initialize_signals(self):
@@ -225,7 +260,7 @@ class USBSetupDecoderTest(USBPacketizerTest):
         dut = self.dut
 
         # Before we receive anything, we shouldn't have a new packet.
-        self.assertEqual((yield dut.new_packet), 0)
+        self.assertEqual((yield dut.packet.received), 0)
 
         # Simulate the host sending basic setup data.
         yield from self.provide_reference_setup_transaction()
@@ -235,16 +270,16 @@ class USBSetupDecoderTest(USBPacketizerTest):
 
         # We now should have received a new setup request.
         yield
-        self.assertEqual((yield dut.new_packet), 1)
+        self.assertEqual((yield dut.packet.received), 1)
 
         # Validate that its values are as we expect.
-        self.assertEqual((yield dut.is_in_request), 0       )
-        self.assertEqual((yield dut.type),          0b10    )
-        self.assertEqual((yield dut.recipient),     0b00010 )
-        self.assertEqual((yield dut.request),       12      )
-        self.assertEqual((yield dut.value),         0xabcd  )
-        self.assertEqual((yield dut.index),         0x0123  )
-        self.assertEqual((yield dut.length),        0x5678  )
+        self.assertEqual((yield dut.packet.is_in_request), 0       )
+        self.assertEqual((yield dut.packet.type),          0b10    )
+        self.assertEqual((yield dut.packet.recipient),     0b00010 )
+        self.assertEqual((yield dut.packet.request),       12      )
+        self.assertEqual((yield dut.packet.value),         0xabcd  )
+        self.assertEqual((yield dut.packet.index),         0x0123  )
+        self.assertEqual((yield dut.packet.length),        0x5678  )
 
 
     @usb_domain_test_case
@@ -255,7 +290,7 @@ class USBSetupDecoderTest(USBPacketizerTest):
         yield dut.speed.eq(USBSpeed.FULL)
 
         # Before we receive anything, we shouldn't have a new packet.
-        self.assertEqual((yield dut.new_packet), 0)
+        self.assertEqual((yield dut.packet.received), 0)
 
         # Simulate the host sending basic setup data.
         yield from self.provide_reference_setup_transaction()
@@ -275,7 +310,7 @@ class USBSetupDecoderTest(USBPacketizerTest):
         dut = self.dut
 
         # Before we receive anything, we shouldn't have a new packet.
-        self.assertEqual((yield dut.new_packet), 0)
+        self.assertEqual((yield dut.packet.received), 0)
 
         # Provide our setup packet.
         yield from self.provide_packet(
@@ -292,7 +327,68 @@ class USBSetupDecoderTest(USBPacketizerTest):
 
         # This shouldn't count as a valid setup packet.
         yield
-        self.assertEqual((yield dut.new_packet), 0)
+        self.assertEqual((yield dut.packet.received), 0)
+
+
+
+class StandardRequestHandler(Elaboratable):
+    """ Pure-gateware USB setup request handler.
+
+    Work in progress. Not yet working. (!)
+    """
+
+    def __init__(self):
+
+        #
+        # I/O port
+        #
+        self.interface = RequestHandlerInterface()
+
+
+    def elaborate(self, platform):
+        m = Module()
+        interface = self.interface
+
+        # Create convenience aliases for our interface components.
+        setup     = interface.setup
+        handshake = interface.handshake
+
+
+        with m.FSM(domain="usb"):
+
+            # IDLE -- not handling any active request
+            with m.State('IDLE'):
+
+                # If we've received a new setup packet, handle it.
+                # TODO: limit this to standard requests
+                with m.If(setup.received):
+
+                    # Select which standard packet we're going to handler.
+                    m.next = 'UNHANDLED'
+
+            # UNHANDLED -- we've received a request we're not prepared to handle
+            with m.State('UNHANDLED'):
+
+                # When we next have an opportunity to stall, do so,
+                # and then return to idle.
+                with m.If(interface.data_requested | interface.status_requested):
+                    m.d.comb += handshake.stall.eq(1)
+                    m.next = 'IDLE'
+
+        return m
+
+
+class StandardRequestHandlerTest(LunaGatewareTestCase):
+    SYNC_CLOCK_FREQUENCY = None
+    USB_CLOCK_FREQUENCY  = 60e6
+
+    FRAGMENT_UNDER_TEST = StandardRequestHandler
+
+    @usb_domain_test_case
+    def test_set_address(self):
+        yield
+
+
 
 
 if __name__ == "__main__":

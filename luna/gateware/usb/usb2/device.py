@@ -120,9 +120,12 @@ class USBDevice(Elaboratable):
         #
 
         # TODO: abstract this into an add-control-endpoint function
-        m.submodules.control_ep = control_ep = USBControlEndpoint(utmi=self.utmi, tokenizer=token_detector, timer=timer)
-        data_crc.add_interface(control_ep.data_crc)
+        m.submodules.control_ep = control_ep = USBControlEndpoint(utmi=self.utmi)
 
+        # Connect our timer, data-CRC computer, and tokenizer to our control EP.
+        timer.add_interface(control_ep.timer)
+        data_crc.add_interface(control_ep.data_crc)
+        m.d.comb += token_detector.interface.connect(control_ep.tokenizer)
 
         #
         # Transmitter multiplexing.
@@ -133,6 +136,7 @@ class USBDevice(Elaboratable):
             handshake_generator.tx_interface .attach(self.utmi),
 
             handshake_generator.issue_ack    .eq(control_ep.issue_ack),
+            handshake_generator.issue_nak    .eq(control_ep.issue_nak),
             handshake_generator.issue_stall  .eq(control_ep.issue_stall),
 
             # Currently, we haven't hooked up the logic that drives our transmit-CRC generation.
@@ -144,8 +148,8 @@ class USBDevice(Elaboratable):
         # Device-state outputs.
         #
         m.d.comb += [
-            self.sof_detected  .eq(token_detector.new_frame),
-            self.frame_number  .eq(token_detector.frame),
+            self.sof_detected  .eq(token_detector.interface.new_frame),
+            self.frame_number  .eq(token_detector.interface.frame),
 
             # Debug only.
             self.last_request  .eq(control_ep.last_request),
