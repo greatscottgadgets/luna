@@ -11,13 +11,34 @@ from nmigen            import Signal, Module, Elaboratable, Cat, Array, Const
 from nmigen.hdl.rec    import Record, DIR_FANIN, DIR_FANOUT
 
 from ..usb2            import USBSpeed
-from ...interface      import USBOutStreamInterface
+from ...interface      import USBInStreamInterface
 from ...interface.utmi import UTMITransmitInterface
 from ...test           import LunaGatewareTestCase, usb_domain_test_case
 
 #
 # Interfaces.
 #
+
+
+class HandshakeExchangeInterface(Record):
+    """ Record that carries handshakes detected -or- generated between modules. """
+
+    def __init__(self, *, is_detector):
+        """
+        Parameters:
+            is_detector -- If true, this will be considered an interface to a detector that
+                           identifies handshakes.
+        """
+        direction = DIR_FANOUT if is_detector else DIR_FANOUT
+
+        super().__init__([
+            ('ack',   1, direction),
+            ('nak',   1, direction),
+            ('stall', 1, direction),
+            ('nyet',  1, direction),
+        ])
+
+
 
 class DataCRCInterface(Record):
     """ Record providing an interface to a USB CRC-16 generator.
@@ -125,23 +146,6 @@ class InterpacketTimerInterface(Record):
 
 
 
-class HandshakeInterface(Record):
-    """ Record providing an concise interface with which to exchange USB handshakes.
-
-    Components (I = input to the handshake generator):
-        I: ack    -- Pulsed to generate an ACK handshake packet.
-        I: nak    -- Pulsed to generate a  NAK handshake packet.
-        I: stall  -- Pulsed to generate a STALL handshake.
-    """
-
-    def __init__(self):
-        super().__init__([
-            ('ack',   1, DIR_FANIN),
-            ('nak',   1, DIR_FANIN),
-            ('stall', 1, DIR_FANIN),
-        ])
-
-
 #
 # Gateware.
 #
@@ -215,8 +219,9 @@ class USBTokenDetector(Elaboratable):
             O: new_frame   -- Strobe asserted for a single cycle when a new SOF
                             has been received.
 
-        I: address[7]  -- If this detector isfiltering by address, this is an input that indicates
-                            the address that must be matched to generate events.
+            I: speed[2]    -- The current speed, as a USBSpeed. Used to time interpacket delays.
+            I: address[7]  -- If this detector is filtering by address, this is an input that indicates
+                                the address that must be matched to generate events.
     """
 
     SOF_PID      = 0b0101
@@ -236,6 +241,7 @@ class USBTokenDetector(Elaboratable):
         # I/O port
         #
         self.interface = TokenDetectorInterface()
+        self.speed     = Signal(2)
         self.address   = Signal(7)
 
 
@@ -270,7 +276,8 @@ class USBTokenDetector(Elaboratable):
         # timer simplifies the architecture significantly; and
         # removes a primary source of timer contention.
         m.submodules.timer = USBInterpacketTimer()
-        timer             = InterpacketTimerInterface()
+        timer              = InterpacketTimerInterface()
+        m.d.comb += m.submodules.timer.speed.eq(self.speed)
 
         # Generate our 'ready_for_response' signal whenever our
         # timer reaches a delay that indicates it's safe to respond to a token.
@@ -466,13 +473,7 @@ class USBHandshakeDetector(Elaboratable):
     """ Gateware that detects handshake packets.
 
     I/O port:
-        # Meaningful in either role (host/device).
-        O: ack_detected   -- Strobe that pulses high after an ACK handshake is detected.
-        O: nak_detected   -- Strobe that pulses high after an NAK handshake is detected.
-
-        # These are only meaningful if we're the host.
-        O: stall_detected -- Strobe the pulses high after a STALL handshake is detected.
-        O: nyet_detected  -- Strobe the pulses high after a NYET handshake is detected.
+        O: detected.* -- Strobes that indicate which handshakes we're detecting.
     """
 
     ACK_PID   = 0b0010
@@ -490,11 +491,7 @@ class USBHandshakeDetector(Elaboratable):
         #
         # I/O port
         #
-        self.ack_detected   = Signal()
-        self.nak_detected   = Signal()
-        self.stall_detected = Signal()
-
-        self.nyet_detected  = Signal()
+        self.detected = HandshakeExchangeInterface(is_detector=True)
 
 
     def elaborate(self, platform):
@@ -504,10 +501,10 @@ class USBHandshakeDetector(Elaboratable):
 
         # Keep our strobes un-asserted unless otherwise specified.
         m.d.usb += [
-            self.ack_detected    .eq(0),
-            self.nak_detected    .eq(0),
-            self.stall_detected  .eq(0),
-            self.nyet_detected   .eq(0),
+            self.detected.ack    .eq(0),
+            self.detected.nak    .eq(0),
+            self.detected.stall  .eq(0),
+            self.detected.nyet   .eq(0),
         ]
 
 
@@ -546,10 +543,10 @@ class USBHandshakeDetector(Elaboratable):
                 # and identify the event.
                 with m.If(~self.utmi.rx_active):
                     m.d.usb += [
-                        self.ack_detected    .eq(active_pid == self.ACK_PID),
-                        self.nak_detected    .eq(active_pid == self.NAK_PID),
-                        self.stall_detected  .eq(active_pid == self.STALL_PID),
-                        self.nyet_detected   .eq(active_pid == self.NYET_PID),
+                        self.detected.ack    .eq(active_pid == self.ACK_PID),
+                        self.detected.nak    .eq(active_pid == self.NAK_PID),
+                        self.detected.stall  .eq(active_pid == self.STALL_PID),
+                        self.detected.nyet   .eq(active_pid == self.NYET_PID),
                     ]
                     m.next="IDLE"
 
@@ -574,22 +571,22 @@ class USBHandshakeDetectorTest(USBPacketizerTest):
     @usb_domain_test_case
     def test_ack(self):
         yield from self.provide_packet(0b11010010)
-        self.assertEqual((yield self.dut.ack_detected), 1)
+        self.assertEqual((yield self.dut.detected.ack), 1)
 
     @usb_domain_test_case
     def test_nak(self):
         yield from self.provide_packet(0b01011010)
-        self.assertEqual((yield self.dut.nak_detected), 1)
+        self.assertEqual((yield self.dut.detected.nak), 1)
 
     @usb_domain_test_case
     def test_stall(self):
         yield from self.provide_packet(0b00011110)
-        self.assertEqual((yield self.dut.stall_detected), 1)
+        self.assertEqual((yield self.dut.detected.stall), 1)
 
     @usb_domain_test_case
     def test_nyet(self):
         yield from self.provide_packet(0b10010110)
-        self.assertEqual((yield self.dut.nyet_detected), 1)
+        self.assertEqual((yield self.dut.detected.nyet), 1)
 
 
 
@@ -911,6 +908,9 @@ class USBDataPacketGenerator(Elaboratable):
 
     Handles steps such as PID generation and CRC-16 injection.
 
+    As a special case, if the stream pulses `last` (with valid=1) without pulsing
+    `first`, we'll send a zero-length packet.
+
     I/O port:
 
         # Control interface:
@@ -939,7 +939,7 @@ class USBDataPacketGenerator(Elaboratable):
         self.data_pid     = Signal(2)
 
         self.crc          = DataCRCInterface()
-        self.stream       = USBOutStreamInterface()
+        self.stream       = USBInStreamInterface()
         self.tx           = UTMITransmitInterface()
 
 
@@ -949,8 +949,8 @@ class USBDataPacketGenerator(Elaboratable):
         # Create a mux that maps our data_pid value to our actual data PID.
         data_pids = Array([
             Const(0xC3, shape=8), # DATA0
-            Const(0x87, shape=8), # DATA1
-            Const(0x4B, shape=8), # DATA2
+            Const(0x4B, shape=8), # DATA1
+            Const(0x87, shape=8), # DATA2
             Const(0x0F, shape=8)  # DATAM
         ])
 
@@ -959,6 +959,9 @@ class USBDataPacketGenerator(Elaboratable):
         # the correct final CRC byte; even if the CRC generator updates its computation
         # when the first byte of the CRC is transmitted.
         remaining_crc = Signal(8)
+
+        # Flag that stores whether we're sending a zero-length packet.
+        is_zlp = Signal()
 
         # If we're creating an internal CRC generator, create a submodule
         # and hook it up.
@@ -982,7 +985,14 @@ class USBDataPacketGenerator(Elaboratable):
                 m.d.comb += self.stream.ready.eq(0)
 
                 # Once a packet starts, we'll need to transmit the data PID.
-                with m.If(self.stream.first):
+                with m.If(self.stream.first & self.stream.valid):
+                    m.d.usb += is_zlp.eq(0)
+                    m.next = "SEND_PID"
+
+                # Special case: if `last` pulses without first, we'll consider this
+                # a zero-length packet ("a packet without a first byte").
+                with m.Elif(self.stream.last & self.stream.valid):
+                    m.d.usb += is_zlp.eq(1)
                     m.next = "SEND_PID"
 
 
@@ -1003,7 +1013,15 @@ class USBDataPacketGenerator(Elaboratable):
 
                 # Advance once the PHY accepts our PID.
                 with m.If(self.tx.ready):
-                    m.next = 'SEND_PAYLOAD'
+
+                    # If this is a ZLP, we don't have a payload to send.
+                    # Skip directly to sending our CRC.
+                    with m.If(is_zlp):
+                        m.next = 'SEND_CRC_FIRST'
+
+                    # Otherwise, we have a payload. Send it.
+                    with m.Else():
+                        m.next = 'SEND_PAYLOAD'
 
 
             # SEND_PAYLOAD -- send the data payload for our stream
@@ -1137,6 +1155,44 @@ class USBDataPacketGeneratorTest(LunaGatewareTestCase):
         self.assertEqual((yield tx.valid), 0)
 
 
+    @usb_domain_test_case
+    def test_zlp_generation(self):
+        stream = self.dut.stream
+        tx     = self.dut.tx
+
+        # Request a ZLP.
+        yield stream.first.eq(0)
+        yield stream.last.eq(1)
+        yield stream.valid.eq(1)
+        yield
+
+        # Drop our last back to zero, immediately.
+        yield stream.last.eq(0)
+
+        # Once our first byte has been provided, our transmission should
+        # start (valid=1), and we should see our data PID.
+        yield
+        self.assertEqual((yield tx.valid), 1)
+        self.assertEqual((yield tx.data), 0xc3)
+
+        # Drop our stream-valid to zero after the last stream byte.
+        yield stream.valid.eq(0)
+
+        # We should now see that we're no longer consuming data...
+        yield
+        self.assertEqual((yield stream.ready), 0)
+
+        # ... but the transmission is still valid; and now presenting our CRC...
+        self.assertEqual((yield tx.valid), 1)
+        self.assertEqual((yield tx.data),  0x0)
+
+        # ... which is two-bytes long.
+        yield
+        self.assertEqual((yield tx.valid), 1)
+        self.assertEqual((yield tx.data),  0x0)
+
+
+
 class USBHandshakeGenerator(Elaboratable):
     """ Module that generates handshake packets, on request.
 
@@ -1146,7 +1202,7 @@ class USBHandshakeGenerator(Elaboratable):
         I: issue_stall  -- Pulsed to generate a STALL handshake.
 
         # UTMI-equivalent signals,
-        *: tx_interface -- Interface to the relevant UTMI interface.
+        *: tx           -- Interface to the relevant UTMI interface.
     """
 
     # Full contents of an ACK, NAK, and STALL packet.
@@ -1164,7 +1220,7 @@ class USBHandshakeGenerator(Elaboratable):
         self.issue_nak    = Signal()
         self.issue_stall  = Signal()
 
-        self.tx_interface = UTMITransmitInterface()
+        self.tx           = UTMITransmitInterface()
 
 
     def elaborate(self, platform):
@@ -1174,32 +1230,32 @@ class USBHandshakeGenerator(Elaboratable):
 
             # IDLE -- we haven't yet received a request to transmit
             with m.State('IDLE'):
-                m.d.comb += self.tx_interface.valid.eq(0)
+                m.d.comb += self.tx.valid.eq(0)
 
                 # Wait until we have an ACK, NAK, or STALL request;
                 # Then set our data value to the appropriate PID,
                 # in preparation for the next cycle.
 
                 with m.If(self.issue_ack):
-                    m.d.usb += self.tx_interface.data  .eq(self.PACKET_ACK),
+                    m.d.usb += self.tx.data  .eq(self.PACKET_ACK),
                     m.next = 'TRANSMIT'
 
                 with m.If(self.issue_nak):
-                    m.d.usb += self.tx_interface.data  .eq(self.PACKET_NAK),
+                    m.d.usb += self.tx.data  .eq(self.PACKET_NAK),
                     m.next = 'TRANSMIT'
 
                 with m.If(self.issue_stall):
-                    m.d.usb += self.tx_interface.data  .eq(self.PACKET_STALL),
+                    m.d.usb += self.tx.data  .eq(self.PACKET_STALL),
                     m.next = 'TRANSMIT'
 
 
             # TRANSMIT -- send the handshake.
             with m.State('TRANSMIT'):
-                m.d.comb += self.tx_interface.valid.eq(1)
+                m.d.comb += self.tx.valid.eq(1)
 
                 # Once we know the transmission will be accepted, we're done!
                 # Move back to IDLE.
-                with m.If(self.tx_interface.ready):
+                with m.If(self.tx.ready):
                     m.next = 'IDLE'
 
         return m
@@ -1217,7 +1273,7 @@ class USBHandshakeGeneratorTest(LunaGatewareTestCase):
         dut = self.dut
 
         # Before we request anything, our data shouldn't be valid.
-        self.assertEqual((yield dut.tx_interface.valid), 0)
+        self.assertEqual((yield dut.tx.valid), 0)
 
         # When we request an ACK...
         yield dut.issue_ack.eq(1)
@@ -1226,22 +1282,22 @@ class USBHandshakeGeneratorTest(LunaGatewareTestCase):
 
         # ... we should see an ACK packet on our data lines...
         yield
-        self.assertEqual((yield dut.tx_interface.data), USBHandshakeGenerator.PACKET_ACK)
+        self.assertEqual((yield dut.tx.data), USBHandshakeGenerator.PACKET_ACK)
 
         # ... our transmit request should be valid.
-        self.assertEqual((yield dut.tx_interface.valid), 1)
+        self.assertEqual((yield dut.tx.valid), 1)
 
         # It should remain valid...
         yield from self.advance_cycles(10)
-        self.assertEqual((yield dut.tx_interface.valid), 1)
+        self.assertEqual((yield dut.tx.valid), 1)
 
         # ... until the UTMI transceiver marks it as accepted...
-        yield dut.tx_interface.ready.eq(1)
+        yield dut.tx.ready.eq(1)
         yield
 
         # ... when our packet should be marked as invalid.
         yield
-        self.assertEqual((yield dut.tx_interface.valid), 0)
+        self.assertEqual((yield dut.tx.valid), 0)
 
 
     @usb_domain_test_case
@@ -1249,7 +1305,7 @@ class USBHandshakeGeneratorTest(LunaGatewareTestCase):
         dut = self.dut
 
         # Start off with our transmitter ready to receive.
-        yield dut.tx_interface.ready.eq(1)
+        yield dut.tx.ready.eq(1)
 
         # When we request an ACK...
         yield dut.issue_ack.eq(1)
@@ -1258,14 +1314,14 @@ class USBHandshakeGeneratorTest(LunaGatewareTestCase):
 
         # ... we should see an ACK packet on our data lines...
         yield
-        self.assertEqual((yield dut.tx_interface.data), USBHandshakeGenerator.PACKET_ACK)
+        self.assertEqual((yield dut.tx.data), USBHandshakeGenerator.PACKET_ACK)
 
         # ... our transmit request should be valid...
-        self.assertEqual((yield dut.tx_interface.valid), 1)
+        self.assertEqual((yield dut.tx.valid), 1)
 
         # ... and then drop out of being valid after one cycle.
         yield
-        self.assertEqual((yield dut.tx_interface.valid), 0)
+        self.assertEqual((yield dut.tx.valid), 0)
 
 
 
@@ -1288,6 +1344,8 @@ class USBInterpacketTimer(Elaboratable):
     #     and 6.5 LS bit periods is equivalent to 260 ULPI clocks. [ULPI 1.1, Figure 18].
     #   - A HS device needs to wait 8 HS bit periods before transmitting [USB2, 7.1.18.2].
     #     Each ULPI cycle is 8 HS bit periods, so we'll only need to wait one cycle.
+
+    # TODO: potentially reduce these to account for processing delays?
     HS_RX_TO_TX_DELAY = (  1,  24)
     FS_RX_TO_TX_DELAY = ( 10,  32)
     LS_RX_TO_TX_DELAY = ( 80, 260)

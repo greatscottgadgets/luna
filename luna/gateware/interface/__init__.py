@@ -33,19 +33,19 @@ class StreamInterface(Record):
             payload_width -- The width of the payload packets.
         """
         super().__init__([
-            ('valid',    1),
-            ('ready',    1),
+            ('valid',    1,             DIR_FANIN),
+            ('ready',    1,             DIR_FANOUT),
 
-            ('first',    1),
-            ('last',     1),
+            ('first',    1,             DIR_FANIN),
+            ('last',     1,             DIR_FANIN),
 
-            ('payload',  payload_width),
+            ('payload',  payload_width, DIR_FANIN),
         ])
 
 
 
-class USBOutStreamInterface(StreamInterface):
-    """ Variant of LUNA's StreamInterface optimized for USB OUT transmission.
+class USBInStreamInterface(StreamInterface):
+    """ Variant of LUNA's StreamInterface optimized for USB IN transmission.
 
     This stream interface is nearly identical to StreamInterface, with the following
     restriction: the `valid` signal _must_ be held high for every packet between `first`
@@ -73,8 +73,8 @@ class USBOutStreamInterface(StreamInterface):
 
 
 
-class USBInStreamInterface(StreamInterface):
-    """ Variant of LUNA's StreamInterface optimized for USB IN transmission.
+class USBOutStreamInterface(StreamInterface):
+    """ Variant of LUNA's StreamInterface optimized for USB OUT receipt.
 
     This stream interface is nearly identical to StreamInterface, but the 'ready'
     signal is removed.
@@ -94,11 +94,11 @@ class USBInStreamInterface(StreamInterface):
         Parameter:
             payload_width -- The width of the payload packets.
         """
-        super().__init__([
-            ('valid',    1),
+        Record.__init__(self, [
+            ('valid',    1,             DIR_FANOUT),
 
-            ('first',    1),
-            ('last',     1),
+            ('first',    1,             DIR_FANIN),
+            ('last',     1,             DIR_FANIN),
 
-            ('payload',  payload_width),
+            ('payload',  payload_width, DIR_FANIN),
         ])

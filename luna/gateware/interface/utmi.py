@@ -4,6 +4,7 @@
 """ UTMI interfacing. """
 
 
+from nmigen         import Elaboratable, Signal, Module
 from nmigen.hdl.rec import Record, DIR_FANIN, DIR_FANOUT
 
 
@@ -40,3 +41,51 @@ class UTMITransmitInterface(Record):
 
             self.ready          .eq(utmi_bus.tx_ready),
         ]
+
+
+class UTMIInterfaceMultiplexer(Elaboratable):
+    """ Gateware that merges a collection of UTMITransmitInterfaces into a single interface.
+
+    Assumes that only one transmitter will be communicating at once.
+
+    I/O port:
+        O*: output -- Our output interface; has all of the active busses merged together.
+    """
+
+    def __init__(self):
+
+        # Collection that stores each of the interfaces added to this bus.
+        self._inputs = []
+
+        #
+        # I/O port
+        #
+        self.output = UTMITransmitInterface()
+
+
+    def add_input(self, input_interface : UTMITransmitInterface):
+        """ Adds a transmit interface to the multiplexer. """
+        self._inputs.append(input_interface)
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        #
+        # Our basic functionality is simple: we'll build a priority encoder that
+        # connects whichever interface has its .valid signal high.
+        #
+
+        conditional = m.If
+
+        for interface in self._inputs:
+
+            # If the given interface is asserted, drive our output with its signals.
+            with conditional(interface.valid):
+                m.d.comb += interface.connect(self.output)
+
+            # After our first iteration, use Elif instead of If.
+            conditional = m.Elif
+
+
+        return m

@@ -6,26 +6,40 @@
 import unittest
 
 from nmigen            import Signal, Module, Elaboratable
-from ...test           import LunaGatewareTestCase, usb_domain_test_case
+from ...test           import usb_domain_test_case
 
 from .packet           import DataCRCInterface, USBDataPacketCRC, USBInterpacketTimer
 from .packet           import USBTokenDetector, USBPacketizerTest, TokenDetectorInterface
-from .packet           import InterpacketTimerInterface
+from .packet           import InterpacketTimerInterface, HandshakeExchangeInterface
 from .request          import USBSetupDecoder, StandardRequestHandler
+from ...interface      import USBInStreamInterface
 
 
 class USBControlEndpoint(Elaboratable):
     """ Base class for USB control endpoint implementers.
 
     I/O port:
-        *: data_crc     -- Control connection for our data-CRC unit.
-        *: timer        -- Interface to our interpacket timer.
-        I: tokenizer    -- Interface to our TokenDetector; notifies us of USB tokens.
+        *: data_crc            -- Control connection for our data-CRC unit.
+        *: timer               -- Interface to our interpacket timer.
+        I: tokenizer           -- Interface to our TokenDetector; notifies us of USB tokens.
 
-        # Handshake connections.
-        O: issue_ack    -- Strobe; pulses high when the endpoint wants to issue an ACK handshake.
-        O: issue_nak    -- Strobe; pulses high when the endpoint wants to issue a  NAK handshake.
-        O: issue_stall  -- Strobe; pulses high when the endpoint wants to issue a  STALL handshake.
+        # Device state.
+        I: speed               -- The device's current operating speed. Should be a USBSpeed
+                                  enumeration value -- 0 for high, 1 for full, 2 for low.
+
+        # Address / configuration connections.
+        O: address_changed     -- Strobe; pulses high when the device's address should be changed.
+        O: new_address[7]      -- When `address_changed` is high, this field contains the address that
+                                  should be adopted.
+
+        # Data/handshake connections.
+        *: tx                  -- Transmit interface for this endpoint.
+        O: tx_pid_toggle       -- Value for the data PID toggle; 0 indicates we'll send DATA0; 1 indicates DATA1.
+
+        *: handshakes_detected -- Carries handshakes detected from the host.
+        O: issue_ack           -- Strobe; pulses high when the endpoint wants to issue an ACK handshake.
+        O: issue_nak           -- Strobe; pulses high when the endpoint wants to issue a  NAK handshake.
+        O: issue_stall         -- Strobe; pulses high when the endpoint wants to issue a  STALL handshake.
 
         # Diagnostic I/O.
         last_request[8] -- Request number of the last request.
@@ -40,23 +54,32 @@ class USBControlEndpoint(Elaboratable):
                               i.e. without an internal data-CRC generator, or tokenizer. In this case, tokenizer
                               and timer should be set to None; and will be ignored.
         """
-        self.utmi         = utmi
-        self.standalone   = standalone
+        self.utmi                = utmi
+        self.standalone          = standalone
 
         #
         # I/O Port
         #
-        self.data_crc     = DataCRCInterface()
-        self.tokenizer    = TokenDetectorInterface()
-        self.timer        = InterpacketTimerInterface()
+        self.data_crc            = DataCRCInterface()
+        self.tokenizer           = TokenDetectorInterface()
+        self.timer               = InterpacketTimerInterface()
 
-        self.issue_ack    = Signal()
-        self.issue_nak    = Signal()
-        self.issue_stall  = Signal()
+        self.speed               = Signal(2)
+
+        self.address_changed     = Signal()
+        self.new_address         = Signal(7)
+
+        self.tx                  = USBInStreamInterface()
+        self.tx_pid_toggle       = Signal()
+        self.handshakes_detected = HandshakeExchangeInterface(is_detector=True)
+
+        self.issue_ack           = Signal()
+        self.issue_nak           = Signal()
+        self.issue_stall         = Signal()
 
         # Debug outputs
-        self.last_request = Signal(8)
-        self.new_packet   = Signal()
+        self.last_request        = Signal(8)
+        self.new_packet          = Signal()
 
 
 
@@ -96,12 +119,14 @@ class USBControlEndpoint(Elaboratable):
         # Create our SETUP packet decoder.
         m.submodules.setup_decoder = setup_decoder = USBSetupDecoder(utmi=self.utmi)
         m.d.comb += [
-            self.data_crc.connect(setup_decoder.data_crc),
-            self.tokenizer.connect(setup_decoder.tokenizer),
+            self.data_crc       .connect(setup_decoder.data_crc),
+            self.tokenizer      .connect(setup_decoder.tokenizer),
+            setup_decoder.speed .eq(self.speed),
 
             # And attach our timer interface to both our local users and
             # to our setup decoder.
-            self.timer.attach(setup_decoder.timer, interpacket_timer_start)
+            self.timer          .attach(setup_decoder.timer, interpacket_timer_start)
+
         ]
 
         # Automatically acknowledge any valid SETUP packet.
@@ -123,8 +148,15 @@ class USBControlEndpoint(Elaboratable):
         handler = request_handler.interface
 
         m.d.comb += [
-            setup_decoder.packet.connect(handler.setup),
-            self.issue_stall.eq(handler.handshake.stall)
+            setup_decoder.packet        .connect(handler.setup),
+            self.handshakes_detected    .connect(handler.handshake_detected),
+
+            # TODO: connect these via a mux/arbitrator.
+            self.tx                     .connect(handler.tx),
+            self.issue_stall            .eq(handler.handshake.stall),
+
+            self.address_changed        .eq(handler.address_changed),
+            self.new_address            .eq(handler.new_address),
         ]
 
 
@@ -152,18 +184,25 @@ class USBControlEndpoint(Elaboratable):
 
             with m.State('DATA'):
 
-                # TODO: handle
-                pass
-
-
-            # STATUS_PREPARE -- State entered when we first enter the STATUS phase,
-            # but aren't ready to transmit yet, as we need to wait for a token.
-            # Wait for one.
-            with m.State('STATUS'):
-
                 # Once our interpacket delay is complete, we'll need to respond.
                 with m.If(self.tokenizer.ready_for_response):
+                    m.d.comb += request_handler.interface.data_requested.eq(1)
+
+                    # FIXME: correct packet ordering
+                    m.next = 'SETUP'
+
+
+            # STATUS -- We're currently in the status stage. We'll wait for an IN or OUT, and then
+            # prompt our request handler to report the status of our transaction.
+            with m.State('STATUS'):
+
+                # If we respond to a status-phase IN token, we'll always use a DATA1 PID [USB2 8.5.3]
+                m.d.usb += self.tx_pid_toggle.eq(1)
+
+                # Once our interpacket delay is complete, we'll prompt the request handler for a response.
+                with m.If(self.tokenizer.ready_for_response):
                     m.d.comb += request_handler.interface.status_requested.eq(1)
+                    m.next = 'SETUP'
 
 
         return m
