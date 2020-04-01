@@ -10,8 +10,8 @@ import functools
 from nmigen            import Signal, Module, Elaboratable, Cat, Array, Const
 from nmigen.hdl.rec    import Record, DIR_FANIN, DIR_FANOUT
 
-from .                 import USBSpeed
-from ..stream          import USBInStreamInterface
+from .                 import USBSpeed, USBPacketID
+from ..stream          import USBInStreamInterface, USBOutStreamInterface
 from ...interface.utmi import UTMITransmitInterface
 from ...test           import LunaGatewareTestCase, usb_domain_test_case
 
@@ -71,6 +71,10 @@ class TokenDetectorInterface(Record):
         O: frame[11]          -- The current USB frame number.
         O: new_frame          -- Strobe asserted for a single cycle when a new SOF
                                  has been received.
+
+        O: is_in              -- High iff the current token is an IN.
+        O: is_out             -- High iff the current token is an OUT.
+        O: is_setup           -- High iff the current token is a SETUP.
     """
 
     def __init__(self):
@@ -82,7 +86,11 @@ class TokenDetectorInterface(Record):
             ('ready_for_response', 1, DIR_FANOUT),
 
             ('frame',             11, DIR_FANOUT),
-            ('new_frame',          1, DIR_FANOUT)
+            ('new_frame',          1, DIR_FANOUT),
+
+            ('is_in',              1, DIR_FANOUT),
+            ('is_out',             1, DIR_FANOUT),
+            ('is_setup',           1, DIR_FANOUT),
         ])
 
 
@@ -143,7 +151,6 @@ class InterpacketTimerInterface(Record):
         fragments.append(self.start.eq(start_condition))
 
         return fragments
-
 
 
 #
@@ -284,10 +291,17 @@ class USBTokenDetector(Elaboratable):
         m.submodules.timer.add_interface(timer)
         m.d.comb += self.interface.ready_for_response.eq(timer.tx_allowed)
 
+        # Generate our convenience status signals.
+        m.d.comb += [
+            self.interface.is_in     .eq(self.interface.pid == USBPacketID.IN),
+            self.interface.is_out    .eq(self.interface.pid == USBPacketID.OUT),
+            self.interface.is_setup  .eq(self.interface.pid == USBPacketID.SETUP)
+        ]
+
         # Keep our strobes un-asserted unless otherwise specified.
         m.d.usb += [
-            self.interface.new_frame           .eq(0),
-            self.interface.new_token           .eq(0)
+            self.interface.new_frame  .eq(0),
+            self.interface.new_token  .eq(0)
         ]
 
         with m.FSM(domain="usb"):
@@ -703,6 +717,337 @@ class USBDataPacketCRC(Elaboratable):
         return m
 
 
+class USBDataPacketReceiver(Elaboratable):
+    """ Gateware that converts received USB data packets into streams.
+
+    I/O port:
+        *: data_crc           -- Connection to the CRC generator.
+        *: timer              -- Connect to our interpacket timer.
+        *: stream             -- USBOutDataStream stream with captured packet data.
+
+        O: active_pid[4]      -- The PID of the data currently being received.
+        O: packet_complete    -- Strobe that pulses high when a new packet is delivered with a valid CRC.
+        O: ready_for_response -- Indicates that an inter-packet delay has passed since `packet_complete`, and
+                                thus we're now ready to respond with a handshake.
+        O: crc_mismatch       -- Strobe that pulses high when the given packet has a CRC mismatch; and thus
+                                 the data received this far should be discarded.
+        O: packet_id[4]       -- The packet ID of the captured PID.
+
+    """
+
+    DATA_SUFFIX = 0b11
+
+    def __init__(self, *, utmi, standalone=False, speed=None):
+        """
+        Parameters:
+            utmi                 -- The UTMI bus to observe.
+            max_packet_size      -- The maximum packet (payload) size to be deserialized, in bytes.
+            standalone           -- Debug value. If True, a submodule CRC generator will be created.
+            speed                -- USBSpeed signal or constant that specifies our speed in standalone mode.
+        """
+
+        self.utmi        = utmi
+        self.standalone  = standalone
+        self.speed       = speed
+
+        #
+        # I/O port
+        #
+        self.data_crc           = DataCRCInterface()
+        self.timer              = InterpacketTimerInterface()
+        self.stream             = USBOutStreamInterface()
+
+        self.active_pid         = Signal(4)
+
+        self.packet_complete    = Signal()
+        self.ready_for_response = Signal()
+        self.crc_mismatch       = Signal()
+        self.packet_id          = Signal(4)
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # If we're in standalone mode, create our dependencies for us.
+        if self.standalone:
+            m.submodules.crc = crc = USBDataPacketCRC()
+            crc.add_interface(self.data_crc)
+
+            m.submodules.timer = timer = USBInterpacketTimer()
+            timer.add_interface(self.timer)
+
+            if not self.speed:
+                self.speed = USBSpeed.FULL
+
+            m.d.comb += [
+
+                # Connect our CRC generator...
+                crc.rx_data           .eq(self.utmi.rx_data),
+                crc.rx_valid          .eq(self.utmi.rx_valid),
+                crc.tx_valid          .eq(0),
+
+                # ... and our timer.
+                timer.speed           .eq(self.speed)
+            ]
+
+
+        # CRC-16 tracking signals.
+        last_byte_crc = Signal(16)
+        last_word_crc = Signal(16)
+
+        # Keeps track of the most recently received word; for CRC comparison/removal.
+        data_pipeline     = Signal(8 * 2)
+
+        # Keep our control signals + strobes un-asserted unless otherwise specified.
+        m.d.usb  += [
+            self.packet_complete .eq(0),
+            self.crc_mismatch    .eq(0),
+        ]
+        m.d.comb += [
+            self.stream.next     .eq(0),
+            self.data_crc.start  .eq(0),
+        ]
+
+
+        with m.FSM(domain="usb"):
+
+            # IDLE -- waiting for a packet to be presented
+            with m.State("IDLE"):
+
+                with m.If(self.utmi.rx_active):
+                    m.next = "READ_PID"
+
+            # READ_PID -- read the packet's ID.
+            with m.State("READ_PID"):
+
+                # Clear our CRC; as we're potentially about to start a new packet.
+                m.d.comb += self.data_crc.start.eq(1)
+
+                with m.If(~self.utmi.rx_active):
+                    m.next = "IDLE"
+
+                with m.Elif(self.utmi.rx_valid):
+                    is_data      = (self.utmi.rx_data[0:2] == self.DATA_SUFFIX)
+                    is_valid_pid = (self.utmi.rx_data[0:4] == ~self.utmi.rx_data[4:8])
+
+                    # If this is a data packet, capture its PID.
+                    with m.If(is_valid_pid & is_data):
+                        m.d.usb += self.active_pid.eq(self.utmi.rx_data),
+                        m.next = "RECEIVE_FIRST_BYTE"
+
+                    # Otherwise, ignore this packet.
+                    with m.Else():
+                        m.next = "IRRELEVANT"
+
+
+            # RECEIVE_FIRST_BYTE -- capture the first byte into our pipeline.
+            # We'll always pipeline two bytes before we start emitting; as we won't want to
+            # pass through the last two bytes (the CRC).
+            with m.State("RECEIVE_FIRST_BYTE"):
+
+                with m.If(self.utmi.rx_valid):
+                    m.d.usb += [
+                        data_pipeline[8:]  .eq(self.utmi.rx_data),
+                        last_byte_crc       .eq(self.data_crc.crc)
+                    ]
+                    m.next = 'RECEIVE_SECOND_BYTE'
+
+                # If our packet stops before we see the first to bytes, we'll return to idle.
+                # There's nothing to clean up, as we've never touched the stream.
+                with m.If(~self.utmi.rx_active):
+                    m.next = 'IDLE'
+
+
+            # RECEIVE_SECOND_BYTE-- capture the second byte into our pipeline.
+            with m.State("RECEIVE_SECOND_BYTE"):
+
+                with m.If(self.utmi.rx_valid):
+                    m.d.usb += [
+                        data_pipeline[8:]   .eq(self.utmi.rx_data),
+                        data_pipeline[0:8]  .eq(data_pipeline[8:]),
+
+                        last_byte_crc       .eq(self.data_crc.crc),
+                        last_word_crc       .eq(last_byte_crc),
+                    ]
+                    m.next = 'RECEIVE_AND_EMIT'
+
+                # If our packet stops before we see the first to bytes, we'll return to idle.
+                # There's nothing to clean up, as we've never touched the stream.
+                with m.Elif(~self.utmi.rx_active):
+                    m.next = 'IDLE'
+
+
+            # RECEIVE_AND_EMIT -- receive bytes into our pipeline, and emit them.
+            # Now that we have more than two bytes captured, we can start emitting bytes.
+            # We'll always be emitting bytes that are two old -- so we can stop before our CRC.:
+            with m.State("RECEIVE_AND_EMIT"):
+                m.d.comb += self.stream.valid.eq(1)
+
+                with m.If(self.utmi.rx_valid):
+
+                    m.d.comb += [
+                        # Emit the current packet...
+                        self.stream.payload  .eq(data_pipeline[0:8]),
+                        self.stream.next     .eq(1),
+                    ]
+
+                    m.d.usb += [
+
+                        # ... capture the incoming one...
+                        data_pipeline[8:]   .eq(self.utmi.rx_data),
+                        data_pipeline[0:8]  .eq(data_pipeline[8:]),
+
+                        # ... and update our cached CRCs.
+                        last_byte_crc       .eq(self.data_crc.crc),
+                        last_word_crc       .eq(last_byte_crc),
+                    ]
+
+
+                # Once we stop receiving data, check our CRC and finish.
+                with m.If(~self.utmi.rx_active):
+
+                    # If our CRC matches, this is a valid packet!
+                    with m.If(last_word_crc == data_pipeline):
+
+                        # Indicate so...
+                        m.d.usb += [
+                            self.packet_id       .eq(self.active_pid),
+                            self.packet_complete .eq(1)
+                        ]
+
+                        # ... start counting our interpacket delay...
+                        m.d.comb += [
+                            self.timer.start  .eq(1)
+                        ]
+
+                        # ... and wait for it to complete.
+                        m.next = 'INTERPACKET_DELAY'
+
+
+                    # Otherwise, flag this as a CRC mismatch.
+                    with m.Else():
+                        m.d.usb += [
+                            self.crc_mismatch    .eq(1)
+                        ]
+
+                        # ... and return to IDLE.
+                        m.next = "IDLE"
+
+
+            # INTERPACKET_DELAY -- we've received a valid packet; wait for an
+            # interpacket delay before moving back to IDLE.
+            with m.State("INTERPACKET_DELAY"):
+
+                with m.If(self.timer.tx_allowed):
+                    m.d.comb += self.ready_for_response.eq(1)
+                    m.next = 'IDLE'
+
+
+            # IRRELEVANT -- we've encountered a malformed or non-DATA packet.
+            with m.State("IRRELEVANT"):
+
+                with m.If(~self.utmi.rx_active):
+                    m.next = "IDLE"
+
+        return m
+
+
+class USBDataPacketReceiverTest(USBPacketizerTest):
+    FRAGMENT_UNDER_TEST = USBDataPacketReceiver
+    FRAGMENT_ARGUMENTS  = {'standalone': True}
+
+    @usb_domain_test_case
+    def test_data_receive(self):
+        dut = self.dut
+        stream = self.dut.stream
+
+
+        #    0xC3,                                           # PID: Data
+        #    0x00, 0x05, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, # DATA
+        #    0xEB, 0xBC                                      # CRC
+
+        # Before we send anything, our stream should be inactive.
+        self.assertEqual((yield stream.valid), 0)
+
+        # After sending our PID, we shouldn't see our stream be active.
+        yield from self.start_packet()
+        yield from self.provide_byte(0xc3)
+        self.assertEqual((yield stream.valid), 0)
+
+        # The stream shouldn't go valid for our first two data bytes, either.
+        for b in [0x00, 0x05]:
+            yield from self.provide_byte(b)
+            self.assertEqual((yield stream.valid), 0)
+
+        # Check that our active PID was successfully captured, and our current on
+        # hasn't yet been updated.
+        self.assertEqual((yield self.dut.active_pid), 3)
+        self.assertEqual((yield self.dut.packet_id),  0)
+
+        # The third byte should finally trigger our stream output...
+        yield from self.provide_byte(0x08)
+        self.assertEqual((yield stream.valid), 1)
+
+        # ... and we should see the first byte on our stream.
+        self.assertEqual((yield stream.next),       1)
+        self.assertEqual((yield stream.payload), 0x00)
+
+        # If we pause RxValid, we nothing should advance.
+        yield self.utmi.rx_valid.eq(0)
+
+        yield from self.provide_byte(0x08)
+        self.assertEqual((yield stream.next),       0)
+        self.assertEqual((yield stream.payload), 0x00)
+
+        # Resuming should continue our advance...
+        yield self.utmi.rx_valid.eq(1)
+
+        # ... and we should process the remainder of the input
+        for b in [0x00, 0x00, 0x00, 0x00, 0x00, 0xEB, 0xBC]:
+            yield from self.provide_byte(b)
+
+        # ... remaining two bytes behind.
+        self.assertEqual((yield stream.next),       1)
+        self.assertEqual((yield stream.payload), 0x00)
+
+
+        # When we stop our packet, we should see our stream stop as well.
+        # The last two bytes, our CRC, shouldn't be included.
+        yield from self.end_packet()
+        yield
+
+        # And, since we sent a valid packet, we should see a pulse indicating the packet is valid.
+        self.assertEqual((yield stream.valid),              0)
+        self.assertEqual((yield self.dut.packet_complete),  1)
+
+        # After an inter-packet delay, we should see that we're ready to respond.
+        yield from self.advance_cycles(9)
+        self.assertEqual((yield self.dut.ready_for_response), 0)
+
+
+    @usb_domain_test_case
+    def test_zlp(self):
+        dut = self.dut
+        stream = self.dut.stream
+
+        #    0x4B        # DATA1
+        #    0x00, 0x00  # CRC
+
+        # Send our data PID.
+        yield from self.start_packet()
+        yield from self.provide_byte(0x4B)
+
+        # Send our CRC.
+        for b in [0x00, 0x00]:
+            yield from self.provide_byte(b)
+            self.assertEqual((yield stream.valid), 0)
+
+        yield from self.end_packet()
+        yield
+
+        self.assertEqual((yield self.dut.packet_complete),  1)
+
+
 class USBDataPacketDeserializer(Elaboratable):
     """ Gateware that captures USB data packet contents and parallelizes them.
 
@@ -1032,9 +1377,8 @@ class USBDataPacketGenerator(Elaboratable):
                 m.d.comb += self.stream.bridge_to(self.tx)
 
                 # We'll stop sending once the packet ends, and move on to our CRC.
-                with m.If(self.stream.last):
+                with m.If(self.tx.ready & (self.stream.last | ~self.stream.valid)):
                     m.next = 'SEND_CRC_FIRST'
-
 
 
             # SEND_CRC_FIRST -- send the first byte of the packet's CRC
@@ -1050,7 +1394,8 @@ class USBDataPacketGenerator(Elaboratable):
                 ]
 
                 # ... and move on to the next one.
-                m.next = 'SEND_CRC_SECOND'
+                with m.If(self.tx.ready):
+                    m.next = 'SEND_CRC_SECOND'
 
 
             # SEND_CRC_LAST -- send the last byte of the packet's CRC
@@ -1063,7 +1408,8 @@ class USBDataPacketGenerator(Elaboratable):
                 ]
 
                 # ... and return to idle.
-                m.next = 'IDLE'
+                with m.If(self.tx.ready):
+                    m.next = 'IDLE'
 
         return m
 

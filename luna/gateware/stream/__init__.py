@@ -34,11 +34,26 @@ class StreamInterface(Record):
             payload_width -- The width of the payload packets.
         """
         super().__init__([
-            ('valid',    1,             DIR_FANIN),
-            ('ready',    1,             DIR_FANOUT),
+            ('valid',    1),
+            ('ready',    1),
 
-            ('first',    1,             DIR_FANIN),
-            ('last',     1,             DIR_FANIN),
+            ('first',    1),
+            ('last',     1),
 
-            ('payload',  payload_width, DIR_FANIN),
+            ('payload',  payload_width),
         ])
+
+
+    def attach(self, interface):
+        return [
+            interface.valid    .eq(self.valid),
+            interface.first    .eq(self.first),
+            interface.last     .eq(self.last),
+            interface.payload  .eq(self.payload),
+
+            self.ready         .eq(interface.ready)
+        ]
+
+
+    def connect(self, interface):
+        return interface.attach(self)

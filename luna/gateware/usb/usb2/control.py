@@ -5,44 +5,51 @@
 
 import unittest
 
-from nmigen            import Signal, Module, Elaboratable
-from ...test           import usb_domain_test_case
+from nmigen                import Signal, Module, Elaboratable
+from usb_protocol.emitters import DeviceDescriptorCollection
 
-from .packet           import DataCRCInterface, USBDataPacketCRC, USBInterpacketTimer
-from .packet           import USBTokenDetector, USBPacketizerTest, TokenDetectorInterface
-from .packet           import InterpacketTimerInterface, HandshakeExchangeInterface
-from .request          import USBSetupDecoder, StandardRequestHandler
-from ..stream         import USBInStreamInterface
+from .packet               import DataCRCInterface, USBDataPacketCRC, USBInterpacketTimer
+from .packet               import USBTokenDetector, USBPacketizerTest, TokenDetectorInterface
+from .packet               import InterpacketTimerInterface, HandshakeExchangeInterface
+from .request              import USBSetupDecoder
+from ..request.standard    import StandardRequestHandler
+from ..stream              import USBInStreamInterface, USBOutStreamInterface
 
+from ...test               import usb_domain_test_case
+
+# TODO: rename this to indicate that it's a gateware control endpoint
 
 class USBControlEndpoint(Elaboratable):
     """ Base class for USB control endpoint implementers.
 
     I/O port:
-        *: data_crc            -- Control connection for our data-CRC unit.
-        *: timer               -- Interface to our interpacket timer.
-        I: tokenizer           -- Interface to our TokenDetector; notifies us of USB tokens.
+        *: data_crc               -- Control connection for our data-CRC unit.
+        *: timer                  -- Interface to our interpacket timer.
+        I: tokenizer              -- Interface to our TokenDetector; notifies us of USB tokens.
 
         # Device state.
-        I: speed               -- The device's current operating speed. Should be a USBSpeed
-                                  enumeration value -- 0 for high, 1 for full, 2 for low.
+        I: speed                  -- The device's current operating speed. Should be a USBSpeed
+                                     enumeration value -- 0 for high, 1 for full, 2 for low.
 
         # Address / configuration connections.
-        O: address_changed     -- Strobe; pulses high when the device's address should be changed.
-        O: new_address[7]      -- When `address_changed` is high, this field contains the address that
-                                  should be adopted.
+        O: address_changed        -- Strobe; pulses high when the device's address should be changed.
+        O: new_address[7]         -- When `address_changed` is high, this field contains the address that
+                                     should be adopted.
 
         # Data/handshake connections.
-        *: tx                  -- Transmit interface for this endpoint.
-        O: tx_pid_toggle       -- Value for the data PID toggle; 0 indicates we'll send DATA0; 1 indicates DATA1.
+        *  rx                     -- Receive interface for this endpoint.
+        I: rx_complete            -- Strobe that indicates that the concluding rx-stream was valid (CRC check passed).
+        I  rx_ready_for_response  -- Strobe that indicates that we're ready to respond to a complete transmission.
+                                     Indicates that an interpacket delay has passed after an `rx_complete` strobe.
+        I: rx_invalid             -- Strobe that indicates that the concluding rx-stream was invalid (CRC check failed).
 
-        *: handshakes_detected -- Carries handshakes detected from the host.
-        O: issue_ack           -- Strobe; pulses high when the endpoint wants to issue an ACK handshake.
-        O: issue_nak           -- Strobe; pulses high when the endpoint wants to issue a  NAK handshake.
-        O: issue_stall         -- Strobe; pulses high when the endpoint wants to issue a  STALL handshake.
+        *: tx                     -- Transmit interface for this endpoint.
+        O: tx_pid_toggle          -- Value for the data PID toggle; 0 indicates we'll send DATA0; 1 indicates DATA1.
 
-        # Diagnostic I/O.
-        last_request[8] -- Request number of the last request.
+        *: handshakes_detected    -- Carries handshakes detected from the host.
+        O: issue_ack              -- Strobe; pulses high when the endpoint wants to issue an ACK handshake.
+        O: issue_nak              -- Strobe; pulses high when the endpoint wants to issue a  NAK handshake.
+        O: issue_stall            -- Strobe; pulses high when the endpoint wants to issue a  STALL handshake.
     """
 
     def __init__(self, *, utmi, standalone=False):
@@ -60,27 +67,67 @@ class USBControlEndpoint(Elaboratable):
         #
         # I/O Port
         #
-        self.data_crc            = DataCRCInterface()
-        self.tokenizer           = TokenDetectorInterface()
-        self.timer               = InterpacketTimerInterface()
+        self.data_crc              = DataCRCInterface()
+        self.tokenizer             = TokenDetectorInterface()
+        self.timer                 = InterpacketTimerInterface()
 
-        self.speed               = Signal(2)
+        self.speed                 = Signal(2)
 
-        self.address_changed     = Signal()
-        self.new_address         = Signal(7)
+        self.address_changed       = Signal()
+        self.new_address           = Signal(7)
 
-        self.tx                  = USBInStreamInterface()
-        self.tx_pid_toggle       = Signal()
-        self.handshakes_detected = HandshakeExchangeInterface(is_detector=True)
+        self.rx                    = USBOutStreamInterface()
+        self.rx_complete           = Signal()
+        self.rx_ready_for_response = Signal()
+        self.rx_invalid            = Signal()
 
-        self.issue_ack           = Signal()
-        self.issue_nak           = Signal()
-        self.issue_stall         = Signal()
+        self.tx                    = USBInStreamInterface()
+        self.tx_pid_toggle         = Signal()
+        self.handshakes_detected   = HandshakeExchangeInterface(is_detector=True)
 
-        # Debug outputs
-        self.last_request        = Signal(8)
-        self.new_packet          = Signal()
+        self.issue_ack             = Signal()
+        self.issue_nak             = Signal()
+        self.issue_stall           = Signal()
 
+        #
+        # Internals.
+        #
+
+        # List of the modules that will handle control requests.
+        self._request_handlers = []
+
+
+    def add_request_handler(self, request_handler):
+        """ Adds a ControlRequestHandler module to this control endpoint.
+
+        No arbitration is performed between request handlers; so it's important
+        that request handlers not overlap in the requests they handle.
+        """
+        self._request_handlers.append(request_handler)
+
+
+    def add_standard_request_handlers(self, descriptors: DeviceDescriptorCollection):
+        """ Adds a handlers for the standard USB requests.
+
+        This will handle all Standard-type requests; so any additional request handlers
+        must not handle Standard requests.
+
+        Parameters:
+
+        """
+        handler = StandardRequestHandler(descriptors)
+        self._request_handlers.append(handler)
+
+
+    def _handle_setup_reset(self, m):
+        """ Adds a FSM condition that moves back to the SETUP phase if we ever receive a setup token.
+
+        Should only be used within our core FSM.
+        """
+
+        # If we receive a SETUP token, always move back to the SETUP stage.
+        with m.If(self.tokenizer.new_token & self.tokenizer.is_setup):
+            m.next = 'SETUP'
 
 
     def elaborate(self, platform):
@@ -129,35 +176,38 @@ class USBControlEndpoint(Elaboratable):
 
         ]
 
-        # Automatically acknowledge any valid SETUP packet.
-        m.d.comb += self.issue_ack.eq(setup_decoder.ack)
-
-        # Debug output.
-        m.d.comb += [
-            self.last_request  .eq(setup_decoder.packet.request),
-            self.new_packet    .eq(setup_decoder.packet.received),
-        ]
-
 
         #
         # Request handler logic
         #
 
-        # TODO: Implement an .add_request_handlers() function
-        m.submodules.request_handler = request_handler = StandardRequestHandler()
-        handler = request_handler.interface
+        for request_handler in self._request_handlers:
 
-        m.d.comb += [
-            setup_decoder.packet        .connect(handler.setup),
-            self.handshakes_detected    .connect(handler.handshake_detected),
+            # Add each submodule to the endpoint..
+            m.submodules += request_handler
+            handler = request_handler.interface
 
-            # TODO: connect these via a mux/arbitrator.
-            self.tx                     .connect(handler.tx),
-            self.issue_stall            .eq(handler.handshake.stall),
+            # ... and hook it up.
+            m.d.comb += [
+                setup_decoder.packet        .connect(handler.setup),
+                self.handshakes_detected    .connect(handler.handshake_detected),
 
-            self.address_changed        .eq(handler.address_changed),
-            self.new_address            .eq(handler.new_address),
-        ]
+                # FIXME: connect these via a mux/arbitrator.
+                handler.tx                  .attach(self.tx),
+                self.issue_ack              .eq(setup_decoder.ack | handler.handshake.ack),
+                self.issue_stall            .eq(handler.handshake.nak),
+                self.issue_stall            .eq(handler.handshake.stall),
+
+                self.address_changed        .eq(handler.address_changed),
+                self.new_address            .eq(handler.new_address),
+
+                # Fix our data PIDs to DATA1, for now, as we don't support multi-packet responses, yet.
+                # Per [USB2 8.5.3], the first packet of the DATA or STATUS phase always carries a DATA1 PID.
+                self.tx_pid_toggle.eq(1)
+            ]
+
+        # FIXME: don't rely on this hack
+        request_handler = self._request_handlers[0]
 
 
         #
@@ -173,74 +223,63 @@ class USBControlEndpoint(Elaboratable):
                 # We won't do anything until we receive a SETUP token.
                 with m.If(setup_decoder.packet.received):
 
-                    # If our SETUP packet indicates we'll have a data stage,
-                    # move to the DATA stage. Otherwise, move directly to the
-                    # status stage.
+                    # If our SETUP packet indicates we'll have a data stage (wLength > 0)
+                    # move to the DATA stage. Otherwise, move directly to the status stage [8.5.3].
                     with m.If(setup_decoder.packet.length):
-                        m.next = 'DATA'
+
+                        # If this is an device -> host request, expect an IN packet.
+                        with m.If(setup_decoder.packet.is_in_request):
+
+                            m.next = 'DATA_IN'
+
+                        # Otherwise, expect an OUT one.
+                        with m.Else():
+                            m.next = 'DATA_OUT'
+
                     with m.Else():
-                        m.next = 'STATUS'
+                        # If we don't have a data phase, our status phase is always an IN [USB2 8.5.3]
+                        m.next = 'STATUS_IN'
 
 
-            with m.State('DATA'):
+            with m.State('DATA_IN'):
+                self._handle_setup_reset(m)
 
-                # Once our interpacket delay is complete, we'll need to respond.
-                with m.If(self.tokenizer.ready_for_response):
+                # Wait until we have an IN token, and are allowed to respond to it.
+                with m.If(self.tokenizer.ready_for_response & self.tokenizer.is_in):
+
+                    # Notify the request handler to prepare a response.
                     m.d.comb += request_handler.interface.data_requested.eq(1)
 
-                    # FIXME: correct packet ordering
-                    m.next = 'SETUP'
+                # Once we get an OUT token, we should move on to the STATUS stage. [USB2, 8.5.3]
+                with m.If(self.tokenizer.new_token & self.tokenizer.is_out):
+                    m.next = 'STATUS_OUT'
 
 
-            # STATUS -- We're currently in the status stage. We'll wait for an IN or OUT, and then
-            # prompt our request handler to report the status of our transaction.
-            with m.State('STATUS'):
+            with m.State('DATA_OUT'):
+                self._handle_setup_reset(m)
+
+
+            # STATUS_IN -- We're currently in the status stage, and we're expecting an IN token.
+            # We'll wait for that token.
+            with m.State('STATUS_IN'):
+                self._handle_setup_reset(m)
 
                 # If we respond to a status-phase IN token, we'll always use a DATA1 PID [USB2 8.5.3]
-                m.d.usb += self.tx_pid_toggle.eq(1)
 
-                # Once our interpacket delay is complete, we'll prompt the request handler for a response.
-                with m.If(self.tokenizer.ready_for_response):
+                # When we get an IN token, the host is looking for a status-stage ZLP.
+                with m.If(self.tokenizer.ready_for_response & self.tokenizer.is_in):
                     m.d.comb += request_handler.interface.status_requested.eq(1)
-                    m.next = 'SETUP'
 
+            # STATUS_OUT -- We're currently in the status stage, and we're expecting the DATA packet for
+            # an OUT request.
+            with m.State('STATUS_OUT'):
+                self._handle_setup_reset(m)
+
+                # Once we've received a new DATA packet, we're ready to handle a status request.
+                with m.If(self.rx_ready_for_response & self.tokenizer.is_out):
+                    m.d.comb += request_handler.interface.status_requested.eq(1)
 
         return m
-
-
-
-class USBControlEndpointTest(USBPacketizerTest):
-    FRAGMENT_UNDER_TEST = USBControlEndpoint
-    FRAGMENT_ARGUMENTS = {'standalone': True}
-
-    @usb_domain_test_case
-    def test_automatic_nak(self):
-
-        # Provide our setup packet.
-        yield from self.provide_packet(
-            0b00101101, # PID: SETUP token.
-            0b00000000, 0b00010000 # Address 0, endpoint 0, CRC
-        )
-
-        # Provide our data packet, which has this as a SET_ADDRESS out request with no data.
-        yield from self.provide_packet(
-            0xC3, #PID: DATA0
-            0x00, 0x05, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0xEA, 0xC7
-        )
-
-        # FIXME: assert here
-        yield from self.advance_cycles(20)
-
-        # Provide our status stage token.
-        yield from self.provide_packet(
-            0b01101001, # PID: IN token.
-            0b00000000, 0b00010000 # Address 0, endpoint 0, CRC
-        )
-
-        yield from self.advance_cycles(20)
-
-
 
 
 if __name__ == "__main__":

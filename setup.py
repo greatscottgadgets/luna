@@ -25,7 +25,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     python_requires="~=3.7",
-    install_requires=['pyusb', 'nmigen', 'pyvcd~=0.1.6'],
+    install_requires=['pyusb', 'nmigen', 'pyvcd~=0.1.6', 'usb_protocol'],
     setup_requires=['setuptools', 'setuptools_scm'],
     entry_points= {
         'console_scripts': [

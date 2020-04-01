@@ -38,32 +38,42 @@ class USBInStreamInterface(StreamInterface):
 
 
 
-class USBOutStreamInterface(StreamInterface):
+class USBOutStreamInterface(Record):
     """ Variant of LUNA's StreamInterface optimized for USB OUT receipt.
 
-    This stream interface is nearly identical to StreamInterface, but the 'ready'
-    signal is removed.
+    This is a heavily simplified version of our StreamInterface, which omits the 'first',
+    'last', and 'ready' signals. Instead, the streamer indicates when data is valid using
+    the 'next' signal; and the receiver must keep times.
 
-    This means that the relevant interface can easily be translated to the UTMI receive
+    This is selected so the relevant interface can easily be translated to the UTMI receive
     signals, with the following mappings:
 
-        UTMI     | Stream
-        ---------|-----------
-        rx_data  | payload
-        rx_valid | valid
-    """
+        UTMI      | Stream
+        --------- |-----------
+        rx_active | valid
+        rx_data   | payload
+        rx_valid  | next
 
+    """
 
     def __init__(self, payload_width=8):
         """
         Parameter:
             payload_width -- The width of the payload packets.
         """
-        Record.__init__(self, [
+        super().__init__([
             ('valid',    1,             DIR_FANOUT),
+            ('next',    1,              DIR_FANOUT),
 
-            ('first',    1,             DIR_FANIN),
-            ('last',     1,             DIR_FANIN),
-
-            ('payload',  payload_width, DIR_FANIN),
+            ('payload',  payload_width, DIR_FANOUT),
         ])
+
+
+    def bridge_to(self, utmi_rx):
+        """ Generates a list of connections that connect this stream to the provided UTMIReceiveInterface. """
+
+        return [
+            self.valid     .eq(utmi_rx.rx_active),
+            self.next      .eq(utmi_rx.rx_valid),
+            self.data      .eq(utmi_rx.payload)
+        ]

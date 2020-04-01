@@ -1176,7 +1176,7 @@ class UTMITranslator(Elaboratable):
             # Connect our inputs to our transmit translator.
             transmit_translator.ulpi_nxt  .eq(self.ulpi.nxt),
             transmit_translator.op_mode   .eq(self.op_mode),
-            transmit_translator.bus_idle  .eq(~control_translator.busy),
+            transmit_translator.bus_idle  .eq(~control_translator.busy & ~self.ulpi.dir),
             transmit_translator.tx_data   .eq(self.tx_data),
             transmit_translator.tx_valid  .eq(self.tx_valid),
             self.tx_ready                 .eq(transmit_translator.tx_ready),

@@ -4,6 +4,7 @@
 #
 
 from nmigen                         import Elaboratable, Module, Cat, Signal
+from usb_protocol.emitters          import DeviceDescriptorCollection
 
 from luna                           import top_level_cli
 from luna.gateware.architecture.car import LunaECP5DomainGenerator
@@ -12,6 +13,36 @@ from luna.gateware.usb.usb2.device  import USBDevice
 
 class USBDeviceExample(Elaboratable):
     """ Simple example of a USB device using the LUNA framework. """
+
+    def create_descriptors(self):
+        """ Create the descriptors we want to use for our device. """
+
+        descriptors = DeviceDescriptorCollection()
+
+        with descriptors.DeviceDescriptor() as d:
+            d.idVendor           = 0x16d0
+            d.idProduct          = 0xf3b
+
+            d.iManufacturer      = "LUNA"
+            d.iProduct           = "Test Device"
+            d.iSerialNumber      = "1234"
+
+            d.bNumConfigurations = 1
+
+        with descriptors.ConfigurationDescriptor() as c:
+
+            with c.InterfaceDescriptor() as i:
+                i.bInterfaceNumber = 0
+
+                with i.EndpointDescriptor() as e:
+                    e.bEndpointAddress = 0x01
+                    e.wMaxPacketSize   = 512
+
+                with i.EndpointDescriptor() as e:
+                    e.bEndpointAddress = 0x81
+                    e.wMaxPacketSize   = 512
+
+        return descriptors
 
 
     def elaborate(self, platform):
@@ -24,12 +55,21 @@ class USBDeviceExample(Elaboratable):
         ulpi = platform.request("target_phy")
         m.submodules.usb = usb = USBDevice(bus=ulpi)
 
+        # Add our standard control endpoint to the device.
+        descriptors = self.create_descriptors()
+        usb.add_standard_control_endpoint(descriptors)
+
+
         # Connect our device by default.
         m.d.comb += usb.connect.eq(1)
 
         # ... and for now, attach our LEDs to our most recent control request.
-        leds = Cat(platform.request("led", i) for i in range(6))
-        m.d.comb += leds.eq(usb.last_request)
+        m.d.comb += [
+            platform.request('led', 0).eq(usb.tx_activity_led),
+            platform.request('led', 1).eq(usb.rx_activity_led),
+            platform.request('led', 5).eq(1),
+        ]
+
 
         return m
 
