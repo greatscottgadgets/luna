@@ -10,8 +10,8 @@ import functools
 from nmigen            import Signal, Module, Elaboratable, Cat, Array, Const
 from nmigen.hdl.rec    import Record, DIR_FANIN, DIR_FANOUT
 
-from ..usb2            import USBSpeed
-from ...interface      import USBInStreamInterface
+from .                 import USBSpeed
+from ..stream          import USBInStreamInterface
 from ...interface.utmi import UTMITransmitInterface
 from ...test           import LunaGatewareTestCase, usb_domain_test_case
 

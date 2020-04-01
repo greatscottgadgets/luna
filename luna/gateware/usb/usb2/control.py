@@ -12,7 +12,7 @@ from .packet           import DataCRCInterface, USBDataPacketCRC, USBInterpacket
 from .packet           import USBTokenDetector, USBPacketizerTest, TokenDetectorInterface
 from .packet           import InterpacketTimerInterface, HandshakeExchangeInterface
 from .request          import USBSetupDecoder, StandardRequestHandler
-from ...interface      import USBInStreamInterface
+from ..stream         import USBInStreamInterface
 
 
 class USBControlEndpoint(Elaboratable):

@@ -5,7 +5,7 @@
 
 import unittest
 
-from nmigen            import Signal, Module, Elaboratable, Cat, Record
+from nmigen            import Signal, Module, Elaboratable, Cat
 from nmigen.hdl.rec    import Record, DIR_FANOUT, DIR_FANIN
 
 
@@ -13,7 +13,7 @@ from .                 import USBSpeed
 from .packet           import USBTokenDetector, USBDataPacketDeserializer, USBPacketizerTest
 from .packet           import DataCRCInterface, USBInterpacketTimer, TokenDetectorInterface
 from .packet           import InterpacketTimerInterface, HandshakeExchangeInterface
-from ...interface      import USBInStreamInterface
+from ..stream          import USBInStreamInterface
 
 from ...test           import LunaGatewareTestCase, usb_domain_test_case
 
@@ -355,7 +355,8 @@ class StandardRequestHandler(Elaboratable):
     """
 
     # TODO: grab these from a usb-protocol library instead of duplicating them here.
-    SET_ADDRESS = 0x05
+    SET_ADDRESS    = 0x05
+    GET_DESCRIPTOR = 0x06
 
     def __init__(self):
 
@@ -404,7 +405,8 @@ class StandardRequestHandler(Elaboratable):
 
                         with m.Case(self.SET_ADDRESS):
                             m.next = 'SET_ADDRESS'
-
+                        with m.Case(self.GET_DESCRIPTOR):
+                            m.next = 'GET_DESCRIPTOR'
                         with m.Case():
                             m.next = 'UNHANDLED'
 
@@ -422,6 +424,11 @@ class StandardRequestHandler(Elaboratable):
                     ]
 
                     m.next = 'IDLE'
+
+
+            # GET_DESCRIPTOR -- The host is asking for a USB descriptor -- for us to "self describe".
+            with m.State('GET_DESCRIPTOR'):
+                pass
 
 
             # UNHANDLED -- we've received a request we're not prepared to handle
