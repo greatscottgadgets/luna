@@ -200,20 +200,21 @@ class USBControlEndpoint(Elaboratable):
 
         # ... and hook it up.
         m.d.comb += [
-            setup_decoder.packet           .connect(request_handler.setup),
-            interface.handshakes_in        .connect(request_handler.handshakes_in),
+            setup_decoder.packet                   .connect(request_handler.setup),
+            interface.tokenizer                    .connect(request_handler.tokenizer),
 
-            request_handler.tx             .attach(interface.tx),
-            interface.handshakes_out.ack   .eq(setup_decoder.ack | request_handler.handshakes_out.ack),
-            interface.handshakes_out.nak   .eq(request_handler.handshakes_out.nak),
-            interface.handshakes_out.stall .eq(request_handler.handshakes_out.stall),
+            request_handler.tx                     .attach(interface.tx),
+            interface.handshakes_out.ack           .eq(setup_decoder.ack | request_handler.handshakes_out.ack),
+            interface.handshakes_out.nak           .eq(request_handler.handshakes_out.nak),
+            interface.handshakes_out.stall         .eq(request_handler.handshakes_out.stall),
+            interface.handshakes_in                .connect(request_handler.handshakes_in),
 
-            interface.address_changed      .eq(request_handler.address_changed),
-            interface.new_address          .eq(request_handler.new_address),
+            interface.address_changed              .eq(request_handler.address_changed),
+            interface.new_address                  .eq(request_handler.new_address),
 
-            request_handler.active_config  .eq(interface.active_config),
-            interface.config_changed       .eq(request_handler.config_changed),
-            interface.new_config           .eq(request_handler.new_config),
+            request_handler.active_config          .eq(interface.active_config),
+            interface.config_changed               .eq(request_handler.config_changed),
+            interface.new_config                   .eq(request_handler.new_config),
 
             # Fix our data PIDs to DATA1, for now, as we don't support multi-packet responses, yet.
             # Per [USB2 8.5.3], the first packet of the DATA or STATUS phase always carries a DATA1 PID.
@@ -240,7 +241,6 @@ class USBControlEndpoint(Elaboratable):
 
                         # If this is an device -> host request, expect an IN packet.
                         with m.If(setup_decoder.packet.is_in_request):
-
                             m.next = 'DATA_IN'
 
                         # Otherwise, expect an OUT one.
@@ -269,6 +269,20 @@ class USBControlEndpoint(Elaboratable):
             with m.State('DATA_OUT'):
                 self._handle_setup_reset(m)
 
+                # Pass through our Rx related signals iff we're in the DATA_OUT stage,
+                # and the most recent token pointed to our endpoint. This ensures the
+                # request handler only ever sees data events related to it; this simplifies
+                # the request handler logic significantly.
+                with m.If((interface.tokenizer.endpoint == 0) & interface.tokenizer.is_out):
+                    m.d.comb += [
+                        interface.rx                           .connect(request_handler.rx),
+                        request_handler.rx_ready_for_response  .eq(interface.rx_ready_for_response)
+                    ]
+
+                # Once we get an IN token, we should move on to the STATUS stage. [USB2, 8.5.3]
+                with m.If(interface.tokenizer.new_token & interface.tokenizer.is_in):
+                    m.next = 'STATUS_IN'
+
 
             # STATUS_IN -- We're currently in the status stage, and we're expecting an IN token.
             # We'll wait for that token.
@@ -278,8 +292,10 @@ class USBControlEndpoint(Elaboratable):
                 # If we respond to a status-phase IN token, we'll always use a DATA1 PID [USB2 8.5.3]
 
                 # When we get an IN token, the host is looking for a status-stage ZLP.
+                # Notify the target handler.
                 with m.If(interface.tokenizer.ready_for_response & interface.tokenizer.is_in):
                     m.d.comb += request_handler.status_requested.eq(1)
+
 
             # STATUS_OUT -- We're currently in the status stage, and we're expecting the DATA packet for
             # an OUT request.

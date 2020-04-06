@@ -81,7 +81,6 @@ class EndpointInterface:
         self.issue_stall           = Signal()
 
 
-
 class USBEndpointMultiplexer(Elaboratable):
     """ Multiplexes access to the resources shared between multiple endpoint interfaces.
 
