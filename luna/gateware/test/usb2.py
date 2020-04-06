@@ -3,14 +3,12 @@
 #
 """ Full-device test harnesses for USB2. """
 
+from usb_protocol.types import USBStandardRequests, USBPacketID
 
-from nmigen            import Signal, Module, Elaboratable, Cat, Array, Const
-from .                 import LunaGatewareTestCase, usb_domain_test_case
+from .                  import LunaGatewareTestCase
 
-
-from .contrib          import usb_packet
-from ..usb.usb2        import USBPacketID
-from ..interface.utmi  import UTMIInterface
+from .contrib           import usb_packet
+from ..interface.utmi   import UTMIInterface
 
 class USBDeviceTest(LunaGatewareTestCase):
     """ Test case strap for UTMI-connected devices. """
@@ -197,7 +195,11 @@ class USBDeviceTest(LunaGatewareTestCase):
 
     def interpacket_delay(self):
         """ Waits for a period appropriate between each packet. """
-        yield from self.advance_cycles(10)
+
+        # We'll use a shorter value than real interpacket delays here,
+        # to speed up simulation. This can be tuned longer if necessary.
+        # A spec-valued length would be 10 for a FS device, or 1 for a HS.
+        yield from self.advance_cycles(1)
 
 
     def out_transaction(self, *octets, endpoint=0, token_pid=USBPacketID.OUT,
@@ -391,11 +393,12 @@ class USBDeviceTest(LunaGatewareTestCase):
         return response
 
 
-
     def control_interphase_delay(self):
         """ Waits for a period appropriate between each delays. """
 
-        yield from self.advance_cycles(20)
+        # This is shorter than would be normal, in order to speed up simulation.
+        # If necessary, this can be extended arbitrarily.
+        yield from self.advance_cycles(1)
 
 
     def control_request_in(self, request_type, request, value=0, index=0, length=0):
@@ -413,7 +416,7 @@ class USBDeviceTest(LunaGatewareTestCase):
         # If we don't have a data phase, treat this identically to an OUT control request.
         if length == 0:
             response = yield from self.control_request_out(request_type, request,
-                value=value, index=index, length=length)
+                value=value, index=index)
             return response
 
         #
@@ -490,3 +493,54 @@ class USBDeviceTest(LunaGatewareTestCase):
 
         # Finally, return our handshake.
         return pid
+
+
+    def get_descriptor(self, descriptor_type, index=0, length=64):
+        """ Performs a GET_DESCRIPTOR request; fetching a USB descriptor.
+
+        Parameters:
+            descriptor_type -- The descriptor type number to fetch.
+            index           -- The descriptor index to fetch.
+            length          -- The requested length to read.
+        """
+
+        # The type is stored in the MSB of the value; and the index in the LSB.
+        value = descriptor_type << 8 | index
+        descriptor = yield from self.control_request_in(0x80,
+                USBStandardRequests.GET_DESCRIPTOR, value=value, length=length)
+
+        return descriptor
+
+
+    def set_address(self, new_address, update_address=True):
+        """ Performs a SET_ADDRESS request; setting the device address.
+
+        Parameters:
+            new_address -- The address to apply.
+        """
+
+        response_pid = yield from self.control_request_out(0,
+            USBStandardRequests.SET_ADDRESS, value=new_address)
+
+        if update_address and (response_pid == USBPacketID.DATA1):
+            self.address = new_address
+
+        return response_pid
+
+
+    def set_configuration(self, number):
+        """ Performs a SET_CONFIGURATION request; configuring the device.
+
+        Parameters:
+            number -- The configuration to select.
+        """
+        response_pid = yield from self.control_request_out(0,
+            USBStandardRequests.SET_CONFIGURATION, value=number)
+        return response_pid
+
+
+    def get_configuration(self):
+        """ Performs a GET_CONFIGURATION request; reading the device's configuration. """
+        response = yield from self.control_request_in(0x80,
+            USBStandardRequests.GET_CONFIGURATION, length=1)
+        return response

@@ -1502,6 +1502,27 @@ class USBDataPacketGeneratorTest(LunaGatewareTestCase):
 
 
     @usb_domain_test_case
+    def test_single_byte(self):
+        stream = self.dut.stream
+
+        # Request single byte.
+        yield stream.first.eq(1)
+        yield stream.last.eq(1)
+        yield stream.valid.eq(1)
+        yield stream.payload.eq(0xAB)
+        yield from self.wait_until(stream.ready)
+
+        # Drop our last back to zero, immediately.
+        yield stream.last.eq(0)
+        yield stream.first.eq(0)
+        yield stream.valid.eq(0)
+
+        yield from self.advance_cycles(10)
+
+
+
+
+    @usb_domain_test_case
     def test_zlp_generation(self):
         stream = self.dut.stream
         tx     = self.dut.tx

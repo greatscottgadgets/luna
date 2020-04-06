@@ -3,20 +3,19 @@
 #
 """ Standard, full-gateware control request handlers. """
 
-from nmigen                 import Module, Elaboratable
+import unittest
+
+from nmigen                 import Module, Elaboratable, Cat
 from usb_protocol.types     import USBStandardRequests
 from usb_protocol.emitters  import DeviceDescriptorCollection
 
 from ..usb2.request         import RequestHandlerInterface
 from ..usb2.descriptor      import GetDescriptorHandler
-
-from ...test                import LunaGatewareTestCase, usb_domain_test_case
+from ..stream               import USBInStreamInterface
+from ...stream.generator    import StreamSerializer
 
 class StandardRequestHandler(Elaboratable):
-    """ Pure-gateware USB setup request handler.
-
-    Work in progress. Not yet working. (!)
-    """
+    """ Pure-gateware USB setup request handler. Implements the standard requests required for enumeration. """
 
     def __init__(self, descriptors: DeviceDescriptorCollection):
         """
@@ -32,17 +31,75 @@ class StandardRequestHandler(Elaboratable):
         self.interface = RequestHandlerInterface()
 
 
-    def send_zlp(self, m):
-        """ Requests send of a zero-length packet. Intended to be called from an FSM. """
+    def send_zlp(self):
+        """ Returns the statements necessary to send a zero-length packet."""
 
         tx = self.interface.tx
 
         # Send a ZLP along our transmit interface.
         # Our interface accepts 'valid' and 'last' without 'first' as a ZLP.
-        m.d.comb += [
+        return [
             tx.valid  .eq(1),
             tx.last   .eq(1)
         ]
+
+
+    def handle_register_write_request(self, m, new_value_signal, write_strobe, stall_condition=0):
+        """ Fills in the current state with a request handler meant to set a register.
+
+        Parameters:
+            new_value_signal -- The signal to receive the new value to be applied to the relevant register.
+            write_strobe     -- The signal which will be pulsed when new_value_signal contains a update.
+            stall_condition  -- If provided, if this condition is true, the request will be STALL'd instead
+                                of acknowledged.
+            """
+
+        # Provide an response to the STATUS stage.
+        with m.If(self.interface.status_requested):
+
+            # If our stall condition is met, stall; otherwise, send a ZLP [USB 8.5.3].
+            with m.If(stall_condition):
+                m.d.comb += self.interface.handshakes_out.stall.eq(1)
+            with m.Else():
+                m.d.comb += self.send_zlp()
+
+        # Accept the relevant value after the packet is ACK'd...
+        with m.If(self.interface.handshakes_in.ack):
+            m.d.comb += [
+                write_strobe      .eq(1),
+                new_value_signal  .eq(self.interface.setup.value[0:7])
+            ]
+
+            # ... and then return to idle.
+            m.next = 'IDLE'
+
+
+    def handle_simple_data_request(self, m, transmitter, data, length=1):
+        """ Fills in a given current state with a request that returns a given piece of data.
+
+        For e.g. GET_CONFIGURATION and GET_STATUS requests.
+
+        Parameters:
+            transmitter -- The transmitter module we're working with.
+            data        -- The data to be returned.
+        """
+
+        # Connect our transmitter up to the output stream...
+        m.d.comb += [
+            transmitter.stream          .attach(self.interface.tx),
+            Cat(transmitter.data[0:1])  .eq(data),
+            transmitter.max_length      .eq(length)
+        ]
+
+        # ... trigger it to respond when data's requested...
+        with m.If(self.interface.data_requested):
+            m.d.comb += transmitter.start.eq(1)
+
+        # ... and ACK our status stage.
+        with m.If(self.interface.status_requested):
+            m.d.comb += self.interface.handshakes_out.ack.eq(1)
+            m.next = 'IDLE'
+
 
 
     def elaborate(self, platform):
@@ -51,8 +108,7 @@ class StandardRequestHandler(Elaboratable):
 
         # Create convenience aliases for our interface components.
         setup               = interface.setup
-        handshake_generator = interface.handshake
-        handshake_detected  = interface.handshake_detected
+        handshake_generator = interface.handshakes_out
         tx                  = interface.tx
 
 
@@ -60,17 +116,21 @@ class StandardRequestHandler(Elaboratable):
         # Submodules
         #
 
+        # Handler for Get Descriptor requests; responds with our various fixed descriptors.
         m.submodules.get_descriptor = get_descriptor_handler = GetDescriptorHandler(self.descriptors)
         m.d.comb += [
             get_descriptor_handler.value  .eq(setup.value),
             get_descriptor_handler.length .eq(setup.length),
         ]
 
+        # Handler for various small-constant-response requests (GET_CONFIGURATION, GET_STATUS).
+        m.submodules.transmitter = transmitter = \
+            StreamSerializer(data_length=2, domain="usb", stream_type=USBInStreamInterface, max_length_width=2)
+
 
         #
         # Handlers.
         #
-
         with m.FSM(domain="usb"):
 
             # IDLE -- not handling any active request
@@ -80,37 +140,46 @@ class StandardRequestHandler(Elaboratable):
                 # TODO: limit this to standard requests
                 with m.If(setup.received):
 
-
                     # Select which standard packet we're going to handler.
                     with m.Switch(setup.request):
 
+                        with m.Case(USBStandardRequests.GET_STATUS):
+                            m.next = 'GET_STATUS'
                         with m.Case(USBStandardRequests.SET_ADDRESS):
                             m.next = 'SET_ADDRESS'
+                        with m.Case(USBStandardRequests.SET_CONFIGURATION):
+                            m.next = 'SET_CONFIGURATION'
                         with m.Case(USBStandardRequests.GET_DESCRIPTOR):
                             m.next = 'GET_DESCRIPTOR'
+                        with m.Case(USBStandardRequests.GET_CONFIGURATION):
+                            m.next = 'GET_CONFIGURATION'
                         with m.Case():
                             m.next = 'UNHANDLED'
 
 
+            # GET_STATUS -- Fetch the device's status.
+            # For now, we'll always return '0'.
+            with m.State('GET_STATUS'):
+                # TODO: handle reporting endpoint stall status
+                # TODO: copy the remote wakeup and bus-powered attributes from bmAttributes of the relevant descriptor?
+                self.handle_simple_data_request(m, transmitter, 0, length=2)
+
+
             # SET_ADDRESS -- The host is trying to assign us an address.
             with m.State('SET_ADDRESS'):
+                self.handle_register_write_request(m, interface.new_address, interface.address_changed)
 
-                with m.If(interface.status_requested):
-                    self.send_zlp(m)
 
-                with m.If(handshake_detected.ack):
-                    m.d.comb += [
-                        interface.address_changed  .eq(1),
-                        interface.new_address      .eq(setup.value[0:7])
-                    ]
-
-                    m.next = 'IDLE'
+            # SET_CONFIGURATION -- The host is trying to select an active configuration.
+            with m.State('SET_CONFIGURATION'):
+                # TODO: stall if we don't have a relevant configuration
+                self.handle_register_write_request(m, interface.new_config, interface.config_changed)
 
 
             # GET_DESCRIPTOR -- The host is asking for a USB descriptor -- for us to "self describe".
             with m.State('GET_DESCRIPTOR'):
                 m.d.comb += [
-                    get_descriptor_handler.tx  .attach(interface.tx),
+                    get_descriptor_handler.tx  .attach(tx),
                     handshake_generator.stall  .eq(get_descriptor_handler.stall)
                 ]
 
@@ -124,6 +193,11 @@ class StandardRequestHandler(Elaboratable):
                     m.next = 'IDLE'
 
 
+            # GET_CONFIGURATION -- The host is asking for the active configuration number.
+            with m.State('GET_CONFIGURATION'):
+                self.handle_simple_data_request(m, transmitter, interface.active_config)
+
+
             # UNHANDLED -- we've received a request we're not prepared to handle
             with m.State('UNHANDLED'):
 
@@ -134,19 +208,6 @@ class StandardRequestHandler(Elaboratable):
                     m.next = 'IDLE'
 
         return m
-
-
-class StandardRequestHandlerTest(LunaGatewareTestCase):
-    SYNC_CLOCK_FREQUENCY = None
-    USB_CLOCK_FREQUENCY  = 60e6
-
-    FRAGMENT_UNDER_TEST = StandardRequestHandler
-
-    @usb_domain_test_case
-    def test_set_address(self):
-        yield
-
-
 
 
 if __name__ == "__main__":

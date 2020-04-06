@@ -7,15 +7,15 @@ import unittest
 
 from nmigen                import Signal, Module, Elaboratable
 from usb_protocol.emitters import DeviceDescriptorCollection
+from usb_protocol.types    import USBRequestType
 
 from .packet               import DataCRCInterface, USBDataPacketCRC, USBInterpacketTimer
-from .packet               import USBTokenDetector, USBPacketizerTest, TokenDetectorInterface
+from .packet               import USBTokenDetector, TokenDetectorInterface
 from .packet               import InterpacketTimerInterface, HandshakeExchangeInterface
-from .request              import USBSetupDecoder
+from .request              import USBSetupDecoder, USBRequestHandlerMultiplexer, StallOnlyRequestHandler
 from ..request.standard    import StandardRequestHandler
 from ..stream              import USBInStreamInterface, USBOutStreamInterface
 
-from ...test               import usb_domain_test_case
 
 # TODO: rename this to indicate that it's a gateware control endpoint
 
@@ -35,6 +35,11 @@ class USBControlEndpoint(Elaboratable):
         O: address_changed        -- Strobe; pulses high when the device's address should be changed.
         O: new_address[7]         -- When `address_changed` is high, this field contains the address that
                                      should be adopted.
+
+        I: active_config          -- The configuration number of the active configuration.
+        O: config_changed         -- Strobe; pulses high when the device's configuration should be changed.
+        O: new_config[8]          -- When `config_changed` is high, this field contains the configuration that
+                                     should be applied.
 
         # Data/handshake connections.
         *  rx                     -- Receive interface for this endpoint.
@@ -75,6 +80,10 @@ class USBControlEndpoint(Elaboratable):
 
         self.address_changed       = Signal()
         self.new_address           = Signal(7)
+
+        self.active_config         = Signal()
+        self.config_changed        = Signal()
+        self.new_config            = Signal()
 
         self.rx                    = USBOutStreamInterface()
         self.rx_complete           = Signal()
@@ -156,12 +165,24 @@ class USBControlEndpoint(Elaboratable):
             m.submodules.token_detector = tokenizer = USBTokenDetector(utmi=self.utmi)
             m.d.comb += tokenizer.interface.connect(self.tokenizer)
 
+
+        #
+        # Convenience feature:
+        #
+        # If we have -only- a standard request handler, automatically add a handler that will
+        # stall all other requests.
+        #
+        single_handler = (len(self._request_handlers) == 1)
+        if (single_handler and isinstance(self._request_handlers[0], StandardRequestHandler)):
+
+            # Add a handler that will stall any non-standard request.
+            stall_condition = lambda setup : setup.type != USBRequestType.STANDARD
+            self.add_request_handler(StallOnlyRequestHandler(stall_condition))
+
+
         #
         # Submodules
         #
-
-        # Create a start signal for our inter-packet timer.
-        interpacket_timer_start = Signal()
 
         # Create our SETUP packet decoder.
         m.submodules.setup_decoder = setup_decoder = USBSetupDecoder(utmi=self.utmi)
@@ -172,42 +193,53 @@ class USBControlEndpoint(Elaboratable):
 
             # And attach our timer interface to both our local users and
             # to our setup decoder.
-            self.timer          .attach(setup_decoder.timer, interpacket_timer_start)
+            self.timer          .attach(setup_decoder.timer)
 
         ]
 
 
         #
-        # Request handler logic
+        # Request handler logic.
         #
 
-        for request_handler in self._request_handlers:
+        # Multiplex the output of each of our request handlers.
+        m.submodules.request_mux = request_mux = USBRequestHandlerMultiplexer()
+        request_handler = request_mux.shared
 
-            # Add each submodule to the endpoint..
-            m.submodules += request_handler
-            handler = request_handler.interface
+        # Add each of our handlers to the endpoint; and add it to our mux.
+        for handler in self._request_handlers:
 
-            # ... and hook it up.
-            m.d.comb += [
-                setup_decoder.packet        .connect(handler.setup),
-                self.handshakes_detected    .connect(handler.handshake_detected),
+            # Create a display name for the handler...
+            name = handler.__class__.__name__
+            if hasattr(m.submodules, name):
+                name = f"{name}_{id(handler)}"
 
-                # FIXME: connect these via a mux/arbitrator.
-                handler.tx                  .attach(self.tx),
-                self.issue_ack              .eq(setup_decoder.ack | handler.handshake.ack),
-                self.issue_stall            .eq(handler.handshake.nak),
-                self.issue_stall            .eq(handler.handshake.stall),
+            # ... and add it.
+            m.submodules[name] = handler
+            request_mux.add_interface(handler.interface)
 
-                self.address_changed        .eq(handler.address_changed),
-                self.new_address            .eq(handler.new_address),
 
-                # Fix our data PIDs to DATA1, for now, as we don't support multi-packet responses, yet.
-                # Per [USB2 8.5.3], the first packet of the DATA or STATUS phase always carries a DATA1 PID.
-                self.tx_pid_toggle.eq(1)
-            ]
+        # ... and hook it up.
+        m.d.comb += [
+            setup_decoder.packet           .connect(request_handler.setup),
+            self.handshakes_detected       .connect(request_handler.handshakes_in),
 
-        # FIXME: don't rely on this hack
-        request_handler = self._request_handlers[0]
+            request_handler.tx             .attach(self.tx),
+            self.issue_ack                 .eq(setup_decoder.ack | request_handler.handshakes_out.ack),
+            self.issue_stall               .eq(request_handler.handshakes_out.nak),
+            self.issue_stall               .eq(request_handler.handshakes_out.stall),
+
+            self.address_changed           .eq(request_handler.address_changed),
+            self.new_address               .eq(request_handler.new_address),
+
+            request_handler.active_config  .eq(self.active_config),
+            self.config_changed            .eq(request_handler.config_changed),
+            self.new_config                .eq(request_handler.new_config),
+
+            # Fix our data PIDs to DATA1, for now, as we don't support multi-packet responses, yet.
+            # Per [USB2 8.5.3], the first packet of the DATA or STATUS phase always carries a DATA1 PID.
+            self.tx_pid_toggle.eq(1)
+        ]
 
 
         #
@@ -248,7 +280,7 @@ class USBControlEndpoint(Elaboratable):
                 with m.If(self.tokenizer.ready_for_response & self.tokenizer.is_in):
 
                     # Notify the request handler to prepare a response.
-                    m.d.comb += request_handler.interface.data_requested.eq(1)
+                    m.d.comb += request_handler.data_requested.eq(1)
 
                 # Once we get an OUT token, we should move on to the STATUS stage. [USB2, 8.5.3]
                 with m.If(self.tokenizer.new_token & self.tokenizer.is_out):
@@ -268,7 +300,7 @@ class USBControlEndpoint(Elaboratable):
 
                 # When we get an IN token, the host is looking for a status-stage ZLP.
                 with m.If(self.tokenizer.ready_for_response & self.tokenizer.is_in):
-                    m.d.comb += request_handler.interface.status_requested.eq(1)
+                    m.d.comb += request_handler.status_requested.eq(1)
 
             # STATUS_OUT -- We're currently in the status stage, and we're expecting the DATA packet for
             # an OUT request.
@@ -277,7 +309,7 @@ class USBControlEndpoint(Elaboratable):
 
                 # Once we've received a new DATA packet, we're ready to handle a status request.
                 with m.If(self.rx_ready_for_response & self.tokenizer.is_out):
-                    m.d.comb += request_handler.interface.status_requested.eq(1)
+                    m.d.comb += request_handler.status_requested.eq(1)
 
         return m
 

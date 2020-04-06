@@ -5,8 +5,9 @@
 
 import unittest
 
-from nmigen                import Signal, Module, Elaboratable
-from usb_protocol.emitters import DeviceDescriptorCollection
+from nmigen                 import Signal, Module, Elaboratable
+from usb_protocol.types     import DescriptorTypes
+from usb_protocol.emitters  import DeviceDescriptorCollection
 
 from .                      import USBSpeed, USBPacketID
 from .packet                import USBTokenDetector, USBHandshakeGenerator, USBDataPacketCRC
@@ -122,10 +123,13 @@ class USBDevice(Elaboratable):
         #
 
         # Stores the device's current address. Used to identify which packets are for us.
-        address = Signal(7, reset=0)
+        address       = Signal(7, reset=0)
+
+        # Stores the device's current configuration. Defaults to unconfigured.
+        configuration = Signal(8, reset=0)
 
         # Stores the device's current speed (a USBSpeed value).
-        speed   = Signal(2, reset=USBSpeed.FULL)
+        speed         = Signal(2, reset=USBSpeed.FULL)
 
 
         #
@@ -189,7 +193,14 @@ class USBDevice(Elaboratable):
         #
 
         for endpoint in self._endpoints:
-            m.submodules += endpoint
+
+            # Create a display name for the endpoint...
+            name = endpoint.__class__.__name__
+            if hasattr(m.submodules, name):
+                name = f"{name}_{id(endpoint)}"
+
+            # ... and add it.
+            m.submodules[name] = endpoint
 
             # Connect our timer, data-CRC computer, and tokenizer to our control EP.
             timer.add_interface(endpoint.timer)
@@ -199,12 +210,13 @@ class USBDevice(Elaboratable):
             # FIXME: wrap this up in an endpoint interface?
 
             m.d.comb += [
-                token_detector.interface          .connect(endpoint.tokenizer),
-                handshake_detector.detected       .connect(endpoint.handshakes_detected),
+                token_detector.interface        .connect(endpoint.tokenizer),
+                handshake_detector.detected     .connect(endpoint.handshakes_detected),
 
-                endpoint.speed                    .eq(speed),
+                endpoint.speed                  .eq(speed),
+                endpoint.active_config          .eq(configuration),
 
-                receiver.stream                   .connect(endpoint.rx),
+                receiver.stream                 .connect(endpoint.rx),
                 endpoint.rx_complete            .eq(receiver.packet_complete),
                 endpoint.rx_invalid             .eq(receiver.crc_mismatch),
                 endpoint.rx_ready_for_response  .eq(receiver.ready_for_response),
@@ -219,12 +231,11 @@ class USBDevice(Elaboratable):
                 handshake_generator.issue_stall  .eq(endpoint.issue_stall),
             ]
 
-            #
-            # Device state management.
-            #
+            # If the endpoint wants to update our address or configuration, accept the update.
             with m.If(endpoint.address_changed):
                 m.d.usb += address.eq(endpoint.new_address)
-
+            with m.If(endpoint.config_changed):
+                m.d.usb += configuration.eq(endpoint.new_config)
 
 
         #
@@ -238,16 +249,13 @@ class USBDevice(Elaboratable):
         tx_multiplexer.add_input(transmitter.tx)
         tx_multiplexer.add_input(handshake_generator.tx)
 
-
         m.d.comb += [
-
             # Connect our transmit multiplexer to the actual UTMI bus.
             tx_multiplexer.output            .attach(self.utmi),
 
             # Connect up the transmit CRC interface to our UTMI bus.
             data_crc.tx_valid                .eq(tx_multiplexer.output.valid & self.utmi.tx_ready),
             data_crc.tx_data                 .eq(tx_multiplexer.output.data),
-
         ]
 
 
@@ -312,18 +320,72 @@ class FullDeviceTest(USBDeviceTest):
     @usb_domain_test_case
     def test_enumeration(self):
 
-        # Send a GET_DESCRIPTOR request.
-        handshake, data = yield from self.control_request_in(0x80, 6, value=1 << 8, length=0x40)
+        # Reference enumeration process (quirks merged from Linux, macOS, and Windows):
+        # - Read 8 bytes of device descriptor.
+        # - Read 64 bytes of device descriptor.
+        # - Set address.
+        # - Read exact device descriptor length.
+        # - Read device qualifier descriptor, three times.
+        # - Read config descriptor (without subordinates).
+        # - Read language descriptor.
+        # - Read Windows extended descriptors. [optional]
+        # - Read string descriptors from device descriptor (wIndex=language id).
+        # - Set configuration.
+        # - Read back configuration number and validate.
+
+
+        # Read 8 bytes of our device descriptor.
+        handshake, data = yield from self.get_descriptor(DescriptorTypes.DEVICE, length=8)
         self.assertEqual(handshake, USBPacketID.ACK)
-        self.assertEqual(bytes(data), self.descriptors.get_descriptor_bytes(1))
+        self.assertEqual(bytes(data), self.descriptors.get_descriptor_bytes(DescriptorTypes.DEVICE)[0:8])
+
+        # Read 64 bytes of our device descriptor, no matter its length.
+        handshake, data = yield from self.get_descriptor(DescriptorTypes.DEVICE, length=64)
+        self.assertEqual(handshake, USBPacketID.ACK)
+        self.assertEqual(bytes(data), self.descriptors.get_descriptor_bytes(DescriptorTypes.DEVICE))
 
         # Send a nonsense request, and validate that it's stalled.
         handshake, data = yield from self.control_request_in(0x80, 30, length=10)
         self.assertEqual(handshake, USBPacketID.STALL)
 
-        # Send a set-address request.
-        handshake = yield from self.control_request_out(0x80, 5)
-        self.assertEqual(handshake, USBPacketID.DATA1)
+        # Send a set-address request; we'll apply an arbitrary address 0x31.
+        yield from self.set_address(0x31)
+        self.assertEqual(self.address, 0x31)
+
+        # Read our device descriptor.
+        handshake, data = yield from self.get_descriptor(DescriptorTypes.DEVICE, length=18)
+        self.assertEqual(handshake, USBPacketID.ACK)
+        self.assertEqual(bytes(data), self.descriptors.get_descriptor_bytes(DescriptorTypes.DEVICE))
+
+        # Read our device qualifier descriptor.
+        for _ in range(3):
+            handshake, data = yield from self.get_descriptor(DescriptorTypes.DEVICE_QUALIFIER, length=10)
+            self.assertEqual(handshake, USBPacketID.STALL)
+
+        # Read our configuration descriptor (no subordinates).
+        handshake, data = yield from self.get_descriptor(DescriptorTypes.CONFIGURATION, length=9)
+        self.assertEqual(handshake, USBPacketID.ACK)
+        self.assertEqual(bytes(data), self.descriptors.get_descriptor_bytes(DescriptorTypes.CONFIGURATION)[0:9])
+
+        # Read our configuration descriptor (with subordinates).
+        handshake, data = yield from self.get_descriptor(DescriptorTypes.CONFIGURATION, length=32)
+        self.assertEqual(handshake, USBPacketID.ACK)
+        self.assertEqual(bytes(data), self.descriptors.get_descriptor_bytes(DescriptorTypes.CONFIGURATION))
+
+        # Read our string descriptors.
+        for i in range(4):
+            handshake, data = yield from self.get_descriptor(DescriptorTypes.STRING, index=i, length=255)
+            self.assertEqual(handshake, USBPacketID.ACK)
+            self.assertEqual(bytes(data), self.descriptors.get_descriptor_bytes(DescriptorTypes.STRING, index=i))
+
+        # Set our configuration...
+        status_pid = yield from self.set_configuration(1)
+        self.assertEqual(status_pid, USBPacketID.DATA1)
+
+        # ... and ensure it's applied.
+        handshake, configuration = yield from self.get_configuration()
+        self.assertEqual(handshake, USBPacketID.ACK)
+        self.assertEqual(configuration, [1], "device did not accept configuration!")
 
 
 if __name__ == "__main__":
