@@ -63,7 +63,7 @@ class USBOutStreamInterface(Record):
         """
         super().__init__([
             ('valid',    1,             DIR_FANOUT),
-            ('next',    1,              DIR_FANOUT),
+            ('next',     1,             DIR_FANOUT),
 
             ('payload',  payload_width, DIR_FANOUT),
         ])

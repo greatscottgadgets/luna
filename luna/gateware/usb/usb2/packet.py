@@ -1299,6 +1299,9 @@ class USBDataPacketGenerator(Elaboratable):
             Const(0x0F, shape=8)  # DATAM
         ])
 
+        # Stores the current data pid; latched in at the start of a transmission.
+        current_data_pid = Signal(8)
+
         # Register that stores the final CRC byte.
         # Capturing this before the end of the packet ensures we can still send
         # the correct final CRC byte; even if the CRC generator updates its computation
@@ -1329,6 +1332,9 @@ class USBDataPacketGenerator(Elaboratable):
                 # We won't consume any data while we're in the IDLE state.
                 m.d.comb += self.stream.ready.eq(0)
 
+                # Latch in the requested data PID.
+                m.d.usb += current_data_pid.eq(data_pids[self.data_pid])
+
                 # Once a packet starts, we'll need to transmit the data PID.
                 with m.If(self.stream.first & self.stream.valid):
                     m.d.usb += is_zlp.eq(0)
@@ -1349,7 +1355,7 @@ class USBDataPacketGenerator(Elaboratable):
                     self.crc.start     .eq(1),
 
                     # Send the USB packet ID for our data packet...
-                    self.tx.data       .eq(data_pids[self.data_pid]),
+                    self.tx.data       .eq(current_data_pid),
                     self.tx.valid      .eq(1),
 
                     # ... and don't consume any data.

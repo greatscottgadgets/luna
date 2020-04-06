@@ -3,7 +3,7 @@
 # This file is part of LUNA.
 #
 
-from nmigen                         import Elaboratable, Module, Cat, Signal
+from nmigen                         import Elaboratable, Module
 from usb_protocol.emitters          import DeviceDescriptorCollection
 
 from luna                           import top_level_cli
@@ -14,11 +14,18 @@ from luna.gateware.usb.usb2.device  import USBDevice
 class USBDeviceExample(Elaboratable):
     """ Simple example of a USB device using the LUNA framework. """
 
+
     def create_descriptors(self):
         """ Create the descriptors we want to use for our device. """
 
         descriptors = DeviceDescriptorCollection()
 
+        #
+        # We'll add the major components of the descriptors we we want.
+        # The collection we build here will be necessary to create a standard endpoint.
+        #
+
+        # We'll need a device descriptor...
         with descriptors.DeviceDescriptor() as d:
             d.idVendor           = 0x16d0
             d.idProduct          = 0xf3b
@@ -29,6 +36,8 @@ class USBDeviceExample(Elaboratable):
 
             d.bNumConfigurations = 1
 
+
+        # ... and a description of the USB configuration we'll provide.
         with descriptors.ConfigurationDescriptor() as c:
 
             with c.InterfaceDescriptor() as i:

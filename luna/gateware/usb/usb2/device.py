@@ -14,6 +14,7 @@ from .packet                import USBTokenDetector, USBHandshakeGenerator, USBD
 from .packet                import USBInterpacketTimer, USBDataPacketGenerator, USBHandshakeDetector
 from .packet                import USBDataPacketReceiver
 
+from .endpoint              import USBEndpointMultiplexer
 from .control               import USBControlEndpoint
 from ...interface.ulpi      import UTMITranslator
 from ...interface.utmi      import UTMIInterfaceMultiplexer
@@ -192,6 +193,45 @@ class USBDevice(Elaboratable):
         # Endpoint connections.
         #
 
+        # Create our endpoint multiplexer...
+        m.submodules.endpoint_mux = endpoint_mux = USBEndpointMultiplexer()
+        endpoint_collection = endpoint_mux.shared
+
+        # Connect our timer and CRC interfaces.
+        timer.add_interface(endpoint_collection.timer)
+        data_crc.add_interface(endpoint_collection.data_crc)
+
+        m.d.comb += [
+            # Low-level hardware interface.
+            token_detector.interface                   .connect(endpoint_collection.tokenizer),
+            handshake_detector.detected                .connect(endpoint_collection.handshakes_in),
+
+            # Device state.
+            endpoint_collection.speed                  .eq(speed),
+            endpoint_collection.active_config          .eq(configuration),
+
+            # Receive interface.
+            receiver.stream                            .connect(endpoint_collection.rx),
+            endpoint_collection.rx_complete            .eq(receiver.packet_complete),
+            endpoint_collection.rx_invalid             .eq(receiver.crc_mismatch),
+            endpoint_collection.rx_ready_for_response  .eq(receiver.ready_for_response),
+
+            # Transmit interface.
+            endpoint_collection.tx                     .attach(transmitter.stream),
+            handshake_generator.issue_ack              .eq(endpoint_collection.handshakes_out.ack),
+            handshake_generator.issue_nak              .eq(endpoint_collection.handshakes_out.nak),
+            handshake_generator.issue_stall            .eq(endpoint_collection.handshakes_out.stall),
+            transmitter.data_pid                       .eq(endpoint_collection.tx_pid_toggle),
+        ]
+
+        # If an endpoint wants to update our address or configuration, accept the update.
+        with m.If(endpoint_collection.address_changed):
+            m.d.usb += address.eq(endpoint_collection.new_address)
+        with m.If(endpoint_collection.config_changed):
+            m.d.usb += configuration.eq(endpoint_collection.new_config)
+
+
+        # Finally, add each of our endpoints to this module and our multiplexer.
         for endpoint in self._endpoints:
 
             # Create a display name for the endpoint...
@@ -199,43 +239,9 @@ class USBDevice(Elaboratable):
             if hasattr(m.submodules, name):
                 name = f"{name}_{id(endpoint)}"
 
-            # ... and add it.
+            # ... and add it, both as a submodule and to our multiplexer.
+            endpoint_mux.add_interface(endpoint.interface)
             m.submodules[name] = endpoint
-
-            # Connect our timer, data-CRC computer, and tokenizer to our control EP.
-            timer.add_interface(endpoint.timer)
-            data_crc.add_interface(endpoint.data_crc)
-
-            # FIXME: multiplex this
-            # FIXME: wrap this up in an endpoint interface?
-
-            m.d.comb += [
-                token_detector.interface        .connect(endpoint.tokenizer),
-                handshake_detector.detected     .connect(endpoint.handshakes_detected),
-
-                endpoint.speed                  .eq(speed),
-                endpoint.active_config          .eq(configuration),
-
-                receiver.stream                 .connect(endpoint.rx),
-                endpoint.rx_complete            .eq(receiver.packet_complete),
-                endpoint.rx_invalid             .eq(receiver.crc_mismatch),
-                endpoint.rx_ready_for_response  .eq(receiver.ready_for_response),
-
-                # FIXME: multiplex access to the transmit stream
-                endpoint.tx                     .attach(transmitter.stream),
-                transmitter.data_pid            .eq(endpoint.tx_pid_toggle),
-
-                # FIXME: multiplex access to the transmit / handshake generators
-                handshake_generator.issue_ack    .eq(endpoint.issue_ack),
-                handshake_generator.issue_nak    .eq(endpoint.issue_nak),
-                handshake_generator.issue_stall  .eq(endpoint.issue_stall),
-            ]
-
-            # If the endpoint wants to update our address or configuration, accept the update.
-            with m.If(endpoint.address_changed):
-                m.d.usb += address.eq(endpoint.new_address)
-            with m.If(endpoint.config_changed):
-                m.d.usb += configuration.eq(endpoint.new_config)
 
 
         #
@@ -251,11 +257,11 @@ class USBDevice(Elaboratable):
 
         m.d.comb += [
             # Connect our transmit multiplexer to the actual UTMI bus.
-            tx_multiplexer.output            .attach(self.utmi),
+            tx_multiplexer.output  .attach(self.utmi),
 
             # Connect up the transmit CRC interface to our UTMI bus.
-            data_crc.tx_valid                .eq(tx_multiplexer.output.valid & self.utmi.tx_ready),
-            data_crc.tx_data                 .eq(tx_multiplexer.output.data),
+            data_crc.tx_valid      .eq(tx_multiplexer.output.valid & self.utmi.tx_ready),
+            data_crc.tx_data       .eq(tx_multiplexer.output.data),
         ]
 
 
@@ -275,6 +281,13 @@ class USBDevice(Elaboratable):
 class FullDeviceTest(USBDeviceTest):
     FRAGMENT_UNDER_TEST = USBDevice
 
+    def traces_of_interest(self):
+        return (
+            self.utmi.tx_data,
+            self.utmi.tx_valid,
+            self.utmi.rx_data,
+            self.utmi.rx_valid,
+        )
 
     def initialize_signals(self):
 

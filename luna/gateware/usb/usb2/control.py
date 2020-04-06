@@ -12,6 +12,7 @@ from usb_protocol.types    import USBRequestType
 from .packet               import DataCRCInterface, USBDataPacketCRC, USBInterpacketTimer
 from .packet               import USBTokenDetector, TokenDetectorInterface
 from .packet               import InterpacketTimerInterface, HandshakeExchangeInterface
+from .endpoint             import EndpointInterface
 from .request              import USBSetupDecoder, USBRequestHandlerMultiplexer, StallOnlyRequestHandler
 from ..request.standard    import StandardRequestHandler
 from ..stream              import USBInStreamInterface, USBOutStreamInterface
@@ -25,7 +26,7 @@ class USBControlEndpoint(Elaboratable):
     I/O port:
         *: data_crc               -- Control connection for our data-CRC unit.
         *: timer                  -- Interface to our interpacket timer.
-        I: tokenizer              -- Interface to our TokenDetector; notifies us of USB tokens.
+        *: tokenizer              -- Interface to our TokenDetector; notifies us of USB tokens.
 
         # Device state.
         I: speed                  -- The device's current operating speed. Should be a USBSpeed
@@ -66,37 +67,13 @@ class USBControlEndpoint(Elaboratable):
                               i.e. without an internal data-CRC generator, or tokenizer. In this case, tokenizer
                               and timer should be set to None; and will be ignored.
         """
-        self.utmi                = utmi
-        self.standalone          = standalone
+        self.utmi       = utmi
+        self.standalone = standalone
 
         #
         # I/O Port
         #
-        self.data_crc              = DataCRCInterface()
-        self.tokenizer             = TokenDetectorInterface()
-        self.timer                 = InterpacketTimerInterface()
-
-        self.speed                 = Signal(2)
-
-        self.address_changed       = Signal()
-        self.new_address           = Signal(7)
-
-        self.active_config         = Signal()
-        self.config_changed        = Signal()
-        self.new_config            = Signal()
-
-        self.rx                    = USBOutStreamInterface()
-        self.rx_complete           = Signal()
-        self.rx_ready_for_response = Signal()
-        self.rx_invalid            = Signal()
-
-        self.tx                    = USBInStreamInterface()
-        self.tx_pid_toggle         = Signal()
-        self.handshakes_detected   = HandshakeExchangeInterface(is_detector=True)
-
-        self.issue_ack             = Signal()
-        self.issue_nak             = Signal()
-        self.issue_stall           = Signal()
+        self.interface = EndpointInterface()
 
         #
         # Internals.
@@ -133,14 +110,16 @@ class USBControlEndpoint(Elaboratable):
 
         Should only be used within our core FSM.
         """
+        tokenizer = self.interface.tokenizer
 
         # If we receive a SETUP token, always move back to the SETUP stage.
-        with m.If(self.tokenizer.new_token & self.tokenizer.is_setup):
+        with m.If(tokenizer.new_token & tokenizer.is_setup):
             m.next = 'SETUP'
 
 
     def elaborate(self, platform):
         m = Module()
+        interface = self.interface
 
         #
         # Test scaffolding.
@@ -150,11 +129,11 @@ class USBControlEndpoint(Elaboratable):
 
             # Create our timer...
             m.submodules.timer = timer = USBInterpacketTimer()
-            timer.add_interface(self.timer)
+            timer.add_interface(interface.timer)
 
             # ... our CRC generator ...
             m.submodules.crc = crc = USBDataPacketCRC()
-            crc.add_interface(self.data_crc)
+            crc.add_interface(interface.data_crc)
             m.d.comb += [
                 crc.rx_data    .eq(self.utmi.rx_data),
                 crc.rx_valid   .eq(self.utmi.rx_valid),
@@ -163,7 +142,7 @@ class USBControlEndpoint(Elaboratable):
 
             # ... and our tokenizer.
             m.submodules.token_detector = tokenizer = USBTokenDetector(utmi=self.utmi)
-            m.d.comb += tokenizer.interface.connect(self.tokenizer)
+            m.d.comb += tokenizer.interface.connect(interface.tokenizer)
 
 
         #
@@ -187,13 +166,13 @@ class USBControlEndpoint(Elaboratable):
         # Create our SETUP packet decoder.
         m.submodules.setup_decoder = setup_decoder = USBSetupDecoder(utmi=self.utmi)
         m.d.comb += [
-            self.data_crc       .connect(setup_decoder.data_crc),
-            self.tokenizer      .connect(setup_decoder.tokenizer),
-            setup_decoder.speed .eq(self.speed),
+            interface.data_crc   .connect(setup_decoder.data_crc),
+            interface.tokenizer  .connect(setup_decoder.tokenizer),
+            setup_decoder.speed  .eq(interface.speed),
 
             # And attach our timer interface to both our local users and
             # to our setup decoder.
-            self.timer          .attach(setup_decoder.timer)
+            interface.timer      .attach(setup_decoder.timer)
 
         ]
 
@@ -222,23 +201,23 @@ class USBControlEndpoint(Elaboratable):
         # ... and hook it up.
         m.d.comb += [
             setup_decoder.packet           .connect(request_handler.setup),
-            self.handshakes_detected       .connect(request_handler.handshakes_in),
+            interface.handshakes_in        .connect(request_handler.handshakes_in),
 
-            request_handler.tx             .attach(self.tx),
-            self.issue_ack                 .eq(setup_decoder.ack | request_handler.handshakes_out.ack),
-            self.issue_stall               .eq(request_handler.handshakes_out.nak),
-            self.issue_stall               .eq(request_handler.handshakes_out.stall),
+            request_handler.tx             .attach(interface.tx),
+            interface.handshakes_out.ack   .eq(setup_decoder.ack | request_handler.handshakes_out.ack),
+            interface.handshakes_out.nak   .eq(request_handler.handshakes_out.nak),
+            interface.handshakes_out.stall .eq(request_handler.handshakes_out.stall),
 
-            self.address_changed           .eq(request_handler.address_changed),
-            self.new_address               .eq(request_handler.new_address),
+            interface.address_changed      .eq(request_handler.address_changed),
+            interface.new_address          .eq(request_handler.new_address),
 
-            request_handler.active_config  .eq(self.active_config),
-            self.config_changed            .eq(request_handler.config_changed),
-            self.new_config                .eq(request_handler.new_config),
+            request_handler.active_config  .eq(interface.active_config),
+            interface.config_changed       .eq(request_handler.config_changed),
+            interface.new_config           .eq(request_handler.new_config),
 
             # Fix our data PIDs to DATA1, for now, as we don't support multi-packet responses, yet.
             # Per [USB2 8.5.3], the first packet of the DATA or STATUS phase always carries a DATA1 PID.
-            self.tx_pid_toggle.eq(1)
+            interface.tx_pid_toggle.eq(1)
         ]
 
 
@@ -277,13 +256,13 @@ class USBControlEndpoint(Elaboratable):
                 self._handle_setup_reset(m)
 
                 # Wait until we have an IN token, and are allowed to respond to it.
-                with m.If(self.tokenizer.ready_for_response & self.tokenizer.is_in):
+                with m.If(interface.tokenizer.ready_for_response & interface.tokenizer.is_in):
 
                     # Notify the request handler to prepare a response.
                     m.d.comb += request_handler.data_requested.eq(1)
 
                 # Once we get an OUT token, we should move on to the STATUS stage. [USB2, 8.5.3]
-                with m.If(self.tokenizer.new_token & self.tokenizer.is_out):
+                with m.If(interface.tokenizer.new_token & interface.tokenizer.is_out):
                     m.next = 'STATUS_OUT'
 
 
@@ -299,7 +278,7 @@ class USBControlEndpoint(Elaboratable):
                 # If we respond to a status-phase IN token, we'll always use a DATA1 PID [USB2 8.5.3]
 
                 # When we get an IN token, the host is looking for a status-stage ZLP.
-                with m.If(self.tokenizer.ready_for_response & self.tokenizer.is_in):
+                with m.If(interface.tokenizer.ready_for_response & interface.tokenizer.is_in):
                     m.d.comb += request_handler.status_requested.eq(1)
 
             # STATUS_OUT -- We're currently in the status stage, and we're expecting the DATA packet for
@@ -308,7 +287,7 @@ class USBControlEndpoint(Elaboratable):
                 self._handle_setup_reset(m)
 
                 # Once we've received a new DATA packet, we're ready to handle a status request.
-                with m.If(self.rx_ready_for_response & self.tokenizer.is_out):
+                with m.If(interface.rx_ready_for_response & interface.tokenizer.is_out):
                     m.d.comb += request_handler.status_requested.eq(1)
 
         return m
