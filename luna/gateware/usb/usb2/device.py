@@ -9,15 +9,18 @@ from nmigen                 import Signal, Module, Elaboratable
 from usb_protocol.types     import DescriptorTypes
 from usb_protocol.emitters  import DeviceDescriptorCollection
 
+
+from ...interface.ulpi      import UTMITranslator
+from ...interface.utmi      import UTMIInterfaceMultiplexer
+
 from .                      import USBSpeed, USBPacketID
 from .packet                import USBTokenDetector, USBHandshakeGenerator, USBDataPacketCRC
 from .packet                import USBInterpacketTimer, USBDataPacketGenerator, USBHandshakeDetector
 from .packet                import USBDataPacketReceiver
+from .reset                 import USBResetSequencer
 
 from .endpoint              import USBEndpointMultiplexer
 from .control               import USBControlEndpoint
-from ...interface.ulpi      import UTMITranslator
-from ...interface.utmi      import UTMIInterfaceMultiplexer
 
 from ...test                import usb_domain_test_case
 from ...test.usb2           import USBDeviceTest
@@ -152,6 +155,15 @@ class USBDevice(Elaboratable):
             self.utmi.xcvr_select  .eq(0b01)
         ]
 
+        # Create our reset sequencer, which will be in charge of detecting USB port resets,
+        # detecting high-speed hosts, and communicating that we are a high speed device.
+        m.submodules.reset_sequencer = reset_sequencer = USBResetSequencer()
+
+        m.d.comb += [
+            reset_sequencer.speed       .eq(speed),
+            reset_sequencer.line_state  .eq(self.utmi.line_state)
+        ]
+
 
         # Create our internal packet components:
         # - A token detector, which will identify and parse the tokens that start transactions.
@@ -266,8 +278,21 @@ class USBDevice(Elaboratable):
 
 
         #
+        # Device-state management.
+        #
+
+        # On a bus reset, clear our address and configuration.
+        with m.If(reset_sequencer.bus_reset):
+            m.d.usb += [
+                address        .eq(0),
+                configuration  .eq(0),
+            ]
+
+
+        #
         # Device-state outputs.
         #
+
         m.d.comb += [
             self.sof_detected  .eq(token_detector.interface.new_frame),
             self.frame_number  .eq(token_detector.interface.frame),
