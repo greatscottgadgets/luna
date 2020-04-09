@@ -316,6 +316,9 @@ class FullDeviceTest(USBDeviceTest):
 
     def initialize_signals(self):
 
+        # Keep our device from resetting.
+        yield self.utmi.line_state.eq(0b01)
+
         # Have our USB device connected.
         yield self.dut.connect.eq(1)
 
