@@ -2,6 +2,8 @@
 # This file is part of LUNA.
 #
 
+import os
+
 from nmigen.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock, DiffPairs, Connector
 from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
 
@@ -36,7 +38,7 @@ class LUNAPlatformRev0D2(LatticeECP5Platform):
 
     device      = "LFE5U-12F"
     package     = "BG256"
-    speed       = "8"
+    speed       = os.getenv("LUNA_SPEED_GRADE", "8")
 
     default_clk = "clk_60MHz"
 

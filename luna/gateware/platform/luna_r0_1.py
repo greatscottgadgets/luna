@@ -2,6 +2,8 @@
 # This file is part of LUNA.
 #
 
+import os
+
 from nmigen.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock, DiffPairs, Connector
 from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
 
@@ -37,9 +39,12 @@ class LUNAPlatformRev0D1(LatticeECP5Platform):
     device      = "LFE5U-12F"
     package     = "BG256"
 
-    # TODO: make this configurable to support multiple speed grades?
-    # Or split this into two revisions to support various speed grades.
-    speed       = "6"
+    # Different r0.1s have been produced with different speed grades; but there's
+    # some evidence (and some testing) that all of them are effectively speed grade 8.
+    # It's possible all ECP5 binning is artificial.
+    #
+    # We'll assume speed grade 8 unless the user overrides it on the command line.
+    speed       = os.getenv("LUNA_SPEED_GRADE", "8")
 
     default_clk = "clk_60MHz"
 
