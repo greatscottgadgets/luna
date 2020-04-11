@@ -14,7 +14,6 @@ __all__ = ["LUNAPlatformR02"]
 # Note that r0.2+ have D+/D- swapped to avoid having to cross D+/D- in routing.
 #
 # This is supported by a PHY feature that allows you to swap pins 13 + 14.
-# You'll need to set
 #
 
 def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset_site):
