@@ -4,6 +4,7 @@
 """ Boilerplate for LUNA unit tests. """
 
 import os
+import math
 import unittest
 
 from functools import wraps
@@ -28,9 +29,13 @@ def sync_test_case(process_function, *, domain="sync"):
     def run_test(self):
         @wraps(process_function)
         def test_case():
+            # Try to pass the relevant functions two arguments;
+            # with the second being our dut. If this fails, fall
+            # back on the older signature of just accepting self.
             yield from self.initialize_signals()
             yield from process_function(self)
 
+        self.domain = domain
         self.sim.add_sync_process(test_case, domain=domain)
         self.simulate(vcd_suffix=process_function.__name__)
 
@@ -55,6 +60,8 @@ def fast_domain_test_case(process_function):
 
 
 class LunaGatewareTestCase(FHDLTestCase):
+
+    domain = 'sync'
 
     # Convenience property: if set, instantiate_dut will automatically create
     # the relevant fragment with FRAGMENT_ARGUMENTS.
@@ -157,3 +164,22 @@ class LunaGatewareTestCase(FHDLTestCase):
             cycles_passed += 1
             if timeout and cycles_passed > timeout:
                 raise RuntimeError(f"Timeout waiting for '{strobe.name}' to go high!")
+
+
+    def wait(self, time):
+        """ Helper method that waits for a given number of seconds in a *_test_case. """
+
+        # Figure out the period of the clock we want to work with...
+        if self.domain == 'sync':
+            period = 1 / self.SYNC_CLOCK_FREQUENCY
+        elif self.domain == 'usb':
+            period = 1 / self.USB_CLOCK_FREQUENCY
+        elif self.domain == 'fast':
+            period = 1 / self.FAST_CLOCK_FREQUENCY
+
+        # ... and, accordingly, how many cycles we want to delay.
+        cycles = math.ceil(time / period)
+        print(cycles)
+
+        # Finally, wait that many cycles.
+        yield from self.advance_cycles(cycles)

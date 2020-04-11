@@ -587,20 +587,20 @@ class ULPIControlTranslator(Elaboratable):
         #
         # I/O port
         #
-        self.bus_idle     = Signal()
-        self.xcvr_select  = Signal(2, reset=0b01)
-        self.term_select  = Signal()
-        self.op_mode      = Signal(2)
-        self.suspend      = Signal()
+        self.bus_idle      = Signal()
+        self.xcvr_select   = Signal(2, reset=0b01)
+        self.term_select   = Signal()
+        self.op_mode       = Signal(2)
+        self.suspend       = Signal()
 
-        self.id_pullup    = Signal()
-        self.dp_pulldown  = Signal(reset=1)
-        self.dm_pulldown  = Signal(reset=1)
+        self.id_pullup     = Signal()
+        self.dp_pulldown   = Signal(reset=1)
+        self.dm_pulldown   = Signal(reset=1)
 
-        self.chrg_vbus    = Signal()
-        self.dischrg_vbus = Signal()
+        self.chrg_vbus     = Signal()
+        self.dischrg_vbus  = Signal()
 
-        self.busy         = Signal()
+        self.busy          = Signal()
 
         # Extra/non-UTMI properties.
         self.use_external_vbus_indicator = Signal(reset=1)
@@ -1041,8 +1041,8 @@ class UTMITranslator(Elaboratable):
 
     # UTMI status signals translated from the ULPI bus.
     RXEVENT_STATUS_SIGNALS = [
-        'line_state', 'vbus_valid', 'session_valid', 'session_end',
-        'rx_error', 'host_disconnect', 'id_digital'
+        ('line_state', 2), ('vbus_valid', 1), ('session_valid', 1), ('session_end', 1),
+        ('rx_error',   1), ('host_disconnect', 1), ('id_digital', 1)
     ]
 
     # Control signals that we control through our control translator.
@@ -1058,9 +1058,8 @@ class UTMITranslator(Elaboratable):
 
         properties = list(super().__dir__())
 
-        properties.extend(self.RXEVENT_STATUS_SIGNALS)
-        properties.extend(self.DATA_STATUS_SIGNALS)
-        properties.extend(self.CONTROL_SIGNALS)
+        properties.extend(name for name, _ in self.RXEVENT_STATUS_SIGNALS)
+        properties.extend(name for name, _ in self.CONTROL_SIGNALS)
 
         return properties
 
@@ -1093,8 +1092,8 @@ class UTMITranslator(Elaboratable):
         self.rx_active       = Signal()
 
         # RxEvent-based flags.
-        for signal_name in self.RXEVENT_STATUS_SIGNALS:
-            self.__dict__[signal_name] = Signal(name=signal_name)
+        for signal_name, size in self.RXEVENT_STATUS_SIGNALS:
+            self.__dict__[signal_name] = Signal(size, name=signal_name)
 
         # Control signals.
         for signal_name, size in self.CONTROL_SIGNALS:
@@ -1155,6 +1154,13 @@ class UTMITranslator(Elaboratable):
         for address, values in self._extra_registers.items():
             control_translator.add_composite_register(m, address, values['value'], reset_value=values['default'])
 
+        # Keep track of when any of our components are busy
+        any_busy = \
+            register_window.busy     | \
+            transmit_translator.busy | \
+            control_translator.busy  | \
+            self.ulpi.dir
+
         # Connect our ULPI control signals to each of our subcomponents.
         m.d.comb += [
 
@@ -1162,7 +1168,7 @@ class UTMITranslator(Elaboratable):
             self.ulpi.data.oe            .eq(~self.ulpi.dir),
 
             # Generate our busy signal.
-            self.busy                    .eq(register_window.busy),
+            self.busy                    .eq(any_busy),
 
             # Connect up our clock and reset signals.
             self.ulpi.clk                .eq(ClockSignal("usb")),
@@ -1207,7 +1213,7 @@ class UTMITranslator(Elaboratable):
 
 
         # Connect our RxEvent status signals from our RxEvent decoder.
-        for signal_name in self.RXEVENT_STATUS_SIGNALS:
+        for signal_name, _ in self.RXEVENT_STATUS_SIGNALS:
             signal = getattr(rxevent_decoder, signal_name)
             m.d.comb += self.__dict__[signal_name].eq(signal)
 

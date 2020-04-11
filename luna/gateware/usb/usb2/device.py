@@ -5,7 +5,7 @@
 
 import unittest
 
-from nmigen                 import Signal, Module, Elaboratable
+from nmigen                 import Signal, Module, Elaboratable, Const
 from usb_protocol.types     import DescriptorTypes
 from usb_protocol.emitters  import DeviceDescriptorCollection
 
@@ -37,12 +37,18 @@ class USBDevice(Elaboratable):
 
         I: connect          -- Held high to keep the current USB device connected; or
                                held low to disconnect.
+        I: low_speed_only   -- If high, the device will operate at low speed.
+        I: full_speed_only  -- If high, the device will be prohibited from operating a high speed.
 
         O: frame_number[11] -- The current USB frame number.
         O: sof_detected     -- Pulses for one cycle each time a SOF is detected; and thus our
                                frame number has changed.
 
         # State signals.
+        O: suspended        -- High when the device is in USB suspend. This can be (and by the spec
+                               must be) used trigger the device to enter lower-power states.
+
+
         O: tx_activity_led  -- Signal that can be used to drive an activity LED for TX.
         O: rx_activity_led  -- Signal that can be used to drive an activity LED for RX.
     """
@@ -56,21 +62,29 @@ class USBDevice(Elaboratable):
         # If this looks more like a ULPI bus than a UTMI bus, translate it.
         if not hasattr(bus, 'rx_valid'):
             self.utmi       = UTMITranslator(ulpi=bus)
+            self.bus_busy   = self.utmi.busy
             self.translator = self.utmi
 
         # Otherwise, use it directly.
+        # Note that since a true UTMI interface has separate Tx/Rx/control
+        # interfaces, we don't need to care about bus 'busyness'; so we'll
+        # set it to a const zero.
         else:
             self.utmi       = bus
+            self.bus_busy   = Const(0)
             self.translator = None
 
         #
         # I/O port
         #
         self.connect         = Signal()
+        self.low_speed_only  = Signal()
+        self.full_speed_only = Signal()
 
         self.frame_number    = Signal(11)
         self.sof_detected    = Signal()
 
+        self.suspended       = Signal()
         self.tx_activity_led = Signal()
         self.rx_activity_led = Signal()
 
@@ -140,28 +154,15 @@ class USBDevice(Elaboratable):
         # Internal interconnections.
         #
 
-        # Device operating state controls.
-        m.d.comb += [
-
-            # Disable our host-mode pulldowns; as we're a device.
-            self.utmi.dm_pulldown  .eq(0),
-
-            # Connect our termination whenever the device is connected.
-            # TODO: support high-speed termination disconnect.
-            self.utmi.term_select  .eq(self.connect),
-
-            # For now, fix us into FS mode.
-            self.utmi.op_mode      .eq(0b00),
-            self.utmi.xcvr_select  .eq(0b01)
-        ]
-
         # Create our reset sequencer, which will be in charge of detecting USB port resets,
         # detecting high-speed hosts, and communicating that we are a high speed device.
         m.submodules.reset_sequencer = reset_sequencer = USBResetSequencer()
 
         m.d.comb += [
-            reset_sequencer.speed       .eq(speed),
-            reset_sequencer.line_state  .eq(self.utmi.line_state)
+            reset_sequencer.bus_busy        .eq(self.bus_busy),
+
+            reset_sequencer.vbus_connected  .eq(~self.utmi.session_end),
+            reset_sequencer.line_state      .eq(self.utmi.line_state),
         ]
 
 
@@ -264,6 +265,7 @@ class USBDevice(Elaboratable):
         m.submodules.tx_multiplexer = tx_multiplexer = UTMIInterfaceMultiplexer()
 
         # Connect each of our transmitters.
+        tx_multiplexer.add_input(reset_sequencer.tx)
         tx_multiplexer.add_input(transmitter.tx)
         tx_multiplexer.add_input(handshake_generator.tx)
 
@@ -289,15 +291,33 @@ class USBDevice(Elaboratable):
             ]
 
 
+        # Device operating state controls.
+        m.d.comb += [
+            # Disable our host-mode pulldowns; as we're a device.
+            self.utmi.dm_pulldown            .eq(0),
+            self.utmi.dp_pulldown            .eq(0),
+
+            # Let our reset sequencer set our USB mode and speed.
+            reset_sequencer.low_speed_only   .eq(self.low_speed_only),
+            reset_sequencer.full_speed_only  .eq(self.full_speed_only),
+            self.utmi.op_mode                .eq(reset_sequencer.operating_mode),
+            self.utmi.xcvr_select            .eq(reset_sequencer.current_speed),
+            self.utmi.term_select            .eq(reset_sequencer.termination_select & self.connect),
+        ]
+
+
         #
         # Device-state outputs.
         #
 
         m.d.comb += [
+            self.suspended     .eq(reset_sequencer.suspended),
+
             self.sof_detected  .eq(token_detector.interface.new_frame),
             self.frame_number  .eq(token_detector.interface.frame),
 
-            self.tx_activity_led  .eq(tx_multiplexer.output.valid)
+            self.tx_activity_led  .eq(tx_multiplexer.output.valid),
+            self.rx_activity_led  .eq(self.utmi.rx_valid)
         ]
 
         return m

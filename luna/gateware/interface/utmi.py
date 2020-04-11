@@ -3,9 +3,32 @@
 #
 """ UTMI interfacing. """
 
+from enum import IntEnum
+
 
 from nmigen         import Elaboratable, Signal, Module
 from nmigen.hdl.rec import Record, DIR_FANIN, DIR_FANOUT
+
+
+class UTMIOperatingMode:
+    """ Enumeration that specifies the modes a UTMI transceiver can use. """
+
+    NORMAL                    = 0
+    NON_DRIVING               = 1
+
+    RAW_DRIVE                 = 2
+    DISABLE_BITSTUFF_AND_NRZI = 2
+    CHIRP                     = 2
+
+    NO_SYNC_OR_EOP            = 3
+
+
+class UTMITerminationSelect:
+    """ Enumeration that specifies meanings of the UTMI TermSelect bit. """
+
+    HS_NORMAL    = 0
+    HS_CHIRP     = 1
+    LS_FS_NORMAL = 1
 
 
 class UTMITransmitInterface(Record):
@@ -119,7 +142,7 @@ class UTMIInterface(Record):
             ('use_external_vbus_indicator', 1),
 
             # Event signals.
-            ('line_state',                  1),
+            ('line_state',                  2),
             ('vbus_valid',                  1),
             ('session_valid',               1),
             ('session_end',                 1),

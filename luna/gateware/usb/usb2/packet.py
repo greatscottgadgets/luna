@@ -97,7 +97,7 @@ class TokenDetectorInterface(Record):
 class InterpacketTimerInterface(Record):
     """ Record providing an interface to our interpacket timer.
 
-    See [USB2 7.1.18] and the USBInterpacketTimer gateware for more information.
+    See [USB2.0: 7.1.18] and the USBInterpacketTimer gateware for more information.
 
     Components (I = timer in, O = detector out):
         I: start      -- Strobe that indicates when the timer should be started.

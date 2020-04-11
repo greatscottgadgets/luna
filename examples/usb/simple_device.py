@@ -3,6 +3,8 @@
 # This file is part of LUNA.
 #
 
+import os
+
 from nmigen                         import Elaboratable, Module
 from usb_protocol.emitters          import DeviceDescriptorCollection
 
@@ -45,11 +47,11 @@ class USBDeviceExample(Elaboratable):
 
                 with i.EndpointDescriptor() as e:
                     e.bEndpointAddress = 0x01
-                    e.wMaxPacketSize   = 512
+                    e.wMaxPacketSize   = 64
 
                 with i.EndpointDescriptor() as e:
                     e.bEndpointAddress = 0x81
-                    e.wMaxPacketSize   = 512
+                    e.wMaxPacketSize   = 64
 
         return descriptors
 
@@ -68,17 +70,19 @@ class USBDeviceExample(Elaboratable):
         descriptors = self.create_descriptors()
         usb.add_standard_control_endpoint(descriptors)
 
-
-        # Connect our device by default.
-        m.d.comb += usb.connect.eq(1)
+        # Connect our device as a high speed device by default.
+        m.d.comb += [
+            usb.connect          .eq(1),
+            usb.full_speed_only  .eq(1 if os.getenv('LUNA_FULL_ONLY') else 0),
+        ]
 
         # ... and for now, attach our LEDs to our most recent control request.
         m.d.comb += [
             platform.request('led', 0).eq(usb.tx_activity_led),
             platform.request('led', 1).eq(usb.rx_activity_led),
+            platform.request('led', 4).eq(usb.suspended),
             platform.request('led', 5).eq(1),
         ]
-
 
         return m
 

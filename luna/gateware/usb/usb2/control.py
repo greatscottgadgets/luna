@@ -217,7 +217,7 @@ class USBControlEndpoint(Elaboratable):
             interface.new_config                   .eq(request_handler.new_config),
 
             # Fix our data PIDs to DATA1, for now, as we don't support multi-packet responses, yet.
-            # Per [USB2 8.5.3], the first packet of the DATA or STATUS phase always carries a DATA1 PID.
+            # Per [USB2.0: 8.5.3], the first packet of the DATA or STATUS phase always carries a DATA1 PID.
             interface.tx_pid_toggle.eq(1)
         ]
 
@@ -248,7 +248,7 @@ class USBControlEndpoint(Elaboratable):
                             m.next = 'DATA_OUT'
 
                     with m.Else():
-                        # If we don't have a data phase, our status phase is always an IN [USB2 8.5.3]
+                        # If we don't have a data phase, our status phase is always an IN [USB2.0: 8.5.3]
                         m.next = 'STATUS_IN'
 
 
@@ -289,7 +289,7 @@ class USBControlEndpoint(Elaboratable):
             with m.State('STATUS_IN'):
                 self._handle_setup_reset(m)
 
-                # If we respond to a status-phase IN token, we'll always use a DATA1 PID [USB2 8.5.3]
+                # If we respond to a status-phase IN token, we'll always use a DATA1 PID [USB2.0: 8.5.3]
 
                 # When we get an IN token, the host is looking for a status-stage ZLP.
                 # Notify the target handler.
