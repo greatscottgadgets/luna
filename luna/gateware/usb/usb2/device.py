@@ -53,15 +53,17 @@ class USBDevice(Elaboratable):
         O: rx_activity_led  -- Signal that can be used to drive an activity LED for RX.
     """
 
-    def __init__(self, *, bus):
+    def __init__(self, *, bus, handle_clocking=True):
         """
         Parameters:
-            bus -- The UTMI or ULPI PHY connection to be used for communications.
+            bus             -- The UTMI or ULPI PHY connection to be used for communications.
+            handle_clocking -- True iff we should attempt to connect up the `usb` clock domain
+                               to the PHY automatically based on the clk signals's I/O direction.
         """
 
         # If this looks more like a ULPI bus than a UTMI bus, translate it.
         if not hasattr(bus, 'rx_valid'):
-            self.utmi       = UTMITranslator(ulpi=bus)
+            self.utmi       = UTMITranslator(ulpi=bus, handle_clocking=handle_clocking)
             self.bus_busy   = self.utmi.busy
             self.translator = self.utmi
 
@@ -325,6 +327,7 @@ class USBDevice(Elaboratable):
 
 class FullDeviceTest(USBDeviceTest):
     FRAGMENT_UNDER_TEST = USBDevice
+    FRAGMENT_ARGUMENTS = {'handle_clocking': False}
 
     def traces_of_interest(self):
         return (

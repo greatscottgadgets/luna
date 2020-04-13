@@ -5,12 +5,48 @@
 
 import unittest
 
-from nmigen                import Signal, Module, Elaboratable
+from nmigen                import Signal, Module, Elaboratable, Instance
 from nmigen.back.pysim     import Delay
 
 from .                     import USBSpeed
 from ...interface.utmi     import UTMITransmitInterface, UTMIOperatingMode, UTMITerminationSelect
 from ...test               import LunaGatewareTestCase, usb_domain_test_case
+
+
+def _generate_wide_incrementer(m, platform, adder_input):
+    """ Attempts to create an optimal wide-incrementer for counters.
+
+    Yosys on certain platforms (ice40 UltraPlus) doesn't currently use hardware resources
+    effectively for wide adders. We'll manually instantiate the relevant resources
+    to get rid of an 18-bit carry chain; avoiding a long critical path.
+
+    Parameters:
+        platform    -- The platform we're working with.
+        adder_input -- The input to our incrementer.
+    """
+
+    # If this isn't an iCE40 UltraPlus, let Yosys do its thing.
+    if (not platform) or not platform.device.startswith('iCE40UP'):
+        return adder_input + 1
+
+    # Otherwise, we'll create a DSP adder itself.
+    output = Signal.like(adder_input)
+    m.submodules += Instance('SB_MAC16',
+
+        # Hook up our inputs and outputs.
+        # A = upper bits of input; B = lower bits of input
+        i_A      = adder_input[16:],
+        i_B      = adder_input[0:16],
+        o_O      = output,
+
+        p_TOPADDSUB_UPPERINPUT =0b1,  # Use as a normal adder
+        p_TOPADDSUB_CARRYSELECT=0b11, # Connect our top and bottom adders together.
+        p_BOTADDSUB_UPPERINPUT =0b1,  # Use as a normal adder.
+        p_BOTADDSUB_CARRYSELECT=0b01  # Always increment.
+    )
+
+    return output
+
 
 
 class USBResetSequencer(Elaboratable):
@@ -111,7 +147,8 @@ class USBResetSequencer(Elaboratable):
 
         # By default, always count forward in time.
         # We'll reset the timer below when appropriate.
-        m.d.usb += timer.eq(timer + 1)
+        m.d.usb += timer.eq(_generate_wide_incrementer(m, platform, timer))
+        m.d.usb += line_state_time.eq(_generate_wide_incrementer(m, platform, line_state_time))
 
         # Signal that indicates when the bus is idle.
         # Our bus's IDLE condition depends on our active speed.
@@ -142,11 +179,14 @@ class USBResetSequencer(Elaboratable):
                     m.d.usb += self.current_speed.eq(USBSpeed.LOW)
 
                 m.next = 'LS_FS_NON_RESET'
+                m.d.usb += [
+                    timer.eq(0),
+                    line_state_time.eq(0)
+                ]
 
             # LS_FS_NON_RESET -- we're currently operating at LS/FS and waiting for a reset;
             # the device could be active or inactive, but we haven't yet seen a reset condition.
             with m.State('LS_FS_NON_RESET'):
-                m.d.usb += line_state_time.eq(line_state_time + 1)
 
                 # If we're seeing a state other than SE0 (D+ / D- at zero), this isn't yet a
                 # potential reset. Keep our timer at zero.
@@ -165,7 +205,7 @@ class USBResetSequencer(Elaboratable):
                 # If we see an SE0 for >2.5uS; < 3ms, this a bus reset.
                 # We'll trigger a reset after 5uS; providing a little bit of timing flexibility.
                 # [USB2.0: 7.1.7.5; ULPI 3.8.5.1].
-                with m.If(timer > self.CYCLES_5_MICROSECONDS):
+                with m.If(timer == self.CYCLES_5_MICROSECONDS):
                     m.d.comb += self.bus_reset.eq(1)
 
                     # If we're okay to run in high speed, we'll try to perform a high-speed detect.
@@ -279,7 +319,7 @@ class USBResetSequencer(Elaboratable):
 
                 # If we don't see our response within 2.5ms, this isn't a compliant HS host. [USB2.0: 7.1.7.5].
                 # This is thus a full-speed host, and we'll act as a full-speed device.
-                with m.If(timer > self.CYCLES_2P5_MILLISECONDS):
+                with m.If(timer == self.CYCLES_2P5_MILLISECONDS):
                     m.next = 'IS_LOW_OR_FULL_SPEED'
 
                 # Once we've seen our K, we're good to start observing J/K toggles.
@@ -291,7 +331,6 @@ class USBResetSequencer(Elaboratable):
             # IN_HOST_K: we're seeing a host Chirp K as part of our handshake; we'll
             # time it and see how long it lasts
             with m.State('IN_HOST_K'):
-                m.d.usb += line_state_time.eq(line_state_time + 1)
 
                 # If we've exceeded our minimum chirp time, consider this a valid pattern
                 # bit, # and advance in the pattern.
@@ -304,7 +343,7 @@ class USBResetSequencer(Elaboratable):
                     m.next = 'AWAIT_HOST_K'
 
                 # Time out if we exceed our maximum allowed duration.
-                with m.If(timer > self.CYCLES_2P5_MILLISECONDS):
+                with m.If(timer == self.CYCLES_2P5_MILLISECONDS):
                     m.next = 'IS_LOW_OR_FULL_SPEED'
 
 
@@ -312,7 +351,7 @@ class USBResetSequencer(Elaboratable):
             with m.State('AWAIT_HOST_J'):
 
                 # If we've exceeded our maximum wait, this isn't a high speed host.
-                with m.If(timer > self.CYCLES_2P5_MILLISECONDS):
+                with m.If(timer == self.CYCLES_2P5_MILLISECONDS):
                     m.next = 'IS_LOW_OR_FULL_SPEED'
 
                 # Once we've seen our J, start timing its duration.
@@ -324,7 +363,6 @@ class USBResetSequencer(Elaboratable):
             # IN_HOST_J: we're seeing a host Chirp K as part of our handshake; we'll
             # time it and see how long it lasts
             with m.State('IN_HOST_J'):
-                m.d.usb += line_state_time.eq(line_state_time + 1)
 
                 # If we've exceeded our minimum chirp time, consider this a valid pattern
                 # bit, and advance in the pattern.
@@ -346,7 +384,7 @@ class USBResetSequencer(Elaboratable):
                     m.next = 'AWAIT_HOST_J'
 
                 # Time out if we exceed our maximum allowed duration.
-                with m.If(timer > self.CYCLES_2P5_MILLISECONDS):
+                with m.If(timer == self.CYCLES_2P5_MILLISECONDS):
                     m.next = 'IS_LOW_OR_FULL_SPEED'
 
 
@@ -357,6 +395,7 @@ class USBResetSequencer(Elaboratable):
                 # Switch to high speed.
                 m.d.usb += [
                     timer                    .eq(0),
+                    line_state_time          .eq(0),
 
                     self.current_speed       .eq(USBSpeed.HIGH),
                     self.operating_mode      .eq(UTMIOperatingMode.NORMAL),
@@ -385,6 +424,10 @@ class USBResetSequencer(Elaboratable):
                 # Once we know that our reset is complete, move back to our normal, non-reset state.
                 with m.If(self.line_state != self.LINE_STATE_SE0):
                     m.next = 'LS_FS_NON_RESET'
+                    m.d.usb += [
+                        timer.eq(0),
+                        line_state_time.eq(0)
+                    ]
 
 
             # DETECT_HS_SUSPEND -- we were operating at high speed, and just detected an event
@@ -427,6 +470,10 @@ class USBResetSequencer(Elaboratable):
                     # Otherwise, just resume.
                     with m.Else():
                         m.next = 'LS_FS_NON_RESET'
+                        m.d.usb += [
+                            timer.eq(0),
+                            line_state_time.eq(0)
+                        ]
 
 
                 # If this isn't an SE0, we're not receiving a reset request.
@@ -437,13 +484,17 @@ class USBResetSequencer(Elaboratable):
 
                 # If we see an SE0 for > 2.5uS, this is a reset request. [USB 2.0: 7.1.7.5]
                 # We'll handle it directly from suspend.
-                with m.If(timer > self.CYCLES_2P5_MICROSECONDS):
+                with m.If(timer == self.CYCLES_2P5_MICROSECONDS):
                     m.d.comb += self.bus_reset.eq(1)
                     m.d.usb  += timer.eq(0)
 
                     # If we're limited to LS or FS, move to the appropriate state.
                     with m.If(self.low_speed_only | self.full_speed_only):
                         m.next = 'LS_FS_NON_RESET'
+                        m.d.usb += [
+                            timer.eq(0),
+                            line_state_time.eq(0)
+                        ]
 
                     # Otherwise, this could be a high-speed device; enter its reset.
                     with m.Else():

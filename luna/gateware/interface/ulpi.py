@@ -701,15 +701,13 @@ class ULPIControlTranslator(Elaboratable):
                     self.register_window.write_request .eq(request_write),
 
                     # Status signals
-                    self.busy                          .eq(request_write | self.register_window.busy)
                 ]
+                m.d.usb += self.busy.eq(request_write | self.register_window.busy)
 
         # If no register accesses are active, provide default signal values.
         with m.Else():
-            m.d.comb += [
-                self.register_window.write_request.eq(0),
-                self.busy.eq(self.register_window.busy)
-            ]
+            m.d.comb += self.register_window.write_request.eq(0)
+            m.d.usb  += self.busy.eq(self.register_window.busy)
 
         # Ensure our register window is never performing a read.
         m.d.comb += self.register_window.read_request.eq(0)
@@ -835,11 +833,6 @@ class ULPITransmitTranslator(Elaboratable):
         m = Module()
         bit_stuffing_disabled = (self.op_mode == self.OP_MODE_NO_BIT_STUFFING)
 
-        # De-assert our control signals unless asserted.
-        m.d.comb += [
-            self.ulpi_out_req  .eq(0)
-        ]
-
         with m.FSM(domain="usb") as fsm:
 
             # Mark ourselves as busy whenever we're not in idle.
@@ -856,8 +849,8 @@ class ULPITransmitTranslator(Elaboratable):
                     # In this case, we'll never accept the first byte (as we're not ready to transmit it, yet),
                     # and thus TxReady will always be 0.
                     with m.If(bit_stuffing_disabled):
+                        m.d.usb  += self.ulpi_out_req.eq(1),
                         m.d.comb += [
-                            self.ulpi_out_req  .eq(1),
                             self.ulpi_data_out .eq(self.TRANSMIT_COMMAND),
                             self.tx_ready      .eq(0)
                         ]
@@ -866,8 +859,8 @@ class ULPITransmitTranslator(Elaboratable):
                     # and present it as part of the Transmit Command. In this case, the NXT signal is
                     # has the same meaning as the UTMI TxReady signal; and can be passed along directly.
                     with m.Else():
+                        m.d.usb  += self.ulpi_out_req.eq(1),
                         m.d.comb += [
-                            self.ulpi_out_req  .eq(1),
                             self.ulpi_data_out .eq(self.TRANSMIT_COMMAND | self.tx_data[0:4]),
                             self.tx_ready      .eq(self.ulpi_nxt)
                         ]
@@ -882,7 +875,6 @@ class ULPITransmitTranslator(Elaboratable):
             # are roughly equivalent; we'll just pass them through.
             with m.State('TRANSMIT'):
                 m.d.comb += [
-                    self.ulpi_out_req  .eq(1),
                     self.ulpi_data_out .eq(self.tx_data),
                     self.tx_ready      .eq(self.ulpi_nxt),
                     self.ulpi_stp      .eq(0),
@@ -890,6 +882,7 @@ class ULPITransmitTranslator(Elaboratable):
 
                 # Once the transmission has ended, we'll need to issue a ULPI stop.
                 with m.If(~self.tx_valid):
+                    m.d.usb += self.ulpi_out_req.eq(0),
                     m.next = 'IDLE'
 
                     # STOP: our packet has just terminated; we'll generate a ULPI stop event for a single cycle.
@@ -934,10 +927,11 @@ class ULPITransmitTranslatorTest(LunaGatewareTestCase):
 
         # Our PID should have been translated into a transmit request, with
         # our PID in the lower nibble.
-        self.assertEqual((yield dut.ulpi_out_req),  1)
         self.assertEqual((yield dut.ulpi_data_out), 0b01000101)
         self.assertEqual((yield dut.tx_ready),      0)
         self.assertEqual((yield dut.ulpi_stp),      0)
+        yield
+        self.assertEqual((yield dut.ulpi_out_req),  1)
 
         # Our PID should remain there until we indicate we're ready.
         self.advance_cycles(10)
@@ -978,7 +972,6 @@ class ULPITransmitTranslatorTest(LunaGatewareTestCase):
 
         # Our PID should have been translated into a transmit request, with
         # our PID in the lower nibble.
-        self.assertEqual((yield dut.ulpi_out_req),  1)
         self.assertEqual((yield dut.ulpi_data_out), 0b01000010)
         self.assertEqual((yield dut.tx_ready),      0)
         self.assertEqual((yield dut.ulpi_stp),      0)
@@ -986,6 +979,7 @@ class ULPITransmitTranslatorTest(LunaGatewareTestCase):
         # Once the PHY accepts the data, it'll assert NXT.
         yield dut.ulpi_nxt.eq(1)
         yield
+        self.assertEqual((yield dut.ulpi_out_req),  1)
 
         # ... which will trigger the transmitter to drop tx_valid.
         yield dut.tx_valid.eq(0)
@@ -1064,15 +1058,25 @@ class UTMITranslator(Elaboratable):
         return properties
 
 
-    def __init__(self, *, ulpi, use_platform_registers=True):
+    def __init__(self, *, ulpi, use_platform_registers=True, handle_clocking=True):
         """ Params:
 
             ulpi                   -- The ULPI bus to communicate with.
             use_platform_registers -- If True (or not provided), any extra registers writes provided in
                                       the platform definition will be applied automatically.
+            handle_clocking        -- True iff we should attempt to automatically handle ULPI clocking. If
+                                      the `clk` ULPI signal is an input, it will be used to provide the 'usb'
+                                      domain clock. If the ULPI signal is an output, it will driven with our
+                                      'usb' domain clock. If False, it will be the user's responsibility to
+                                      handle clocking.
+
+            Note that it's recommended that multi-PHY systems either use a single clock for all PHYs
+            (assuming the PHYs support clock input), or that individual clock domains be created for each
+            PHY using a DomainRenamer.
         """
 
         self.use_platform_registers = use_platform_registers
+        self.handle_clocking        = handle_clocking
 
         #
         # I/O port
@@ -1161,6 +1165,29 @@ class UTMITranslator(Elaboratable):
             control_translator.busy  | \
             self.ulpi.dir
 
+
+        # If we're handling ULPI clocking, do so.
+        if self.handle_clocking:
+
+            # We can't currently handle bidirectional clock lines, as we don't know if they
+            # should be used in input or output modes.
+            if hasattr(self.ulpi.clk, 'oe'):
+                raise TypeError("ULPI records with bidirectional clock lines require manual handling.")
+
+            # Just Input (TM) and Just Output (TM) clocks are simpler: we know how to drive them.
+            elif hasattr(self.ulpi.clk, 'o'):
+                m.d.comb += self.ulpi.clk.eq(ClockSignal('usb'))
+            elif hasattr(self.ulpi.clk, 'i'):
+                m.d.comb += ClockSignal('usb').eq(self.ulpi.clk)
+
+            # Clocks that don't seem to be I/O pins aren't what we're expecting; fail out.
+            else:
+                raise TypeError(f"ULPI `clk` was an unexpected type {type(self.ulpi.clk)}." \
+                    " You may need to handle clocking manually.")
+
+
+
+
         # Connect our ULPI control signals to each of our subcomponents.
         m.d.comb += [
 
@@ -1171,7 +1198,6 @@ class UTMITranslator(Elaboratable):
             self.busy                    .eq(any_busy),
 
             # Connect up our clock and reset signals.
-            self.ulpi.clk                .eq(ClockSignal("usb")),
             self.ulpi.rst                .eq(ResetSignal("usb")),
 
             # Connect our data inputs to the event decoder.

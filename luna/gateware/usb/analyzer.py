@@ -498,7 +498,7 @@ class USBAnalyzerStackTest(LunaGatewareTestCase):
         # Create a stack of our UTMITranslator and our USBAnalyzer.
         # We'll wrap the both in a module to establish a synthetic hierarchy.
         m = Module()
-        m.submodules.translator = self.translator = UTMITranslator(ulpi=self.ulpi)
+        m.submodules.translator = self.translator = UTMITranslator(ulpi=self.ulpi, handle_clocking=False)
         m.submodules.analyzer   = self.analyzer   = USBAnalyzer(utmi_interface=self.translator, mem_depth=128)
         return m
 

@@ -15,6 +15,7 @@ from .packet             import USBTokenDetector, USBDataPacketDeserializer, USB
 from .packet             import DataCRCInterface, USBInterpacketTimer, TokenDetectorInterface
 from .packet             import InterpacketTimerInterface, HandshakeExchangeInterface
 from ..stream            import USBInStreamInterface, USBOutStreamInterface
+from ...utils.bus        import OneHotMultiplexer
 
 from ...test             import usb_domain_test_case
 
@@ -449,7 +450,6 @@ class USBRequestHandlerMultiplexer(Elaboratable):
                 return  getattr(interface, name)
 
 
-
         # We're building an if-elif tree; so we should start with an If entry.
         conditional = m.If
 
@@ -493,7 +493,6 @@ class USBRequestHandlerMultiplexer(Elaboratable):
 
                 shared.rx                        .connect(interface.rx),
                 interface.rx_ready_for_response  .eq(shared.rx_ready_for_response),
-                interface.tx.ready               .eq(shared.tx.ready)
             ]
 
         #
@@ -508,11 +507,16 @@ class USBRequestHandlerMultiplexer(Elaboratable):
             when='config_changed',
             multiplex=['config_changed', 'new_config']
         )
-        self._multiplex_signals(m,
-            sub_bus='tx',
-            when='valid',
-            multiplex=['valid', 'payload', 'first', 'last']
+
+        # Connect up our transmit interface.
+        m.submodules.tx_mux = tx_mux = OneHotMultiplexer(
+            interface_type=USBInStreamInterface,
+            mux_signals=('payload',),
+            or_signals=('valid', 'first', 'last'),
+            pass_signals=('ready',)
         )
+        tx_mux.add_interfaces(i.tx for i in self._interfaces)
+        m.d.comb += self.shared.tx.connect(tx_mux.output)
 
         # OR together all of our handshake-generation requests.
         any_ack   = functools.reduce(operator.__or__, (i.handshakes_out.ack   for i in self._interfaces))

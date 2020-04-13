@@ -12,6 +12,7 @@ from nmigen.hdl.ast import Past
 from .packet        import DataCRCInterface, InterpacketTimerInterface, TokenDetectorInterface
 from .packet        import HandshakeExchangeInterface
 from ..stream       import USBInStreamInterface, USBOutStreamInterface
+from ...utils.bus   import OneHotMultiplexer
 
 class EndpointInterface:
     """ Interface that connects a USB endpoint module to a USB device.
@@ -158,7 +159,8 @@ class USBEndpointMultiplexer(Elaboratable):
         """ Joins together a set of signals on each interface by OR'ing the signals together. """
 
         # Find the value of all of our pre-mux signals OR'd together...
-        or_value = functools.reduce(operator.__or__, (signal_for_interface(i)   for i in self._interfaces))
+        all_signals = (signal_for_interface(i) for i in self._interfaces)
+        or_value = functools.reduce(operator.__or__, all_signals, 0)
 
         # ... and tie it to our post-mux signal.
         m.d.comb += signal_for_interface(self.shared).eq(or_value)
@@ -190,9 +192,6 @@ class USBEndpointMultiplexer(Elaboratable):
                 interface.rx_ready_for_response  .eq(shared.rx_ready_for_response),
                 interface.rx_invalid             .eq(shared.rx_invalid),
 
-                # Tx interface (shared).
-                interface.tx.ready               .eq(shared.tx.ready),
-
                 # State signals.
                 interface.speed                  .eq(shared.speed),
                 interface.active_config          .eq(shared.active_config)
@@ -210,11 +209,16 @@ class USBEndpointMultiplexer(Elaboratable):
             when='config_changed',
             multiplex=['config_changed', 'new_config']
         )
-        self._multiplex_signals(m,
-            sub_bus='tx',
-            when='valid',
-            multiplex=['valid', 'payload', 'first', 'last']
+
+        # Connect up our transmit interface.
+        m.submodules.tx_mux = tx_mux = OneHotMultiplexer(
+            interface_type=USBInStreamInterface,
+            mux_signals=('payload',),
+            or_signals=('valid', 'first', 'last'),
+            pass_signals=('ready',)
         )
+        tx_mux.add_interfaces(i.tx for i in self._interfaces)
+        m.d.comb += self.shared.tx.connect(tx_mux.output)
 
         # OR together all of our handshake-generation requests...
         self.or_join_interface_signals(m, lambda interface : interface.handshakes_out.ack)
