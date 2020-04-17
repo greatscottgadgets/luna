@@ -1,0 +1,23 @@
+#
+# scons build file; eventually this python should be
+# called automatically during an SoC build
+#
+
+target = "hello_world"
+
+#
+# Set up cross-compiling.
+#
+cross = "riscv64-unknown-elf"
+env_options = {
+    "CC"     :   f"{cross}-gcc",
+    "ASFLAGS":   "-march=rv32i -mabi=ilp32",
+    "LINKFLAGS": "-nostdlib -Thello_world.ld",
+    "OBJCOPY":   f"{cross}-objcopy"
+}
+env = Environment(**env_options)
+
+
+# Build our core example.
+env.Program(f"{target}.S")
+env.Command(f"{target}.bin", f"{target}", f"$OBJCOPY -O binary $SOURCE $TARGET")
