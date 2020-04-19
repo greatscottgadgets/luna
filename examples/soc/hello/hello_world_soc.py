@@ -24,6 +24,7 @@ class LunaCPUExample(Elaboratable):
         # Create our SoC...
         m.submodules.soc = soc = SimpleSoC()
         soc.add_firmware_rom('hello_world.bin')
+        soc.add_ram(0x1000, addr=0x10000000)
 
         # ... and add our UART peripheral.
         uart = UARTTransmitterPeripheral(divisor=int(clock_freq // 115200))
