@@ -26,13 +26,20 @@ def get_appropriate_platform() -> LatticeECP5Platform:
 
     from ... import apollo
 
-    # Figure out what hardware revision we're going to connect to...
     try:
-        version = apollo.ApolloDebugger.detect_connected_version()
+        # Figure out what hardware revision we're going to connect to...
+        debugger = apollo.ApolloDebugger()
+        version = debugger.detect_connected_version()
 
         # ... and look up the relevant platform accordingly.
-        platform = PLATFORM_FOR_REVISION[version]
-        return platform()
+        platform = PLATFORM_FOR_REVISION[version]()
+
+        # Finally, override the platform's device type with the FPGA we detect
+        # as being present on the relevant board. (Note that this auto-detection
+        # only works if we're programming a connected device; otherwise, we'll
+        # need to use the custom-platform environment variables.)
+        platform.device = debugger.get_fpga_type()
+        return platform
 
 
     # If we don't have a connected platform, fall back to the latest platform.

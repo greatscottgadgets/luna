@@ -178,7 +178,7 @@ class LUNAPlatformRev0D2(LatticeECP5Platform):
 
     def toolchain_prepare(self, fragment, name, **kwargs):
         overrides = {
-            'ecppack_opts': '--compress --idcode {} --freq 38.8'.format(0x21111043)
+            'ecppack_opts': '--compress --freq 38.8'
         }
 
         return super().toolchain_prepare(fragment, name, **overrides, **kwargs)

@@ -8,7 +8,6 @@ import sys
 from nmigen import Signal, Module, Elaboratable, ClockDomain, ClockSignal, Cat
 
 from luna import top_level_cli
-from luna.gateware.platform.luna_r0_1 import LUNAPlatformR01
 
 class Blinky(Elaboratable):
     """ Hardware module that validates basic LUNA functionality. """

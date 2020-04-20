@@ -9,6 +9,8 @@ from .flash import ConfigurationFlash
 from .spi   import DebugSPIConnection
 from .ila   import ApolloILAFrontend
 
+from .onboard_jtag import *
+
 class DebuggerNotFound(IOError):
     pass
 
@@ -47,24 +49,6 @@ class ApolloDebugger:
     }
 
 
-    @classmethod
-    def detect_connected_version(cls):
-        """ Attempts to determine the revision of the connected hardware.
-
-        Returns the relevant hardware's revision number, as (major, minor).
-        """
-
-        # Try to create a connection to our Apollo debug firmware.
-        device = usb.core.find(idVendor=cls.VENDOR_ID, idProduct=cls.PRODUCT_ID)
-        if device is None:
-            raise DebuggerNotFound()
-
-        # Once we have it, parse its bcdDevice, and return.
-        minor = device.bcdDevice & 0xFF
-        major = device.bcdDevice >> 8
-        return major, minor
-
-
     def __init__(self):
         """ Sets up a connection to the debugger. """
 
@@ -80,6 +64,41 @@ class ApolloDebugger:
         self.jtag  = JTAGChain(self)
         self.spi   = DebugSPIConnection(self)
         self.flash = ConfigurationFlash(self)
+
+
+    def detect_connected_version(self):
+        """ Attempts to determine the revision of the connected hardware.
+
+        Returns the relevant hardware's revision number, as (major, minor).
+        """
+
+        # Extract the major and minor from the device's USB descriptor.
+        minor = self.device.bcdDevice & 0xFF
+        major = self.device.bcdDevice >> 8
+
+        return major, minor
+
+
+    def get_fpga_type(self):
+        """ Returns a string indicating the type of FPGA populated on the connected LUNA board.
+
+        The returned format is the same as used in a nMigen platform file; and can be used to override
+        a platform's device type.
+        """
+
+        with self.jtag as jtag:
+
+            # First, we'll detect all devices on our JTAG chain.
+            jtag_devices = jtag.enumerate()
+            if not jtag_devices:
+                raise IOError("Could not detect an FPGA via JTAG!")
+
+            # ... and grab its device identifier.
+            first_device = jtag_devices[0]
+            if not hasattr(first_device, 'DEVICE'):
+                raise IOError("First JTAG device in chain does not provide an FPGA type. Is this a proper board?")
+
+            return first_device.DEVICE
 
 
     @property
