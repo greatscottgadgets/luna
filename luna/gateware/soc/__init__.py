@@ -2,21 +2,29 @@
 # This file is part of LUNA.
 #
 
-from nmigen     import Elaboratable, Module
-from nmigen_soc import wishbone
+from nmigen                  import Elaboratable, Module
+from nmigen_soc              import wishbone
 
-from .cpu       import Processor
-from .memory    import WishboneRAM, WishboneROM
+from lambdasoc.soc.cpu       import CPUSoC
+from lambdasoc.cpu.minerva   import MinervaCPU
+from lambdasoc.periph.intc   import GenericInterruptController
+from lambdasoc.periph.serial import AsyncSerialPeripheral
+from lambdasoc.periph.sram   import SRAMPeripheral
+from lambdasoc.periph.timer  import TimerPeripheral
+
+from .memory                 import WishboneROM
 
 
-class SimpleSoC(Elaboratable):
-    """ Class used for building simple system-on-a-chip architectures.
+class SimpleSoC(CPUSoC, Elaboratable):
+    """ Class used for building simple, example system-on-a-chip architectures.
 
-    Intended to facilitate demonstrations and simple USB devices.
+    Intended to facilitate demonstrations (and very simple USB devices) by providing
+    a wrapper that can be updated as the nMigen-based-SoC landscape changes. Hopefully,
+    this will eventually be filled by e.g. nMigen-compatible-LiteX. :)
 
-    SimpleSoC devices integrate:
+    SimpleSoC devices are guaranteed to intergrate:
         - A simple riscv32i processor.
-        - One or more read-only or re-write memories.
+        - One or more read-only or read-write memories.
         - A number of nmigen-soc peripherals.
 
     The current implementation uses a single, 32-bit wide Wishbone bus
@@ -52,6 +60,19 @@ class SimpleSoC(Elaboratable):
         return self.add_peripheral(rom, addr=addr)
 
 
+    def add_ram(self, size: int, addr: int):
+        """ Creates a simple RAM and adds it to our design.
+
+        Parameters:
+            size -- The size of the RAM, in bytes. Will be rounded to the nearest power of two.
+            addr -- The address at which to place the RAM.
+        """
+
+        # ... and add it as a peripheral.
+        ram = SRAMPeripheral(size=size)
+        return self.add_peripheral(ram, addr=addr)
+
+
     def add_peripheral(self, p, **kwargs):
         """ Adds a peripheral to the SoC.
 
@@ -66,11 +87,16 @@ class SimpleSoC(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
+        next_irq_index = 0
+
         # Add our core CPU, and create its main system bus.
         # Note that our default implementation uses a single bus for code and data,
         # so this is both the instruction bus (ibus) and data bus (dbus).
-        m.submodules.cpu = cpu = Processor()
-        m.submodules.bus = bus = wishbone.Decoder(addr_width=30, data_width=32, granularity=8)
+        m.submodules.cpu = cpu = MinervaCPU()
+        m.submodules.bus = bus = wishbone.Decoder(addr_width=30, data_width=32, granularity=8, features={"cti", "bte"})
+
+        # Create a basic programmable interrupt controller for our CPU.
+        m.submodules.pic = pic = GenericInterruptController(width=len(cpu.ip))
 
         # Add each of our peripherals to the bus.
         for peripheral, parameters in self.peripherals:
@@ -78,6 +104,18 @@ class SimpleSoC(Elaboratable):
             # Add the peripheral to our bus...
             interface = getattr(peripheral, 'bus')
             bus.add(interface, **parameters)
+
+            # ... add its IRQs to the IRQ controller...
+            try:
+                irq_line = getattr(peripheral, 'irq')
+                pic.add_irq(irq_line, next_irq_index)
+
+                next_irq_index += 1
+            except (AttributeError, NotImplementedError):
+
+                # If the object has no associated IRQs, continue anyway.
+                # This allows us to add devices with only Wishbone interfaces to our SoC.
+                pass
 
             # ... and include it in the processor.
             m.submodules += peripheral
@@ -87,7 +125,7 @@ class SimpleSoC(Elaboratable):
         # to an arbiter, so they both share use of the single bus.
 
         # Create the arbiter around our main bus...
-        m.submodules.bus_arbiter = arbiter = wishbone.Arbiter(addr_width=30, data_width=32, granularity=8)
+        m.submodules.bus_arbiter = arbiter = wishbone.Arbiter(addr_width=30, data_width=32, granularity=8, features={"cti", "bte"})
         m.d.comb += arbiter.bus.connect(bus.bus)
 
         # ... and connect it to the CPU instruction and data busses.

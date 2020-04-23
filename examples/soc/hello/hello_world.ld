@@ -2,7 +2,7 @@ OUTPUT_FORMAT("elf32-littleriscv")
 OUTPUT_ARCH("riscv")
 ENTRY(_start)
 
-include soc.ld
+INCLUDE soc.ld
 
 SECTIONS
 {
