@@ -23,6 +23,12 @@ class WishboneRAM(Elaboratable):
         Parameters should match those provied to __init__
         """
 
+        # If this is a filename, read the file's contents before processing.
+        if isinstance(value, str):
+            with open(value, "rb") as f:
+                value = f.read()
+
+        # If we don't have bytes, read this direction.
         if not isinstance(value, bytes):
             return value
 
@@ -33,24 +39,30 @@ class WishboneRAM(Elaboratable):
 
 
 
-    def __init__(self, *, addr_width, data_width=32, granularity=8, init=None, read_only=False, byteorder="little"):
+    def __init__(self, *, addr_width, data_width=32, granularity=8, init=None,
+            read_only=False, byteorder="little", name="ram"):
         """
         Parameters:
             addr_width  -- The -bus- address width for the relevant memory. Determines the size
                            of the memory.
             data_width  -- The width of each memory word.
             granularity -- The number of bits of data per each address.
-            init        -- Optional. The initial value of the relevant memory. Should be either an array of integers
-                           or a bytes-like object. If bytes are provided, the byteorder parametera allows control over
-                           their interpretation.
+            init        -- Optional. The initial value of the relevant memory. Should be an array of integers, a
+                           filename, or a bytes-like object. If bytes are provided, the byteorder parametera allows
+                           control over their interpretation. If a filename is provided, this filename will not be read
+                           until elaboration; this allows reading the file to be deferred until the very last minute in
+                           e.g. systems that generate the relevant file during build.
             read_only   -- If true, this will ignore writes to this memory, so it effectively
                            acts as a ROM fixed to its initialization value.
             byteorder   -- Sets the byte order of the initializer value. Ignored unless a bytes-type initializer is provided.
+            name        -- A descriptive name for the given memory.
         """
 
+        self.name          = name
         self.read_only     = read_only
         self.data_width    = data_width
-        self.initial_value = self._initialization_value(init, data_width, granularity, byteorder)
+        self.initial_value = init
+        self.byteorder     = byteorder
 
         # Our granularity determines how many bits of data exist per single address.
         # Often, this isn't the same as our data width; which means we'll wind up with
@@ -72,14 +84,18 @@ class WishboneRAM(Elaboratable):
         # in our extra bits as it computes our granularity.
         self.bus = wishbone.Interface(addr_width=self.local_addr_width, data_width=data_width, granularity=granularity)
         self.bus.memory_map = memory.MemoryMap(addr_width=self.bus_addr_width, data_width=granularity)
+        self.bus.memory_map.add_resource(self, size=2 ** addr_width)
 
 
     def elaborate(self, platform):
         m = Module()
 
+        # Create our memory initializer from our initial value.
+        initial_value = self._initialization_value(self.initial_value, self.data_width, self.granularity, self.byteorder)
+
         # Create the the memory used to store our data.
         memory_depth = 2 ** self.local_addr_width
-        memory = Memory(width=self.data_width, depth=memory_depth, init=self.initial_value)
+        memory = Memory(width=self.data_width, depth=memory_depth, init=initial_value, name=self.name)
 
         # Grab a reference to the bits of our Wishbone bus that are relevant to us.
         local_address_bits = self.bus.adr[:self.local_addr_width]
@@ -123,35 +139,23 @@ class WishboneRAM(Elaboratable):
 class WishboneROM(WishboneRAM):
     """ Wishbone-attached ROM. """
 
-    def __init__(self, data, data_width=32, granularity=8):
+    def __init__(self, data, *, addr_width, data_width=32, granularity=8, name="rom"):
         """
         Parameters:
             data -- The data to fill the ROM with.
 
+            addr_width  -- The -bus- address width for the relevant memory. Determines the address size of the memory.
+                           Physical size is based on the data provided, as unused elements will be optimized away.
             data_width  -- The width of each memory word.
             granularity -- The number of bits of data per each address.
+            name        -- A descriptive name for the ROM.
         """
 
-        # Compute the number of data elements we expect...
-        bytes_per_datum = granularity // 8
-        total_elements  = (len(data) + (bytes_per_datum - 1)) // bytes_per_datum
-
-        # ... and figure out how many bits we'd need to address them.
-        local_address_width = int(math.log2(total_elements))
-        if (2 ** local_address_width) < total_elements:
-            local_address_width += 1
-
-        # Figure out how many bits we'll need to add to the relevant siez
-        bytes_per_word   = data_width // granularity
-        bits_in_bus_only = int(math.log2(bytes_per_word))
-        bus_address_width = local_address_width + bits_in_bus_only
-
-        # Finally, initialize our inner RAM with the relevant parameters,
-        # and ensure it's read only.
         super().__init__(
-            addr_width=bus_address_width,
+            addr_width=addr_width,
             data_width=data_width,
             granularity=8,
             init=data,
-            read_only=True
+            read_only=True,
+            name=name
         )

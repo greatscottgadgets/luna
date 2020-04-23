@@ -8,7 +8,9 @@ import logging
 import tempfile
 import argparse
 
-from nmigen import Elaboratable
+from nmigen             import Elaboratable
+from nmigen._unused     import MustUse
+
 from .gateware.platform import get_appropriate_platform
 
 # Log formatting strings.
@@ -16,11 +18,18 @@ LOG_FORMAT_COLOR = "\u001b[37;1m%(levelname)-8s| \u001b[0m\u001b[1m%(module)-12s
 LOG_FORMAT_PLAIN = "%(levelname)-8s:n%(module)-12s>%(message)s"
 
 
-def top_level_cli(fragment, *pos_args, **kwargs):
+def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
     """ Runs a default CLI that assists in building and running gateware.
 
         If the user's options resulted in the board being programmed, this returns the fragment
         that was programmed onto the board. Otherwise, it returns None.
+
+        Parameters:
+            fragment  -- The fragment instance to be built; or a callable that returns a fragment,
+                         such as a Elaborable type. If the latter is provided, any keyword or positional
+                         arguments not specified here will be passed to this callable.
+            cli_soc   -- Optional. If a SoC design provides a SimpleSoc, options will be provided for generating
+                         build artifacts, such as header or linker files; instead of elaborating a design.
     """
 
     name = fragment.__name__ if callable(fragment) else fragment.__class__.__name__
@@ -37,6 +46,19 @@ def top_level_cli(fragment, *pos_args, **kwargs):
          help="When provided as the only option; builds the relevant bitstream without uploading or flashing it.")
     parser.add_argument('--keep-files', action='store_true',
          help="Keeps the local files in the default `build` folder.")
+
+    # If we have SoC options, print them to the command line.
+    if cli_soc:
+        parser.add_argument('--generate-c-header', action='store_true',
+            help="If provided, a C header file for this design's SoC will be printed to the stdout. Other options ignored.")
+        parser.add_argument('--generate-ld-script', action='store_true',
+            help="If provided, a linker script for design's SoC memory regisons be printed to the stdout. Other options ignored.")
+
+
+    # Disable UnusedElaboarable warnings until we decide to build things.
+    # This is sort of cursed, but it keeps us categorically from getting UnusedElaborable warnings
+    # if we're not actually buliding.
+    MustUse._MustUse__silence = True
 
     args = parser.parse_args()
 
@@ -63,6 +85,17 @@ def top_level_cli(fragment, *pos_args, **kwargs):
         args.erase = False
         args.upload = False
 
+
+    # If we've been asked to generate a C header, generate -only- that.
+    if cli_soc and args.generate_c_header:
+        cli_soc.generate_c_header()
+        sys.exit(0)
+
+    # If we've been asked to generate linker region info, generate -only- that.
+    if cli_soc and args.generate_ld_script:
+        cli_soc.generate_ld_script()
+        sys.exit(0)
+
     # Build the relevant gateware, uploading if requested.
     build_dir = "build" if args.keep_files else tempfile.mkdtemp()
 
@@ -78,6 +111,8 @@ def top_level_cli(fragment, *pos_args, **kwargs):
         join_text = "and uploading gateware to attached" if args.upload else "for"
         logging.info(f"Building {join_text} {platform.name}...")
 
+        # Now that we're actually building, re-enable Unused warnings.
+        MustUse._MustUse__silence = False
         products = platform.build(fragment,
             do_program=args.upload,
             build_dir=build_dir

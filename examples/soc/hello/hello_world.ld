@@ -2,8 +2,6 @@ OUTPUT_FORMAT("elf32-littleriscv")
 OUTPUT_ARCH("riscv")
 ENTRY(_start)
 
-INCLUDE soc.ld
-
 SECTIONS
 {
 	. = 0x00000000;

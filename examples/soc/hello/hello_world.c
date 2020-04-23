@@ -2,16 +2,15 @@
  * This file is part of LUNA.
  */
 
-
-#define UART_TX_ADDR 0x80000000
+#include "resources.h"
 
 /**
  * Transmits a single charater over our example UART.
  */
 void print_char(char c)
 {
-	volatile char *const tx = (void *)UART_TX_ADDR;
-	*tx = c;
+	while(!uart_tx_rdy_read());
+	uart_tx_data_write(c);
 }
 
 

@@ -10,7 +10,7 @@ CC      = $(CROSS)gcc
 OBJCOPY = $(CROSS)objcopy
 
 CFLAGS  = -march=rv32i -mabi=ilp32 -g -Os
-LDFLAGS = -T$(TARGET).ld -nostdlib
+LDFLAGS = -Tsoc.ld -T$(TARGET).ld  -nostdlib
 
 SOC = $(TARGET)_soc.py
 SOURCES = \
@@ -21,11 +21,23 @@ SOURCES = \
 # By default, build our binary.
 all: $(TARGET).bin
 
+
+#
+# Generated files.
+#
+
+soc.ld: $(SOC)
+	./$(SOC) --generate-ld-script > $@
+
+resources.h: $(SOC)
+	./$(SOC) --generate-c-header > $@
+
+
 #
 # Firmware binary.
 #
 
-$(TARGET).elf: $(SOURCES) soc.ld
+$(TARGET).elf: $(SOURCES) soc.ld resources.h
 	$(CC) $(CFLAGS) $(LDFLAGS) $(SOURCES) -o $@
 
 $(TARGET).bin: $(TARGET).elf
@@ -39,11 +51,9 @@ $(TARGET).bin: $(TARGET).elf
 .PHONY: clean program
 
 clean:
-	rm -f $(TARGET).elf $(TARGET).bin
+	rm -f $(TARGET).elf $(TARGET).bin soc.ld resources.h
 
 # Loads our "Hello world" program onto the FPGA.
 program: $(TARGET).bin $(SOC)
 	./$(SOC)
-
-
 
