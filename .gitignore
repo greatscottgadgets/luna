@@ -148,3 +148,7 @@ dmypy.json
 
 # Editor / IDE files
 .vscode
+
+# SimpleSoc generated files
+soc.ld
+resources.h

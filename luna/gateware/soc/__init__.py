@@ -244,14 +244,14 @@ class SimpleSoC(CPUSoC, Elaboratable):
                 # Generate a read stub, if useful...
                 if resource.access.readable():
                     emit(f"static inline {c_type} {name}_read(void) {{")
-                    emit(f"    {c_type} *reg = ({c_type} *){name.upper()}_ADDRESS;")
+                    emit(f"    volatile {c_type} *reg = ({c_type} *){name.upper()}_ADDRESS;")
                     emit(f"    return *reg;")
                     emit(f"}}")
 
                 # ... and a write stub.
                 if resource.access.writable():
                     emit(f"static inline void {name}_write({c_type} value) {{")
-                    emit(f"    {c_type} *reg = ({c_type} *){name.upper()}_ADDRESS;")
+                    emit(f"    volatile {c_type} *reg = ({c_type} *){name.upper()}_ADDRESS;")
                     emit(f"    *reg = value;")
                     emit(f"}}")
 
