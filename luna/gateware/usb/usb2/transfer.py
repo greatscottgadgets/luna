@@ -8,7 +8,7 @@ Its components facilitate data transfer longer than a single packet.
 
 import unittest
 
-from nmigen         import Signal, Elaboratable, Module
+from nmigen         import Signal, Elaboratable, Module, Array
 from nmigen.hdl.mem import Memory
 
 from .packet        import HandshakeExchangeInterface, TokenDetectorInterface
@@ -79,7 +79,10 @@ class USBInTransferManager(Elaboratable):
 
         self.transfer_stream  = StreamInterface()
         self.packet_stream    = USBInStreamInterface()
-        self.data_pid         = Signal(2)
+
+        # Note: we'll start with DATA1 in our register; as we'll toggle our data PID
+        # before we send.
+        self.data_pid         = Signal(2, reset=1)
 
         self.tokenizer        = TokenDetectorInterface()
         self.handshakes_in    = HandshakeExchangeInterface(is_detector=True)
@@ -97,12 +100,12 @@ class USBInTransferManager(Elaboratable):
         # Transciever state.
         #
 
-        # Track whether we should follow up our current packet with a ZLP.
-        follow_up_with_zlp = Signal()
 
         # Handle our PID-sequence reset.
+        # Note that we store the _inverse_ of our data PID, as we'll toggle our DATA PID
+        # before sending.
         with m.If(self.reset_sequence):
-            m.d.usb += self.data_pid.eq(self.start_with_data1)
+            m.d.usb += self.data_pid.eq(~self.start_with_data1)
 
         #
         # Transmit buffer.
@@ -118,28 +121,80 @@ class USBInTransferManager(Elaboratable):
         # For now, we'll assume that data can be filled between packets without limiting
         # speed -- but it may be wise to set up a ping/pong pair of packet buffers.
         #
-        buffer = Memory(width=8, depth=self._max_packet_size, name="transmit_buffer")
-        m.submodules.buffer_write = buffer_write = buffer.write_port(domain="usb")
-        m.submodules.buffer_read  = buffer_read  = buffer.read_port(domain="usb")
 
-        # Keep track of where we are in our read/write positions.
-        fill_count    = Signal(range(0, self._max_packet_size + 1))
+        # We'll create two buffers; so we can fill one as we empty the other.
+        # Since each buffer will be used for every other transfer, and our PID toggle flips every other transfer,
+        # we'll identify which buffer we're targeting by the current PID toggle.
+        buffer = Array(Memory(width=8, depth=self._max_packet_size, name=f"transmit_buffer_{i}") for i in range(2))
+        buffer_write_ports = Array(buffer[i].write_port(domain="usb") for i in range(2))
+        buffer_read_ports  = Array(buffer[i].read_port(domain="usb") for i in range(2))
+
+        m.submodules.read_port_0,  m.submodules.read_port_1  = buffer_read_ports
+        m.submodules.write_port_0, m.submodules.write_port_1 = buffer_write_ports
+
+        # Create values equivalent to the buffer numbers for our read and write buffer; which switch
+        # whenever we swap our two buffers.
+        write_buffer_number =  self.data_pid[0]
+        read_buffer_number  = ~self.data_pid[0]
+
+        # Create a shorthand that refers to the buffer to be filled; and the buffer to send from.
+        # We'll call these the Read and Write buffers.
+        buffer_write = buffer_write_ports[write_buffer_number]
+        buffer_read  = buffer_read_ports[read_buffer_number]
+
+        # Buffer state tracking:
+        # - Our ``fill_count`` keeps track of how much data is stored in a given buffer.
+        # - Our ``stream_ended`` bit keeps track of whether the stream ended while filling up
+        #   the given buffer. This indicates that the buffer cannot be filled further; and, when
+        #   ``generate_zlps`` is enabled, is used to determine if the given buffer should end in
+        #   a short packet; which determines whether ZLPs are emitted.
+        buffer_fill_count   = Array(Signal(range(0, self._max_packet_size + 1)) for _ in range(2))
+        buffer_stream_ended = Array(Signal(name=f"strem_ended_in_buffer{i}") for i in range(2))
+
+        # Create shortcuts to active fill_count / stream_ended signals for the buffer being written.
+        write_fill_count   = buffer_fill_count[write_buffer_number]
+        write_stream_ended = buffer_stream_ended[write_buffer_number]
+
+        # Create shortcuts to the fill_count / stream_ended signals for the packet being sent.
+        read_fill_count   = buffer_fill_count[read_buffer_number]
+        read_stream_ended = buffer_stream_ended[read_buffer_number]
+
+        # Keep track of our current send position; which determines where we are in the packet.
         send_position = Signal(range(0, self._max_packet_size + 1))
 
+        # Shortcut names.
         in_stream  = self.transfer_stream
         out_stream = self.packet_stream
 
-        # Use our memory's two ports to capture data from our transfer stream;
-        # and two emit packets into our packet stream. Since we'll never receive
-        # anywhere else, or transmit to anywhere else, we can just unconditionally
-        # connect these.
-        m.d.comb += [
-            buffer_write.data   .eq(in_stream.payload),
-            buffer_write.addr   .eq(fill_count),
 
-            buffer_read.addr    .eq(send_position),
-            out_stream.payload  .eq(buffer_read.data),
+        # Use our memory's two ports to capture data from our transfer stream; and two emit packets
+        # into our packet stream. Since we'll never receive to anywhere else, or transmit to anywhere else,
+        # we can just unconditionally connect these.
+        m.d.comb += [
+
+            # We'll only ever -write- data from our input stream...
+            buffer_write_ports[0].data   .eq(in_stream.payload),
+            buffer_write_ports[0].addr   .eq(write_fill_count),
+            buffer_write_ports[1].data   .eq(in_stream.payload),
+            buffer_write_ports[1].addr   .eq(write_fill_count),
+
+            # ... and we'll only ever -send- data from the Read buffer.
+            buffer_read.addr             .eq(send_position),
+            out_stream.payload           .eq(buffer_read.data),
+
+            # We're ready to receive data iff we have space in the buffer we're currently filling.
+            in_stream.ready              .eq((write_fill_count != self._max_packet_size) & ~write_stream_ended),
+            buffer_write.en              .eq(in_stream.valid & in_stream.ready)
         ]
+
+        # Increment our fill count whenever we accept new data.
+        with m.If(buffer_write.en):
+            m.d.usb += write_fill_count.eq(write_fill_count + 1)
+
+        # If the stream ends while we're adding data to the buffer, mark this as an ended stream.
+        with m.If(in_stream.last & buffer_write.en):
+            m.d.usb += write_stream_ended.eq(1)
+
 
         # Shortcut for when we need to deal with an in token.
         # Pulses high an interpacket delay after receiving an IN token.
@@ -147,44 +202,42 @@ class USBInTransferManager(Elaboratable):
 
         with m.FSM(domain='usb'):
 
-            # FILLING_BUFFER -- we don't yet have a full packet to transmit, so
-            # we'll capture data to fill the buffer until we either do, or the transfer ends
-            with m.State("FILLING_BUFFER"):
-                m.d.comb += [
-                    # We're always ready to receive data, since we're
-                    # just sticking it into our buffer.
-                    in_stream.ready.eq(1),
+            # WAIT_FOR_DATA -- We don't yet have a full packet to transmit, so  we'll capture data
+            # to fill the our buffer. At full throughput, this state will never be reached after
+            # the initial post-reset fill.
+            with m.State("WAIT_FOR_DATA"):
 
-                    # We can't yet send data; so NAK any packet requests.
-                    self.handshakes_out.nak.eq(in_token_received),
-                ]
+                # We can't yet send data; so NAK any packet requests.
+                m.d.comb += self.handshakes_out.nak.eq(in_token_received)
 
-                # If we have valid data, enqueue it.
-                with m.If(in_stream.valid):
-                    m.d.comb += buffer_write.en.eq(1)
-                    m.d.usb  += fill_count.eq(fill_count + 1)
+                # If we have valid data that will end our packet, we're no longer waiting for data.
+                # We'll now wait for the host to request data from us.
+                packet_complete = (write_fill_count + 1 == self._max_packet_size)
+                will_end_packet = packet_complete | in_stream.last
 
-                    # If we've just finished a packet, send our data.
-                    packet_complete = (fill_count + 1 == self._max_packet_size)
+                with m.If(in_stream.valid & will_end_packet):
+
+                    # If we've just finished a packet, we now have data we can send!
                     with m.If(packet_complete | in_stream.last):
-                        m.next = "WAIT_FOR_TOKEN"
+                        m.next = "WAIT_TO_SEND"
+                        m.d.usb += [
 
-                        # If we've finished our stream -and- we've just filled up a packet, we're not ending
-                        # on a short packet. If ZLP generation is enabled, we'll want to follow up with a ZLP.
-                        ends_without_short_packet = packet_complete & in_stream.last
-                        m.d.usb += follow_up_with_zlp.eq(ends_without_short_packet & self.generate_zlps)
+                            # We're now ready to take the data we've captured and _transmit_ it.
+                            # We'll swap our read and write buffers, and toggle our data PID.
+                            self.data_pid[0].eq(~self.data_pid[0])
+                        ]
 
 
-            # WAIT_FOR_TOKEN -- we now have a buffer full of data to send; we'll
+            # WAIT_TO_SEND -- we now have at least a buffer full of data to send; we'll
             # need to wait for an IN token to send it.
-            with m.State("WAIT_FOR_TOKEN"):
+            with m.State("WAIT_TO_SEND"):
                 m.d.usb += send_position .eq(0),
 
                 # Once we get an IN token, move to sending a packet.
                 with m.If(in_token_received):
 
                     # If we have a packet to send, send it.
-                    with m.If(fill_count):
+                    with m.If(read_fill_count):
                         m.next = "SEND_PACKET"
                         m.d.usb += out_stream.first  .eq(1)
 
@@ -196,13 +249,12 @@ class USBInTransferManager(Elaboratable):
                             out_stream.last   .eq(1),
                         ]
                         # ... and clear the need to follow up with one, since we've just sent a short packet.
-                        m.d.usb += follow_up_with_zlp  .eq(0)
+                        m.d.usb += read_stream_ended.eq(0)
                         m.next = "WAIT_FOR_ACK"
 
 
-            # SEND_PACKET -- we're now ready for us to
             with m.State("SEND_PACKET"):
-                last_packet = (send_position + 1 == fill_count)
+                last_packet = (send_position + 1 == read_fill_count)
 
                 m.d.comb += [
                     # We're always going to be sending valid data, since data is always
@@ -239,24 +291,38 @@ class USBInTransferManager(Elaboratable):
 
                 # If the host does ACK...
                 with m.If(self.handshakes_in.ack):
-                    m.d.usb += [
-                        # ... clear the data we've sent from our buffer...
-                        fill_count.eq(0),
+                    # ... clear the data we've sent from our buffer.
+                    m.d.usb += read_fill_count.eq(0)
 
-                        # ... toggle our DATA pid...
-                        self.data_pid[0].eq(~self.data_pid[0])
-                    ]
+                    # Figure out if we'll need to follow up with a ZLP. If we have ZLP generation enabled,
+                    # we'll make sure we end on a short packet. If this is max-packet-size packet _and_ our
+                    # transfer ended with this packet; we'll need to inject a ZLP.
+                    follow_up_with_zlp = \
+                        self.generate_zlps & (read_fill_count == self._max_packet_size) & read_stream_ended
 
-                    # ... and either send a ZLP if required or move back to idle.
+                    # If we're following up with a ZLP, move back to our "wait to send" state.
+                    # Since we've now cleared our fill count; this next go-around will emit a ZLP.
                     with m.If(follow_up_with_zlp):
-                        m.next = "WAIT_FOR_TOKEN"
+                        m.next = "WAIT_TO_SEND"
+
+                    # Otherwise, there's a possibility we already have a packet-worth of data waiting
+                    # for us in our "write buffer", which we've been filling in the background.
+                    # If this is the case, we'll flip which buffer we're working with, toggle our data pid,
+                    # and then ready ourselves for transmit.
+                    with m.Elif(~in_stream.ready):
+                        m.next = "WAIT_TO_SEND"
+                        m.d.usb += self.data_pid[0].eq(~self.data_pid[0])
+
+                    # If neither of the above conditions are true; we now don't have enough data to send.
+                    # We'll wait for enough data to transmit.
                     with m.Else():
-                        m.next = "FILLING_BUFFER"
+                        m.next = "WAIT_FOR_DATA"
+
 
                 # If the host starts a new packet without ACK'ing, we'll need to retransmit.
                 # We'll move back to our "wait for token" state without clearing our buffer.
                 with m.If(self.tokenizer.new_token):
-                    m.next = "WAIT_FOR_TOKEN"
+                    m.next = 'WAIT_TO_SEND'
 
         return m
 
@@ -285,12 +351,10 @@ class USBInTransferManagerTest(LunaGatewareTestCase):
         packet_stream   = dut.packet_stream
         transfer_stream = dut.transfer_stream
 
-        # Before we do anything, we should start with a DATA0 pid; and
-        # we shouldn't have anything on our output stream.
-        self.assertEqual((yield dut.data_pid), 0)
+        # Before we do anything, we shouldn't have anything our output stream.
         self.assertEqual((yield packet_stream.valid), 0)
 
-        # Our transfer stream should accept data until we provide it a full packet.
+        # Our transfer stream should accept data until we fill up its buffers.
         self.assertEqual((yield transfer_stream.ready), 1)
 
         # Once we start sending data to our packetizer...
@@ -307,15 +371,23 @@ class USBInTransferManagerTest(LunaGatewareTestCase):
         for value in [0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]:
             yield transfer_stream.payload.eq(value)
             yield
+        yield transfer_stream.valid.eq(0)
 
-        # ... we should stop accepting data...
-        yield
-        self.assertEqual((yield transfer_stream.ready), 0)
-
-        # ... but we shouldn't see a transmit request until we receive an IN token.
-        self.assertEqual((yield packet_stream.valid), 0)
+        # ... we shouldn't see a transmit request until we receive an IN token.
+        self.assertEqual((yield transfer_stream.ready), 1)
         yield from self.advance_cycles(5)
         self.assertEqual((yield packet_stream.valid), 0)
+
+        # We -should-, however, keep filling our secondary buffer while waiting.
+        yield transfer_stream.valid.eq(1)
+        self.assertEqual((yield transfer_stream.ready), 1)
+        for value in [0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00]:
+            yield transfer_stream.payload.eq(value)
+            yield
+
+        # Once we've filled up -both- buffers, our data should no longer be ready.
+        yield
+        self.assertEqual((yield transfer_stream.ready), 0)
 
         # Once we do see an IN token...
         yield from self.pulse(dut.tokenizer.ready_for_response)
@@ -350,9 +422,15 @@ class USBInTransferManagerTest(LunaGatewareTestCase):
         # If we do ACK...
         yield from self.pulse(dut.handshakes_in.ack)
 
-        # ... we should see our DATA PID flip, and we should be ready to accept data again.
+        # ... we should see our DATA PID flip, and we should be ready to accept data again...
         yield self.assertEqual((yield dut.data_pid), 1)
         yield self.assertEqual((yield transfer_stream.ready), 1)
+
+        #  ... and we should get our second packet.
+        yield from self.pulse(dut.tokenizer.ready_for_response, step_after=True)
+        for value in [0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00]:
+            self.assertEqual((yield packet_stream.payload), value)
+            yield
 
 
     @usb_domain_test_case
