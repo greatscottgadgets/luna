@@ -190,6 +190,13 @@ class USBInTransferManager(Elaboratable):
 
                     # Otherwise, we entered a transmit path without any data in the buffer.
                     with m.Else():
+                        m.d.comb += [
+                            # Send a ZLP...
+                            out_stream.valid  .eq(1),
+                            out_stream.last   .eq(1),
+                        ]
+                        # ... and clear the need to follow up with one, since we've just sent a short packet.
+                        m.d.usb += follow_up_with_zlp  .eq(0)
                         m.next = "WAIT_FOR_ACK"
 
 
@@ -362,6 +369,85 @@ class USBInTransferManagerTest(LunaGatewareTestCase):
         self.assertEqual((yield dut.handshakes_out.nak), 1)
         yield
         self.assertEqual((yield dut.handshakes_out.nak), 0)
+
+
+    @usb_domain_test_case
+    def test_zlp_generation(self):
+        dut = self.dut
+
+        packet_stream   = dut.packet_stream
+        transfer_stream = dut.transfer_stream
+
+        # Simulate a case where we're generating ZLPs.
+        yield dut.generate_zlps.eq(1)
+
+
+        # If we're sent a full packet _without the transfer stream ending_...
+        yield transfer_stream.valid.eq(1)
+        for value in [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]:
+            yield transfer_stream.payload.eq(value)
+            yield
+        yield transfer_stream.valid.eq(0)
+
+
+        # ... we should receive that data packet without a ZLP.
+        yield from self.pulse(dut.tokenizer.ready_for_response)
+        for value in [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]:
+            self.assertEqual((yield packet_stream.payload), value)
+            yield
+        yield from self.pulse(dut.handshakes_in.ack)
+
+
+        # If we send a full packet...
+        yield transfer_stream.valid.eq(1)
+        for value in [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77]:
+            yield transfer_stream.payload.eq(value)
+            yield
+
+        # ... that _ends_ our transfer...
+        yield transfer_stream.payload.eq(0x88)
+        yield transfer_stream.last.eq(1)
+        yield
+
+        yield transfer_stream.last.eq(0)
+        yield transfer_stream.valid.eq(0)
+
+        # ... we should emit the relevant data packet...
+        yield from self.pulse(dut.tokenizer.ready_for_response)
+        for value in [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]:
+            self.assertEqual((yield packet_stream.payload), value)
+            yield
+        yield from self.pulse(dut.handshakes_in.ack)
+
+        # ... followed by a ZLP.
+        yield from self.pulse(dut.tokenizer.ready_for_response, step_after=False)
+        self.assertEqual((yield packet_stream.last), 1)
+        yield from self.pulse(dut.handshakes_in.ack)
+
+
+        # Finally, if we're sent a short packet that ends our stream...
+        yield transfer_stream.valid.eq(1)
+        for value in [0xAA, 0xBB, 0xCC]:
+            yield transfer_stream.payload.eq(value)
+            yield
+        yield transfer_stream.payload.eq(0xDD)
+        yield transfer_stream.last.eq(1)
+
+        yield
+        yield transfer_stream.last.eq(0)
+        yield transfer_stream.valid.eq(0)
+
+        # ... we should emit the relevant short packet...
+        yield from self.pulse(dut.tokenizer.ready_for_response)
+        for value in [0xAA, 0xBB, 0xCC, 0xDD]:
+            self.assertEqual((yield packet_stream.payload), value)
+            yield
+        yield from self.pulse(dut.handshakes_in.ack)
+
+
+        # ... and we shouldn't emit a ZLP; meaning we should be ready to receive new data.
+        self.assertEqual((yield transfer_stream.ready), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
