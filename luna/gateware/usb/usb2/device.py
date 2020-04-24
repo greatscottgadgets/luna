@@ -3,6 +3,7 @@
 #
 """ Low-level USB transciever gateware -- exposes packet interfaces. """
 
+import logging
 import unittest
 
 from nmigen                 import Signal, Module, Elaboratable, Const
@@ -130,6 +131,7 @@ class USBDevice(Elaboratable):
         return control_endpoint
 
 
+
     def elaborate(self, platform):
         m = Module()
 
@@ -224,6 +226,7 @@ class USBDevice(Elaboratable):
             # Device state.
             endpoint_collection.speed                  .eq(speed),
             endpoint_collection.active_config          .eq(configuration),
+            endpoint_collection.active_address         .eq(address),
 
             # Receive interface.
             receiver.stream                            .connect(endpoint_collection.rx),
@@ -450,6 +453,91 @@ class FullDeviceTest(USBDeviceTest):
         handshake, configuration = yield from self.get_configuration()
         self.assertEqual(handshake, USBPacketID.ACK)
         self.assertEqual(configuration, [1], "device did not accept configuration!")
+
+
+#
+# Section that requires our CPU framework.
+# We'll very deliberately section that off, so it
+#
+try:
+
+    from ...soc.peripheral import Peripheral
+
+    class USBDeviceController(Peripheral, Elaboratable):
+        """ SoC controller for a USBDevice.
+
+        Breaks our USBDevice control and status signals out into registers so a CPU / Wishbone master
+        can control our USB device.
+
+        The attributes below are intended to connect to a USBDevice. Typically, they'd be created by
+        using the .controller() method on a USBDevice object, which will automatically connect all
+        relevant signals.
+
+        Attributes
+        ----------
+
+        connect: Signal(), output
+            High when the USBDevice should be allowed to connect to a host.
+
+        """
+
+        def __init__(self):
+            super().__init__()
+
+            #
+            # I/O port
+            #
+            self.connect = Signal()
+
+
+            #
+            # Registers.
+            #
+
+            regs = self.csr_bank()
+            self._connect = regs.csr(1, "rw", desc="""
+                Set this bit to '1' to allow the associated USB device to connect to a host.
+            """)
+
+            # Wishbone connection.
+            self._bridge    = self.bridge(data_width=32, granularity=8, alignment=2)
+            self.bus        = self._bridge.bus
+
+
+        def attach(self, device: USBDevice):
+            """ Returns a list of statements necessary to connect this to a USB controller.
+
+            The returned values makes all of the connections necessary to provide control and fetch status
+            from the relevant USB device. These can be made either combinationally or synchronously, but
+            combinational is recommended; as these signals are typically fed from a register anyway.
+            """
+            return [
+                device.connect  .eq(self.connect)
+            ]
+
+
+        def elaborate(self, platform):
+            m = Module()
+            m.submodules.bridge = self._bridge
+
+            # Core connection register.
+            m.d.comb += self.connect.eq(self._connect.r_data)
+            with m.If(self._connect.w_stb):
+                m.d.usb += self._connect.r_data.eq(self._connect.w_data)
+
+            return m
+
+
+
+
+
+
+
+
+except ImportError as e:
+    logging.warning("SoC framework components could not be imported; some functionality will be unavailable.")
+    logging.warning(e)
+
 
 
 if __name__ == "__main__":

@@ -9,8 +9,25 @@ import unittest
 from nmigen         import Signal, Module, Cat, Elaboratable, ClockSignal, \
                            Record, ResetSignal, Const
 from nmigen.hdl.ast import Rose, Fell, Past
+from nmigen.hdl.rec import Record, DIR_FANIN, DIR_FANOUT, DIR_NONE
 
 from ..test         import LunaGatewareTestCase, usb_domain_test_case, sync_test_case
+
+
+class ULPIInterface(Record):
+    """ Record that represents a standard ULPI interface. """
+
+    LAYOUT = [
+        ('data', [('i', 8, DIR_FANIN), ('o', 8, DIR_FANOUT), ('oe', 1, DIR_FANOUT)]),
+        ('clk', 1, DIR_FANOUT),
+        ('nxt', 1, DIR_FANIN),
+        ('stp', 1, DIR_FANOUT),
+        ('dir', [('i', 1, DIR_FANIN)]),
+        ('rst', 1, DIR_FANOUT)
+    ]
+
+    def __init__(self):
+        super().__init__(self.LAYOUT)
 
 
 
