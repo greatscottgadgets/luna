@@ -46,13 +46,17 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
          help="When provided as the only option; builds the relevant bitstream without uploading or flashing it.")
     parser.add_argument('--keep-files', action='store_true',
          help="Keeps the local files in the default `build` folder.")
+    parser.add_argument('--fpga', metavar='part_number',
+         help="Overrides build configuration to build for a given FPGA. Useful if no FPGA is connected during build.")
 
     # If we have SoC options, print them to the command line.
     if cli_soc:
         parser.add_argument('--generate-c-header', action='store_true',
             help="If provided, a C header file for this design's SoC will be printed to the stdout. Other options ignored.")
         parser.add_argument('--generate-ld-script', action='store_true',
-            help="If provided, a linker script for design's SoC memory regisons be printed to the stdout. Other options ignored.")
+            help="If provided, a linker script for design's SoC memory regions be printed to the stdout. Other options ignored.")
+        parser.add_argument('--get-fw-address', action='store_true',
+            help="If provided, the utility will print the address firmware should be loaded to to stdout. Other options ignored.")
 
 
     # Disable UnusedElaboarable warnings until we decide to build things.
@@ -96,12 +100,20 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
         cli_soc.generate_ld_script()
         sys.exit(0)
 
+
+    if cli_soc and args.get_fw_address:
+        print(f"0x{cli_soc.main_ram_address():08x}")
+        sys.exit(0)
+
     # Build the relevant gateware, uploading if requested.
     build_dir = "build" if args.keep_files else tempfile.mkdtemp()
 
     # Build the relevant files.
     try:
         platform = get_appropriate_platform()
+
+        if args.fpga:
+            platform.device = args.fpga
 
         if args.erase:
             logging.info("Erasing flash...")
@@ -110,6 +122,12 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
 
         join_text = "and uploading gateware to attached" if args.upload else "for"
         logging.info(f"Building {join_text} {platform.name}...")
+
+        # If we have an SoC, allow it to perform any pre-elaboration steps it wants.
+        # This allows it to e.g. build a BIOS or equivalent firmware.
+        if cli_soc and hasattr(cli_soc, 'build'):
+            cli_soc.build(build_dir=build_dir)
+
 
         # Now that we're actually building, re-enable Unused warnings.
         MustUse._MustUse__silence = False
