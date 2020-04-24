@@ -7,3 +7,4 @@ pyusb
 -e git://github.com/usb-tools/python-usb-protocol.git#egg=usb_protocol
 pyvcd
 pyserial~=3.4
+libusb1
