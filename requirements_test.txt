@@ -1,0 +1,7 @@
+tox
+pyusb
+-e git://github.com/nmigen/nmigen.git#egg=nmigen
+-e git://github.com/nmigen/nmigen-soc.git#egg=nmigen-soc
+-e git://github.com/usb-tools/python-usb-protocol.git#egg=usb_protocol
+pyvcd
+pyserial~=3.4
