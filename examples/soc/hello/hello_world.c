@@ -4,7 +4,7 @@
 
 
 // Include our automatically generated resource file.
-// This allows us to work with e.g. our registers no matter 
+// This allows us to work with e.g. our registers no matter gt
 #include "resources.h"
 
 /**

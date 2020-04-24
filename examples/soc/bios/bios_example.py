@@ -53,26 +53,19 @@ class LunaCPUExample(Elaboratable):
     """ Simple example of building a simple SoC around LUNA. """
 
     def __init__(self):
-        clock_freq = 60e6
 
-        # Create our SoC...
-        self.soc = soc = SimpleSoC()
-
-        soc.add_rom('hello_world.bin', size=0x1000)
-        soc.add_ram(0x1000)
-
-
-        # ...  add our UART peripheral...
+        # Create a stand-in for our UART.
         self.uart_pins = Record([
             ('rx', [('i', 1)]),
             ('tx', [('o', 1)])
         ])
-        self.uart = uart = AsyncSerialPeripheral(divisor=int(clock_freq // 115200), pins=self.uart_pins)
-        soc.add_peripheral(uart)
 
-        # ... add a timer, to control our LED blinkies.
-        self.timer = timer = TimerPeripheral(24)
-        soc.add_peripheral(timer)
+        # Create our SoC...
+        self.soc = soc = SimpleSoC()
+        soc.add_bios_and_peripherals(uart_pins=self.uart_pins)
+
+        # ... add some bulk RAM ...
+        soc.add_ram(0x4000)
 
         # ... and add our LED peripheral.
         leds = LEDPeripheral()
