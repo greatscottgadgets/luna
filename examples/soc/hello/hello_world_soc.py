@@ -27,7 +27,7 @@ class LEDPeripheral(Peripheral, Elaboratable):
         # space it's attached to; and the SoC utilities will automatically generate header
         # entires and stub functions for it.
         bank            = self.csr_bank()
-        self._output    = bank.csr(6, "w")
+        self._output    = bank.csr(6, "rw")
 
         # ... and convert our register into a Wishbone peripheral.
         self._bridge    = self.bridge(data_width=32, granularity=8, alignment=2)
@@ -43,7 +43,10 @@ class LEDPeripheral(Peripheral, Elaboratable):
 
         # ... and update them on each register write.
         with m.If(self._output.w_stb):
-            m.d.sync += leds.eq(self._output.w_data)
+            m.d.sync += [
+                self._output.r_data  .eq(self._output.w_data),
+                leds                 .eq(self._output.w_data),
+            ]
 
         return m
 
@@ -70,7 +73,7 @@ class LunaCPUExample(Elaboratable):
         self.uart = uart = AsyncSerialPeripheral(divisor=int(clock_freq // 115200), pins=self.uart_pins)
         soc.add_peripheral(uart)
 
-        # ... add a timer, to control our LED blinkies.
+        # ... add a timer, to control our LED blinkies...
         self.timer = timer = TimerPeripheral(24)
         soc.add_peripheral(timer)
 

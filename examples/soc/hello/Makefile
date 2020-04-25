@@ -9,7 +9,7 @@ CROSS  ?= riscv64-unknown-elf-
 CC      = $(CROSS)gcc
 OBJCOPY = $(CROSS)objcopy
 
-CFLAGS  = -march=rv32i -mabi=ilp32 -g -Os
+CFLAGS  = -march=rv32i -mabi=ilp32 -g -Os -Iinclude
 LDFLAGS = -Tsoc.ld -T$(TARGET).ld  -nostdlib
 
 SOC = $(TARGET)_soc.py

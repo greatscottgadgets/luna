@@ -307,6 +307,81 @@ class SimpleSoC(CPUSoC, Elaboratable):
         return None, None
 
 
+    def _emit_minerva_basics(self, emit):
+        """ Emits the standard Minerva RISC-V CSR functionality.
+
+        Parameters
+        ----------
+        emit: callable(str)
+            The function used to print the code lines to the output stream.
+        """
+
+
+        emit("#ifndef read_csr")
+        emit("#define read_csr(reg) ({ unsigned long __tmp; \\")
+        emit("  asm volatile (\"csrr %0, \" #reg : \"=r\"(__tmp)); \\")
+        emit("  __tmp; })")
+        emit("#endif")
+        emit("")
+        emit("#ifndef write_csr")
+        emit("#define write_csr(reg, val) ({ \\")
+        emit("  asm volatile (\"csrw \" #reg \", %0\" :: \"rK\"(val)); })")
+        emit("#endif")
+        emit("")
+        emit("#ifndef set_csr")
+        emit("#define set_csr(reg, bit) ({ unsigned long __tmp; \\")
+        emit("  asm volatile (\"csrrs %0, \" #reg \", %1\" : \"=r\"(__tmp) : \"rK\"(bit)); \\")
+        emit("  __tmp; })")
+        emit("#endif")
+        emit("")
+        emit("#ifndef clear_csr")
+        emit("#define clear_csr(reg, bit) ({ unsigned long __tmp; \\")
+        emit("  asm volatile (\"csrrc %0, \" #reg \", %1\" : \"=r\"(__tmp) : \"rK\"(bit)); \\")
+        emit("  __tmp; })")
+        emit("#endif")
+        emit("")
+
+        emit("#ifndef MSTATUS_MIE")
+        emit("#define MSTATUS_MIE         0x00000008")
+        emit("#endif")
+        emit("")
+
+        emit("//")
+        emit("// Minerva headers")
+        emit("//")
+        emit("")
+        emit("static inline uint32_t irq_getie(void)")
+        emit("{")
+        emit("        return (read_csr(mstatus) & MSTATUS_MIE) != 0;")
+        emit("}")
+        emit("")
+        emit("static inline void irq_setie(uint32_t ie)")
+        emit("{")
+        emit("        if (ie) {")
+        emit("                set_csr(mstatus, MSTATUS_MIE);")
+        emit("        } else {")
+        emit("                clear_csr(mstatus, MSTATUS_MIE);")
+        emit("        }")
+        emit("}")
+        emit("")
+        emit("static inline uint32_t irq_getmask(void)")
+        emit("{")
+        emit("        return read_csr(0x330);")
+        emit("}")
+        emit("")
+        emit("static inline void irq_setmask(uint32_t value)")
+        emit("{")
+        emit("        write_csr(0x330, value);")
+        emit("}")
+        emit("")
+        emit("static inline uint32_t pending_irqs(void)")
+        emit("{")
+        emit("        return read_csr(0x360);")
+        emit("}")
+        emit("")
+
+
+
     def generate_c_header(self, macro_name="SOC_RESOURCES", file=None):
         """ Generates a C header file that simplifies access to the platform's resources.
 
@@ -340,7 +415,15 @@ class SimpleSoC(CPUSoC, Elaboratable):
         emit(f"#define __{macro_name}_H__")
         emit("")
         emit("#include <stdint.h>\n")
+        emit("#include <stdbool.h>")
+        emit("")
 
+        # Emit our constant data for all Minerva CPUs.
+        self._emit_minerva_basics(emit)
+
+        emit("//")
+        emit("// Peripherals")
+        emit("//")
         for resource, address, size in self.resources():
 
             # Always generate a macro for the resource's ADDRESS and size.
@@ -368,6 +451,25 @@ class SimpleSoC(CPUSoC, Elaboratable):
                     emit(f"}}")
 
             emit("")
+
+
+        emit("//")
+        emit("// Interrupts")
+        emit("//")
+        for irq, peripheral in self._irqs.items():
+
+            # Function that determines if a given unit has an IRQ pending.
+            emit(f"static bool {peripheral.name}_interrupt_pending(void) {{")
+            emit(f"    return pending_irqs() & (1 << {irq});")
+            emit(f"}}")
+
+            # IRQ masking
+            emit(f"static void {peripheral.name}_interrupt_enable(void) {{")
+            emit(f"    irq_setmask(irq_getmask() | (1 << {irq}));")
+            emit(f"}}")
+            emit(f"static void {peripheral.name}_interrupt_disable(void) {{")
+            emit(f"    irq_setmask(irq_getmask() & ~(1 << {irq}));")
+            emit(f"}}")
 
         emit("#endif")
         emit("")
@@ -426,9 +528,8 @@ class SimpleSoC(CPUSoC, Elaboratable):
         # IRQ numbers
         logging.info("IRQ allocations:")
         for irq, peripheral in self._irqs.items():
-            logging.info(f"    {irq}: {peripheral}")
+            logging.info(f"    {irq}: {peripheral.name}")
         logging.info("")
-
 
         # Main memory.
         if self._build_bios:

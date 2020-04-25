@@ -4,8 +4,9 @@
 
 
 // Include our automatically generated resource file.
-// This allows us to work with e.g. our registers no matter gt
+// This allows us to work with e.g. our registers no matter what address they're assigned.
 #include "resources.h"
+
 
 /**
  * Transmits a single charater over our example UART.
@@ -28,23 +29,30 @@ void uart_puts(char *str)
 }
 
 
+void dispatch_isr(void)
+{
+	if(timer_interrupt_pending()) {
+		timer_ev_pending_write(timer_ev_pending_read());
+		leds_output_write(~leds_output_read());
+	}
+}
+
+
 int main(void)
 {
 	uint8_t led_value = 0b101010;
 	leds_output_write(led_value);
 
 	// Set up our timer to generate LED blinkies.
+	timer_reload_write(0xA00000);
 	timer_en_write(1);
-	timer_reload_write(0x100000);
+	timer_ev_enable_write(1);
+
+	// Enable our timer's interrupt.
+	irq_setie(1);
+	timer_interrupt_enable();
 
 	// Say hello, on our UART.
 	uart_puts("Hello, world!\r\n");
-
-	// And blink our LEDs.
-	while(1) {
-		if (timer_ctr_read() == 1) {
-			led_value = ~led_value;
-			leds_output_write(led_value);
-		}
-	}
+	while(1);
 }
