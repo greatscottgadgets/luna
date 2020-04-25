@@ -1,0 +1,2 @@
+ATTR{idVendor}=="16d0", ATTR{idProduct}=="05a5", SYMLINK+="luna%k", MODE="660", GROUP="plugdev"
+ATTR{idVendor}=="16d0", ATTR{idProduct}=="0f3b", SYMLINK+="lunatarget%k", MODE="660", GROUP="plugdev"
