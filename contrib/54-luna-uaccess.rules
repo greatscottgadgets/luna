@@ -1,0 +1,2 @@
+ATTR{idVendor}=="16d0", ATTR{idProduct}=="05a5", SYMLINK+="luna%k", TAG+="uaccess"
+ATTR{idVendor}=="16d0", ATTR{idProduct}=="0f3b", SYMLINK+="lunatarget%k", TAG+="uaccess"

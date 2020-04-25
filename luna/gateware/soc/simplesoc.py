@@ -54,7 +54,7 @@ class SimpleSoC(CPUSoC, Elaboratable):
         self._uart_baud = None
 
         # Keep track of our created peripherals and interrupts.
-        self._peripherals    = []
+        self._submodules     = []
         self._irqs           = {}
         self._next_irq_index = 0
 
@@ -118,7 +118,7 @@ class SimpleSoC(CPUSoC, Elaboratable):
         return self.add_peripheral(ram, addr=addr)
 
 
-    def add_peripheral(self, p, **kwargs):
+    def add_peripheral(self, p, *, as_submodule=True, **kwargs):
         """ Adds a peripheral to the SoC.
 
         For now, this is identical to adding a peripheral to the SoC's wishbone bus.
@@ -143,7 +143,9 @@ class SimpleSoC(CPUSoC, Elaboratable):
             pass
 
         # ... and keep track of it for later.
-        self._peripherals.append(p)
+        if as_submodule:
+            self._submodules.append(p)
+
         return p
 
 
@@ -204,7 +206,7 @@ class SimpleSoC(CPUSoC, Elaboratable):
         m.submodules.pic = self.intc
 
         # Add each of our peripherals to the bus.
-        for peripheral in self._peripherals:
+        for peripheral in self._submodules:
             m.submodules += peripheral
 
         # Merge the CPU's data and instruction busses. This essentially means taking the two
@@ -365,7 +367,8 @@ class SimpleSoC(CPUSoC, Elaboratable):
                     emit(f"    *reg = value;")
                     emit(f"}}")
 
-        emit("")
+            emit("")
+
         emit("#endif")
         emit("")
 

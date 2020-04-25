@@ -62,12 +62,13 @@ class EndpointInterface:
 
         self.speed                 = Signal(2)
 
+        self.active_address        = Signal(7)
         self.address_changed       = Signal()
         self.new_address           = Signal(7)
 
-        self.active_config         = Signal()
+        self.active_config         = Signal(8)
         self.config_changed        = Signal()
-        self.new_config            = Signal()
+        self.new_config            = Signal(8)
 
         self.rx                    = USBOutStreamInterface()
         self.rx_complete           = Signal()
@@ -194,8 +195,8 @@ class USBEndpointMultiplexer(Elaboratable):
 
                 # State signals.
                 interface.speed                  .eq(shared.speed),
-                interface.active_config          .eq(shared.active_config)
-
+                interface.active_config          .eq(shared.active_config),
+                interface.active_address         .eq(shared.active_address)
             ]
 
         #
