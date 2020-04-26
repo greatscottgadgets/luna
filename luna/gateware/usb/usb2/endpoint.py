@@ -20,39 +20,51 @@ class EndpointInterface:
     Many non-control endpoints won't need to use the latter half of this structure;
     it will be automatically removed by the relevant synthesis tool.
 
-    Members:
-        *: tokenizer              -- Interface to our TokenDetector; notifies us of USB tokens.
+    Attributes
+    ----------
+    tokenizer: TokenDetectorInterface, to detector
+        Interface to our TokenDetector; notifies us of USB tokens.
 
-        # Data/handshake connections.
-        *  rx                     -- Receive interface for this endpoint.
-        I: rx_complete            -- Strobe that indicates that the concluding rx-stream was valid (CRC check passed).
-        I  rx_ready_for_response  -- Strobe that indicates that we're ready to respond to a complete transmission.
-                                     Indicates that an interpacket delay has passed after an `rx_complete` strobe.
-        I: rx_invalid             -- Strobe that indicates that the concluding rx-stream was invalid (CRC check failed).
+    rx: USBOutStreamInterface, input stream to endpoint
+        Receive interface for this endpoint.
+    rx_complete: Signal(), input to endpoint
+        Strobe that indicates that the concluding rx-stream was valid (CRC check passed).
+    rx_ready_for_response: Signal(), input to endpoint
+        Strobe that indicates that we're ready to respond to a complete transmission.
+        Indicates that an interpacket delay has passed after an `rx_complete` strobe.
+    rx_invalid: Signal(), input to endpoint
+        Strobe that indicates that the concluding rx-stream was invalid (CRC check failed).
 
-        *: tx                     -- Transmit interface for this endpoint.
-        O: tx_pid_toggle          -- Value for the data PID toggle; 0 indicates we'll send DATA0; 1 indicates DATA1.
+    tx: USBInStreamInterface, output stream from endpoint
+        Transmit interface for this endpoint.
+    tx_pid_toggle: Signal(), output from endpoint
+        Value for the data PID toggle; 0 indicates we'll send DATA0; 1 indicates DATA1.
 
-        *: handshakes_in          -- Carries handshakes detected from the host.
-        *: handshakes_out         -- Carries handshakes generate by this endpoint.
+    handshakes_in: HandshakeExchangeInterface, input to endpoint
+        Carries handshakes detected from the host.
+    handshakes_out: HandshakeExchangeInterface, output from endpoint
+        Carries handshakes generate by this endpoint.
 
-        # Device state.
-        I: speed                  -- The device's current operating speed. Should be a USBSpeed
-                                     enumeration value -- 0 for high, 1 for full, 2 for low.
+    speed: Signal(2), input to endpoint
+        The device's current operating speed. Should be a USBSpeed enumeration value --
+        0 for high, 1 for full, 2 for low.
 
-        # Address / configuration connections.
-        O: address_changed        -- Strobe; pulses high when the device's address should be changed.
-        O: new_address[7]         -- When `address_changed` is high, this field contains the address that
-                                     should be adopted.
+    address_changed: Signal(), output from endpoint.
+        Strobe; pulses high when the device's address should be changed.
+    new_address: Signal(7), output from endpoint
+        When :attr:`address_changed` is high, this field contains the address that should be adopted.
 
-        I: active_config          -- The configuration number of the active configuration.
-        O: config_changed         -- Strobe; pulses high when the device's configuration should be changed.
-        O: new_config[8]          -- When `config_changed` is high, this field contains the configuration that
-                                     should be applied.
+    active_config: Signal(8), input to endpoint
+        The configuration number of the active configuration.
+    config_changed: Signal(), output from endpoint
+        Strobe; pulses high when the device's configuration should be changed.
+    new_config: Signal(8)
+        When `config_changed` is high, this field contains the configuration that should be applied.
 
-        # Low-level sub-unit interfaces; for more complex endpoints.
-        *: timer                  -- Interface to our interpacket timer.
-        *: data_crc               -- Control connection for our data-CRC unit.
+    timer: InterpacketTimerInterface
+        Interface to our interpacket timer.
+    data_crc: DataCRCInterface
+        Control connection for our data-CRC unit.
     """
 
     def __init__(self):
@@ -86,10 +98,13 @@ class EndpointInterface:
 class USBEndpointMultiplexer(Elaboratable):
     """ Multiplexes access to the resources shared between multiple endpoint interfaces.
 
-    Interfaces are added using .add_interface().
+    Interfaces are added using :attr:`add_interface`.
 
-    I/O port:
-        *: shared -- The post-multiplexer RequestHandler interface.
+    Attributes
+    ----------
+
+    shared: EndpointInterface
+        The post-multiplexer endpoint interface.
     """
 
     def __init__(self):
@@ -117,11 +132,13 @@ class USBEndpointMultiplexer(Elaboratable):
     def _multiplex_signals(self, m, *, when, multiplex, sub_bus=None):
         """ Helper that creates a simple priority-encoder multiplexer.
 
-        Parmeters:
-            when      -- The name of the interface signal that indicates that the `multiplex` signals
-                         should be selected for output. If this signals should be multiplex, it
-                         should be included in `multiplex`.
-            multiplex -- The names of the interface signals to be multiplexed.
+        Parmeters
+        ---------
+        when: str
+            The name of the interface signal that indicates that the `multiplex` signals should be
+            selected for output. If this signals should be multiplexed, it should be included in `multiplex`.
+        multiplex: iterable(str)
+            The names of the interface signals to be multiplexed.
         """
 
         def get_signal(interface, name):
