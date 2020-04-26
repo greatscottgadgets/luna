@@ -434,8 +434,8 @@ class USBTokenDetector(Elaboratable):
                                 Cat(self.interface.address, self.interface.endpoint).eq(token_data)
                             ]
 
-                        # Start our interpacket-delay timer.
-                        m.d.comb += timer.start.eq(1)
+                            # Start our interpacket-delay timer.
+                            m.d.comb += timer.start.eq(1)
 
 
                 # Otherwise, if we get more data, we've received a malformed
