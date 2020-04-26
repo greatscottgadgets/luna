@@ -29,9 +29,6 @@ def sync_test_case(process_function, *, domain="sync"):
     def run_test(self):
         @wraps(process_function)
         def test_case():
-            # Try to pass the relevant functions two arguments;
-            # with the second being our dut. If this fails, fall
-            # back on the older signature of just accepting self.
             yield from self.initialize_signals()
             yield from process_function(self)
 
