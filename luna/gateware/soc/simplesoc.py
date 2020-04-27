@@ -459,15 +459,15 @@ class SimpleSoC(CPUSoC, Elaboratable):
         for irq, peripheral in self._irqs.items():
 
             # Function that determines if a given unit has an IRQ pending.
-            emit(f"static bool {peripheral.name}_interrupt_pending(void) {{")
+            emit(f"static inline bool {peripheral.name}_interrupt_pending(void) {{")
             emit(f"    return pending_irqs() & (1 << {irq});")
             emit(f"}}")
 
             # IRQ masking
-            emit(f"static void {peripheral.name}_interrupt_enable(void) {{")
+            emit(f"static inline void {peripheral.name}_interrupt_enable(void) {{")
             emit(f"    irq_setmask(irq_getmask() | (1 << {irq}));")
             emit(f"}}")
-            emit(f"static void {peripheral.name}_interrupt_disable(void) {{")
+            emit(f"static inline void {peripheral.name}_interrupt_disable(void) {{")
             emit(f"    irq_setmask(irq_getmask() & ~(1 << {irq}));")
             emit(f"}}")
 
