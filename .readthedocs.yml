@@ -1,0 +1,13 @@
+# .readthedocs.yml
+version: 2
+
+sphinx:
+  configuration: docs/conf.py
+
+# Build PDF, ePub, etc
+formats: all
+
+python:
+  version: 3.7
+  install:
+    - requirements: docs/requirements.txt
