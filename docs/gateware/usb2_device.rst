@@ -8,7 +8,7 @@ for creating both application-specific and general-purpose USB hardware.
 
 USB devices are created using two core components:
 
-* A ``USBDevice`` instance, which provides hardware that handles low-level USB communications, and which is
+* A :class:`USBDevice` instance, which provides hardware that handles low-level USB communications, and which is
   designed to be applicable to all devices; and
 * One or more *endpoint interfaces*, which handle high-level USB communications -- and provide the logic
   the tailors the device to its intended application.
