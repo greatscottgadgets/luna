@@ -24,10 +24,10 @@ common bus formats; including the common ULPI low-pin-count variant of UTMI.
    connections to the *endpoint interfaces*, and optional *bus translator*.
 
 
-``USBDevice`` module
---------------------
+Conceptual Components
+---------------------
 
-The ``USBDevice`` module contains the low-level communications hardware necessary to implement a USB device;
+The ``USBDevice`` class contains the low-level communications hardware necessary to implement a USB device;
 including hardware for maintaining device state, detecting events, reading data from the host, and generating 
 responses. 
 
@@ -84,7 +84,7 @@ Data Packet Transmitter
 =======================
 
 The *Data Packet Generator* is respnsible for generating outgoing USB packets from simple data
-streams; including emitting data packet IDs, sending data, and appending data CRCs. This module
+streams; including emitting data packet IDs, sending data, and appending data CRCs. This class
 automatically appends the required data CRC-16s.
 
 
@@ -118,3 +118,21 @@ The sequencer:
 * Manages the high-speed terminations; as part of the reset-handshake and suspend protocols.
 * Detects the periods of inactivity that indicate the device is being suspended; and automatically disengages
   high-speed terminations while the device is in suspend.
+
+
+
+``usb2.device`` Components
+--------------------------
+
+.. automodule :: luna.gateware.usb.usb2.device
+  :members:
+  :show-inheritance:
+
+
+``usb2.packet`` Components
+--------------------------
+
+.. automodule :: luna.gateware.usb.usb2.packet
+  :members:
+  :show-inheritance:
+

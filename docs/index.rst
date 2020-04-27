@@ -1,6 +1,6 @@
 
 LUNA: USB Multitool and Gateware Library
-================================
+========================================
 
 .. toctree::
    :maxdepth: 2

@@ -1,7 +1,8 @@
 #
 # This file is part of LUNA.
 #
-""" Low-level USB transciever gateware -- packetization interfaces. """
+""" Contains the gatware module necessary to interpret and generate low-level USB packets. """
+
 
 import operator
 import unittest
@@ -21,14 +22,31 @@ from ...test           import LunaGatewareTestCase, usb_domain_test_case
 
 
 class HandshakeExchangeInterface(Record):
-    """ Record that carries handshakes detected -or- generated between modules. """
+    """ Record that carries handshakes detected -or- generated between modules. 
+    
+    Attributes
+    ----------
+    ack: Signal()
+        When connected to a generator, pulsing this strobe will trigger generating of an ACK.
+        When connected to a detector, this strobe will be pulsed when an ACK is detected from the host.
+    nak: Signal()
+        When connected to a generator, pulsing this strobe will trigger generating of an NAK.
+        When connected to a detector, this strobe will be pulsed when an NAK is detected from the host.
+    stall: Signal()
+        When connected to a generator, pulsing this strobe will trigger generation of a STALL.
+        Unused in a detector, currently.
+    nye: Signal()
+        When connected to a generator, pulsing this strobe will trigger generation of a NYET.
+        Unused in a detector, currently.
+
+    Parameters
+    ----------
+    is_detector: bool
+        If true, this will be considered an interface to a detector that identifies handshakes.
+        Otherwise, this will be considered an interface to a geneartor that accepts handshake requests.
+    """
 
     def __init__(self, *, is_detector):
-        """
-        Parameters:
-            is_detector -- If true, this will be considered an interface to a detector that
-                           identifies handshakes.
-        """
         direction = DIR_FANOUT if is_detector else DIR_FANOUT
 
         super().__init__([
@@ -43,9 +61,12 @@ class HandshakeExchangeInterface(Record):
 class DataCRCInterface(Record):
     """ Record providing an interface to a USB CRC-16 generator.
 
-    Components (I = CRC in, O = CRC out):
-        I: start   -- Strobe that indicates that a new CRC computation should be started.
-        O: crc[16] -- Current CRC value.
+    Attributes
+    ----------
+    start: Signal(), input to CRC generator
+        Strobe that indicates that a new CRC computation should be started.
+    crc: Signal(), output from CRC generator
+        The current CRC-16 value; updated with each sent or received byte.
     """
 
     def __init__(self):
@@ -58,23 +79,32 @@ class DataCRCInterface(Record):
 class TokenDetectorInterface(Record):
     """ Record providing an interface to a USB token detector.
 
-    Components (I = detector in, O = detector out):
-        O  pid[4]             -- The Packet ID of the most recent token.
-        O: address[7]         -- The address associated with the relevant token.
-        O: endpoint[4]        -- The endpoint indicated by the most recent token.
-        O: new_token          -- Strobe asserted for a single cycle when a new token
-                                 packet has been received.
-        O: ready_for_response -- Strobe asserted for a single cycle one inter-packet
-                                 delay after a token packet is complete. Indicates when
-                                 the token packet can be responded to.
+    Attributes
+    ----------
+    pid: Signal(4), detector output 
+        The Packet ID of the most recent token.
+    address: Signal(7), detector output
+        The address associated with the relevant token.
+    endpoint: Signal(4), detector output
+        The endpoint indicated by the most recent token.
 
-        O: frame[11]          -- The current USB frame number.
-        O: new_frame          -- Strobe asserted for a single cycle when a new SOF
-                                 has been received.
+    new_token: Signal(), detector output
+        Strobe asserted for a single cycle when a new token packet has been received.
+    ready_for_response: Signal(), detector output
+        Strobe asserted for a single cycle one inter-packet delay after a token packet is complete. 
+        Indicates when the token packet can be responded to.
 
-        O: is_in              -- High iff the current token is an IN.
-        O: is_out             -- High iff the current token is an OUT.
-        O: is_setup           -- High iff the current token is a SETUP.
+    frame: Signal(11), detector output
+        The current USB frame number.
+    new_frame: Signal(), detector output
+        Strobe asserted for a single cycle when a new SOF has been received.
+
+    is_in: Signal(), detector output
+        High iff the current token is an IN.
+    is_out: Signal(), detector output
+        High iff the current token is an OUT.
+    is_setup: Signal(), detector output
+        High iff the current token is a SETUP.
     """
 
     def __init__(self):
@@ -99,13 +129,17 @@ class InterpacketTimerInterface(Record):
 
     See [USB2.0: 7.1.18] and the USBInterpacketTimer gateware for more information.
 
-    Components (I = timer in, O = detector out):
-        I: start      -- Strobe that indicates when the timer should be started.
-                         Usually started at the end of an Rx or Tx event.
+    Attributes
+    ----------
+    start: Signal(), input to timer
+        Strobe that indicates when the timer should be started. Usually started at the end of an Rx or Tx event.
 
-        O: tx_allowed -- Strobe that goes high when it's safe to transmit after an Rx event.
-        O: tx_timeout -- Strobe that goes high when the transmit-after-receive window has passed.
-        O: rx_timeout -- Strobe that goes high when the receive-after-transmit window has passed.
+    tx_allowed: Signal(), output from timer
+        Strobe that goes high when it's safe to transmit after an Rx event.
+    tx_timeout: Signal(), output from timer
+        Strobe that goes high when the transmit-after-receive window has passed.
+    rx_timeout: Signal(), output from timer
+        Strobe that goes high when the receive-after-transmit window has passed.
     """
 
     def __init__(self):
@@ -121,9 +155,12 @@ class InterpacketTimerInterface(Record):
     def attach(self, *subordinates):
         """ Attaches subordinate interfaces to the given timer interface.
 
-        Each argument added can be:
-            An InterpacketTimerInterface, which will be fully connected; or
-            A Signal, which will be added to the set of resets.
+        Parameters
+        ----------
+        subordinates: [InterpacketTimerInterface, Signal]
+            Each :class:`InterpacketTimerInterface` is provided will be fully connected to a given
+            timer interface. Each ``Signal`` provided will be interpreted as a timer reset, and added
+            to the list of all resets.
         """
 
         start_conditions = []
@@ -213,34 +250,31 @@ class USBPacketizerTest(LunaGatewareTestCase):
 class USBTokenDetector(Elaboratable):
     """ Gateware that parses token packets and generates relevant events.
 
-    I/O port:
-        *: interface              -- The TokenDetectorInterface that carries our data:
-            O: pid[4]             -- The Packet ID of the most recent token.
-            O: endpoint[4]        -- The endpoint indicated by the most recent token.
-            O: new_token          -- Strobe asserted for a single cycle when a new token
-                                     packet has been received.
-            O: ready_for_response -- Strobe asserted for a single cycle one inter-packet
-                                    delay after a token packet is complete. Indicates when
-                                    the token packet can be responded to.
-            O: frame[11]   -- The current USB frame number.
-            O: new_frame   -- Strobe asserted for a single cycle when a new SOF
-                            has been received.
+    Attributes
+    ----------
+    interface: TokenDetectorInterface
+        The interface that contains token detection events, and information about detected tokens.
+    speed: Signal(2), input
+        Carries a ``USBSpeed`` constant identifying the device's current operating speed.
+    address: Signal(7), input -or- output
+        If :parameter:``filter_by_address`` is true, this is an input that filters our event detector so
+        it only reports tokens directed at a given address.
+        If ``filter_by_address`` is false, this is an output that contains the address of the most
+        recent token.
 
-            I: speed[2]    -- The current speed, as a USBSpeed. Used to time interpacket delays.
-            I: address[7]  -- If this detector is filtering by address, this is an input that indicates
-                                the address that must be matched to generate events.
+
+    Parameters
+    ----------
+        utmi: UTMIInterface
+            The UTMI bus to observe.
+        filter_by_address: bool
+            If true, this detector will only report events for the address supplied in the address[] field.
     """
 
     SOF_PID      = 0b0101
     TOKEN_SUFFIX =   0b01
 
     def __init__(self, *, utmi, filter_by_address=True):
-        """
-        Parameters:
-            utmi              -- The UTMI bus to observe.
-            filter_by_address -- If true, this detector will only report events for the address
-                                 supplied in the address[] field.
-        """
         self.utmi = utmi
         self.filter_by_address = filter_by_address
 
@@ -486,8 +520,15 @@ class USBTokenDetectorTest(USBPacketizerTest):
 class USBHandshakeDetector(Elaboratable):
     """ Gateware that detects handshake packets.
 
-    I/O port:
-        O: detected.* -- Strobes that indicate which handshakes we're detecting.
+    Attributes
+    -----------
+    detected: HandshakeExchangeInterface
+        Strobes that indicate which handshakes we're detecting.
+
+    Parameters
+    ----------
+    utmi: [UTMIInterface, UTMITranslator]
+        The UTMI interface to listen on.
     """
 
     ACK_PID   = 0b0010
@@ -496,10 +537,6 @@ class USBHandshakeDetector(Elaboratable):
     NYET_PID  = 0b0110
 
     def __init__(self, *, utmi):
-        """
-        Parameters:
-            utmi -- The UTMI bus to observe.
-        """
         self.utmi = utmi
 
         #
@@ -605,27 +642,32 @@ class USBHandshakeDetectorTest(USBPacketizerTest):
 
 
 class USBDataPacketCRC(Elaboratable):
-    """ Gateware that computes a running CRC16.
+    """ Gateware that computes a running CRC-16.
 
     By default, this module has no connections to the modules that use it.
 
-    These are added using .add_interface(); this module supports an arbitrary
-    number of connection interfaces; see .add_interface() for restrictions.
+    These are added using :attr:`add_interface`; this module supports an arbitrary
+    number of connection interfaces; see :attr:`add_interface()` for restrictions.
 
-    I/O port:
-        I: rx_data[8]   -- Receive data input.
-        I: rx_valid     -- When high, the `rx_data` input is used to update the CRC.
+    Attributes
+    ----------
+    rx_data: Signal(8), input
+        Receive data input; can be carried directly from a UTMI interface.
+    rx_valid: Signal(), input
+        Receive validity signal; can be carried directly from a UTMI interface.
 
-        I: tx_data[8]   -- Transmit data input.
-        I: tx_valid     -- When high, the `tx_data` input is used to update the CRC.
+    tx_data: Signal(8), input
+        Transmit data input; can be carried directly from a UTMI interface.
+    tx_valid: Signal(), input
+        When high, the `tx_data` input is used to update the CRC.
+
+    Parameters
+    ----------
+    initial_value: [int, Const]
+            The initial value of the CRC shift register; the USB default is used if not provided.
     """
 
     def __init__(self, initial_value=0xFFFF):
-        """
-        Parameters
-            initial_value -- The initial value of the CRC shift register; the USB default
-                             is used if not provided.
-        """
 
         self._initial_value = initial_value
 
@@ -653,6 +695,13 @@ class USBDataPacketCRC(Elaboratable):
         Each interface can reset the CRC; and can read the current CRC value.
         No arbitration is performed; it's assumed that no more than one interface
         will be computing a running CRC at at time.
+
+        Parameters
+        ----------
+        interface: DataCRCInterface
+            The interface to be added; accepts control signals from other modules, and
+            brings CRC output to them. This method can be called multiple times to generate
+            multiplpe CRCs.
         """
         self._interfaces.append(interface)
 
@@ -718,33 +767,56 @@ class USBDataPacketCRC(Elaboratable):
 
 
 class USBDataPacketReceiver(Elaboratable):
-    """ Gateware that converts received USB data packets into streams.
+    """ Gateware that converts received USB data packets into a data-stream packets.
 
-    I/O port:
-        *: data_crc           -- Connection to the CRC generator.
-        *: timer              -- Connect to our interpacket timer.
-        *: stream             -- USBOutDataStream stream with captured packet data.
+    It's important to note that packet payloads are mostly directly carried over from UTMI.
+    Since USB data is received -prior- to its CRC, one cannot know if a packet is valid until
+    after it has been compeltely received. As a result, this interface will generate data of
+    unknown validity, followed by a strobe on either :attr:`packet_complete` or :attr:`crc_mismatch`.
+    The receiving interface must be prepared to handle :attr:`crc_mismatch` by discarding the received
+    data.
 
-        O: active_pid[4]      -- The PID of the data currently being received.
-        O: packet_complete    -- Strobe that pulses high when a new packet is delivered with a valid CRC.
-        O: ready_for_response -- Indicates that an inter-packet delay has passed since `packet_complete`, and
-                                thus we're now ready to respond with a handshake.
-        O: crc_mismatch       -- Strobe that pulses high when the given packet has a CRC mismatch; and thus
-                                 the data received this far should be discarded.
-        O: packet_id[4]       -- The packet ID of the captured PID.
 
+    Attributes
+    ----------
+    data_crc: DataCRCInterface
+        Connection to the CRC generator.
+    timer: InterpacketTimerInterface
+        Connection to our interpacket timer.
+    stream: USBOutDataStream, output
+        Stream that carries captured packet data.
+
+    active_pid: Signal(4), output
+        The PID of the data currently being received.
+    packet_id: Signal(4), output
+        The packet ID of the most recently captured PID. Becomes valid simultaneous to a strobe on
+        :attr:`packet_complete` or :attr:`crc_mismatch`.
+
+    packet_complete: Signal(), output
+        Strobe that pulses high when a new packet is delivered with a valid CRC.
+    crc_mismatch: Signal(), output
+        Strobe that pulses high when the given packet has a CRC mismatch; and thus the data 
+        received this far should be discarded.
+    ready_for_response: Signal(), output
+        Strobe that indicates that an inter-packet delay has passed since :attr:`packet_complete`,
+        and thus we're now ready to respond with a handshake.
+
+    Parameters
+    ----------
+    utmi: UTMIInterface, or equivalent
+        The UTMI bus to observe.
+    max_packet_size: int
+        The maximum packet (payload) size to be deserialized, in bytes.
+
+    standalone: bool
+        Debug value. If True, a submodule CRC generator will be created.
+    speed: USBSpeed
+        USBSpeed signal or constant that specifies our speed in standalone mode.
     """
 
-    DATA_SUFFIX = 0b11
+    _DATA_SUFFIX = 0b11
 
     def __init__(self, *, utmi, standalone=False, speed=None):
-        """
-        Parameters:
-            utmi                 -- The UTMI bus to observe.
-            max_packet_size      -- The maximum packet (payload) size to be deserialized, in bytes.
-            standalone           -- Debug value. If True, a submodule CRC generator will be created.
-            speed                -- USBSpeed signal or constant that specifies our speed in standalone mode.
-        """
 
         self.utmi        = utmi
         self.standalone  = standalone
@@ -827,7 +899,7 @@ class USBDataPacketReceiver(Elaboratable):
                     m.next = "IDLE"
 
                 with m.Elif(self.utmi.rx_valid):
-                    is_data      = (self.utmi.rx_data[0:2] == self.DATA_SUFFIX)
+                    is_data      = (self.utmi.rx_data[0:2] == self._DATA_SUFFIX)
                     is_valid_pid = (self.utmi.rx_data[0:4] == ~self.utmi.rx_data[4:8])
 
                     # If this is a data packet, capture its PID.
@@ -1051,25 +1123,34 @@ class USBDataPacketReceiverTest(USBPacketizerTest):
 class USBDataPacketDeserializer(Elaboratable):
     """ Gateware that captures USB data packet contents and parallelizes them.
 
-    I/O port:
-        *: data_crc        -- Connection to the CRC generator.
+    Attributes
+    ----------
+    data_crc: DataCRCInterface
+        Connection to the CRC generator.
 
-        O: new_packet      -- Strobe that pulses high for a single cycle when a new packet is delivered.
-        O: packet_id[4]    -- The packet ID of the captured PID.
+    new_packet: Signal(), output
+        Strobe that pulses high for a single cycle when a new packet is delivered.
+    packet_id: Signal(4), output
+        The packet ID of the captured PID.
 
-        O: packet[]        -- Packet data for a the most recently received packet.
-        O: length[]        -- The length of the packet data presented on the packet[] output.
+    packet: Signal(max_packet_size), output
+        Packet data for a the most recently received packet.
+    length: Signal(range(0, max_packet_length +1)), output
+        The length of the packet data presented on the packet[] output.
+
+    Parameters
+    ----------
+    utmi: UTMIInterface, or equivalent
+        The UTMI bus to observe.
+    max_packet_size: int
+        The maximum packet (payload) size to be deserialized, in bytes.
+    create_crc_generator: bool
+        If True, a submodule CRC generator will be created. Excellent for testing.
     """
 
-    DATA_SUFFIX = 0b11
+    _DATA_SUFFIX = 0b11
 
     def __init__(self, *, utmi, max_packet_size=64, create_crc_generator=False):
-        """
-        Parameters:
-            utmi                 -- The UTMI bus to observe.
-            max_packet_size      -- The maximum packet (payload) size to be deserialized, in bytes.
-            create_crc_generator -- If True, a submodule CRC generator will be created. Excellent for testing.
-        """
 
         self.utmi                 = utmi
         self._max_packet_size     = max_packet_size
@@ -1139,7 +1220,7 @@ class USBDataPacketDeserializer(Elaboratable):
                     m.next = "IDLE"
 
                 with m.Elif(self.utmi.rx_valid):
-                    is_data      = (self.utmi.rx_data[0:2] == self.DATA_SUFFIX)
+                    is_data      = (self.utmi.rx_data[0:2] == self._DATA_SUFFIX)
                     is_valid_pid = (self.utmi.rx_data[0:4] == ~self.utmi.rx_data[4:8])
 
                     # If this is a data packet, capture it.
@@ -1256,25 +1337,28 @@ class USBDataPacketGenerator(Elaboratable):
     As a special case, if the stream pulses `last` (with valid=1) without pulsing
     `first`, we'll send a zero-length packet.
 
-    I/O port:
+    Attributes
+    ----------
 
-        # Control interface:
-        I: data_pid[2]  -- The data packet number to use. The potential PIDS are:
-                           0 = DATA0, 1 = DATA1, 2 = DATA2, 3 = MDATA; the interface
-                           is designed so that most endpoints can tie the MSb to zero
-                           and then perform PID toggling by toggling the LSb.
+    data_pid: Signal(2), input
+        The data packet number to use. The potential PIDS are: 0 = DATA0, 1 = DATA1, 
+        2 = DATA2, 3 = MDATA; the interface is designed so that most endpoints can tie the MSb to 
+        zero and then perform PID toggling by toggling the LSb.
 
-        *: crc          -- Interface to our data CRC generator.
-        *: stream       -- Stream input for the raw data to be transmitted.
-        *: tx           -- UTMI-subset transmit interface
+    crc: DataCRCInterface
+        Interface to our data CRC generator.
+    stream: USBInStreamInterface
+        Stream input for the raw data to be transmitted.
+    tx: UTMITransmitInterface
+        UTMI-subset transmit interface
+
+    Parameters
+    ----------
+    standalone: bool
+        If True, this unit will include its internal CRC generator. Perfect for unit testing or debugging.
     """
 
     def __init__(self, standalone=False):
-        """
-        Parameter:
-            standalone -- If True, this unit will include its internal CRC generator.
-                          Perfect for unit testing or debugging.
-        """
 
         self.standalone = standalone
 
@@ -1526,8 +1610,6 @@ class USBDataPacketGeneratorTest(LunaGatewareTestCase):
         yield from self.advance_cycles(10)
 
 
-
-
     @usb_domain_test_case
     def test_zlp_generation(self):
         stream = self.dut.stream
@@ -1569,20 +1651,24 @@ class USBDataPacketGeneratorTest(LunaGatewareTestCase):
 class USBHandshakeGenerator(Elaboratable):
     """ Module that generates handshake packets, on request.
 
-    I/O port:
-        I: issue_ack    -- Pulsed to generate an ACK handshake packet.
-        I: issue_nak    -- Pulsed to generate a  NAK handshake packet.
-        I: issue_stall  -- Pulsed to generate a STALL handshake.
+    Attributes:
 
-        # UTMI-equivalent signals,
-        *: tx           -- Interface to the relevant UTMI interface.
+    issue_ack: Signal(), input
+        Pulsed to generate an ACK handshake packet.
+    issue_nak: Signal(), input
+        Pulsed to generate a NAK handshake packet.
+    issue_stall: Signal(), input
+        Pulsed to generate a STALL handshake.
+
+    tx: UTMITransmitInterface
+        Interface to the relevant UTMI interface.
     """
 
     # Full contents of an ACK, NAK, and STALL packet.
     # These include the four check bits; which consist of the inverted PID.
-    PACKET_ACK   = 0b11010010
-    PACKET_NAK   = 0b01011010
-    PACKET_STALL = 0b00011110
+    _PACKET_ACK   = 0b11010010
+    _PACKET_NAK   = 0b01011010
+    _PACKET_STALL = 0b00011110
 
     def __init__(self):
 
@@ -1610,15 +1696,15 @@ class USBHandshakeGenerator(Elaboratable):
                 # in preparation for the next cycle.
 
                 with m.If(self.issue_ack):
-                    m.d.usb += self.tx.data  .eq(self.PACKET_ACK),
+                    m.d.usb += self.tx.data  .eq(self._PACKET_ACK),
                     m.next = 'TRANSMIT'
 
                 with m.If(self.issue_nak):
-                    m.d.usb += self.tx.data  .eq(self.PACKET_NAK),
+                    m.d.usb += self.tx.data  .eq(self._PACKET_NAK),
                     m.next = 'TRANSMIT'
 
                 with m.If(self.issue_stall):
-                    m.d.usb += self.tx.data  .eq(self.PACKET_STALL),
+                    m.d.usb += self.tx.data  .eq(self._PACKET_STALL),
                     m.next = 'TRANSMIT'
 
 
@@ -1655,7 +1741,7 @@ class USBHandshakeGeneratorTest(LunaGatewareTestCase):
 
         # ... we should see an ACK packet on our data lines...
         yield
-        self.assertEqual((yield dut.tx.data), USBHandshakeGenerator.PACKET_ACK)
+        self.assertEqual((yield dut.tx.data), USBHandshakeGenerator._PACKET_ACK)
 
         # ... our transmit request should be valid.
         self.assertEqual((yield dut.tx.valid), 1)
@@ -1687,7 +1773,7 @@ class USBHandshakeGeneratorTest(LunaGatewareTestCase):
 
         # ... we should see an ACK packet on our data lines...
         yield
-        self.assertEqual((yield dut.tx.data), USBHandshakeGenerator.PACKET_ACK)
+        self.assertEqual((yield dut.tx.data), USBHandshakeGenerator._PACKET_ACK)
 
         # ... our transmit request should be valid...
         self.assertEqual((yield dut.tx.valid), 1)
@@ -1701,12 +1787,14 @@ class USBHandshakeGeneratorTest(LunaGatewareTestCase):
 class USBInterpacketTimer(Elaboratable):
     """ Module that tracks inter-packet timings, enforcing spec-mandated packet gaps.
 
-    I/O port:
-        I: speed[2]       -- The device's current operating speed. Should be a USBSpeed
-                             enumeration value -- 0 for high, 1 for full, 2 for low.
+    Ports other than :attr:`speed` are added dynamically via :method:add_interface`.
 
-        Other ports are added dynamically, and control reset conditions (add_reset_condition)
-        and timer outputs (get_*_strobe).
+    Attributes
+    ----------
+    speed: Signal(2), input
+        The device's current operating speed. Should be a USBSpeed enumeration value -- 
+        0 for high, 1 for full, 2 for low.
+
     """
 
     # Per the USB 2.0 and ULPI 1.1 specifications, after receipt:
@@ -1719,18 +1807,18 @@ class USBInterpacketTimer(Elaboratable):
     #     Each ULPI cycle is 8 HS bit periods, so we'll only need to wait one cycle.
 
     # TODO: potentially reduce these to account for processing delays?
-    HS_RX_TO_TX_DELAY = (  1,  24)
-    FS_RX_TO_TX_DELAY = ( 10,  32)
-    LS_RX_TO_TX_DELAY = ( 80, 260)
+    _HS_RX_TO_TX_DELAY = (  1,  24)
+    _FS_RX_TO_TX_DELAY = ( 10,  32)
+    _LS_RX_TO_TX_DELAY = ( 80, 260)
 
     # Per the USB 2.0 and ULPI 1.1 specifications, after transission:
     #   - A FS/LS can assume it won't receive a response after 16 bit times [USB2, 7.1.18.1].
     #     This is equivalent to 80 ULPI clocks (FS), or 640 ULPI clocks (LS).
     #   - A HS device can assume it won't receive a response after 736 bit times.
     #     This is equivalent to 92 ULPI clocks.
-    HS_TX_TO_RX_TIMEOUT =  92
-    FS_TX_TO_RX_TIMEOUT =  80
-    LS_TX_TO_RX_TIMEOUT = 640
+    _HS_TX_TO_RX_TIMEOUT =  92
+    _FS_TX_TO_RX_TIMEOUT =  80
+    _LS_TX_TO_RX_TIMEOUT = 640
 
 
     def __init__(self):
@@ -1748,6 +1836,11 @@ class USBInterpacketTimer(Elaboratable):
         """ Adds a connection to a user of this module.
 
         This module performs no multiplexing; it's assumed only one interface will be active at a time.
+
+        Parameters
+        ---------
+        interface: InterpacketTimerInterface
+            The InterPacketTimer interface to add to our module.
         """
         self._interfaces.append(interface)
 
@@ -1764,7 +1857,7 @@ class USBInterpacketTimer(Elaboratable):
         # This should be able to count up to our longest delay. We'll allow our
         # counter to be able to increment one past its maximum, and let it saturate
         # there, after the count.
-        counter = Signal(range(0, self.LS_TX_TO_RX_TIMEOUT + 2))
+        counter = Signal(range(0, self._LS_TX_TO_RX_TIMEOUT + 2))
 
         # Reset our timer whenever any of our interfaces request a timer start.
         reset_signals = (interface.start for interface in self._interfaces)
@@ -1773,7 +1866,7 @@ class USBInterpacketTimer(Elaboratable):
         # When a reset is requested, start the counter from 0.
         with m.If(any_reset):
             m.d.usb += counter.eq(0)
-        with m.Elif(counter < self.LS_TX_TO_RX_TIMEOUT + 1):
+        with m.Elif(counter < self._LS_TX_TO_RX_TIMEOUT + 1):
             m.d.usb += counter.eq(counter + 1)
 
         #
@@ -1783,21 +1876,21 @@ class USBInterpacketTimer(Elaboratable):
         #
         with m.If(self.speed == USBSpeed.HIGH):
             m.d.comb += [
-                rx_to_tx_at_min   .eq(counter == self.HS_RX_TO_TX_DELAY[0]),
-                rx_to_tx_at_max   .eq(counter == self.HS_RX_TO_TX_DELAY[1]),
-                tx_to_rx_timeout  .eq(counter == self.HS_TX_TO_RX_TIMEOUT)
+                rx_to_tx_at_min   .eq(counter == self._HS_RX_TO_TX_DELAY[0]),
+                rx_to_tx_at_max   .eq(counter == self._HS_RX_TO_TX_DELAY[1]),
+                tx_to_rx_timeout  .eq(counter == self._HS_TX_TO_RX_TIMEOUT)
             ]
         with m.Elif(self.speed == USBSpeed.FULL):
             m.d.comb += [
-                rx_to_tx_at_min   .eq(counter == self.FS_RX_TO_TX_DELAY[0]),
-                rx_to_tx_at_max   .eq(counter == self.FS_RX_TO_TX_DELAY[1]),
-                tx_to_rx_timeout  .eq(counter == self.FS_TX_TO_RX_TIMEOUT)
+                rx_to_tx_at_min   .eq(counter == self._FS_RX_TO_TX_DELAY[0]),
+                rx_to_tx_at_max   .eq(counter == self._FS_RX_TO_TX_DELAY[1]),
+                tx_to_rx_timeout  .eq(counter == self._FS_TX_TO_RX_TIMEOUT)
             ]
         with m.Else():
             m.d.comb += [
-                rx_to_tx_at_min   .eq(counter == self.LS_RX_TO_TX_DELAY[0]),
-                rx_to_tx_at_max   .eq(counter == self.LS_RX_TO_TX_DELAY[1]),
-                tx_to_rx_timeout  .eq(counter == self.LS_TX_TO_RX_TIMEOUT)
+                rx_to_tx_at_min   .eq(counter == self._LS_RX_TO_TX_DELAY[0]),
+                rx_to_tx_at_max   .eq(counter == self._LS_RX_TO_TX_DELAY[1]),
+                tx_to_rx_timeout  .eq(counter == self._LS_TX_TO_RX_TIMEOUT)
             ]
 
         # Tie our strobes to each of our consumers.

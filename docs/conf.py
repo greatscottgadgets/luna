@@ -2,14 +2,16 @@
 # -- Project information -----------------------------------------------------
 
 project = 'LUNA'
-copyright = '2020, Great Scott Gadgets'
+copyright = '2020 Great Scott Gadgets'
 author = 'Katherine J. Temkin'
-
 
 # -- General configuration ---------------------------------------------------
 
+master_doc = 'index'
+
 extensions = [
-    'sphinx.ext.autodoc'
+    'sphinx.ext.autodoc',
+    'sphinx.ext.napoleon'
 ]
 
 templates_path = ['_templates']
@@ -18,12 +20,18 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # -- Options for HTML output -------------------------------------------------
 
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-#
 html_theme = 'sphinx_rtd_theme'
-
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+
+# -- Options for automatic documentation -------------------------------------
+
+# Skip documenting Tests.
+def autodoc_skip_member_handler(app, what, name, obj, skip, options):
+    return \
+        name.endswith("Test") or \
+        name.startswith('_')  or \
+        (name == "elaborate")
+
+def setup(app):
+    app.connect('autodoc-skip-member', autodoc_skip_member_handler)

@@ -1,7 +1,10 @@
 #
 # This file is part of LUNA.
 #
-""" Low-level USB transciever gateware -- exposes packet interfaces. """
+"""
+Contains the organizing hardware used to add USB Device functionality
+to your own designs; including the core :class:`USBDevice` class.
+"""
 
 import logging
 import unittest
@@ -28,38 +31,62 @@ from ...test.usb2           import USBDeviceTest
 
 
 class USBDevice(Elaboratable):
-    """ Class representing an abstract USB device.
+    """ Core gateware common to all LUNA USB devices.
 
-    Can be instantiated directly, and used to build a USB device,
+    The ``USBDevice`` module contains the low-level communications hardware necessary to implement a USB device;
+    including hardware for maintaining device state, detecting events, reading data from the host, and generating
+    responses.
+
+    This class can be instantiated directly, and used to build a USB device,
     or can be subclassed to create custom device types.
 
-    The I/O for this device is generically created dynamically; but
-    a few signals are exposed:
-
-        I: connect          -- Held high to keep the current USB device connected; or
-                               held low to disconnect.
-        I: low_speed_only   -- If high, the device will operate at low speed.
-        I: full_speed_only  -- If high, the device will be prohibited from operating a high speed.
-
-        O: frame_number[11] -- The current USB frame number.
-        O: sof_detected     -- Pulses for one cycle each time a SOF is detected; and thus our
-                               frame number has changed.
-
-        # State signals.
-        O: suspended        -- High when the device is in USB suspend. This can be (and by the spec
-                               must be) used trigger the device to enter lower-power states.
+    To configure a ``USBDevice`` from a CPU or other wishbone master, see :class:`USBDeviceController`;
+    which can easily be attached using its `attach` method.
 
 
-        O: tx_activity_led  -- Signal that can be used to drive an activity LED for TX.
-        O: rx_activity_led  -- Signal that can be used to drive an activity LED for RX.
+    Parameters
+    ----------
+
+    bus: [UTMI interface, ULPI Interface]
+        The UTMI or ULPI PHY connection to be used for communications.
+
+    handle_clocking: bool, Optional
+        True iff we should attempt to connect up the `usb` clock domain to the PHY 
+        automatically based on the clk signals's I/O direction. This option may not work
+        for non-simple connections; in which case you will need to connect the clock signal
+        yourself.
+    
+
+    Attributes
+    ----------
+
+    connect: Signal(), input
+        Held high to keep the current USB device connected; or held low to disconnect.
+    low_speed_only: Signal(), input 
+        If high, the device will operate at low speed.
+    full_speed_only: Signal(), input
+        If high, the device will be prohibited from operating a high speed.
+
+    frame_number: Signal(11), output 
+        The current USB frame number.
+    sof_detected: Signal(), output
+        Pulses for one cycle each time a SOF is detected; and thus our frame number has changed.
+
+    # State signals.
+    suspended: Signal(), output 
+        High when the device is in USB suspend. This can be (and by the spec must be) used trigger
+        the device to enter lower-power states.
+
+    tx_activity_led: Signal(), output
+        Signal that can be used to drive an activity LED for TX.
+    rx_activity_led: Signal(), output
+        Signal that can be used to drive an activity LED for RX.
+
     """
 
     def __init__(self, *, bus, handle_clocking=True):
         """
         Parameters:
-            bus             -- The UTMI or ULPI PHY connection to be used for communications.
-            handle_clocking -- True iff we should attempt to connect up the `usb` clock domain
-                               to the PHY automatically based on the clk signals's I/O direction.
         """
 
         # If this looks more like a ULPI bus than a UTMI bus, translate it.
@@ -98,7 +125,14 @@ class USBDevice(Elaboratable):
 
 
     def add_endpoint(self, endpoint):
-        """ Adds an endpoint to the device. """
+        """ Adds an endpoint interface to the device. 
+        
+        Parameters
+        ----------
+        endpoint: Elaborateable
+            The endpoint interface to be added. Can be any piece of gateware with a 
+            :class:`EndpointInterface` attribute called ``interface``.
+        """
         self._endpoints.append(endpoint)
 
 
@@ -106,9 +140,11 @@ class USBDevice(Elaboratable):
         """ Adds a basic control endpoint to the device.
 
         Does not add any request handlers. If you want standard request handlers;
-        `add_standard_control_endpoint` automatically adds standard request handlers.
+        :attr:`add_standard_control_endpoint` automatically adds standard request handlers.
 
-        Returns the endpoint object.
+        Returns
+        -------
+        Returns the endpoint object for the control endpoint.
         """
         control_endpoint = USBControlEndpoint(utmi=self.utmi)
         self.add_endpoint(control_endpoint)
@@ -117,10 +153,14 @@ class USBDevice(Elaboratable):
     def add_standard_control_endpoint(self, descriptors: DeviceDescriptorCollection):
         """ Adds a control endpoint with standard request handlers to the device.
 
-        Parameters:
-            descriptors -- The descriptors to use for this device.
+        Parameters
+        ----------
+        descriptors: DeviceDescriptorCollection
+            The descriptors to use for this device.
 
-        Returns the endpoint object created.
+        Return value
+        ------------
+        The endpoint object created.
         """
 
         # Create our endpoint, and add standard descriptors to it.
@@ -329,6 +369,8 @@ class USBDevice(Elaboratable):
 
 
 class FullDeviceTest(USBDeviceTest):
+    """ :meta private: """
+
     FRAGMENT_UNDER_TEST = USBDevice
     FRAGMENT_ARGUMENTS = {'handle_clocking': False}
 
@@ -510,6 +552,11 @@ try:
             The returned values makes all of the connections necessary to provide control and fetch status
             from the relevant USB device. These can be made either combinationally or synchronously, but
             combinational is recommended; as these signals are typically fed from a register anyway.
+
+            Parameters
+            ----------
+            device: USBDevice
+                The :class:`USBDevice` object to be controlled.
             """
             return [
                 device.connect  .eq(self.connect)
@@ -526,12 +573,6 @@ try:
                 m.d.usb += self._connect.r_data.eq(self._connect.w_data)
 
             return m
-
-
-
-
-
-
 
 
 except ImportError as e:
