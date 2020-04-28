@@ -35,7 +35,7 @@ class HandshakeExchangeInterface(Record):
     stall: Signal()
         When connected to a generator, pulsing this strobe will trigger generation of a STALL.
         Unused in a detector, currently.
-    nye: Signal()
+    nyet: Signal()
         When connected to a generator, pulsing this strobe will trigger generation of a NYET.
         Unused in a detector, currently.
 
@@ -43,7 +43,7 @@ class HandshakeExchangeInterface(Record):
     ----------
     is_detector: bool
         If true, this will be considered an interface to a detector that identifies handshakes.
-        Otherwise, this will be considered an interface to a geneartor that accepts handshake requests.
+        Otherwise, this will be considered an interface to a generator that accepts handshake requests.
     """
 
     def __init__(self, *, is_detector):

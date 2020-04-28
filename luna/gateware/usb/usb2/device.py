@@ -65,7 +65,7 @@ class USBDevice(Elaboratable):
     low_speed_only: Signal(), input 
         If high, the device will operate at low speed.
     full_speed_only: Signal(), input
-        If high, the device will be prohibited from operating a high speed.
+        If high, the device will be prohibited from operating at high speed.
 
     frame_number: Signal(11), output 
         The current USB frame number.
@@ -74,7 +74,7 @@ class USBDevice(Elaboratable):
 
     # State signals.
     suspended: Signal(), output 
-        High when the device is in USB suspend. This can be (and by the spec must be) used trigger
+        High when the device is in USB suspend. This can be (and by the spec must be) used to trigger
         the device to enter lower-power states.
 
     tx_activity_led: Signal(), output
