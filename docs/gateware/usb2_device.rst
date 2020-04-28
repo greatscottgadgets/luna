@@ -49,7 +49,7 @@ Handshake Detector
 ==================
 
 The *Handshake Detector* detects *handshake packets* from the host; and is responsible for
-idenifying the host's response to packets from the device -- indicating whether the host
+identifying the host's response to packets from the device -- indicating whether the host
 successfully received a packet sent from the device.
 
 
@@ -83,7 +83,7 @@ easily emit handshake packets -- allowing the device to acknowledge packets (ACK
 Data Packet Transmitter
 =======================
 
-The *Data Packet Generator* is respnsible for generating outgoing USB packets from simple data
+The *Data Packet Generator* is responsible for generating outgoing USB packets from simple data
 streams; including emitting data packet IDs, sending data, and appending data CRCs. This class
 automatically appends the required data CRC-16s.
 
