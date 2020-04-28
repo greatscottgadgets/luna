@@ -8,7 +8,7 @@ USB multitool hardware and software.
 
 .. image:: images/board_readme_side.jpg
 
-Much like the LUNA hardware, gateware, and software, this documentation is a work in progress
+Much like the LUNA hardware, gateware, and software, this documentation is a work in progress.
 Contributions are always appreciated.
 
 .. toctree::
