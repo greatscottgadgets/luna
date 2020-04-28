@@ -1,6 +1,6 @@
-============
-Hardware Bringup
-============
+==========================
+Self-made Hardware Bringup
+==========================
 
 This guide is intended to help you bring up a LUNA board you’ve built
 yourself. If you’ve received your board from Great Scott Gadgets, it
@@ -159,11 +159,11 @@ Once you’ve validated connectivity, you’re ready to try running the
 
    $ python3 applets/interactive-test.py
 
-Troubleshooting
-===============
 
-Issue: some of the build files weren’t found; ``make`` produces a message like ``no rule to make target``.
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Troubleshooting
+---------------
+
+**Issue: some of the build files weren't found; ``make`` produces a message like ``no rule to make target``. ***
 
 Chances are, your clone of LUNA is was pulled down without its
 submodules. You can pull down the relevant submodules using ``git``:
@@ -172,8 +172,7 @@ submodules. You can pull down the relevant submodules using ``git``:
 
    $ git submodule update --init
 
-Issue: the ``luna-dev info`` command doesn’t see a connected board.
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+**Issue: the luna-dev info command doesn't see a connected board.**
 
 On Linux, this can be caused by a permissions issue. Check first for the
 presence of your device using ``lsusb``; if you see a device with the

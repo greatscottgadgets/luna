@@ -15,9 +15,10 @@ Contributions are always appreciated.
    :maxdepth: 2
    :caption: Contents:
 
-   environment/setup.rst
-   gateware/usb2_device.rst
-   hardware/bringup_guide.rst
+   intro
+   getting_started
+   gateware/usb2_device
+   hardware/bringup_guide
 
 
 

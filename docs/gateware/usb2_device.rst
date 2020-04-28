@@ -13,7 +13,7 @@ USB devices are created using two core components:
 * One or more *endpoint interfaces*, which handle high-level USB communications -- and provide the logic
   the tailors the device to its intended application.
 
-The ``USBDevice`` communicates with low-level transciever hardware via the FPGA-friendly *USB Transceiver* 
+The ``USBDevice`` communicates with low-level transciever hardware via the FPGA-friendly *USB Transceiver*
 *Macrocell Interface* (UTMI). Translators can be used to transparently adapt the FPGA interface to other
 common bus formats; including the common ULPI low-pin-count variant of UTMI.
 
@@ -28,8 +28,8 @@ Conceptual Components
 ---------------------
 
 The ``USBDevice`` class contains the low-level communications hardware necessary to implement a USB device;
-including hardware for maintaining device state, detecting events, reading data from the host, and generating 
-responses. 
+including hardware for maintaining device state, detecting events, reading data from the host, and generating
+responses.
 
 Token Detector
 ==============
@@ -59,7 +59,7 @@ Data Packet Receiver
 The *Data Packet Receiver* is responsible for receiving data packets from the device -- including
 the payloads of both ``OUT`` and ``SETUP`` transactions -- and translating them to a simple data stream.
 
-The Data Receiver handles error detection; and thus validates the checksums of each packet using the 
+The Data Receiver handles error detection; and thus validates the checksums of each packet using the
 Data CRC Unit.
 
 
@@ -135,4 +135,13 @@ The sequencer:
 .. automodule :: luna.gateware.usb.usb2.packet
   :members:
   :show-inheritance:
+
+
+``usb2.reset`` Components
+--------------------------
+
+.. automodule :: luna.gateware.usb.usb2.reset
+  :members:
+  :show-inheritance:
+
 

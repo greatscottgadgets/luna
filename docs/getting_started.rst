@@ -1,6 +1,9 @@
-==============================
+===============
+Getting Started
+===============
+
 Setting up a Build Environment
-==============================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This guide highlights the installation / setup process for the ``luna``
 gateware library. It focuses on getting the Python module (and
@@ -25,8 +28,8 @@ Prerequisites
 Installation
 ------------
 
-Currently, the ``luna`` library is considered a “work-in-progress”; and
-thus it’s assumed you’ll want to use a local copy of ``luna`` for
+Currently, the LUNA library is considered a “work-in-progress”; and
+thus it’s assumed you’ll want to use a local copy of LUNA for
 development.
 
 The easiest way to set this up is to install the distribution in-place.
