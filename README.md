@@ -1,5 +1,5 @@
 
-# LUNA - a USB multitool and nMigen library [![Build Status](https://travis-ci.org/greatscottgadgets/luna.svg?branch=master)](https://travis-ci.org/greatscottgadgets/luna) [![GitHub license](https://img.shields.io/github/license/greatscottgadgets/luna.svg)](https://github.com/greatscottgadgets/luna/blob/master/LICENSE.txt) [![Documentation Status](https://readthedocs.org/projects/luna/badge/?version=latest)](https://luna.readthedocs.io/en/latest/?badge=latest)
+# LUNA: a USB multitool & nMigen library [![Build Status](https://travis-ci.org/greatscottgadgets/luna.svg?branch=master)](https://travis-ci.org/greatscottgadgets/luna) [![GitHub license](https://img.shields.io/github/license/greatscottgadgets/luna.svg)](https://github.com/greatscottgadgets/luna/blob/master/LICENSE.txt) [![Documentation Status](https://readthedocs.org/projects/luna/badge/?version=latest)](https://luna.readthedocs.io/en/latest/?badge=latest)
 
 ![LUNA r0.2 side view](docs/images/board_readme_side.jpg)
 
