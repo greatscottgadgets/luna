@@ -18,44 +18,19 @@ from ..request.standard    import StandardRequestHandler
 from ..stream              import USBInStreamInterface, USBOutStreamInterface
 
 
-# TODO: rename this to indicate that it's a gateware control endpoint
-
 class USBControlEndpoint(Elaboratable):
-    """ Base class for USB control endpoint implementers.
+    """ Gateware that manages control request data progression.
 
-    I/O port:
-        *: data_crc               -- Control connection for our data-CRC unit.
-        *: timer                  -- Interface to our interpacket timer.
-        *: tokenizer              -- Interface to our TokenDetector; notifies us of USB tokens.
+    This class is used by creating one or more *request handler* modules; which define how requests
+    are handled. These handlers can be bound using :attr:`add_request_handler`.
 
-        # Device state.
-        I: speed                  -- The device's current operating speed. Should be a USBSpeed
-                                     enumeration value -- 0 for high, 1 for full, 2 for low.
+    For convenience, this module can also automatically be populated with a ``StandardRequestHandler``
+    via the :attr:`add_standard_request_handlers`.
 
-        # Address / configuration connections.
-        O: address_changed        -- Strobe; pulses high when the device's address should be changed.
-        O: new_address[7]         -- When `address_changed` is high, this field contains the address that
-                                     should be adopted.
-
-        I: active_config          -- The configuration number of the active configuration.
-        O: config_changed         -- Strobe; pulses high when the device's configuration should be changed.
-        O: new_config[8]          -- When `config_changed` is high, this field contains the configuration that
-                                     should be applied.
-
-        # Data/handshake connections.
-        *  rx                     -- Receive interface for this endpoint.
-        I: rx_complete            -- Strobe that indicates that the concluding rx-stream was valid (CRC check passed).
-        I  rx_ready_for_response  -- Strobe that indicates that we're ready to respond to a complete transmission.
-                                     Indicates that an interpacket delay has passed after an `rx_complete` strobe.
-        I: rx_invalid             -- Strobe that indicates that the concluding rx-stream was invalid (CRC check failed).
-
-        *: tx                     -- Transmit interface for this endpoint.
-        O: tx_pid_toggle          -- Value for the data PID toggle; 0 indicates we'll send DATA0; 1 indicates DATA1.
-
-        *: handshakes_detected    -- Carries handshakes detected from the host.
-        O: issue_ack              -- Strobe; pulses high when the endpoint wants to issue an ACK handshake.
-        O: issue_nak              -- Strobe; pulses high when the endpoint wants to issue a  NAK handshake.
-        O: issue_stall            -- Strobe; pulses high when the endpoint wants to issue a  STALL handshake.
+    Attributes
+    ----------
+    interface: EndpointInterface
+        The interface from this endpoint to the core device hardware.
     """
 
     def __init__(self, *, utmi, standalone=False):

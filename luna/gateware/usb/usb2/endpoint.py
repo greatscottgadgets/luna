@@ -14,6 +14,7 @@ from .packet        import HandshakeExchangeInterface
 from ..stream       import USBInStreamInterface, USBOutStreamInterface
 from ...utils.bus   import OneHotMultiplexer
 
+
 class EndpointInterface:
     """ Interface that connects a USB endpoint module to a USB device.
 
@@ -49,6 +50,8 @@ class EndpointInterface:
         The device's current operating speed. Should be a USBSpeed enumeration value --
         0 for high, 1 for full, 2 for low.
 
+    active_address: Signal(7), input to endpoint
+        Contains the device's current address.
     address_changed: Signal(), output from endpoint.
         Strobe; pulses high when the device's address should be changed.
     new_address: Signal(7), output from endpoint
