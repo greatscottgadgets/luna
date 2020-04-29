@@ -18,6 +18,7 @@ Contributions are always appreciated.
    intro
    getting_started
    gateware/usb2_device
+   gateware/endpoint
    hardware/bringup_guide
 
 

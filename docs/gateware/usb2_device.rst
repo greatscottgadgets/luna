@@ -1,7 +1,7 @@
 
-========================
-USB 2.0 Device Gateware
-========================
+============================
+Core USB 2.0 Device Gateware
+============================
 
 The *LUNA* gateware library provides a flexible base *USB Device* model, which is designed to provide the basis
 for creating both application-specific and general-purpose USB hardware.
