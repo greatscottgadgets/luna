@@ -20,7 +20,6 @@
 
 
 // Buttons.
-const static Pin DFU_BUTTON = {.group = 1, .pin = 11, .mux = 0 };
 const static Pin RECOVERY_BUTTON = {.group = 1, .pin = 22, .mux = 0 };
 
 // LEDs.
@@ -162,17 +161,11 @@ bool bootloader_sw_triggered(void)
 
 bool button_pressed(void)
 {
-	pin_in(DFU_BUTTON);
 	pin_in(RECOVERY_BUTTON);
-	pin_pull_up(DFU_BUTTON);
 	pin_pull_up(RECOVERY_BUTTON);
 
-
-	// For now, either DFU or recovery should put the device into DFU mode.
-	// Later, this should only be recovery.
-	if (pin_read(DFU_BUTTON) == 0) {
-		return true;
-	}
+	
+	// Drop into Recovery Mode if the recovery button is presssed.
 	if (pin_read(RECOVERY_BUTTON) == 0) {
 		return true;
 	}
