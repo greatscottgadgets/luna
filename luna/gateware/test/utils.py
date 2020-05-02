@@ -33,6 +33,7 @@ def sync_test_case(process_function, *, domain="sync"):
             yield from process_function(self)
 
         self.domain = domain
+        self._ensure_clocks_present()
         self.sim.add_sync_process(test_case, domain=domain)
         self.simulate(vcd_suffix=process_function.__name__)
 
@@ -95,7 +96,6 @@ class LunaGatewareTestCase(FHDLTestCase):
             self.sim.add_clock(1 / self.SYNC_CLOCK_FREQUENCY, domain="sync")
         if self.FAST_CLOCK_FREQUENCY:
             self.sim.add_clock(1 / self.FAST_CLOCK_FREQUENCY, domain="fast")
-
 
 
     def initialize_signals(self):
@@ -161,6 +161,16 @@ class LunaGatewareTestCase(FHDLTestCase):
             cycles_passed += 1
             if timeout and cycles_passed > timeout:
                 raise RuntimeError(f"Timeout waiting for '{strobe.name}' to go high!")
+
+
+    def _ensure_clocks_present(self):
+        """ Function that validates that a clock is present for our simulation domain. """
+        frequencies = {
+            'sync': self.SYNC_CLOCK_FREQUENCY,
+            'usb':  self.USB_CLOCK_FREQUENCY,
+            'fast': self.FAST_CLOCK_FREQUENCY,
+        }
+        self.assertIsNotNone(frequencies[self.domain], f"no frequency provied for `{self.domain}`-domain clock!")
 
 
     def wait(self, time):
