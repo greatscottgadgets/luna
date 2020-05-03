@@ -118,8 +118,8 @@ class USBInTransferManager(Elaboratable):
         # Accordingly, we'll buffer a full USB packet of data, and then transmit
         # it once either a) our buffer is full, or 2) the transfer ends (last=1).
         #
-        # For now, we'll assume that data can be filled between packets without limiting
-        # speed -- but it may be wise to set up a ping/pong pair of packet buffers.
+        # This implementation is double buffered; so a buffer fill can be pipelined
+        # with a transmit.
         #
 
         # We'll create two buffers; so we can fill one as we empty the other.
