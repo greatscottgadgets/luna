@@ -123,7 +123,7 @@ class USBInTransferManager(Elaboratable):
         #
 
         # We'll create two buffers; so we can fill one as we empty the other.
-        # Since each buffer will be used for every other transfer, and our PID toggle flips every other transfer,
+        # Since each buffer will be used for every other transaction, and our PID toggle flips every other transcation,
         # we'll identify which buffer we're targeting by the current PID toggle.
         buffer = Array(Memory(width=8, depth=self._max_packet_size, name=f"transmit_buffer_{i}") for i in range(2))
         buffer_write_ports = Array(buffer[i].write_port(domain="usb") for i in range(2))
