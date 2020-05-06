@@ -170,7 +170,7 @@ submodules. You can pull down the relevant submodules using ``git``:
 
 .. code:: sh
 
-   $ git submodule update --init
+   $ git submodule update --init --recursive
 
 **Issue: the luna-dev info command doesn't see a connected board.**
 
