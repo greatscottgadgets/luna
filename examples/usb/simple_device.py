@@ -9,7 +9,6 @@ from nmigen                         import Elaboratable, Module
 from usb_protocol.emitters          import DeviceDescriptorCollection
 
 from luna                           import top_level_cli
-from luna.gateware.architecture.car import LunaECP5DomainGenerator
 from luna.gateware.usb.usb2.device  import USBDevice
 
 
@@ -60,7 +59,7 @@ class USBDeviceExample(Elaboratable):
         m = Module()
 
         # Generate our domain clocks/resets.
-        m.submodules.car = LunaECP5DomainGenerator()
+        m.submodules.car = platform.clock_domain_generator()
 
         # Create our USB device interface...
         ulpi = platform.request("target_phy")
@@ -80,8 +79,7 @@ class USBDeviceExample(Elaboratable):
         m.d.comb += [
             platform.request('led', 0).eq(usb.tx_activity_led),
             platform.request('led', 1).eq(usb.rx_activity_led),
-            platform.request('led', 4).eq(usb.suspended),
-            platform.request('led', 5).eq(1),
+            platform.request('led', 2).eq(usb.suspended),
         ]
 
         return m

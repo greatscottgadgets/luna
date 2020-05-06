@@ -15,7 +15,6 @@ from nmigen                          import Elaboratable, Module
 from usb_protocol.emitters           import DeviceDescriptorCollection
 
 from luna                            import top_level_cli
-from luna.gateware.architecture.car  import LunaECP5DomainGenerator
 from luna.gateware.usb.usb2.device   import USBDevice
 from luna.gateware.usb.usb2.endpoint import USBStreamInEndpoint
 
@@ -82,7 +81,7 @@ class USBInSpeedTestDevice(Elaboratable):
         m = Module()
 
         # Generate our domain clocks/resets.
-        m.submodules.car = LunaECP5DomainGenerator()
+        m.submodules.car = platform.clock_domain_generator()
 
         # Create our USB device interface...
         ulpi = platform.request("target_phy")

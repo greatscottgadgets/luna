@@ -11,7 +11,6 @@ from lambdasoc.periph.timer                  import TimerPeripheral
 
 from luna                                    import top_level_cli
 from luna.gateware.soc                       import SimpleSoC
-from luna.gateware.architecture.car          import LunaECP5DomainGenerator
 
 from luna.gateware.usb.usb2.device           import USBDevice, USBDeviceController
 from luna.gateware.usb.usb2.interfaces.eptri import SetupFIFOInterface, InFIFOInterface, OutFIFOInterface
@@ -74,7 +73,7 @@ class EptriDeviceExample(Elaboratable):
         m.submodules.soc = self.soc
 
         # Generate our domain clocks/resets.
-        m.submodules.car = LunaECP5DomainGenerator(clock_frequencies=CLOCK_FREQUENCIES_MHZ)
+        m.submodules.car = platform.clock_domain_generator(CLOCK_FREQUENCIES_MHZ)
 
         # Connect up our UART.
         uart_io = platform.request("uart", 0)

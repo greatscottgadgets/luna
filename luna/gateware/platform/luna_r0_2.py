@@ -7,6 +7,7 @@ import os
 from nmigen.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock, DiffPairs, Connector
 from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
 
+from ..architecture.car import LunaECP5DomainGenerator
 
 __all__ = ["LUNAPlatformR02"]
 
@@ -40,6 +41,9 @@ class LUNAPlatformRev0D2(LatticeECP5Platform):
     speed       = os.getenv("LUNA_SPEED_GRADE", "8")
 
     default_clk = "clk_60MHz"
+
+    # Provide the type that'll be used to create our clock domains.
+    clock_domain_generator = LunaECP5DomainGenerator
 
     #
     # Default clock frequencies for each of our clock domains.
