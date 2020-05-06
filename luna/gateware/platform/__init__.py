@@ -2,7 +2,12 @@
 # This file is part of LUNA.
 #
 
+import os
+import sys
 import logging
+
+import importlib
+import importlib.util
 
 from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
 
@@ -20,11 +25,45 @@ PLATFORM_FOR_REVISION = {
     (0, 2): LUNAPlatformRev0D2
 }
 
+def _get_platform_from_string(platform):
+    """ Attempts to get the most appropriate platform given a <module>:<class> specification."""
+
+    # Attempt to split the platform into a module / name.
+    module, _, name = platform.partition(':')
+    if (not module) or (not name):
+        raise TypeError("LUNA_PLATFORM must be in <module path>:<class name> format.")
+
+
+    # If we have a filename, load the module from our file.
+    module_path = os.path.expanduser(module)
+    if os.path.isfile(module_path):
+
+        # Get a reference to the platform module to be loaded...
+        import_path     = "luna.gateware.platform.dynamic"
+        spec            = importlib.util.spec_from_file_location(import_path, module_path)
+        platform_module = importlib.util.module_from_spec(spec)
+
+        # ... and pull in its code .
+        spec.loader.exec_module(platform_module)
+
+
+    # Otherwise, try to parse it as a module path.
+    else:
+        platform_module = importlib.import_module(module)
+
+    # Once we have the relevant module, extract our class from it.
+    platform_class = getattr(platform_module, name)
+    return platform_class()
+
 
 def get_appropriate_platform() -> LatticeECP5Platform:
     """ Attempts to return the most appropriate platform for the local configuration. """
 
     from ... import apollo
+
+    # If we have a LUNA_PLATFORM variable, use it instead of autonegotiating.
+    if os.getenv("LUNA_PLATFORM"):
+        return _get_platform_from_string(os.getenv("LUNA_PLATFORM"))
 
     try:
         # Figure out what hardware revision we're going to connect to...
