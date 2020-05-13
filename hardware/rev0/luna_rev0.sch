@@ -1,6 +1,6 @@
 EESchema Schematic File Version 4
 LIBS:luna_rev0-cache
-EELAYER 29 0
+EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
@@ -11,7 +11,7 @@ Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
 Comment2 ""
-Comment3 "Licensed under the CERN OHL v1.2"
+Comment3 "Licensed under the CERN-OHL-P v2"
 Comment4 ""
 $EndDescr
 $Sheet
