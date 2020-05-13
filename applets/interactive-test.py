@@ -313,6 +313,32 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
             raise AssertionError(f"PHY register {register} was {actual_value}, not expected {expected_value}")
 
 
+    def assertPhyReadBack(self, phy_register_base: int, value: int):
+        """ Writes a value to the PHY scratch register and asserts that the read-back matches.
+
+        Parameters:
+            phy_register_base -- The base address of the PHY window in the debug SPI
+                                 address range.
+            value             -- The value written to the scratch register.
+        """
+
+        # Set the address of the ULPI register we're going to read from.
+        self.dut.spi.register_write(phy_register_base, 0x16)
+
+        # Write the value to it.
+        self.dut.spi.register_write(phy_register_base + 1, value)
+
+        # Set the address again to perform the read.
+        self.dut.spi.register_write(phy_register_base, 0x16)
+
+        # ... and read back the value.
+        actual_value = self.dut.spi.register_read(phy_register_base + 1)
+
+        # Finally, validate it.
+        if actual_value != value:
+            raise AssertionError(f"PHY scratch register read-back was {actual_value}, not expected {value}")
+
+
     def assertPhyPresence(self, register_base: int):
         """ Assertion that fails iff the given PHY isn't detected. """
 
@@ -322,6 +348,13 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
         self.assertPhyRegister(register_base, 1, 0x04)
         self.assertPhyRegister(register_base, 2, 0x09)
         self.assertPhyRegister(register_base, 3, 0x00)
+
+        # Write some patterns to the scratch register & read them back
+        # to exercise all the DATA# lines.
+        self.assertPhyReadBack(register_base, 0x00)
+        self.assertPhyReadBack(register_base, 0xff)
+        for i in range(8):
+            self.assertPhyReadBack(register_base, (1 << i))
 
 
     def assertHyperRAMRegister(self, address: int, expected_value: int):
