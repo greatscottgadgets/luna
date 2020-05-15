@@ -11,6 +11,7 @@ from nmigen         import Signal, Module, Cat, Elaboratable, ClockSignal, \
 from nmigen.hdl.ast import Rose, Fell, Past
 from nmigen.hdl.rec import Record, DIR_FANIN, DIR_FANOUT, DIR_NONE
 
+from ..utils.io     import delay
 from ..test         import LunaGatewareTestCase, usb_domain_test_case, sync_test_case
 
 
@@ -1151,7 +1152,7 @@ class UTMITranslator(Elaboratable):
 
         # Otherwise, we'll pick a value that ensures the write always occurs.
         elif default_value is None:
-            default_value = ~write_value
+            default_value = 0xff ^ write_value
 
         self._extra_registers[write_address] = {'value': write_value, 'default': default_value}
 
