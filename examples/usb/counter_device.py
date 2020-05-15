@@ -5,12 +5,11 @@
 
 import os
 
-from nmigen                          import Elaboratable, Module, Signal
-from usb_protocol.emitters           import DeviceDescriptorCollection
+from nmigen                  import Elaboratable, Module, Signal
+from usb_protocol.emitters   import DeviceDescriptorCollection
 
-from luna                            import top_level_cli
-from luna.gateware.usb.usb2.device   import USBDevice
-from luna.gateware.usb.usb2.endpoint import USBStreamInEndpoint
+from luna                    import top_level_cli
+from luna.usb2               import USBDevice, USBStreamInEndpoint
 
 
 class USBCounterDeviceExample(Elaboratable):

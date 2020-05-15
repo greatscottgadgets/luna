@@ -1,3 +1,7 @@
+#
+# This file is part of LUNA.
+#
+""" Gateware for creating USB2 devices. """
 
 from enum import IntEnum, IntFlag
 

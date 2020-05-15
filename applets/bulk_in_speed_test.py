@@ -11,12 +11,11 @@ import time
 
 import usb1
 
-from nmigen                          import Elaboratable, Module
-from usb_protocol.emitters           import DeviceDescriptorCollection
+from nmigen                  import Elaboratable, Module, ClockDomain, ClockSignal
+from usb_protocol.emitters   import DeviceDescriptorCollection
 
-from luna                            import top_level_cli
-from luna.gateware.usb.usb2.device   import USBDevice
-from luna.gateware.usb.usb2.endpoint import USBStreamInEndpoint
+from luna                    import top_level_cli
+from luna.usb2               import USBDevice, USBStreamInEndpoint
 
 
 VENDOR_ID  = 0x16d0
