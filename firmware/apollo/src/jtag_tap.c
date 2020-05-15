@@ -131,6 +131,15 @@ __attribute__((weak)) void jtag_platform_init(void)
 
 
 /**
+ * Hook for any per-platform deinitialization that needs to occur.
+ */
+__attribute__((weak)) void jtag_platform_deinit(void)
+{
+
+}
+
+
+/**
  * Performs any start-of-day tasks necessary to talk JTAG to our FPGA.
  */
 void jtag_init(void)
@@ -163,6 +172,8 @@ void jtag_deinit(void)
 		gpio_set_pin_direction(gpio_pins[i], GPIO_DIRECTION_IN);
 		gpio_set_pin_pull_mode(gpio_pins[i], GPIO_PULL_OFF);
 	}
+
+	jtag_platform_deinit();
 }
 
 

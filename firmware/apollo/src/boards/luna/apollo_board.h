@@ -64,14 +64,20 @@ enum {
 
 
 /**
- * GPIO pin numbers for each of the JTAG pins.
+ * GPIO pin numbers.
  */
 enum {
+	// Each of the JTAG pins.
 	TDO_GPIO = PIN_PA10,
 	TDI_GPIO = PIN_PA08,
 	TCK_GPIO = PIN_PA09,
 	TMS_GPIO = PIN_PA11,
+
+	// Sideband PHY USB override.
+	SIDEBAND_PHY_RESET = PIN_PB23
 };
+
+
 
 
 #endif

@@ -25,6 +25,18 @@ void jtag_platform_init(void)
 
 	// Set up our SPI port for SPI-accelerated JTAG.
 	spi_init(SPI_FPGA_JTAG, true, false, 1, 1, 1);
+
+	// For now, we'll keep our sideband PHY in reset during a JTAG programming.
+	gpio_set_pin_direction(SIDEBAND_PHY_RESET, GPIO_DIRECTION_OUT);
+}
+
+
+/**
+ * Hook that performs hardware-specific deinitialization.
+ */
+void jtag_platform_deinit(void)
+{
+	gpio_set_pin_direction(SIDEBAND_PHY_RESET, GPIO_DIRECTION_IN);
 }
 
 
