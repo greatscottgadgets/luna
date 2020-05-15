@@ -119,6 +119,11 @@ class OpenVizsla(XilinxSpartan6Platform):
             Subsignal("oe_n", Pins("P38")),
             Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")
         ),
+
+        # Trigger in/out pins.
+        # There's nothing stopping these from being used as I/O, so we'll allow them to be used either way.
+        Resource("trigger_in",  0, Pins("P75"), Attrs(IOSTANDARD="LVCMOS33")),
+        Resource("trigger_out", 0, Pins("P74"), Attrs(IOSTANDARD="LVCMOS33")),
     ]
 
     # TODO: detail the Spare connector here?
