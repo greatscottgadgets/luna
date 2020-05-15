@@ -2,6 +2,7 @@
 # This file is part of LUNA.
 #
 
+import os
 import sys
 import shutil
 import logging
@@ -111,6 +112,11 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
     # Build the relevant files.
     try:
         platform = get_appropriate_platform()
+
+        # If we have a toolchain override, apply it to our platform.
+        toolchain = os.getenv("LUNA_TOOLCHAIN")
+        if toolchain:
+            platform.toolchain = toolchain
 
         if args.fpga:
             platform.device = args.fpga
