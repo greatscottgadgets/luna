@@ -1,5 +1,4 @@
 EESchema Schematic File Version 4
-LIBS:luna_rev0-cache
 EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
@@ -184,6 +183,9 @@ F 0 "U2" H 2250 6717 50  0000 C CNN
 F 1 "MIC5504-1.8YM5" H 2250 6626 50  0000 C CNN
 F 2 "Package_TO_SOT_SMD:SOT-23-5" H 2250 5950 50  0001 C CNN
 F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/MIC550X.pdf" H 2000 6600 50  0001 C CNN
+F 4 "IC REG LINEAR 1.8V 300MA SOT23-5" H 2250 6350 50  0001 C CNN "Description"
+F 5 "Microchip" H 2250 6350 50  0001 C CNN "Manufacturer_Name"
+F 6 "MIC5504-1.8YM5-TR" H 2250 6350 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2250 6350
 	1    0    0    -1  
 $EndComp
@@ -223,6 +225,7 @@ F 0 "C5" V 1098 6050 50  0000 C CNN
 F 1 "1uF" V 1189 6050 50  0000 C CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 1388 5900 50  0001 C CNN
 F 3 "~" H 1350 6050 50  0001 C CNN
+F 4 "GENERIC-CAP-0603-1uF" H 1350 6050 50  0001 C CNN "Manufacturer_Part_Number"
 	1    1350 6050
 	0    1    1    0   
 $EndComp
@@ -267,6 +270,7 @@ F 0 "C19" H 2915 6446 50  0000 L CNN
 F 1 "1uF" H 2915 6355 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 2838 6250 50  0001 C CNN
 F 3 "~" H 2800 6400 50  0001 C CNN
+F 4 "GENERIC-CAP-0603-1uF" H 2800 6400 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2800 6400
 	1    0    0    -1  
 $EndComp
@@ -318,6 +322,7 @@ F 0 "C28" V 4198 6050 50  0000 C CNN
 F 1 "1uF" V 4289 6050 50  0000 C CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 4488 5900 50  0001 C CNN
 F 3 "~" H 4450 6050 50  0001 C CNN
+F 4 "GENERIC-CAP-0603-1uF" H 4450 6050 50  0001 C CNN "Manufacturer_Part_Number"
 	1    4450 6050
 	0    1    1    0   
 $EndComp
@@ -349,6 +354,7 @@ F 0 "C30" H 6015 6446 50  0000 L CNN
 F 1 "1uF" H 6015 6355 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 5938 6250 50  0001 C CNN
 F 3 "~" H 5900 6400 50  0001 C CNN
+F 4 "GENERIC-CAP-0603-1uF" H 5900 6400 50  0001 C CNN "Manufacturer_Part_Number"
 	1    5900 6400
 	1    0    0    -1  
 $EndComp
@@ -372,6 +378,9 @@ F 0 "U5" H 5350 6717 50  0000 C CNN
 F 1 "MIC5504-2.5YM5" H 5350 6626 50  0000 C CNN
 F 2 "Package_TO_SOT_SMD:SOT-23-5" H 5350 5950 50  0001 C CNN
 F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/MIC550X.pdf" H 5100 6600 50  0001 C CNN
+F 4 "IC REG LINEAR 2.5V 300MA SOT23-5" H 5350 6350 50  0001 C CNN "Description"
+F 5 "Microchip" H 5350 6350 50  0001 C CNN "Manufacturer_Name"
+F 6 "MIC5504-2.5YM5-TR" H 5350 6350 50  0001 C CNN "Manufacturer_Part_Number"
 	1    5350 6350
 	1    0    0    -1  
 $EndComp
@@ -413,6 +422,9 @@ F 0 "C6" V 1198 3900 50  0000 C CNN
 F 1 "2.2uF" V 1289 3900 50  0000 C CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 1488 3750 50  0001 C CNN
 F 3 "~" H 1450 3900 50  0001 C CNN
+F 4 "CAP CER 2.2UF 10V X5R 0603" H 1450 3900 50  0001 C CNN "Description"
+F 5 "Kemet" H 1450 3900 50  0001 C CNN "Manufacturer_Name"
+F 6 "C0603C225K8PACTU" H 1450 3900 50  0001 C CNN "Manufacturer_Part_Number"
 	1    1450 3900
 	0    1    1    0   
 $EndComp
@@ -444,6 +456,9 @@ F 0 "C20" H 3065 4296 50  0000 L CNN
 F 1 "2.2uF" H 3065 4205 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 2988 4100 50  0001 C CNN
 F 3 "~" H 2950 4250 50  0001 C CNN
+F 4 "CAP CER 2.2UF 10V X5R 0603" H 2950 4250 50  0001 C CNN "Description"
+F 5 "Kemet" H 2950 4250 50  0001 C CNN "Manufacturer_Name"
+F 6 "C0603C225K8PACTU" H 2950 4250 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2950 4250
 	1    0    0    -1  
 $EndComp
@@ -529,6 +544,7 @@ F 0 "C29" H 6015 4246 50  0000 L CNN
 F 1 "1uF" H 6015 4155 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 5938 4050 50  0001 C CNN
 F 3 "~" H 5900 4200 50  0001 C CNN
+F 4 "GENERIC-CAP-0603-1uF" H 5900 4200 50  0001 C CNN "Manufacturer_Part_Number"
 	1    5900 4200
 	1    0    0    -1  
 $EndComp
@@ -558,6 +574,9 @@ F 0 "U4" H 5350 4517 50  0000 C CNN
 F 1 "TCR2EF11" H 5350 4426 50  0000 C CNN
 F 2 "Package_TO_SOT_SMD:SOT-553" H 5350 3750 50  0001 C CNN
 F 3 "https://toshiba.semicon-storage.com/info/docget.jsp?did=13794&prodName=TCR2EF45" H 5100 4400 50  0001 C CNN
+F 4 "IC REG LINEAR 1.15V 200MA ESV" H 5350 4150 50  0001 C CNN "Description"
+F 5 "Toshiba" H 5350 4150 50  0001 C CNN "Manufacturer_Name"
+F 6 "TCR2EE115,LM(CT" H 5350 4150 50  0001 C CNN "Manufacturer_Part_Number"
 	1    5350 4150
 	1    0    0    -1  
 $EndComp
@@ -591,6 +610,7 @@ F 0 "C7" H 1750 1100 50  0000 L CNN
 F 1 "0.1u" H 1700 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 1738 850 50  0001 C CNN
 F 3 "~" H 1700 1000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 1700 1000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    1700 1000
 	1    0    0    -1  
 $EndComp
@@ -602,6 +622,7 @@ F 0 "C9" H 1950 1100 50  0000 L CNN
 F 1 "0.1u" H 1900 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 1938 850 50  0001 C CNN
 F 3 "~" H 1900 1000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 1900 1000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    1900 1000
 	1    0    0    -1  
 $EndComp
@@ -613,6 +634,7 @@ F 0 "C11" H 2150 1100 50  0000 L CNN
 F 1 "0.1u" H 2100 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2138 850 50  0001 C CNN
 F 3 "~" H 2100 1000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 2100 1000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2100 1000
 	1    0    0    -1  
 $EndComp
@@ -624,6 +646,7 @@ F 0 "C13" H 2350 1100 50  0000 L CNN
 F 1 "0.1u" H 2300 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2338 850 50  0001 C CNN
 F 3 "~" H 2300 1000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 2300 1000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2300 1000
 	1    0    0    -1  
 $EndComp
@@ -635,6 +658,7 @@ F 0 "C15" H 2550 1100 50  0000 L CNN
 F 1 "0.1u" H 2500 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2538 850 50  0001 C CNN
 F 3 "~" H 2500 1000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 2500 1000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2500 1000
 	1    0    0    -1  
 $EndComp
@@ -646,6 +670,7 @@ F 0 "C17" H 2750 1100 50  0000 L CNN
 F 1 "0.1u" H 2700 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2738 850 50  0001 C CNN
 F 3 "~" H 2700 1000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 2700 1000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2700 1000
 	1    0    0    -1  
 $EndComp
@@ -657,6 +682,9 @@ F 0 "C1" H 1100 1100 50  0000 L CNN
 F 1 "2.2uF" H 800 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 1088 850 50  0001 C CNN
 F 3 "~" H 1050 1000 50  0001 C CNN
+F 4 "CAP CER 2.2UF 10V X5R 0603" H 1050 1000 50  0001 C CNN "Description"
+F 5 "Kemet" H 1050 1000 50  0001 C CNN "Manufacturer_Name"
+F 6 "C0603C225K8PACTU" H 1050 1000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    1050 1000
 	1    0    0    -1  
 $EndComp
@@ -732,6 +760,9 @@ F 0 "C3" H 1300 1100 50  0000 L CNN
 F 1 "2.2uF" H 1250 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 1288 850 50  0001 C CNN
 F 3 "~" H 1250 1000 50  0001 C CNN
+F 4 "CAP CER 2.2UF 10V X5R 0603" H 1250 1000 50  0001 C CNN "Description"
+F 5 "Kemet" H 1250 1000 50  0001 C CNN "Manufacturer_Name"
+F 6 "C0603C225K8PACTU" H 1250 1000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    1250 1000
 	1    0    0    -1  
 $EndComp
@@ -770,6 +801,9 @@ F 0 "C4" H 1300 2100 50  0000 L CNN
 F 1 "2.2uF" H 1250 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 1288 1850 50  0001 C CNN
 F 3 "~" H 1250 2000 50  0001 C CNN
+F 4 "CAP CER 2.2UF 10V X5R 0603" H 1250 2000 50  0001 C CNN "Description"
+F 5 "Kemet" H 1250 2000 50  0001 C CNN "Manufacturer_Name"
+F 6 "C0603C225K8PACTU" H 1250 2000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    1250 2000
 	1    0    0    -1  
 $EndComp
@@ -834,6 +868,9 @@ F 0 "C2" H 1100 2100 50  0000 L CNN
 F 1 "2.2uF" H 800 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 1088 1850 50  0001 C CNN
 F 3 "~" H 1050 2000 50  0001 C CNN
+F 4 "CAP CER 2.2UF 10V X5R 0603" H 1050 2000 50  0001 C CNN "Description"
+F 5 "Kemet" H 1050 2000 50  0001 C CNN "Manufacturer_Name"
+F 6 "C0603C225K8PACTU" H 1050 2000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    1050 2000
 	1    0    0    -1  
 $EndComp
@@ -845,6 +882,7 @@ F 0 "C18" H 2750 2100 50  0000 L CNN
 F 1 "0.1u" H 2700 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2738 1850 50  0001 C CNN
 F 3 "~" H 2700 2000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 2700 2000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2700 2000
 	1    0    0    -1  
 $EndComp
@@ -856,6 +894,7 @@ F 0 "C16" H 2550 2100 50  0000 L CNN
 F 1 "0.1u" H 2500 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2538 1850 50  0001 C CNN
 F 3 "~" H 2500 2000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 2500 2000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2500 2000
 	1    0    0    -1  
 $EndComp
@@ -867,6 +906,7 @@ F 0 "C14" H 2350 2100 50  0000 L CNN
 F 1 "0.1u" H 2300 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2338 1850 50  0001 C CNN
 F 3 "~" H 2300 2000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 2300 2000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2300 2000
 	1    0    0    -1  
 $EndComp
@@ -878,6 +918,7 @@ F 0 "C12" H 2150 2100 50  0000 L CNN
 F 1 "0.1u" H 2100 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2138 1850 50  0001 C CNN
 F 3 "~" H 2100 2000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 2100 2000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2100 2000
 	1    0    0    -1  
 $EndComp
@@ -889,6 +930,7 @@ F 0 "C10" H 1950 2100 50  0000 L CNN
 F 1 "0.1u" H 1900 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 1938 1850 50  0001 C CNN
 F 3 "~" H 1900 2000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 1900 2000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    1900 2000
 	1    0    0    -1  
 $EndComp
@@ -900,6 +942,7 @@ F 0 "C8" H 1750 2100 50  0000 L CNN
 F 1 "0.1u" H 1700 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 1738 1850 50  0001 C CNN
 F 3 "~" H 1700 2000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 1700 2000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    1700 2000
 	1    0    0    -1  
 $EndComp
@@ -934,6 +977,7 @@ F 0 "C22" H 3900 1100 50  0000 L CNN
 F 1 "1uF" H 3600 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 3888 850 50  0001 C CNN
 F 3 "~" H 3850 1000 50  0001 C CNN
+F 4 "GENERIC-CAP-0603-1uF" H 3850 1000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    3850 1000
 	1    0    0    -1  
 $EndComp
@@ -945,6 +989,7 @@ F 0 "C24" H 4250 1100 50  0000 L CNN
 F 1 "0.1u" H 4200 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 4238 850 50  0001 C CNN
 F 3 "~" H 4200 1000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 4200 1000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    4200 1000
 	1    0    0    -1  
 $EndComp
@@ -971,6 +1016,7 @@ F 0 "C26" H 4450 1100 50  0000 L CNN
 F 1 "0.1u" H 4400 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 4438 850 50  0001 C CNN
 F 3 "~" H 4400 1000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 4400 1000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    4400 1000
 	1    0    0    -1  
 $EndComp
@@ -1009,6 +1055,9 @@ F 0 "C21" H 3850 2100 50  0000 L CNN
 F 1 "2.2uF" H 3550 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 3838 1850 50  0001 C CNN
 F 3 "~" H 3800 2000 50  0001 C CNN
+F 4 "CAP CER 2.2UF 10V X5R 0603" H 3800 2000 50  0001 C CNN "Description"
+F 5 "Kemet" H 3800 2000 50  0001 C CNN "Manufacturer_Name"
+F 6 "C0603C225K8PACTU" H 3800 2000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    3800 2000
 	1    0    0    -1  
 $EndComp
@@ -1020,6 +1069,7 @@ F 0 "C23" H 4200 2100 50  0000 L CNN
 F 1 "0.1u" H 4150 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 4188 1850 50  0001 C CNN
 F 3 "~" H 4150 2000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 4150 2000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    4150 2000
 	1    0    0    -1  
 $EndComp
@@ -1035,6 +1085,7 @@ F 0 "C25" H 4400 2100 50  0000 L CNN
 F 1 "0.1u" H 4350 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 4388 1850 50  0001 C CNN
 F 3 "~" H 4350 2000 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 4350 2000 50  0001 C CNN "Manufacturer_Part_Number"
 	1    4350 2000
 	1    0    0    -1  
 $EndComp
@@ -1083,6 +1134,9 @@ F 0 "C52" H 2700 4550 50  0000 L CNN
 F 1 "470pF" H 2700 4350 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2688 4300 50  0001 C CNN
 F 3 "~" H 2650 4450 50  0001 C CNN
+F 4 "CAP CER 470PF 50V C0G/NP0 0402" H 2650 4450 50  0001 C CNN "Description"
+F 5 "Kemet" H 2650 4450 50  0001 C CNN "Manufacturer_Name"
+F 6 "C0402C471J5GACTU" H 2650 4450 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2650 4450
 	1    0    0    -1  
 $EndComp
@@ -1103,6 +1157,9 @@ F 0 "U3" H 2350 4542 50  0000 C CNN
 F 1 "MIC5219-3.3YM5" H 2350 4451 50  0000 C CNN
 F 2 "Package_TO_SOT_SMD:SOT-23-5" H 2350 4525 50  0001 C CNN
 F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/MIC5219-500mA-Peak-Output-LDO-Regulator-DS20006021A.pdf" H 2350 4200 50  0001 C CNN
+F 4 "IC REG LINEAR 3.3V 500MA SOT23-5" H 2350 4200 50  0001 C CNN "Description"
+F 5 "Microchip" H 2350 4200 50  0001 C CNN "Manufacturer_Name"
+F 6 "MIC5219-3.3YM5-TR" H 2350 4200 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2350 4200
 	1    0    0    -1  
 $EndComp

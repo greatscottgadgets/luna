@@ -1,5 +1,4 @@
 EESchema Schematic File Version 4
-LIBS:luna_rev0-cache
 EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
@@ -62,6 +61,9 @@ F 1 "S27KS0641" H 5400 5682 50  0000 C CNN
 F 2 "luna:BGA-24_5x5_6.0x8.0mm" H 6000 3950 50  0001 C CNN
 F 3 "" H 5400 3950 50  0001 C CNN
 F 4 "ANY" H 5400 4850 50  0001 C CNN "Source"
+F 5 "IC DRAM 64M PARALLEL 24BGA" H 5400 4850 50  0001 C CNN "Description"
+F 6 "Cypress Semiconductor" H 5400 4850 50  0001 C CNN "Manufacturer_Name"
+F 7 "S27KS0641DPBHI020" H 5400 4850 50  0001 C CNN "Manufacturer_Part_Number"
 	1    5400 4850
 	-1   0    0    -1  
 $EndComp

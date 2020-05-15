@@ -1,5 +1,4 @@
 EESchema Schematic File Version 4
-LIBS:luna_rev0-cache
 EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
@@ -31,19 +30,6 @@ Wire Wire Line
 	7300 2300 7500 2300
 Wire Wire Line
 	7000 2300 6800 2300
-$Comp
-L Device:R R?
-U 1 1 5DD9AF21
-P 7150 2300
-AR Path="/5DCD9772/5DD9AF21" Ref="R?"  Part="1" 
-AR Path="/5DD754D4/5DD9AF21" Ref="R21"  Part="1" 
-F 0 "R21" V 7100 2050 50  0000 C CNN
-F 1 "20k" V 7150 2300 50  0000 C CNN
-F 2 "Resistor_SMD:R_0402_1005Metric" V 7080 2300 50  0001 C CNN
-F 3 "~" H 7150 2300 50  0001 C CNN
-	1    7150 2300
-	0    1    1    0   
-$EndComp
 Wire Wire Line
 	7450 2850 7250 2850
 $Comp
@@ -61,19 +47,6 @@ F 3 "" H 7450 2850 50  0001 C CNN
 $EndComp
 Wire Wire Line
 	6950 2850 6800 2850
-$Comp
-L Device:R R?
-U 1 1 5DD9AF13
-P 7100 2850
-AR Path="/5DCD9772/5DD9AF13" Ref="R?"  Part="1" 
-AR Path="/5DD754D4/5DD9AF13" Ref="R20"  Part="1" 
-F 0 "R20" V 7050 2650 50  0000 C CNN
-F 1 "8.06k+1%" V 7000 3000 50  0000 C CNN
-F 2 "Resistor_SMD:R_0402_1005Metric" V 7030 2850 50  0001 C CNN
-F 3 "~" H 7100 2850 50  0001 C CNN
-	1    7100 2850
-	0    1    1    0   
-$EndComp
 Wire Wire Line
 	7200 2000 6800 2000
 Wire Wire Line
@@ -157,19 +130,6 @@ F 3 "" H 7650 3950 50  0001 C CNN
 	1    7650 3950
 	1    0    0    -1  
 $EndComp
-$Comp
-L Device:C C?
-U 1 1 5DD9AED1
-P 7650 3650
-AR Path="/5DCD9772/5DD9AED1" Ref="C?"  Part="1" 
-AR Path="/5DD754D4/5DD9AED1" Ref="C50"  Part="1" 
-F 0 "C50" H 7765 3695 50  0000 L CNN
-F 1 "1uF" H 7765 3605 50  0000 L CNN
-F 2 "Capacitor_SMD:C_0603_1608Metric" H 7688 3500 50  0001 C CNN
-F 3 "~" H 7650 3650 50  0001 C CNN
-	1    7650 3650
-	1    0    0    -1  
-$EndComp
 Wire Wire Line
 	7200 3950 7200 3800
 $Comp
@@ -183,19 +143,6 @@ F 1 "GND" H 7204 3778 50  0000 C CNN
 F 2 "" H 7200 3950 50  0001 C CNN
 F 3 "" H 7200 3950 50  0001 C CNN
 	1    7200 3950
-	1    0    0    -1  
-$EndComp
-$Comp
-L Device:C C?
-U 1 1 5DD9AEC3
-P 7200 3650
-AR Path="/5DCD9772/5DD9AEC3" Ref="C?"  Part="1" 
-AR Path="/5DD754D4/5DD9AEC3" Ref="C48"  Part="1" 
-F 0 "C48" H 7315 3695 50  0000 L CNN
-F 1 "1uF" H 7315 3605 50  0000 L CNN
-F 2 "Capacitor_SMD:C_0603_1608Metric" H 7238 3500 50  0001 C CNN
-F 3 "~" H 7200 3650 50  0001 C CNN
-	1    7200 3650
 	1    0    0    -1  
 $EndComp
 Text HLabel 8100 3400 2    50   Output ~ 0
@@ -261,32 +208,6 @@ F 3 "" H 1950 1100 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 $Comp
-L Device:C C?
-U 1 1 5DEDB896
-P 6750 5200
-AR Path="/5DCD9772/5DEDB896" Ref="C?"  Part="1" 
-AR Path="/5DD754D4/5DEDB896" Ref="C47"  Part="1" 
-F 0 "C47" H 6865 5245 50  0000 L CNN
-F 1 "0.1uF" H 6865 5155 50  0000 L CNN
-F 2 "Capacitor_SMD:C_0402_1005Metric" H 6788 5050 50  0001 C CNN
-F 3 "~" H 6750 5200 50  0001 C CNN
-	1    6750 5200
-	1    0    0    -1  
-$EndComp
-$Comp
-L Device:C C?
-U 1 1 5DEDB89C
-P 7250 5200
-AR Path="/5DCD9772/5DEDB89C" Ref="C?"  Part="1" 
-AR Path="/5DD754D4/5DEDB89C" Ref="C49"  Part="1" 
-F 0 "C49" H 7365 5245 50  0000 L CNN
-F 1 "0.1uF" H 7365 5155 50  0000 L CNN
-F 2 "Capacitor_SMD:C_0402_1005Metric" H 7288 5050 50  0001 C CNN
-F 3 "~" H 7250 5200 50  0001 C CNN
-	1    7250 5200
-	1    0    0    -1  
-$EndComp
-$Comp
 L power:+5V #PWR?
 U 1 1 5DEDB8A2
 P 6750 4950
@@ -346,17 +267,6 @@ Wire Wire Line
 	6750 5350 6750 5450
 Wire Wire Line
 	7250 5350 7250 5450
-$Comp
-L Device:R R24
-U 1 1 5E14D51C
-P 5000 3350
-F 0 "R24" V 5100 3350 50  0000 C CNN
-F 1 "10K" V 5000 3350 50  0000 C CNN
-F 2 "Resistor_SMD:R_0402_1005Metric" V 4930 3350 50  0001 C CNN
-F 3 "~" H 5000 3350 50  0001 C CNN
-	1    5000 3350
-	0    1    1    0   
-$EndComp
 Wire Wire Line
 	5150 3350 5250 3350
 Connection ~ 5250 3350
@@ -425,19 +335,6 @@ Entry Wire Line
 	4350 5350 4450 5450
 Entry Wire Line
 	4350 5450 4450 5550
-$Comp
-L usb:USB3343 U?
-U 1 1 5DD9AEA4
-P 5500 1800
-AR Path="/5DCD9772/5DD9AEA4" Ref="U?"  Part="1" 
-AR Path="/5DD754D4/5DD9AEA4" Ref="U11"  Part="1" 
-F 0 "U11" H 6100 1963 50  0000 C CNN
-F 1 "USB3343" H 6100 1873 50  0000 C CNN
-F 2 "Package_DFN_QFN:VQFN-24-1EP_4x4mm_P0.5mm_EP2.45x2.45mm" H 5500 1800 50  0001 C CNN
-F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/334x.pdf" H 5500 1800 50  0001 C CNN
-	1    5500 1800
-	1    0    0    -1  
-$EndComp
 Wire Wire Line
 	5500 1900 4550 1900
 Wire Wire Line
@@ -518,6 +415,134 @@ Entry Wire Line
 	4350 3650 4450 3750
 Text Label 2850 1900 0    50   ~ 0
 HOST_DATA7
+Wire Wire Line
+	2700 4850 4350 4850
+Entry Wire Line
+	4350 4850 4450 4950
+Entry Wire Line
+	4350 4850 4450 4950
+Text Label 2850 4850 0    50   ~ 0
+HOST_NXT
+Wire Wire Line
+	7650 3400 8100 3400
+Wire Wire Line
+	6800 3500 7200 3500
+Wire Bus Line
+	4450 1650 4450 5800
+$Comp
+L Device:R R?
+U 1 1 5DD9AF21
+P 7150 2300
+AR Path="/5DCD9772/5DD9AF21" Ref="R?"  Part="1" 
+AR Path="/5DD754D4/5DD9AF21" Ref="R21"  Part="1" 
+F 0 "R21" V 7100 2050 50  0000 C CNN
+F 1 "20K" V 7150 2300 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 7080 2300 50  0001 C CNN
+F 3 "~" H 7150 2300 50  0001 C CNN
+F 4 "RES 20K OHM 0.1% 1/16W 0402" H 7150 2300 50  0001 C CNN "Description"
+F 5 "TE Connectivity" H 7150 2300 50  0001 C CNN "Manufacturer_Name"
+F 6 "RP73PF1E20KBTDF" H 7150 2300 50  0001 C CNN "Manufacturer_Part_Number"
+	1    7150 2300
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R R?
+U 1 1 5DD9AF13
+P 7100 2850
+AR Path="/5DCD9772/5DD9AF13" Ref="R?"  Part="1" 
+AR Path="/5DD754D4/5DD9AF13" Ref="R20"  Part="1" 
+F 0 "R20" V 7050 2650 50  0000 C CNN
+F 1 "8.06k+1%" V 7000 3000 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 7030 2850 50  0001 C CNN
+F 3 "~" H 7100 2850 50  0001 C CNN
+F 4 "RES SMD 8.06K OHM 1% 1/10W 0402" H 7100 2850 50  0001 C CNN "Description"
+F 5 "Panasonic" H 7100 2850 50  0001 C CNN "Manufacturer_Name"
+F 6 "ERJ-2RKF8061X" H 7100 2850 50  0001 C CNN "Manufacturer_Part_Number"
+	1    7100 2850
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DD9AED1
+P 7650 3650
+AR Path="/5DCD9772/5DD9AED1" Ref="C?"  Part="1" 
+AR Path="/5DD754D4/5DD9AED1" Ref="C50"  Part="1" 
+F 0 "C50" H 7765 3695 50  0000 L CNN
+F 1 "1uF" H 7765 3605 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0603_1608Metric" H 7688 3500 50  0001 C CNN
+F 3 "~" H 7650 3650 50  0001 C CNN
+F 4 "GENERIC-CAP-0603-1uF" H 7650 3650 50  0001 C CNN "Manufacturer_Part_Number"
+	1    7650 3650
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DD9AEC3
+P 7200 3650
+AR Path="/5DCD9772/5DD9AEC3" Ref="C?"  Part="1" 
+AR Path="/5DD754D4/5DD9AEC3" Ref="C48"  Part="1" 
+F 0 "C48" H 7315 3695 50  0000 L CNN
+F 1 "1uF" H 7315 3605 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0603_1608Metric" H 7238 3500 50  0001 C CNN
+F 3 "~" H 7200 3650 50  0001 C CNN
+F 4 "GENERIC-CAP-0603-1uF" H 7200 3650 50  0001 C CNN "Manufacturer_Part_Number"
+	1    7200 3650
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DEDB896
+P 6750 5200
+AR Path="/5DCD9772/5DEDB896" Ref="C?"  Part="1" 
+AR Path="/5DD754D4/5DEDB896" Ref="C47"  Part="1" 
+F 0 "C47" H 6865 5245 50  0000 L CNN
+F 1 "0.1uF" H 6865 5155 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 6788 5050 50  0001 C CNN
+F 3 "~" H 6750 5200 50  0001 C CNN
+	1    6750 5200
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5DEDB89C
+P 7250 5200
+AR Path="/5DCD9772/5DEDB89C" Ref="C?"  Part="1" 
+AR Path="/5DD754D4/5DEDB89C" Ref="C49"  Part="1" 
+F 0 "C49" H 7365 5245 50  0000 L CNN
+F 1 "0.1uF" H 7365 5155 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 7288 5050 50  0001 C CNN
+F 3 "~" H 7250 5200 50  0001 C CNN
+	1    7250 5200
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R R24
+U 1 1 5E14D51C
+P 5000 3350
+F 0 "R24" V 5100 3350 50  0000 C CNN
+F 1 "10K" V 5000 3350 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 4930 3350 50  0001 C CNN
+F 3 "~" H 5000 3350 50  0001 C CNN
+F 4 "GENERIC-RES-0402-10K" H 5000 3350 50  0001 C CNN "Manufacturer_Part_Number"
+	1    5000 3350
+	0    1    1    0   
+$EndComp
+$Comp
+L usb:USB3343 U?
+U 1 1 5DD9AEA4
+P 5500 1800
+AR Path="/5DCD9772/5DD9AEA4" Ref="U?"  Part="1" 
+AR Path="/5DD754D4/5DD9AEA4" Ref="U11"  Part="1" 
+F 0 "U11" H 6100 1963 50  0000 C CNN
+F 1 "USB3343" H 6100 1873 50  0000 C CNN
+F 2 "Package_DFN_QFN:VQFN-24-1EP_4x4mm_P0.5mm_EP2.45x2.45mm" H 5500 1800 50  0001 C CNN
+F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/334x.pdf" H 5500 1800 50  0001 C CNN
+F 4 "IC TRANSCEIVER 1/1 24QFN" H 5500 1800 50  0001 C CNN "Description"
+F 5 "Microchip" H 5500 1800 50  0001 C CNN "Manufacturer_Name"
+F 6 "USB3343-CP" H 5500 1800 50  0001 C CNN "Manufacturer_Part_Number"
+	1    5500 1800
+	1    0    0    -1  
+$EndComp
 $Comp
 L fpgas_and_processors:ECP5-BGA256 IC1
 U 7 1 5DD79283
@@ -535,18 +560,4 @@ F 9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" H -1
 	7    1700 1500
 	1    0    0    -1  
 $EndComp
-Wire Wire Line
-	2700 4850 4350 4850
-Entry Wire Line
-	4350 4850 4450 4950
-Entry Wire Line
-	4350 4850 4450 4950
-Text Label 2850 4850 0    50   ~ 0
-HOST_NXT
-Wire Wire Line
-	7650 3400 8100 3400
-Wire Wire Line
-	6800 3500 7200 3500
-Wire Bus Line
-	4450 1650 4450 5800
 $EndSCHEMATC

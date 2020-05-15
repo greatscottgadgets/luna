@@ -1,5 +1,4 @@
 EESchema Schematic File Version 4
-LIBS:luna_rev0-cache
 EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
@@ -22,6 +21,9 @@ F 0 "U8" H 6050 2513 50  0000 C CNN
 F 1 "USB3343" H 6050 2423 50  0000 C CNN
 F 2 "Package_DFN_QFN:VQFN-24-1EP_4x4mm_P0.5mm_EP2.45x2.45mm" H 5450 2350 50  0001 C CNN
 F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/334x.pdf" H 5450 2350 50  0001 C CNN
+F 4 "IC TRANSCEIVER 1/1 24QFN" H 5450 2350 50  0001 C CNN "Description"
+F 5 "Microchip" H 5450 2350 50  0001 C CNN "Manufacturer_Name"
+F 6 "USB3343-CP" H 5450 2350 50  0001 C CNN "Manufacturer_Part_Number"
 	1    5450 2350
 	1    0    0    -1  
 $EndComp
@@ -125,6 +127,7 @@ F 0 "C36" H 7265 4245 50  0000 L CNN
 F 1 "1uF" H 7265 4155 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 7188 4050 50  0001 C CNN
 F 3 "~" H 7150 4200 50  0001 C CNN
+F 4 "GENERIC-CAP-0603-1uF" H 7150 4200 50  0001 C CNN "Manufacturer_Part_Number"
 	1    7150 4200
 	1    0    0    -1  
 $EndComp
@@ -149,6 +152,7 @@ F 0 "C37" H 7715 4245 50  0000 L CNN
 F 1 "1uF" H 7715 4155 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 7638 4050 50  0001 C CNN
 F 3 "~" H 7600 4200 50  0001 C CNN
+F 4 "GENERIC-CAP-0603-1uF" H 7600 4200 50  0001 C CNN "Manufacturer_Part_Number"
 	1    7600 4200
 	1    0    0    -1  
 $EndComp
@@ -235,6 +239,9 @@ F 0 "R16" V 7000 3200 50  0000 C CNN
 F 1 "8.06k+1%" V 6950 3550 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 6980 3400 50  0001 C CNN
 F 3 "~" H 7050 3400 50  0001 C CNN
+F 4 "RES SMD 8.06K OHM 1% 1/10W 0402" H 7050 3400 50  0001 C CNN "Description"
+F 5 "Panasonic" H 7050 3400 50  0001 C CNN "Manufacturer_Name"
+F 6 "ERJ-2RKF8061X" H 7050 3400 50  0001 C CNN "Manufacturer_Part_Number"
 	1    7050 3400
 	0    1    1    0   
 $EndComp
@@ -258,9 +265,12 @@ L Device:R R17
 U 1 1 5DD3B600
 P 7100 2850
 F 0 "R17" V 7050 2650 50  0000 C CNN
-F 1 "20k" V 7100 2850 50  0000 C CNN
+F 1 "20K" V 7100 2850 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 7030 2850 50  0001 C CNN
 F 3 "~" H 7100 2850 50  0001 C CNN
+F 4 "RES 20K OHM 0.1% 1/16W 0402" H 7100 2850 50  0001 C CNN "Description"
+F 5 "TE Connectivity" H 7100 2850 50  0001 C CNN "Manufacturer_Name"
+F 6 "RP73PF1E20KBTDF" H 7100 2850 50  0001 C CNN "Manufacturer_Part_Number"
 	1    7100 2850
 	0    1    1    0   
 $EndComp
@@ -369,6 +379,7 @@ F 0 "R15" V 2850 5350 50  0000 C CNN
 F 1 "1K" V 2950 5350 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 2880 5350 50  0001 C CNN
 F 3 "~" H 2950 5350 50  0001 C CNN
+F 4 "GENERIC-RES-0402-1K" H 2950 5350 50  0001 C CNN "Manufacturer_Part_Number"
 	1    2950 5350
 	0    1    1    0   
 $EndComp
@@ -390,6 +401,7 @@ F 0 "R22" V 5000 4600 50  0000 C CNN
 F 1 "15K" V 4900 4600 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 4830 4600 50  0001 C CNN
 F 3 "~" H 4900 4600 50  0001 C CNN
+F 4 "GENERIC-RES-0402-15K" H 4900 4600 50  0001 C CNN "Manufacturer_Part_Number"
 	1    4900 4600
 	-1   0    0    1   
 $EndComp
