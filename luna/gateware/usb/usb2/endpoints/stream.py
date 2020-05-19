@@ -7,10 +7,13 @@ The endpoint interfaces in this module provide endpoint interfaces suitable for
 connecting streams to USB endpoints.
 """
 
-from nmigen         import Elaboratable, Module
+from nmigen         import Elaboratable, Module, Signal
+from nmigen.hdl.ast import Rose
+
 from ..endpoint     import EndpointInterface
 from ...stream      import StreamInterface
 from ..transfer     import USBInTransferManager
+from ....memory     import TransactionalizedFIFO
 
 
 class USBStreamInEndpoint(Elaboratable):
@@ -21,6 +24,9 @@ class USBStreamInEndpoint(Elaboratable):
     This endpoint interface will automatically generate ZLPs when a stream packet would end without
     a short data packet. If the stream's ``last`` signal is tied to zero, then a continuous stream of
     maximum-length-packets will be sent with no inserted ZLPs.
+
+    This implementation is double buffered; and can store a single packets worth of data while transmitting
+    a second packet.
 
 
     Attributes
@@ -81,5 +87,141 @@ class USBStreamInEndpoint(Elaboratable):
             tx_manager.handshakes_out   .connect(interface.handshakes_out),
             interface.handshakes_in     .connect(tx_manager.handshakes_in)
         ]
+
+        return m
+
+
+
+
+class USBStreamOutEndpoint(Elaboratable):
+    """ Endpoint interface that receives data from the host, and produces a simple data stream.
+
+    This interface is suitable for a single bulk or interrupt endpoint.
+
+
+    Attributes
+    ----------
+    stream: StreamInterface, output stream
+        Full-featured stream interface that carries the data we've received from the host.
+    interface: EndpointInterface
+        Communications link to our USB device.
+
+    Parameters
+    ----------
+    endpoint_number: int
+        The endpoint number (not address) this endpoint should respond to.
+    max_packet_size: int
+        The maximum packet size for this endpoint. If this there isn't `max_packet_size` space in
+        the endpoint buffer, this endpoint will NAK (or participate in the PING protocol.)
+    buffer_size: int, optional
+        The total amount of data we'll keep in the buffer; typically two max-packet-sizes or more.
+        Defaults to twice the maximum packet size.
+    """
+
+
+    def __init__(self, *, endpoint_number, max_packet_size, buffer_size=None):
+        self._endpoint_number = endpoint_number
+        self._max_packet_size = max_packet_size
+        self._buffer_size = buffer_size if (buffer_size is not None) else (self._max_packet_size * 2)
+
+        #
+        # I/O port
+        #
+        self.stream    = StreamInterface()
+        self.interface = EndpointInterface()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        stream    = self.stream
+        interface = self.interface
+        tokenizer = interface.tokenizer
+
+        #
+        # Internal state.
+        #
+
+        # Stores whether this is the first byte of a transfer. True if the previous byte had its `last` bit set.
+        is_first_byte = Signal(reset=1)
+
+        # Stores the data toggle value we expect.
+        expected_data_toggle = Signal()
+
+        #
+        # Receiver logic.
+        #
+
+        # Create a Rx FIFO.
+        m.submodules.fifo = fifo = TransactionalizedFIFO(width=9, depth=self._buffer_size, name="rx_fifo", domain="usb")
+
+        # Generate our `first` bit from the most recently transmitted bit.
+        # Essentially, if the most recently valid byte was accompanied by an asserted `last`, the next byte
+        # should have `first` asserted.
+        with m.If(stream.valid & stream.ready):
+            m.d.usb += is_first_byte.eq(stream.last)
+
+        #
+        # Create some basic conditionals that will help us make decisions.
+        #
+
+        endpoint_number_matches  = (tokenizer.endpoint == self._endpoint_number)
+        targeting_endpoint       = endpoint_number_matches & tokenizer.is_out
+
+        expected_pid_match       = (interface.rx_pid_toggle == expected_data_toggle)
+        sufficient_space         = (fifo.space_available >= self._max_packet_size)
+
+        ping_response_requested  = endpoint_number_matches & tokenizer.is_ping & tokenizer.ready_for_response
+        data_response_requested  = targeting_endpoint & tokenizer.is_out & interface.rx_ready_for_response
+
+        okay_to_receive          = targeting_endpoint & sufficient_space & expected_pid_match
+        should_skip              = targeting_endpoint & ~expected_pid_match
+
+        m.d.comb += [
+
+            # We'll always populate our FIFO directly from the receive stream.
+            fifo.write_data     .eq(interface.rx.payload),
+            fifo.write_en       .eq(okay_to_receive & interface.rx.next & interface.rx.valid),
+
+            # We'll keep data if our packet finishes with a valid CRC; and discard it otherwise.
+            fifo.write_commit   .eq(targeting_endpoint & interface.rx_complete),
+            fifo.write_discard  .eq(targeting_endpoint & interface.rx_invalid),
+
+            # We'll ACK each packet if it's received correctly; _or_ if we skipped the pac
+            # due to a PID sequence mismatch. If we get a PID sequence mismatch, we assume that
+            # we missed a previous ACK from the host; and ACK without accepting data [USB 2.0: 8.6.3].
+            interface.handshakes_out.ack  .eq(
+                (data_response_requested & okay_to_receive) |
+                (ping_response_requested & okay_to_receive) |
+                (data_response_requested & should_skip)
+            ),
+
+            # We'll NAK any time we want to accept a packet, but we don't have enough room.
+            interface.handshakes_out.nak  .eq(
+                (data_response_requested & ~okay_to_receive & ~should_skip) |
+                (ping_response_requested & ~okay_to_receive)
+            ),
+
+            # Our stream data always comes directly out of the FIFO; and is valid
+            # henever our FIFO actually has data for us to read.
+            stream.valid      .eq(~fifo.empty),
+            stream.payload    .eq(fifo.read_data),
+
+            # Our `last` bit comes directly from the FIFO; and we know a `first` bit immediately
+            # follows a `last` one.
+            stream.first      .eq(is_first_byte),
+
+            # TODO: generate a valid ``last`` strobe
+            stream.last       .eq(0),
+
+            # Move to the next byte in the FIFO whenever our stream is advaced.
+            fifo.read_en      .eq(stream.ready),
+            fifo.read_commit  .eq(1)
+        ]
+
+        # We'll toggle our DATA PID each time we issue an ACK to the host [USB 2.0: 8.6.2].
+        with m.If(data_response_requested & okay_to_receive):
+            m.d.usb += expected_data_toggle.eq(~expected_data_toggle)
+
 
         return m

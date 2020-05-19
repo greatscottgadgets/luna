@@ -7,7 +7,7 @@
 from .gateware.usb.usb2.device           import USBDevice
 from .gateware.usb.usb2.endpoint         import EndpointInterface
 from .gateware.usb.usb2.request          import RequestHandlerInterface
-from .gateware.usb.usb2.endpoints.stream import USBStreamInEndpoint
+from .gateware.usb.usb2.endpoints.stream import USBStreamInEndpoint, USBStreamOutEndpoint
 
 
 __all__ = [

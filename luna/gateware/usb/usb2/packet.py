@@ -22,8 +22,8 @@ from ...test           import LunaGatewareTestCase, usb_domain_test_case
 
 
 class HandshakeExchangeInterface(Record):
-    """ Record that carries handshakes detected -or- generated between modules. 
-    
+    """ Record that carries handshakes detected -or- generated between modules.
+
     Attributes
     ----------
     ack: Signal()
@@ -81,7 +81,7 @@ class TokenDetectorInterface(Record):
 
     Attributes
     ----------
-    pid: Signal(4), detector output 
+    pid: Signal(4), detector output
         The Packet ID of the most recent token.
     address: Signal(7), detector output
         The address associated with the relevant token.
@@ -91,7 +91,7 @@ class TokenDetectorInterface(Record):
     new_token: Signal(), detector output
         Strobe asserted for a single cycle when a new token packet has been received.
     ready_for_response: Signal(), detector output
-        Strobe asserted for a single cycle one inter-packet delay after a token packet is complete. 
+        Strobe asserted for a single cycle one inter-packet delay after a token packet is complete.
         Indicates when the token packet can be responded to.
 
     frame: Signal(11), detector output
@@ -105,6 +105,8 @@ class TokenDetectorInterface(Record):
         High iff the current token is an OUT.
     is_setup: Signal(), detector output
         High iff the current token is a SETUP.
+    is_ping: Signal(), detector output
+        High iff the current token is a PING.
     """
 
     def __init__(self):
@@ -121,6 +123,7 @@ class TokenDetectorInterface(Record):
             ('is_in',              1, DIR_FANOUT),
             ('is_out',             1, DIR_FANOUT),
             ('is_setup',           1, DIR_FANOUT),
+            ('is_ping',            1, DIR_FANOUT),
         ])
 
 
@@ -329,7 +332,8 @@ class USBTokenDetector(Elaboratable):
         m.d.comb += [
             self.interface.is_in     .eq(self.interface.pid == USBPacketID.IN),
             self.interface.is_out    .eq(self.interface.pid == USBPacketID.OUT),
-            self.interface.is_setup  .eq(self.interface.pid == USBPacketID.SETUP)
+            self.interface.is_setup  .eq(self.interface.pid == USBPacketID.SETUP),
+            self.interface.is_ping   .eq(self.interface.pid == USBPacketID.PING)
         ]
 
         # Keep our strobes un-asserted unless otherwise specified.
@@ -353,11 +357,14 @@ class USBTokenDetector(Elaboratable):
                     m.next = "IDLE"
 
                 with m.Elif(self.utmi.rx_valid):
-                    is_token     = (self.utmi.rx_data[0:2] == self.TOKEN_SUFFIX)
-                    is_valid_pid = (self.utmi.rx_data[0:4] == ~self.utmi.rx_data[4:8])
+                    is_normal_token = (self.utmi.rx_data[0:2] == self.TOKEN_SUFFIX)
+                    is_ping_token   = (self.utmi.rx_data[0:4] == USBPacketID.PING)
+                    is_valid_pid    = (self.utmi.rx_data[0:4] == ~self.utmi.rx_data[4:8])
 
                     # If we have a valid token, move to capture it.
-                    with m.If(is_token & is_valid_pid):
+                    # Note that we have two categories of token we'll accept: normal tokens (IN, OUT, SETUP, SOF),
+                    # and our SPECIAL category tokens (e.g. PING), which have a separate PID suffix.
+                    with m.If((is_normal_token | is_ping_token) & is_valid_pid):
                         m.d.usb += current_pid.eq(self.utmi.rx_data)
                         m.next = "READ_TOKEN_0"
 
@@ -795,7 +802,7 @@ class USBDataPacketReceiver(Elaboratable):
     packet_complete: Signal(), output
         Strobe that pulses high when a new packet is delivered with a valid CRC.
     crc_mismatch: Signal(), output
-        Strobe that pulses high when the given packet has a CRC mismatch; and thus the data 
+        Strobe that pulses high when the given packet has a CRC mismatch; and thus the data
         received this far should be discarded.
     ready_for_response: Signal(), output
         Strobe that indicates that an inter-packet delay has passed since :attr:`packet_complete`,
@@ -1341,8 +1348,8 @@ class USBDataPacketGenerator(Elaboratable):
     ----------
 
     data_pid: Signal(2), input
-        The data packet number to use. The potential PIDS are: 0 = DATA0, 1 = DATA1, 
-        2 = DATA2, 3 = MDATA; the interface is designed so that most endpoints can tie the MSb to 
+        The data packet number to use. The potential PIDS are: 0 = DATA0, 1 = DATA1,
+        2 = DATA2, 3 = MDATA; the interface is designed so that most endpoints can tie the MSb to
         zero and then perform PID toggling by toggling the LSb.
 
     crc: DataCRCInterface
@@ -1792,7 +1799,7 @@ class USBInterpacketTimer(Elaboratable):
     Attributes
     ----------
     speed: Signal(2), input
-        The device's current operating speed. Should be a USBSpeed enumeration value -- 
+        The device's current operating speed. Should be a USBSpeed enumeration value --
         0 for high, 1 for full, 2 for low.
 
     """

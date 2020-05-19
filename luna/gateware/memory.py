@@ -22,8 +22,8 @@ class TransactionalizedFIFO(Elaboratable):
     which makes it ideal for USB transmission or receipt; where the protocol can require blocks of data
     to be retransmitted or ignored.
 
-    I/O Port
-    --------
+    Attributes
+    ----------
     read_data: Signal(width), output
         Contains the next byte in the FIFO. Valid only when :attr:``empty`` is false.
     read_en: Signal(), input

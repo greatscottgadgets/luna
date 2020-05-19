@@ -51,29 +51,29 @@ class USBDevice(Elaboratable):
         The UTMI or ULPI PHY connection to be used for communications.
 
     handle_clocking: bool, Optional
-        True iff we should attempt to connect up the `usb` clock domain to the PHY 
+        True iff we should attempt to connect up the `usb` clock domain to the PHY
         automatically based on the clk signals's I/O direction. This option may not work
         for non-simple connections; in which case you will need to connect the clock signal
         yourself.
-    
+
 
     Attributes
     ----------
 
     connect: Signal(), input
         Held high to keep the current USB device connected; or held low to disconnect.
-    low_speed_only: Signal(), input 
+    low_speed_only: Signal(), input
         If high, the device will operate at low speed.
     full_speed_only: Signal(), input
         If high, the device will be prohibited from operating at high speed.
 
-    frame_number: Signal(11), output 
+    frame_number: Signal(11), output
         The current USB frame number.
     sof_detected: Signal(), output
         Pulses for one cycle each time a SOF is detected; and thus our frame number has changed.
 
     # State signals.
-    suspended: Signal(), output 
+    suspended: Signal(), output
         High when the device is in USB suspend. This can be (and by the spec must be) used to trigger
         the device to enter lower-power states.
 
@@ -125,12 +125,12 @@ class USBDevice(Elaboratable):
 
 
     def add_endpoint(self, endpoint):
-        """ Adds an endpoint interface to the device. 
-        
+        """ Adds an endpoint interface to the device.
+
         Parameters
         ----------
         endpoint: Elaborateable
-            The endpoint interface to be added. Can be any piece of gateware with a 
+            The endpoint interface to be added. Can be any piece of gateware with a
             :class:`EndpointInterface` attribute called ``interface``.
         """
         self._endpoints.append(endpoint)
@@ -273,6 +273,7 @@ class USBDevice(Elaboratable):
             endpoint_collection.rx_complete            .eq(receiver.packet_complete),
             endpoint_collection.rx_invalid             .eq(receiver.crc_mismatch),
             endpoint_collection.rx_ready_for_response  .eq(receiver.ready_for_response),
+            endpoint_collection.rx_pid_toggle          .eq(receiver.active_pid[3]),
 
             # Transmit interface.
             endpoint_collection.tx                     .attach(transmitter.stream),
@@ -529,7 +530,7 @@ try:
             #
             # I/O port
             #
-            self.connect = Signal()
+            self.connect = Signal(reset=1)
 
 
             #

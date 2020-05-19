@@ -35,6 +35,8 @@ class EndpointInterface:
         Indicates that an interpacket delay has passed after an `rx_complete` strobe.
     rx_invalid: Signal(), input to endpoint
         Strobe that indicates that the concluding rx-stream was invalid (CRC check failed).
+    rx_pid_toggle: Signal(), input to endpoint
+        Value for the data PID toggle; 0 indicates we're receiving a DATA0; 1 indicates Data1.
 
     tx: USBInStreamInterface, output stream from endpoint
         Transmit interface for this endpoint.
@@ -89,6 +91,7 @@ class EndpointInterface:
         self.rx_complete           = Signal()
         self.rx_ready_for_response = Signal()
         self.rx_invalid            = Signal()
+        self.rx_pid_toggle         = Signal()
 
         self.tx                    = USBInStreamInterface()
         self.tx_pid_toggle         = Signal()
@@ -212,6 +215,7 @@ class USBEndpointMultiplexer(Elaboratable):
                 interface.rx_complete            .eq(shared.rx_complete),
                 interface.rx_ready_for_response  .eq(shared.rx_ready_for_response),
                 interface.rx_invalid             .eq(shared.rx_invalid),
+                interface.rx_pid_toggle          .eq(shared.rx_pid_toggle),
 
                 # State signals.
                 interface.speed                  .eq(shared.speed),
