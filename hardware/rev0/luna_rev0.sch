@@ -1331,4 +1331,8 @@ F 3 "" H 6150 700 50  0001 C CNN
 $EndComp
 Wire Wire Line
 	6150 700  6150 800 
+Text Notes 4050 850  0    50   ~ 0
+All caps ceramic / rated 5 volts or\nhigher unless noted; nominal values\nare post-DC-bias degradation.
+Text Notes 4050 1250 0    50   ~ 0
+All resistors <=20% and >= 1/16W\nunless noted.
 $EndSCHEMATC
