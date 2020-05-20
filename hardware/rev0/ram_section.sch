@@ -1,17 +1,16 @@
 EESchema Schematic File Version 4
-LIBS:luna_rev0-cache
 EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
 Sheet 6 9
 Title "LUNA: RAM Section"
-Date "2019-10-20"
+Date "2020-05-20"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
 Comment2 ""
-Comment3 "Licensed under the CERN OHL v1.2"
+Comment3 "Licensed under the CERN-OHL-P v2"
 Comment4 ""
 $EndDescr
 Wire Wire Line
@@ -45,11 +44,8 @@ F 1 "ECP5-BGA256" H 1620 218 50  0000 R CNN
 F 2 "luna:lattice_cabga256" H -1550 5550 50  0001 L CNN
 F 3 "" H -2000 6500 50  0001 L CNN
 F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H -2000 6400 50  0001 L CNN "Description"
-F 5 "1.7" H -2000 6750 50  0001 L CNN "Height"
-F 6 "Lattice" H -1950 7350 50  0001 L CNN "Manufacturer_Name"
-F 7 "LFE5U-12F-6BG256C" H -1950 7250 50  0001 L CNN "Manufacturer_Part_Number"
-F 8 "842-LFE5U12F6BG256C" H -1300 5950 50  0001 L CNN "Mouser Part Number"
-F 9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" H -1650 5800 50  0001 L CNN "Mouser Price/Stock"
+F 5 "Lattice" H -1950 7350 50  0001 L CNN "Manufacturer"
+F 6 "LFE5U-12F-6BG256C" H -1950 7250 50  0001 L CNN "Part Number"
 	3    1650 2100
 	1    0    0    -1  
 $EndComp
@@ -61,7 +57,9 @@ F 0 "U10" H 5400 5772 50  0000 C CNN
 F 1 "S27KS0641" H 5400 5682 50  0000 C CNN
 F 2 "luna:BGA-24_5x5_6.0x8.0mm" H 6000 3950 50  0001 C CNN
 F 3 "" H 5400 3950 50  0001 C CNN
-F 4 "ANY" H 5400 4850 50  0001 C CNN "Source"
+F 4 "IC DRAM 64M PARALLEL 24BGA" H 5400 4850 50  0001 C CNN "Description"
+F 5 "Cypress Semiconductor" H 5400 4850 50  0001 C CNN "Manufacturer"
+F 6 "S27KS0641DPBHI020" H 5400 4850 50  0001 C CNN "Part Number"
 	1    5400 4850
 	-1   0    0    -1  
 $EndComp

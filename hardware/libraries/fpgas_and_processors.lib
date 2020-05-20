@@ -9,11 +9,8 @@ F1 "ECP5-BGA256" 400 50 50 H V L CNN
 F2 "BGA256C80P16X16_1400X1400X170" -3200 3450 50 H I L CNN
 F3 "" -3650 4400 50 H I L CNN
 F4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" -3650 4300 50 H I L CNN "Description"
-F5 "1.7" -3650 4650 50 H I L CNN "Height"
-F6 "Lattice" -3600 5250 50 H I L CNN "Manufacturer_Name"
-F7 "LFE5U-12F-6BG256C" -3600 5150 50 H I L CNN "Manufacturer_Part_Number"
-F8 "842-LFE5U12F6BG256C" -2950 3850 50 H I L CNN "Mouser Part Number"
-F9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" -3300 3700 50 H I L CNN "Mouser Price/Stock"
+F5 "Lattice" -3600 5250 50 H I L CNN "Manufacturer"
+F6 "LFE5U-12F-6BG256C" -3600 5150 50 H I L CNN "Part Number"
 DRAW
 T 0 550 -3850 118 0 8 0 (Config) Normal 0 C C
 T 0 550 -3650 118 0 8 0 "Bank 8" Normal 0 C C

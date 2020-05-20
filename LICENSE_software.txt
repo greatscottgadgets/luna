@@ -1,7 +1,7 @@
 BSD 3-Clause License
 
 Copyright (c) Katherine J. Temkin <ktemkin@greatscottgadgets.com>
-Copyright (c) 2019, Great Scott Gadgets <info@greatscottgadgets.com>
+Copyright (c) 2019-2020, Great Scott Gadgets <info@greatscottgadgets.com>
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:

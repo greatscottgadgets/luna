@@ -1,1 +1,38 @@
-*bak
+# kicad backup files
+$savepcb.*
+*.000
+*.bak
+*.bck
+*.kicad_pcb-bak
+*.sch-bak
+_autosave*
+
+# kicad cache files
+# *-cache.lib not ignored, so schematic can be viewed without libraries
+fp-info-cache
+
+# gerber and drill files
+*.drl
+*.g2
+*.g3
+*.gbl
+*.gbo
+*.gbp
+*.gbr
+*.gbr
+*.gbr
+*.gbs
+*.gm1
+*.gtl
+*.gto
+*.gtp
+*.gts
+
+# other generated files
+*.csv
+*.html
+*.net
+*.pdf
+*.svg
+*.xml
+*.zip
