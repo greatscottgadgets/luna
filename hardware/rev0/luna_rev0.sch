@@ -864,6 +864,7 @@ F 0 "J8" H 3450 974 50  0000 L CNN
 F 1 "Conn_Coaxial" H 3450 884 50  0001 L CNN
 F 2 "luna:SMA-EDGE" H 3350 1000 50  0001 C CNN
 F 3 " ~" H 3350 1000 50  0001 C CNN
+F 4 "DNP" H 3450 1050 50  0000 L CNN "Note"
 	1    3350 1000
 	1    0    0    -1  
 $EndComp
@@ -898,6 +899,7 @@ F 0 "J7" V 2900 1750 50  0000 L CNN
 F 1 "Conn_02x02_Counter_Clockwise" V 2945 1879 50  0001 L CNN
 F 2 "Connector_PinHeader_2.54mm:PinHeader_2x03_P2.54mm_Horizontal" H 2850 1800 50  0001 C CNN
 F 3 "~" H 2850 1800 50  0001 C CNN
+F 4 "DNP" H 2900 2000 50  0000 C CNN "Note"
 	1    2850 1800
 	0    1    1    0   
 $EndComp
@@ -933,6 +935,7 @@ F 0 "J9" H 3449 1329 50  0000 L CNN
 F 1 "Conn_Coaxial" H 3450 1284 50  0001 L CNN
 F 2 "luna:SMA-EDGE" H 3350 1400 50  0001 C CNN
 F 3 " ~" H 3350 1400 50  0001 C CNN
+F 4 "DNP" H 3450 1400 50  0000 L CNN "Note"
 	1    3350 1400
 	1    0    0    -1  
 $EndComp
