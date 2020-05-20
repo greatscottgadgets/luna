@@ -6229,7 +6229,7 @@
     (fp_text reference U4 (at 0 -1.7) (layer F.SilkS) hide
       (effects (font (size 1 1) (thickness 0.15)))
     )
-    (fp_text value TCR2EF11 (at 0 1.75) (layer F.Fab)
+    (fp_text value TCR2EE11 (at 0 1.75) (layer F.Fab)
       (effects (font (size 1 1) (thickness 0.15)))
     )
     (fp_text user %R (at 0 0 90) (layer F.Fab)
