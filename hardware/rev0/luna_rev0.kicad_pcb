@@ -6,7 +6,7 @@
     (tracks 4079)
     (zones 0)
     (modules 132)
-    (nets 285)
+    (nets 284)
   )
 
   (page A4)
@@ -384,7 +384,6 @@
   (net 281 "Net-(U11-Pad20)")
   (net 282 /DEBUG_SPI_CS)
   (net 283 "Net-(IC1-PadP12)")
-  (net 284 "Net-(U4-Pad4)")
 
   (net_class Default "This is the default net class."
     (clearance 0.127)
@@ -670,7 +669,6 @@
     (add_net "Net-(U10-PadC5)")
     (add_net "Net-(U11-Pad20)")
     (add_net "Net-(U2-Pad4)")
-    (add_net "Net-(U4-Pad4)")
     (add_net "Net-(U5-Pad4)")
     (add_net "Net-(U6-Pad32)")
     (add_net "Net-(U6-Pad39)")
@@ -4112,7 +4110,7 @@
     (at 99.441 79.121 180)
     (descr "Capacitor SMD 0402 (1005 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: http://www.tortai-tech.com/upload/download/2011102023233369053.pdf), generated with kicad-footprint-generator")
     (tags capacitor)
-    (path /5DDDB747/5DEDF6B3)
+    (path /5DA7BAF4/5EDEC554)
     (attr smd)
     (fp_text reference C40 (at 0 -1.17) (layer F.SilkS) hide
       (effects (font (size 1 1) (thickness 0.15)))
@@ -4252,7 +4250,7 @@
     (at 131.699 86.718 270)
     (descr "Capacitor SMD 0402 (1005 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: http://www.tortai-tech.com/upload/download/2011102023233369053.pdf), generated with kicad-footprint-generator")
     (tags capacitor)
-    (path /5DE77FE3/5DEC975A)
+    (path /5DDDB747/5DEDF6B3)
     (attr smd)
     (fp_text reference C44 (at 0 1.17 90) (layer B.SilkS) hide
       (effects (font (size 1 1) (thickness 0.15)) (justify mirror))
@@ -4286,7 +4284,7 @@
     (at 132.842 85.748 270)
     (descr "Capacitor SMD 0402 (1005 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: http://www.tortai-tech.com/upload/download/2011102023233369053.pdf), generated with kicad-footprint-generator")
     (tags capacitor)
-    (path /5DE77FE3/5DECBE47)
+    (path /5EE7CC33)
     (attr smd)
     (fp_text reference C45 (at 0 1.17 90) (layer B.SilkS) hide
       (effects (font (size 1 1) (thickness 0.15)) (justify mirror))
@@ -4320,7 +4318,7 @@
     (at 103.124 86.36)
     (descr "Capacitor SMD 0402 (1005 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: http://www.tortai-tech.com/upload/download/2011102023233369053.pdf), generated with kicad-footprint-generator")
     (tags capacitor)
-    (path /5DE77FE3/5DECC0D1)
+    (path /5DD754D4/5DEDB896)
     (attr smd)
     (fp_text reference C46 (at 0 1.17 180) (layer B.SilkS) hide
       (effects (font (size 1 1) (thickness 0.15)) (justify mirror))
@@ -4354,7 +4352,7 @@
     (at 93.091 72.3265 270)
     (descr "Capacitor SMD 0402 (1005 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: http://www.tortai-tech.com/upload/download/2011102023233369053.pdf), generated with kicad-footprint-generator")
     (tags capacitor)
-    (path /5DD754D4/5DEDB896)
+    (path /5DA7BAF4/5ED0A161)
     (attr smd)
     (fp_text reference C47 (at 0 -1.17 90) (layer F.SilkS) hide
       (effects (font (size 1 1) (thickness 0.15)))
@@ -6256,7 +6254,7 @@
     (pad 2 smd rect (at -0.7 0) (size 0.45 0.3) (layers F.Cu F.Paste F.Mask)
       (net 2 GND))
     (pad 4 smd rect (at 0.7 0.5) (size 0.45 0.3) (layers F.Cu F.Paste F.Mask)
-      (net 284 "Net-(U4-Pad4)"))
+      (net 6 +1V1))
     (model ${KISYS3DMOD}/Package_TO_SOT_SMD.3dshapes/SOT-553.wrl
       (at (xyz 0 0 0))
       (scale (xyz 1 1 1))

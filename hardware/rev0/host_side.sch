@@ -427,8 +427,6 @@ Wire Wire Line
 	7650 3400 8100 3400
 Wire Wire Line
 	6800 3500 7200 3500
-Wire Bus Line
-	4450 1650 4450 5800
 $Comp
 L Device:R R?
 U 1 1 5DD9AF21
@@ -491,19 +489,6 @@ F 4 "GENERIC-CAP-0603-1uF" H 7200 3650 50  0001 C CNN "Manufacturer_Part_Number"
 $EndComp
 $Comp
 L Device:C C?
-U 1 1 5DEDB896
-P 6750 5200
-AR Path="/5DCD9772/5DEDB896" Ref="C?"  Part="1" 
-AR Path="/5DD754D4/5DEDB896" Ref="C47"  Part="1" 
-F 0 "C47" H 6865 5245 50  0000 L CNN
-F 1 "0.1uF" H 6865 5155 50  0000 L CNN
-F 2 "Capacitor_SMD:C_0402_1005Metric" H 6788 5050 50  0001 C CNN
-F 3 "~" H 6750 5200 50  0001 C CNN
-	1    6750 5200
-	1    0    0    -1  
-$EndComp
-$Comp
-L Device:C C?
 U 1 1 5DEDB89C
 P 7250 5200
 AR Path="/5DCD9772/5DEDB89C" Ref="C?"  Part="1" 
@@ -558,6 +543,21 @@ F 7 "LFE5U-12F-6BG256C" H -1900 6650 50  0001 L CNN "Manufacturer_Part_Number"
 F 8 "842-LFE5U12F6BG256C" H -1250 5350 50  0001 L CNN "Mouser Part Number"
 F 9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" H -1600 5200 50  0001 L CNN "Mouser Price/Stock"
 	7    1700 1500
+	1    0    0    -1  
+$EndComp
+Wire Bus Line
+	4450 1650 4450 5800
+$Comp
+L Device:C C?
+U 1 1 5DEDB896
+P 6750 5200
+AR Path="/5DCD9772/5DEDB896" Ref="C?"  Part="1" 
+AR Path="/5DD754D4/5DEDB896" Ref="C46"  Part="1" 
+F 0 "C46" H 6865 5245 50  0000 L CNN
+F 1 "0.1uF" H 6865 5155 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 6788 5050 50  0001 C CNN
+F 3 "~" H 6750 5200 50  0001 C CNN
+	1    6750 5200
 	1    0    0    -1  
 $EndComp
 $EndSCHEMATC

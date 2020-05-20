@@ -413,40 +413,6 @@ F 3 "" H 2350 4800 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	1800 3800 1800 3900
-$Comp
-L Device:C C6
-U 1 1 5DAFC98B
-P 1450 3900
-F 0 "C6" V 1198 3900 50  0000 C CNN
-F 1 "2.2uF" V 1289 3900 50  0000 C CNN
-F 2 "Capacitor_SMD:C_0603_1608Metric" H 1488 3750 50  0001 C CNN
-F 3 "~" H 1450 3900 50  0001 C CNN
-F 4 "CAP CER 2.2UF 10V X5R 0603" H 1450 3900 50  0001 C CNN "Description"
-F 5 "Kemet" H 1450 3900 50  0001 C CNN "Manufacturer_Name"
-F 6 "C0603C225K8PACTU" H 1450 3900 50  0001 C CNN "Manufacturer_Part_Number"
-	1    1450 3900
-	0    1    1    0   
-$EndComp
-Wire Wire Line
-	1250 3900 1300 3900
-Wire Wire Line
-	1250 4000 1250 3900
-$Comp
-L power:GND #PWR017
-U 1 1 5DAFC997
-P 1250 4000
-F 0 "#PWR017" H 1250 3750 50  0001 C CNN
-F 1 "GND" H 1255 3827 50  0000 C CNN
-F 2 "" H 1250 4000 50  0001 C CNN
-F 3 "" H 1250 4000 50  0001 C CNN
-	1    1250 4000
-	1    0    0    -1  
-$EndComp
-Connection ~ 1800 3900
-Wire Wire Line
-	1800 3900 1800 4100
-Wire Wire Line
 	3050 3800 3050 3950
 $Comp
 L Device:C C20
@@ -466,17 +432,6 @@ Text Notes 1350 5350 0    134  ~ 0
 Main I/O Supply
 Wire Notes Line
 	3700 3350 3700 7700
-$Comp
-L power:+5V #PWR019
-U 1 1 5DB57CF1
-P 1800 3800
-F 0 "#PWR019" H 1800 3650 50  0001 C CNN
-F 1 "+5V" H 1815 3973 50  0000 C CNN
-F 2 "" H 1800 3800 50  0001 C CNN
-F 3 "" H 1800 3800 50  0001 C CNN
-	1    1800 3800
-	1    0    0    -1  
-$EndComp
 $Comp
 L power:+3V3 #PWR023
 U 1 1 5DB58DE3
@@ -1167,9 +1122,6 @@ Wire Wire Line
 	2050 4200 1800 4200
 Wire Wire Line
 	1800 4200 1800 4100
-Connection ~ 1800 4100
-Wire Wire Line
-	1600 3900 1800 3900
 Wire Wire Line
 	4800 4050 4800 4250
 Connection ~ 4800 4050
@@ -1247,4 +1199,100 @@ $EndComp
 Connection ~ 2950 6100
 Wire Wire Line
 	2950 6100 2950 6250
+Connection ~ 1800 4100
+$Comp
+L power:GND #PWR017
+U 1 1 5DAFC997
+P 1250 4950
+F 0 "#PWR017" H 1250 4700 50  0001 C CNN
+F 1 "GND" H 1255 4777 50  0000 C CNN
+F 2 "" H 1250 4950 50  0001 C CNN
+F 3 "" H 1250 4950 50  0001 C CNN
+	1    1250 4950
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	1600 3900 1800 3900
+$Comp
+L power:+5V #PWR019
+U 1 1 5DB57CF1
+P 1800 3800
+F 0 "#PWR019" H 1800 3650 50  0001 C CNN
+F 1 "+5V" H 1815 3973 50  0000 C CNN
+F 2 "" H 1800 3800 50  0001 C CNN
+F 3 "" H 1800 3800 50  0001 C CNN
+	1    1800 3800
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	1800 3900 1800 4100
+Connection ~ 1800 3900
+Wire Wire Line
+	1250 3900 1300 3900
+$Comp
+L Device:C C6
+U 1 1 5DAFC98B
+P 1450 3900
+F 0 "C6" V 1198 3900 50  0000 C CNN
+F 1 "2.2uF" V 1289 3900 50  0000 C CNN
+F 2 "Capacitor_SMD:C_0603_1608Metric" H 1488 3750 50  0001 C CNN
+F 3 "~" H 1450 3900 50  0001 C CNN
+F 4 "CAP CER 2.2UF 10V X5R 0603" H 1450 3900 50  0001 C CNN "Description"
+F 5 "Kemet" H 1450 3900 50  0001 C CNN "Manufacturer_Name"
+F 6 "C0603C225K8PACTU" H 1450 3900 50  0001 C CNN "Manufacturer_Part_Number"
+	1    1450 3900
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	1800 3800 1800 3900
+$Comp
+L Device:C C?
+U 1 1 5ED0A161
+P 1500 4750
+AR Path="/5DCD9772/5ED0A161" Ref="C?"  Part="1" 
+AR Path="/5DDDB747/5ED0A161" Ref="C?"  Part="1" 
+AR Path="/5DA7BAF4/5ED0A161" Ref="C47"  Part="1" 
+F 0 "C47" H 1615 4795 50  0000 L CNN
+F 1 "0.1uF" H 1615 4705 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 1538 4600 50  0001 C CNN
+F 3 "~" H 1500 4750 50  0001 C CNN
+	1    1500 4750
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 5EDEC554
+P 1500 4300
+AR Path="/5DCD9772/5EDEC554" Ref="C?"  Part="1" 
+AR Path="/5DDDB747/5EDEC554" Ref="C?"  Part="1" 
+AR Path="/5DA7BAF4/5EDEC554" Ref="C40"  Part="1" 
+F 0 "C40" H 1615 4345 50  0000 L CNN
+F 1 "0.1uF" H 1615 4255 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 1538 4150 50  0001 C CNN
+F 3 "~" H 1500 4300 50  0001 C CNN
+	1    1500 4300
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	1250 4950 1250 4750
+Wire Wire Line
+	1650 4750 1800 4750
+Wire Wire Line
+	1800 4750 1800 4300
+Connection ~ 1800 4200
+Wire Wire Line
+	1650 4300 1800 4300
+Connection ~ 1800 4300
+Wire Wire Line
+	1800 4300 1800 4200
+Wire Wire Line
+	1350 4300 1250 4300
+Connection ~ 1250 4300
+Wire Wire Line
+	1250 4300 1250 3900
+Wire Wire Line
+	1250 4750 1350 4750
+Connection ~ 1250 4750
+Wire Wire Line
+	1250 4750 1250 4300
 $EndSCHEMATC
