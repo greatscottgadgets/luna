@@ -99,7 +99,6 @@ F0 "U" 0 800 50 H V C CNN
 F1 "S27KS0641" 0 -800 50 H V C CNN
 F2 "pkl_housings_bga:BGA-24_5x5_6.0x8.0mm" 600 -900 50 H I C CNN
 F3 "http://www.cypress.com/file/183506/download" 0 -900 50 H I C CNN
-F4 "ANY" 0 0 50 H I C CNN "Source"
 ALIAS S70KL1281 S70KS1281
 DRAW
 S -400 750 400 -750 0 1 8 f

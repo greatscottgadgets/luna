@@ -44,8 +44,8 @@ F 1 "20K" V 8300 2950 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 8230 2950 50  0001 C CNN
 F 3 "~" H 8300 2950 50  0001 C CNN
 F 4 "RES 20K OHM 0.1% 1/16W 0402" H 8300 2950 50  0001 C CNN "Description"
-F 5 "TE Connectivity" H 8300 2950 50  0001 C CNN "Manufacturer_Name"
-F 6 "RP73PF1E20KBTDF" H 8300 2950 50  0001 C CNN "Manufacturer_Part_Number"
+F 5 "TE Connectivity" H 8300 2950 50  0001 C CNN "Manufacturer"
+F 6 "RP73PF1E20KBTDF" H 8300 2950 50  0001 C CNN "Part Number"
 	1    8300 2950
 	0    1    1    0   
 $EndComp
@@ -79,8 +79,8 @@ F 1 "8.06k+1%" V 8150 3650 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 8180 3500 50  0001 C CNN
 F 3 "~" H 8250 3500 50  0001 C CNN
 F 4 "RES SMD 8.06K OHM 1% 1/10W 0402" H 8250 3500 50  0001 C CNN "Description"
-F 5 "Panasonic" H 8250 3500 50  0001 C CNN "Manufacturer_Name"
-F 6 "ERJ-2RKF8061X" H 8250 3500 50  0001 C CNN "Manufacturer_Part_Number"
+F 5 "Panasonic" H 8250 3500 50  0001 C CNN "Manufacturer"
+F 6 "ERJ-2RKF8061X" H 8250 3500 50  0001 C CNN "Part Number"
 	1    8250 3500
 	0    1    1    0   
 $EndComp
@@ -182,7 +182,7 @@ F 0 "C43" H 8915 4345 50  0000 L CNN
 F 1 "1uF" H 8915 4255 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 8838 4150 50  0001 C CNN
 F 3 "~" H 8800 4300 50  0001 C CNN
-F 4 "GENERIC-CAP-0603-1uF" H 8800 4300 50  0001 C CNN "Manufacturer_Part_Number"
+F 4 "GENERIC-CAP-0603-1uF" H 8800 4300 50  0001 C CNN "Part Number"
 	1    8800 4300
 	1    0    0    -1  
 $EndComp
@@ -213,7 +213,7 @@ F 0 "C42" H 8465 4345 50  0000 L CNN
 F 1 "1uF" H 8465 4255 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 8388 4150 50  0001 C CNN
 F 3 "~" H 8350 4300 50  0001 C CNN
-F 4 "GENERIC-CAP-0603-1uF" H 8350 4300 50  0001 C CNN "Manufacturer_Part_Number"
+F 4 "GENERIC-CAP-0603-1uF" H 8350 4300 50  0001 C CNN "Part Number"
 	1    8350 4300
 	1    0    0    -1  
 $EndComp
@@ -237,8 +237,8 @@ F 1 "USB3343" H 7250 2523 50  0000 C CNN
 F 2 "Package_DFN_QFN:VQFN-24-1EP_4x4mm_P0.5mm_EP2.45x2.45mm" H 6650 2450 50  0001 C CNN
 F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/334x.pdf" H 6650 2450 50  0001 C CNN
 F 4 "IC TRANSCEIVER 1/1 24QFN" H 6650 2450 50  0001 C CNN "Description"
-F 5 "Microchip" H 6650 2450 50  0001 C CNN "Manufacturer_Name"
-F 6 "USB3343-CP" H 6650 2450 50  0001 C CNN "Manufacturer_Part_Number"
+F 5 "Microchip" H 6650 2450 50  0001 C CNN "Manufacturer"
+F 6 "USB3343-CP" H 6650 2450 50  0001 C CNN "Part Number"
 	1    6650 2450
 	1    0    0    -1  
 $EndComp
@@ -251,11 +251,8 @@ F 1 "ECP5-BGA256" H 1620 193 50  0000 R CNN
 F 2 "luna:lattice_cabga256" H -1550 5550 50  0001 L CNN
 F 3 "" H -2000 6500 50  0001 L CNN
 F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H -2000 6400 50  0001 L CNN "Description"
-F 5 "1.7" H -2000 6750 50  0001 L CNN "Height"
-F 6 "Lattice" H -1950 7350 50  0001 L CNN "Manufacturer_Name"
-F 7 "LFE5U-12F-6BG256C" H -1950 7250 50  0001 L CNN "Manufacturer_Part_Number"
-F 8 "842-LFE5U12F6BG256C" H -1300 5950 50  0001 L CNN "Mouser Part Number"
-F 9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" H -1650 5800 50  0001 L CNN "Mouser Price/Stock"
+F 5 "Lattice" H -1950 7350 50  0001 L CNN "Manufacturer"
+F 6 "LFE5U-12F-6BG256C" H -1950 7250 50  0001 L CNN "Part Number"
 	4    1650 2100
 	1    0    0    -1  
 $EndComp
@@ -332,6 +329,7 @@ F 0 "C44" H 7215 5895 50  0000 L CNN
 F 1 "0.1uF" H 7215 5805 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 7138 5700 50  0001 C CNN
 F 3 "~" H 7100 5850 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 7100 5850 50  0001 C CNN "Part Number"
 	1    7100 5850
 	1    0    0    -1  
 $EndComp
@@ -345,6 +343,7 @@ F 0 "C41" H 7715 5895 50  0000 L CNN
 F 1 "0.1uF" H 7715 5805 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 7638 5700 50  0001 C CNN
 F 3 "~" H 7600 5850 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-0.1uF" H 7600 5850 50  0001 C CNN "Part Number"
 	1    7600 5850
 	1    0    0    -1  
 $EndComp
@@ -418,7 +417,7 @@ F 0 "R23" V 6000 5200 50  0000 C CNN
 F 1 "10K" V 5900 5200 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 5830 5200 50  0001 C CNN
 F 3 "~" H 5900 5200 50  0001 C CNN
-F 4 "GENERIC-RES-0402-10K" H 5900 5200 50  0001 C CNN "Manufacturer_Part_Number"
+F 4 "GENERIC-RES-0402-10K" H 5900 5200 50  0001 C CNN "Part Number"
 	1    5900 5200
 	-1   0    0    1   
 $EndComp

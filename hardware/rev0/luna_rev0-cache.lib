@@ -424,11 +424,8 @@ F1 "fpgas_and_processors_ECP5-BGA256" 400 50 50 H V L CNN
 F2 "BGA256C80P16X16_1400X1400X170" -3200 3450 50 H I L CNN
 F3 "" -3650 4400 50 H I L CNN
 F4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" -3650 4300 50 H I L CNN "Description"
-F5 "1.7" -3650 4650 50 H I L CNN "Height"
-F6 "Lattice" -3600 5250 50 H I L CNN "Manufacturer_Name"
-F7 "LFE5U-12F-6BG256C" -3600 5150 50 H I L CNN "Manufacturer_Part_Number"
-F8 "842-LFE5U12F6BG256C" -2950 3850 50 H I L CNN "Mouser Part Number"
-F9 "https://www.mouser.com/Search/Refine.aspx?Keyword=842-LFE5U12F6BG256C" -3300 3700 50 H I L CNN "Mouser Price/Stock"
+F5 "Lattice" -3600 5250 50 H I L CNN "Manufacturer"
+F6 "LFE5U-12F-6BG256C" -3600 5150 50 H I L CNN "Part Number"
 DRAW
 T 0 550 -3850 118 0 8 0 (Config) Normal 0 C C
 T 0 550 -3650 118 0 8 0 "Bank 8" Normal 0 C C
@@ -835,7 +832,6 @@ F0 "U" 0 800 50 H V C CNN
 F1 "support_hardware_S27KS0641" 0 -800 50 H V C CNN
 F2 "pkl_housings_bga:BGA-24_5x5_6.0x8.0mm" 600 -900 50 H I C CNN
 F3 "http://www.cypress.com/file/183506/download" 0 -900 50 H I C CNN
-F4 "ANY" 0 0 50 H I C CNN "Source"
 ALIAS S70KL1281 S70KS1281
 DRAW
 S -400 750 400 -750 0 1 8 f
@@ -866,11 +862,11 @@ X VSSQ E5 -600 -700 200 R 50 50 1 1 W
 ENDDRAW
 ENDDEF
 #
-# support_hardware_TCR2EF11
+# support_hardware_TCR2EE11
 #
-DEF support_hardware_TCR2EF11 U 0 20 Y Y 1 F N
+DEF support_hardware_TCR2EE11 U 0 20 Y Y 1 F N
 F0 "U" -300 350 50 H V L CNN
-F1 "support_hardware_TCR2EF11" -300 250 50 H V L CNN
+F1 "support_hardware_TCR2EE11" -300 250 50 H V L CNN
 F2 "Package_TO_SOT_SMD:SOT-553" 0 -400 50 H I C CNN
 F3 "" -250 250 50 H I C CNN
 $FPLIST
