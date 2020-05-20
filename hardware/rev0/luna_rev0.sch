@@ -5,9 +5,9 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 9
 Title "LUNA USB Multitool"
-Date "2019-10-20"
+Date "2020-05-20"
 Rev "r0"
-Comp "Great Scott Gadgets"
+Comp "Copyright 2019-2020 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
 Comment2 ""
 Comment3 "Licensed under the CERN-OHL-P v2"

@@ -10,6 +10,15 @@
   )
 
   (page A4)
+  (title_block
+    (title "LUNA USB Multitool")
+    (date 2020-05-20)
+    (rev r0)
+    (company "Copyright 2019-2020 Great Scott Gadgets")
+    (comment 1 "Katherine J. Temkin")
+    (comment 3 "Licensed under the CERN-OHL-P v2")
+  )
+
   (layers
     (0 F.Cu signal)
     (1 In1.Cu signal hide)
@@ -70,7 +79,7 @@
     (pad_drill 0.762)
     (pad_to_mask_clearance 0.127)
     (aux_axis_origin 0 0)
-    (visible_elements FEF9BEDF)
+    (visible_elements FFF9BEDF)
     (pcbplotparams
       (layerselection 0x010fc_ffffffff)
       (usegerberextensions true)

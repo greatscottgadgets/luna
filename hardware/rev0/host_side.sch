@@ -5,12 +5,12 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 7 9
 Title "LUNA: Upstream \"Host\" Section"
-Date "2019-10-20"
+Date "2020-05-20"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
 Comment2 ""
-Comment3 "Licensed under the CERN OHL v1.2"
+Comment3 "Licensed under the CERN-OHL-P v2"
 Comment4 ""
 $EndDescr
 $Comp
