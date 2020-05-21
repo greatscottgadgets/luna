@@ -12,7 +12,7 @@
   (page A4)
   (title_block
     (title "LUNA USB Multitool")
-    (date 2020-05-20)
+    (date 2020-05-21)
     (rev r0)
     (company "Copyright 2019-2020 Great Scott Gadgets")
     (comment 1 "Katherine J. Temkin")
@@ -6899,7 +6899,7 @@
   (gr_text Memory (at 118.237 80.899) (layer F.SilkS) (tstamp 5DB2ECEE)
     (effects (font (size 0.9144 0.9144) (thickness 0.15)))
   )
-  (gr_text "r0.2: January 26th, 2020" (at 117.602 99.441) (layer F.SilkS) (tstamp 5DB314DE)
+  (gr_text "r0.2+: 21 May 2020" (at 117.602 99.441) (layer F.SilkS) (tstamp 5DB314DE)
     (effects (font (size 0.6 0.5588) (thickness 0.125)))
   )
   (gr_text uC (at 124.079 101.346) (layer F.SilkS) (tstamp 5DB313A5)
