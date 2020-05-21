@@ -1296,44 +1296,6 @@ Text Label 5850 6050 0    50   ~ 0
 DEBUG_SPI_CS
 Wire Wire Line
 	5850 6050 5700 6050
-$Comp
-L Device:C C45
-U 1 1 5EE7CC33
-P 6150 950
-F 0 "C45" H 6265 995 50  0000 L CNN
-F 1 "0.1uF" H 6265 905 50  0000 L CNN
-F 2 "Capacitor_SMD:C_0402_1005Metric" H 6188 800 50  0001 C CNN
-F 3 "~" H 6150 950 50  0001 C CNN
-F 4 "GENERIC-CAP-0402-0.1uF" H 6150 950 50  0001 C CNN "Part Number"
-	1    6150 950 
-	1    0    0    -1  
-$EndComp
-$Comp
-L power:GND #PWR0122
-U 1 1 5EE7CC3D
-P 6150 1200
-F 0 "#PWR0122" H 6150 950 50  0001 C CNN
-F 1 "GND" H 6154 1028 50  0000 C CNN
-F 2 "" H 6150 1200 50  0001 C CNN
-F 3 "" H 6150 1200 50  0001 C CNN
-	1    6150 1200
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	6150 1200 6150 1100
-$Comp
-L power:+5V #PWR0123
-U 1 1 5EE7CC48
-P 6150 700
-F 0 "#PWR0123" H 6150 550 50  0001 C CNN
-F 1 "+5V" H 6164 873 50  0000 C CNN
-F 2 "" H 6150 700 50  0001 C CNN
-F 3 "" H 6150 700 50  0001 C CNN
-	1    6150 700 
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	6150 700  6150 800 
 Text Notes 4050 850  0    50   ~ 0
 All caps ceramic / rated 5 volts or\nhigher unless noted; nominal values\nare post-DC-bias degradation.
 Text Notes 4050 1250 0    50   ~ 0
