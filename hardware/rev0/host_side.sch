@@ -288,17 +288,6 @@ NoConn ~ 2700 4600
 NoConn ~ 2700 4950
 NoConn ~ 2700 5050
 NoConn ~ 6800 3050
-$Comp
-L power:+3V3 #PWR0101
-U 1 1 5DD76B4C
-P 4750 3350
-F 0 "#PWR0101" H 4750 3200 50  0001 C CNN
-F 1 "+3V3" V 4850 3350 50  0000 L CNN
-F 2 "" H 4750 3350 50  0001 C CNN
-F 3 "" H 4750 3350 50  0001 C CNN
-	1    4750 3350
-	0    -1   -1   0   
-$EndComp
 Wire Wire Line
 	4750 3350 4850 3350
 Wire Wire Line
@@ -543,8 +532,6 @@ F 6 "LFE5U-12F-6BG256C" H -1900 6650 50  0001 L CNN "Part Number"
 	7    1700 1500
 	1    0    0    -1  
 $EndComp
-Wire Bus Line
-	4450 1650 4450 5800
 $Comp
 L Device:C C?
 U 1 1 5DEDB896
@@ -559,4 +546,19 @@ F 4 "GENERIC-CAP-0402-0.1uF" H 6750 5200 50  0001 C CNN "Part Number"
 	1    6750 5200
 	1    0    0    -1  
 $EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5ECBC124
+P 4750 3350
+AR Path="/5DCD9772/5ECBC124" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/5ECBC124" Ref="#PWR?"  Part="1" 
+F 0 "#PWR?" H 4750 3100 50  0001 C CNN
+F 1 "GND" V 4755 3222 50  0000 R CNN
+F 2 "" H 4750 3350 50  0001 C CNN
+F 3 "" H 4750 3350 50  0001 C CNN
+	1    4750 3350
+	0    1    1    0   
+$EndComp
+Wire Bus Line
+	4450 1650 4450 5800
 $EndSCHEMATC
