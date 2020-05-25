@@ -6,10 +6,11 @@
 import os
 
 from nmigen                  import Elaboratable, Module, Cat
+
 from usb_protocol.emitters   import DeviceDescriptorCollection
 
 from luna                    import top_level_cli
-from luna.usb2               import USBDevice, USBStreamOutEndpoint
+from luna.usb2               import USBDevice, USBStreamOutEndpoint, USBStreamInEndpoint
 
 
 class USBStreamOutDeviceExample(Elaboratable):
@@ -53,6 +54,10 @@ class USBStreamOutDeviceExample(Elaboratable):
                     e.bEndpointAddress = self.BULK_ENDPOINT_NUMBER
                     e.wMaxPacketSize   = self.MAX_BULK_PACKET_SIZE
 
+                with i.EndpointDescriptor() as e:
+                    e.bEndpointAddress = 0x80 | self.BULK_ENDPOINT_NUMBER
+                    e.wMaxPacketSize   = self.MAX_BULK_PACKET_SIZE
+
 
         return descriptors
 
@@ -72,32 +77,35 @@ class USBStreamOutDeviceExample(Elaboratable):
         usb.add_standard_control_endpoint(descriptors)
 
         # Add a stream endpoint to our device.
-        stream_ep = USBStreamOutEndpoint(
+        stream_out_ep = USBStreamOutEndpoint(
+            endpoint_number=self.BULK_ENDPOINT_NUMBER,
+            max_packet_size=self.MAX_BULK_PACKET_SIZE,
+        )
+        usb.add_endpoint(stream_out_ep)
+
+        # Add a stream endpoint to our device.
+        stream_in_ep = USBStreamInEndpoint(
             endpoint_number=self.BULK_ENDPOINT_NUMBER,
             max_packet_size=self.MAX_BULK_PACKET_SIZE
         )
-        usb.add_endpoint(stream_ep)
+        usb.add_endpoint(stream_in_ep)
 
-        leds    = Cat(platform.request("led", i) for i in range(6))
-        user_io = Cat(platform.request("user_io", i, dir="o") for i in range(4))
+        # Connect our endpoints together.
+        stream_in = stream_in_ep.stream
+        stream_out = stream_out_ep.stream
 
-        # Always stream our USB data directly onto our User I/O and LEDS.
-        with m.If(stream_ep.stream.valid):
-            m.d.usb += [
-                leds     .eq(stream_ep.stream.payload),
-                user_io  .eq(stream_ep.stream.payload),
-            ]
-
-        # Always accept data as it comes in.
-        m.d.comb += stream_ep.stream.ready.eq(1)
-
-
-        # Connect our device as a high speed device by default.
         m.d.comb += [
-            usb.connect          .eq(1),
-            usb.full_speed_only  .eq(1 if os.getenv('LUNA_FULL_ONLY') else 0),
-        ]
+            stream_in.payload           .eq(stream_out.payload),
+            stream_in.valid             .eq(stream_out.valid),
+            stream_in.first             .eq(stream_out.first),
+            stream_in.last              .eq(stream_out.last),
+            stream_out.ready            .eq(stream_in.ready),
 
+            platform.request("led", 0)  .eq(stream_out.valid),
+
+
+            usb.connect                 .eq(1)
+        ]
 
         return m
 
