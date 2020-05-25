@@ -106,7 +106,6 @@ class TransactionalizedFIFO(Elaboratable):
 
         # Range shortcuts for internal signals.
         address_range = range(0, self.depth + 1)
-        #count_range = range(0, self.depth + 1)
 
         #
         # Core internal "backing store".
@@ -158,18 +157,28 @@ class TransactionalizedFIFO(Elaboratable):
         committed_read_pointer = Signal(address_range)
         current_read_pointer   = Signal(address_range)
 
-        with m.If(self.read_en):
-            m.d.comb += read_port.addr.eq(current_read_pointer + 1)
+
+        # Compute the location for the next read, accounting for wraparound. We'll not assume a binary-sized
+        # buffer; so we'll compute the wraparound manually.
+        next_read_pointer      = Signal.like(current_read_pointer)
+        with m.If(current_read_pointer == self.depth):
+            m.d.comb += next_read_pointer.eq(0)
+        with m.Else():
+            m.d.comb += next_read_pointer.eq(current_read_pointer + 1)
+
+
+        # Our memory always takes a single cycle to provide its read output; so we'll update its address
+        # "one cycle in advance". Accordingly, if we're about to advance the FIFO, we'll use the next read
+        # address as our input. If we're not, we'll use the current one.
+        with m.If(self.read_en & ~self.empty):
+            m.d.comb += read_port.addr.eq(next_read_pointer)
         with m.Else():
             m.d.comb += read_port.addr.eq(current_read_pointer)
 
 
         # If we're reading from our the fifo, update our current read position.
         with m.If(self.read_en & ~self.empty):
-            with m.If(current_read_pointer == self.depth):
-                m.d.sync += current_read_pointer.eq(0)
-            with m.Else():
-                m.d.sync += current_read_pointer.eq(current_read_pointer + 1)
+            m.d.sync += current_read_pointer.eq(next_read_pointer)
 
         # If we're committing a FIFO write, update our committed position.
         with m.If(self.read_commit):
