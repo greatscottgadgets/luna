@@ -8,10 +8,9 @@ connecting streams to USB endpoints.
 """
 
 from nmigen         import Elaboratable, Module, Signal
-from nmigen.hdl.ast import Rose
 
 from ..endpoint     import EndpointInterface
-from ...stream      import StreamInterface
+from ...stream      import StreamInterface, USBOutStreamBoundaryDetector
 from ..transfer     import USBInTransferManager
 from ....memory     import TransactionalizedFIFO
 
@@ -103,6 +102,9 @@ class USBStreamOutEndpoint(Elaboratable):
     ----------
     stream: StreamInterface, output stream
         Full-featured stream interface that carries the data we've received from the host.
+        Note that this stream is *transaction* oriented; which means that First and Last indicate
+        the start and end of an individual data packet. This means that short packet detection is
+        the responsibility of the stream's consumer.
     interface: EndpointInterface
         Communications link to our USB device.
 
@@ -152,14 +154,28 @@ class USBStreamOutEndpoint(Elaboratable):
         # Receiver logic.
         #
 
+        # Create a version of our receive stream that has added `first` and `last` signals, which we'll use
+        # internally as our main stream.
+        m.submodules.boundary_detector = boundary_detector = USBOutStreamBoundaryDetector()
+        m.d.comb += [
+            interface.rx                   .connect(boundary_detector.unprocessed_stream),
+            boundary_detector.complete_in  .eq(interface.rx_complete),
+            boundary_detector.invalid_in   .eq(interface.rx_invalid),
+        ]
+
+        rx       = boundary_detector.processed_stream
+        rx_first = boundary_detector.first
+        rx_last  = boundary_detector.last
+
         # Create a Rx FIFO.
-        m.submodules.fifo = fifo = TransactionalizedFIFO(width=9, depth=self._buffer_size, name="rx_fifo", domain="usb")
+        m.submodules.fifo = fifo = TransactionalizedFIFO(width=10, depth=self._buffer_size, name="rx_fifo", domain="usb")
 
         # Generate our `first` bit from the most recently transmitted bit.
         # Essentially, if the most recently valid byte was accompanied by an asserted `last`, the next byte
         # should have `first` asserted.
         with m.If(stream.valid & stream.ready):
             m.d.usb += is_first_byte.eq(stream.last)
+
 
         #
         # Create some basic conditionals that will help us make decisions.
@@ -179,15 +195,18 @@ class USBStreamOutEndpoint(Elaboratable):
 
         m.d.comb += [
 
-            # We'll always populate our FIFO directly from the receive stream.
-            fifo.write_data     .eq(interface.rx.payload),
-            fifo.write_en       .eq(okay_to_receive & interface.rx.next & interface.rx.valid),
+            # We'll always populate our FIFO directly from the receive stream; but we'll also include our
+            # "short packet detected" signal, as this indicates that we're detecting the last byte of a transfer.
+            fifo.write_data[0:8] .eq(rx.payload),
+            fifo.write_data[8]   .eq(rx_last),
+            fifo.write_data[9]   .eq(rx_first),
+            fifo.write_en        .eq(okay_to_receive & rx.next & rx.valid),
 
             # We'll keep data if our packet finishes with a valid CRC; and discard it otherwise.
-            fifo.write_commit   .eq(targeting_endpoint & interface.rx_complete),
-            fifo.write_discard  .eq(targeting_endpoint & interface.rx_invalid),
+            fifo.write_commit    .eq(targeting_endpoint & boundary_detector.complete_out),
+            fifo.write_discard   .eq(targeting_endpoint & boundary_detector.invalid_out),
 
-            # We'll ACK each packet if it's received correctly; _or_ if we skipped the pac
+            # We'll ACK each packet if it's received correctly; _or_ if we skipped the packet
             # due to a PID sequence mismatch. If we get a PID sequence mismatch, we assume that
             # we missed a previous ACK from the host; and ACK without accepting data [USB 2.0: 8.6.3].
             interface.handshakes_out.ack  .eq(
@@ -205,14 +224,12 @@ class USBStreamOutEndpoint(Elaboratable):
             # Our stream data always comes directly out of the FIFO; and is valid
             # henever our FIFO actually has data for us to read.
             stream.valid      .eq(~fifo.empty),
-            stream.payload    .eq(fifo.read_data),
+            stream.payload    .eq(fifo.read_data[0:8]),
 
             # Our `last` bit comes directly from the FIFO; and we know a `first` bit immediately
             # follows a `last` one.
-            stream.first      .eq(is_first_byte),
-
-            # TODO: generate a valid ``last`` strobe
-            stream.last       .eq(0),
+            stream.last       .eq(fifo.read_data[8]),
+            stream.first      .eq(fifo.read_data[9]),
 
             # Move to the next byte in the FIFO whenever our stream is advaced.
             fifo.read_en      .eq(stream.ready),
