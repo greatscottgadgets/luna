@@ -149,7 +149,7 @@ class USBInTransferManager(Elaboratable):
         #   ``generate_zlps`` is enabled, is used to determine if the given buffer should end in
         #   a short packet; which determines whether ZLPs are emitted.
         buffer_fill_count   = Array(Signal(range(0, self._max_packet_size + 1)) for _ in range(2))
-        buffer_stream_ended = Array(Signal(name=f"strem_ended_in_buffer{i}") for i in range(2))
+        buffer_stream_ended = Array(Signal(name=f"stream_ended_in_buffer{i}") for i in range(2))
 
         # Create shortcuts to active fill_count / stream_ended signals for the buffer being written.
         write_fill_count   = buffer_fill_count[write_buffer_number]
@@ -224,7 +224,10 @@ class USBInTransferManager(Elaboratable):
 
                             # We're now ready to take the data we've captured and _transmit_ it.
                             # We'll swap our read and write buffers, and toggle our data PID.
-                            self.data_pid[0].eq(~self.data_pid[0])
+                            self.data_pid[0]    .eq(~self.data_pid[0]),
+
+                            # Mark our current stream as no longer having ended.
+                            read_stream_ended  .eq(0)
                         ]
 
 
@@ -312,7 +315,10 @@ class USBInTransferManager(Elaboratable):
                     packet_completing = in_stream.valid & (write_fill_count + 1 == self._max_packet_size)
                     with m.Elif(~in_stream.ready | packet_completing):
                         m.next = "WAIT_TO_SEND"
-                        m.d.usb += self.data_pid[0].eq(~self.data_pid[0])
+                        m.d.usb += [
+                            self.data_pid[0]   .eq(~self.data_pid[0]),
+                            read_stream_ended  .eq(0)
+                        ]
 
                     # If neither of the above conditions are true; we now don't have enough data to send.
                     # We'll wait for enough data to transmit.
