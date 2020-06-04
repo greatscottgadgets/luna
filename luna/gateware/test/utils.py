@@ -190,3 +190,10 @@ class LunaGatewareTestCase(FHDLTestCase):
 
         # Finally, wait that many cycles.
         yield from self.advance_cycles(cycles)
+
+
+class LunaUSBGatewareTestCase(LunaGatewareTestCase):
+    """ Specialized form of :class:``LunaGatewareTestCase`` that assumes a USB domain clock, but no others. """
+
+    SYNC_CLOCK_FREQUENCY = None
+    USB_CLOCK_FREQUENCY  = 60e6
