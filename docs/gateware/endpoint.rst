@@ -53,7 +53,7 @@ The LUNA library ships with a few provided endpoint interfaces. These include:
 
 
 ``usb2.control`` Components
-------------------------------------
+---------------------------
 
 .. automodule :: luna.gateware.usb.usb2.control
   :members:
@@ -65,5 +65,21 @@ The LUNA library ships with a few provided endpoint interfaces. These include:
 ------------------------------------
 
 .. automodule :: luna.gateware.usb.usb2.interfaces.eptri
+  :members:
+  :show-inheritance:
+
+
+Bulk Endpoint Helpers / ``usb2.endpoints.stream`` Components
+------------------------------------------------------------
+
+.. automodule :: luna.gateware.usb.usb2.endpoints.stream
+  :members:
+  :show-inheritance:
+
+
+Interrupt Endpoint Helpers / ``usb2.endpoints.status`` Components
+-----------------------------------------------------------------
+
+.. automodule :: luna.gateware.usb.usb2.endpoints.status
   :members:
   :show-inheritance:
