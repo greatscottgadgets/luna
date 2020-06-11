@@ -1,0 +1,37 @@
+/**
+ * CSS for feature matrices
+ */
+
+/* override table width restrictions */
+@media screen and (min-width: 767px) {
+
+	.wy-table-responsive table td {
+	   /* !important prevents the common CSS stylesheets from overriding
+		  this as on RTD they are loaded after this stylesheet */
+	   white-space: normal !important;
+	}
+ 
+	.wy-table-responsive {
+	   overflow: visible !important;
+	}
+ }
+
+
+/* cell colors */
+
+.planned {
+	color:#570000;
+}
+
+.inprogress {
+	color: #995400;
+}
+
+.needstest {
+	color: green;
+}
+
+.complete {
+	color: darkgreen;
+}
+

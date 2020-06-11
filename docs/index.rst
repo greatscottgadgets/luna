@@ -16,6 +16,7 @@ Contributions are always appreciated.
    :caption: Contents:
 
    intro
+   features
    getting_started
    gateware/usb2_device
    gateware/endpoint
