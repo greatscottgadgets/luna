@@ -7,6 +7,7 @@ import os
 from nmigen.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock, DiffPairs, Connector
 from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
 
+from .core import LUNAPlatform
 from ..architecture.car import LunaECP5DomainGenerator
 
 __all__ = ["LUNAPlatformR01"]
@@ -32,7 +33,7 @@ def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset
     )
 
 
-class LUNAPlatformRev0D1(LatticeECP5Platform):
+class LUNAPlatformRev0D1(LatticeECP5Platform, LUNAPlatform):
     """ Board description for the pre-release r0.1 revision of LUNA. """
 
     name        = "LUNA r0.1"
