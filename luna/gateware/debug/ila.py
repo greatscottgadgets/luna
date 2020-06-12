@@ -431,10 +431,10 @@ class SyncSerialReadoutILATest(SPIGatewareTestCase):
         # ... and ensure it matches what was sampled.
         i = 0
         while data:
-            datum = data[0:2]
-            del data[0:2]
+            datum = data[0:4]
+            del data[0:4]
 
-            expected = b"\x0f" + bytes([i])
+            expected = b"\x00\x00\x0f" + bytes([i])
             self.assertEqual(datum, expected)
             i += 1
 
