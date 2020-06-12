@@ -263,17 +263,7 @@ class SyncSerialILA(Elaboratable):
 
     This protocol is simple: every time CS goes low, we begin sending out a bit of
     sample on each rising edge. Once a new sample is complete, the next sample begins
-    on the next byte boundary.
-
-    Accordingly, sending out two samples of seven bits would look like this:
-
-    ___                                                                ___
-   CS |_______________________________________________________________|
-          _   _   _   _   _   _   _   _   _   _   _   _   _   _   _   _
-   SCK  _| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_|
-
-   SDO <6 ><5 ><4 ><3 ><2 ><1 ><0 ><XX><6 ><5 ><4 ><3 ><2 ><1 ><0 ><XX>
-        |---------SAMPLE 0---------|    |---------SAMPLE 1---------|
+    on the next 32-bit boundary.
 
     I/O port:
         I: trigger                  -- A strobe that determines when we should start sampling.
@@ -335,7 +325,11 @@ class SyncSerialILA(Elaboratable):
         self.sample_period = self.ila.sample_period
 
         # Figure out how many bytes we'll send per sample.
-        self.bytes_per_sample = (self.ila.sample_width + 7) // 8
+        # We'll always send things squished into 32-bit chunks, as this is what the SPI engine
+        # on our Debug Controller likes most.
+        words_per_sample = (self.ila.sample_depth + 31) // 32
+
+        self.bytes_per_sample = words_per_sample * 4
         self.bits_per_word = self.bytes_per_sample * 8
 
         # Expose our ILA's trigger and status ports directly.
