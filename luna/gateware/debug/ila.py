@@ -330,7 +330,7 @@ class SyncSerialILA(Elaboratable):
         words_per_sample = (self.ila.sample_width + 31) // 32
 
         self.bytes_per_sample = words_per_sample * 4
-        self.bits_per_word = self.bytes_per_sample * 8
+        self.bits_per_sample = self.bytes_per_sample * 8
 
         # Expose our ILA's trigger and status ports directly.
         self.trigger  = self.ila.trigger
@@ -346,7 +346,7 @@ class SyncSerialILA(Elaboratable):
 
         # Connect up our SPI transciever to our public interface.
         interface = SPIDeviceInterface(
-            word_size=self.bits_per_word,
+            word_size=self.bits_per_sample,
             clock_polarity=self.clock_polarity,
             clock_phase=self.clock_phase
         )
