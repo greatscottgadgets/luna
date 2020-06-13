@@ -13,7 +13,7 @@ import subprocess
 
 from abc             import ABCMeta, abstractmethod
 
-from nmigen          import Signal, Module, Cat, Elaboratable, Memory, ClockDomain, DomainRenamer
+from nmigen          import Signal, Module, Cat, Elaboratable, Memory, ClockDomain, DomainRenamer, Const
 from nmigen.hdl.ast  import Rose
 from nmigen.lib.cdc  import FFSynchronizer
 from vcd             import VCDWriter
@@ -331,6 +331,7 @@ class SyncSerialILA(Elaboratable):
 
         self.bytes_per_sample = words_per_sample * 4
         self.bits_per_sample = self.bytes_per_sample * 8
+        self.padding_bits = self.bits_per_sample - self.ila.sample_width
 
         # Expose our ILA's trigger and status ports directly.
         self.trigger  = self.ila.trigger
@@ -355,7 +356,7 @@ class SyncSerialILA(Elaboratable):
             interface.spi      .connect(self.spi),
 
             # Always output the captured sample.
-            interface.word_out .eq(self.ila.captured_sample)
+            interface.word_out .eq(Cat(self.ila.captured_sample, Const(0, self.padding_bits)))
         ]
 
         # Count where we are in the current transmission.
