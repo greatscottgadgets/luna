@@ -61,6 +61,9 @@ class OpenVizsla(XilinxSpartan6Platform):
     # Provide the type that'll be used to create our clock domains.
     clock_domain_generator = StubClockDomainGenerator
 
+    # We only have a single PHY; so use it directly.
+    default_usb_connection = "target_phy"
+
     #
     # I/O resources.
     #

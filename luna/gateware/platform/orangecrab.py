@@ -21,7 +21,7 @@ from .core import LUNAPlatform
 class StubClockDomainGenerator(Elaboratable):
     """ Stub clock domain generator; stands in for the typical LUNA one.
 
-    This generator creates domains; but currently does not configuration.
+    This generator creates domains; but currently does not configure them.
     """
 
     def __init__(self, *, clock_frequencies=None, clock_signal_name=None):
@@ -48,6 +48,9 @@ class OrangeCrabPlatform(LatticeECP5Platform, LUNAPlatform):
 
     # Provide the type that'll be used to create our clock domains.
     clock_domain_generator = StubClockDomainGenerator
+
+    # We only have a direct connection on our USB lines, so use that for USB comms.
+    default_usb_connection = "usb"
 
     def toolchain_prepare(self, fragment, name, **kwargs):
         overrides = {
@@ -151,15 +154,15 @@ class OrangeCrabR0D2(OrangeCrabPlatform, LUNAPlatform):
 
         # LEDs.
         Resource("rgb_led", 0,
-            Subsignal("r", Pins("K4"), Attrs(IO_TYPE="LVCMOS33")),
-            Subsignal("g", Pins("M3"), Attrs(IO_TYPE="LVCMOS33")),
-            Subsignal("b", Pins("J3"), Attrs(IO_TYPE="LVCMOS33")),
+            Subsignal("r", Pins("K4", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+            Subsignal("g", Pins("M3", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+            Subsignal("b", Pins("J3", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
         ),
 
         # Create aliases for our LEDs with standard naming.
-        Resource("led", 0, Pins("K4"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led", 1, Pins("M3"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led", 2, Pins("J3"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("led", 0, Pins("K4", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("led", 1, Pins("M3", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("led", 2, Pins("J3", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
 
         # RAM.
         Resource("ddram", 0,
@@ -192,9 +195,9 @@ class OrangeCrabR0D2(OrangeCrabPlatform, LUNAPlatform):
 
         # USB Connector.
         Resource("usb", 0,
-            Subsignal("d_p", Pins("N1")),
-            Subsignal("d_n", Pins("M2")),
-            Subsignal("pullup", Pins("N2")),
+            Subsignal("d_p",    Pins("N1", dir="io")),
+            Subsignal("d_n",    Pins("M2", dir="io")),
+            Subsignal("pullup", Pins("N2", dir="o")),
             Attrs(IO_TYPE="LVCMOS33")
         ),
 

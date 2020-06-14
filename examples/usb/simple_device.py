@@ -62,8 +62,8 @@ class USBDeviceExample(Elaboratable):
         m.submodules.car = platform.clock_domain_generator()
 
         # Create our USB device interface...
-        ulpi = platform.request("target_phy")
-        m.submodules.usb = usb = USBDevice(bus=ulpi)
+        bus = platform.request(platform.default_usb_connection)
+        m.submodules.usb = usb = USBDevice(bus=bus)
 
         # Add our standard control endpoint to the device.
         descriptors = self.create_descriptors()

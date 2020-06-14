@@ -56,7 +56,7 @@ class USBAnalyzerApplet(Elaboratable):
         m.submodules.clocking = clocking
 
         # Create our UTMI translator.
-        ulpi = platform.request("target_phy")
+        ulpi = platform.request(platform.default_usb_connection)
         m.submodules.utmi = utmi = UTMITranslator(ulpi=ulpi)
 
         # Strap our power controls to be in VBUS passthrough by default,

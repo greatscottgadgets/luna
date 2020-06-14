@@ -75,7 +75,7 @@ class USBInterruptExample(Elaboratable):
         m.d.usb += counter.eq(counter + 1)
 
         # Create our USB device interface...
-        ulpi = platform.request("target_phy")
+        ulpi = platform.request(platform.default_usb_connection)
         m.submodules.usb = usb = USBDevice(bus=ulpi)
 
         # Add our standard control endpoint to the device.

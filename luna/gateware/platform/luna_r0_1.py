@@ -53,6 +53,9 @@ class LUNAPlatformRev0D1(LatticeECP5Platform, LUNAPlatform):
     # Provide the type that'll be used to create our clock domains.
     clock_domain_generator = LunaECP5DomainGenerator
 
+    # By default, assume we'll be connecting via our target PHY.
+    default_usb_connection = "target_phy"
+
     #
     # Default clock frequencies for each of our clock domains.
     #

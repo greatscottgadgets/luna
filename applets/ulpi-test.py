@@ -49,7 +49,7 @@ class ULPIDiagnostic(Elaboratable):
         m.d.comb += spi_registers.spi.connect(board_spi)
 
         # Create our UTMI translator.
-        ulpi = platform.request("target_phy")
+        ulpi = platform.request(platform.default_usb_connection)
         m.submodules.utmi = utmi = UTMITranslator(ulpi=ulpi)
 
 

@@ -83,7 +83,7 @@ class EptriDeviceExample(Elaboratable):
         ]
 
         # Create our USB device.
-        ulpi = platform.request("target_phy")
+        ulpi = platform.request(platform.default_usb_connection)
         m.submodules.usb = usb = USBDevice(bus=ulpi)
 
         # Connect up our device controller.

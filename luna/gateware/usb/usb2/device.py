@@ -9,25 +9,25 @@ to your own designs; including the core :class:`USBDevice` class.
 import logging
 import unittest
 
-from nmigen                 import Signal, Module, Elaboratable, Const
-from usb_protocol.types     import DescriptorTypes
-from usb_protocol.emitters  import DeviceDescriptorCollection
+from nmigen                    import Signal, Module, Elaboratable, Const
+from usb_protocol.types        import DescriptorTypes
+from usb_protocol.emitters     import DeviceDescriptorCollection
 
+from ...interface.ulpi         import UTMITranslator
+from ...interface.utmi         import UTMIInterfaceMultiplexer
+from ...interface.gateware_phy import GatewarePHY
 
-from ...interface.ulpi      import UTMITranslator
-from ...interface.utmi      import UTMIInterfaceMultiplexer
+from .                         import USBSpeed, USBPacketID
+from .packet                   import USBTokenDetector, USBHandshakeGenerator, USBDataPacketCRC
+from .packet                   import USBInterpacketTimer, USBDataPacketGenerator, USBHandshakeDetector
+from .packet                   import USBDataPacketReceiver
+from .reset                    import USBResetSequencer
 
-from .                      import USBSpeed, USBPacketID
-from .packet                import USBTokenDetector, USBHandshakeGenerator, USBDataPacketCRC
-from .packet                import USBInterpacketTimer, USBDataPacketGenerator, USBHandshakeDetector
-from .packet                import USBDataPacketReceiver
-from .reset                 import USBResetSequencer
+from .endpoint                 import USBEndpointMultiplexer
+from .control                  import USBControlEndpoint
 
-from .endpoint              import USBEndpointMultiplexer
-from .control               import USBControlEndpoint
-
-from ...test                import usb_domain_test_case
-from ...test.usb2           import USBDeviceTest
+from ...test                   import usb_domain_test_case
+from ...test.usb2              import USBDeviceTest
 
 
 class USBDevice(Elaboratable):
@@ -90,10 +90,19 @@ class USBDevice(Elaboratable):
         """
 
         # If this looks more like a ULPI bus than a UTMI bus, translate it.
-        if not hasattr(bus, 'rx_valid'):
+        if hasattr(bus, 'dir'):
             self.utmi       = UTMITranslator(ulpi=bus, handle_clocking=handle_clocking)
             self.bus_busy   = self.utmi.busy
             self.translator = self.utmi
+            self.always_fs  = False
+
+        # If this looks more like raw I/O connections than a UTMI bus, create a pure-gatware
+        # PHY to drive the raw I/O signals.
+        elif hasattr(bus, 'd_n'):
+            self.utmi       = GatewarePHY(io=bus)
+            self.bus_busy   = Const(0)
+            self.translator = self.utmi
+            self.always_fs  = True
 
         # Otherwise, use it directly.
         # Note that since a true UTMI interface has separate Tx/Rx/control
@@ -103,6 +112,7 @@ class USBDevice(Elaboratable):
             self.utmi       = bus
             self.bus_busy   = Const(0)
             self.translator = None
+            self.always_fs  = True
 
         #
         # I/O port
@@ -344,8 +354,8 @@ class USBDevice(Elaboratable):
             self.utmi.dp_pulldown            .eq(0),
 
             # Let our reset sequencer set our USB mode and speed.
-            reset_sequencer.low_speed_only   .eq(self.low_speed_only),
-            reset_sequencer.full_speed_only  .eq(self.full_speed_only),
+            reset_sequencer.low_speed_only   .eq(self.low_speed_only & ~self.always_fs),
+            reset_sequencer.full_speed_only  .eq(self.full_speed_only | self.always_fs),
             self.utmi.op_mode                .eq(reset_sequencer.operating_mode),
             self.utmi.xcvr_select            .eq(reset_sequencer.current_speed),
             self.utmi.term_select            .eq(reset_sequencer.termination_select & self.connect),
