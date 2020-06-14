@@ -1,6 +1,9 @@
 #
 # This file is part of LUNA.
 #
+# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 This module contains gateware designed to assist with endpoint/transfer state management.
 Its components facilitate data transfer longer than a single packet.

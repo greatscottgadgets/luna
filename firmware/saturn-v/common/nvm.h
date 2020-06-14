@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2019 Great Scott Gadgets <info@greatscottgadgets.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include "util.h"
 
 #define NVM_MEMORY        ((volatile uint16_t *)FLASH_ADDR)

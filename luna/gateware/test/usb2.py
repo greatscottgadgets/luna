@@ -1,6 +1,9 @@
 #
 # This file is part of LUNA.
 #
+# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
 """ Full-device test harnesses for USB2. """
 
 from usb_protocol.types import USBStandardRequests, USBPacketID

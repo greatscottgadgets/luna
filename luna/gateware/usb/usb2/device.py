@@ -1,6 +1,9 @@
 #
 # This file is part of LUNA.
 #
+# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 Contains the organizing hardware used to add USB Device functionality
 to your own designs; including the core :class:`USBDevice` class.

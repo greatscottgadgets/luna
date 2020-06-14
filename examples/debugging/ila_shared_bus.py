@@ -2,6 +2,8 @@
 #
 # This file is part of LUNA.
 #
+# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# SPDX-License-Identifier: BSD-3-Clause
 
 # NOTE: This example requires a working `gtkwave` binary
 # to be present and on the system path; and will display the

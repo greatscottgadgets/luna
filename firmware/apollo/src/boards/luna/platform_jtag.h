@@ -1,6 +1,9 @@
 /**
  * Platform-specific JTAG I/O helpers.
  * Using these rather than the raw GPIO functions allows read optimizations.
+ *
+ * Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 

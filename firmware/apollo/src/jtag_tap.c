@@ -2,7 +2,8 @@
  * Code adapted from Arduino-JTAG;
  *    portions copyright (c) 2015 Marcelo Roberto Jimenez <marcelo.jimenez (at) gmail (dot) com>.
  *    portions copyright (c) 2019 Katherine J. Temkin <kate@ktemkin.com>
- *    portions copyright (c) 2019 Great Scott Gadgets <ktemkin@greatscottgadgets.com>
+ * Copyright (c) 2019-2020 Great Scott Gadgets <info@greatscottgadgets.com>
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <stdint.h>
 #include <stdbool.h>

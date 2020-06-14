@@ -1,11 +1,15 @@
 /**
  * This file is part of LUNA.
  *
+ * Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Minimal example for the LUNA `eptri`-equivalent interface.
  *
  * Note that this example is minimal, and meant to offer an example of how to use the
  * LUNA `eptri` interface; and not a complete and correct `eptri` based USB stack.
  */
+
 
 #include <stdbool.h>
 #include "resources.h"

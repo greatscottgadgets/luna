@@ -3,9 +3,12 @@
 #
 # Adapted from lambdasoc.
 # This file includes content Copyright (C) 2020 LambdaConcept.
-
+#
 # Per our BSD license, derivative files must include this license disclaimer.
 #
+# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
 """ Peripheral helpers for LUNA devices. """
 
 from contextlib import contextmanager

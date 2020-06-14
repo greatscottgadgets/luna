@@ -1,8 +1,12 @@
 /**
  * DFU Runtime Support
- * This file is part of LUNA.
  *
  * This file provides support for automatically rebooting into the DFU bootloader.
+ *
+ * This file is part of LUNA.
+ *
+ * Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <sam.h>

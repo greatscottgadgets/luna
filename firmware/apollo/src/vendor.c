@@ -1,12 +1,15 @@
 /*
  * Code for dispatching Apollo vendor requests.
- * This file is part of LUNA.
  *
  * Currently, we support only a vendor-request based protocol, as we're trying to
  * keep code size small for a potential switch to a SAMD11. This likely means we
  * want to avoid the overhead of the libgreat comms API.
+ *
+ * This file is part of LUNA.
+ *
+ * Copyright (c) 2019-2020 Great Scott Gadgets <info@greatscottgadgets.com>
+ * SPDX-License-Identifier: BSD-3-Clause
  */
-
 
 #include <apollo_board.h>
 #include <tusb.h>
