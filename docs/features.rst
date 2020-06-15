@@ -19,7 +19,7 @@ Support for Device Mode
 	:widths: 1 2 1
 
 	* - Feature
-	  - 
+	  -
 	  - Status
 	* - **USB Communications**
 	  - high-/full-speed with ``UTMI`` PHY
@@ -29,7 +29,7 @@ Support for Device Mode
 	  - :complete:`feature complete`
 	* -
 	  - full-speed using raw gpio / pull resistors
-	  - :planned:`planned`
+	  - :inprogress:`mostly working; some features missing`
 	* -
 	  - super-speed using PIPE PHY
 	  - :planned:`planned`
@@ -40,7 +40,7 @@ Support for Device Mode
 	  - low speed, via ULPI/UTMI PHY
 	  - :planned:`untested`
 	* -
-	  - low speed, via ULPI/UTMI PHY
+	  - low speed, using raw gpio / pull resistors
 	  - :planned:`unsupported, currently`
 	* -
 	  -
@@ -48,10 +48,10 @@ Support for Device Mode
 	* - **Control Transfers / Endpoints**
 	  - user-defined
 	  - :complete:`feature complete`
-	* - 
+	* -
 	  - fully-gateware-implemented, with user vendor request handler support
 	  - :needstest:`complete, could use improvements`
-	* - 
+	* -
 	  - CPU interface
 	  - :inprogress:`working; needs more interfaces & examples`
 	* -
@@ -60,13 +60,13 @@ Support for Device Mode
 	* - **Bulk Transfers / Endpoints**
 	  - user-defined
 	  - :complete:`feature complete`
-	* - 
+	* -
 	  - ``IN`` stream helpers
 	  - :complete:`feature complete`
-	* - 
+	* -
 	  - ``OUT`` stream helpers
 	  - :needstest:`complete, could use expansion`
-	* - 
+	* -
 	  - CPU interface
 	  - :inprogress:`working; needs more interfaces & examples`
 	* -
@@ -81,7 +81,7 @@ Support for Device Mode
 	* -
 	  - status-from-host helper
 	  - :planned:`planned`
-	* - 
+	* -
 	  - CPU interface
 	  - :inprogress:`working; needs more interfaces & examples`
 	* -
@@ -90,13 +90,13 @@ Support for Device Mode
 	* - **Isochronous Transfers / Endpoints**
 	  - user-defined
 	  - :planned:`planned`
-	* - 
+	* -
 	  - ``IN`` stream helpers
 	  - :planned:`planned`
-	* - 
+	* -
 	  - ``OUT`` stream helpers
 	  - :planned:`planned`
-	* - 
+	* -
 	  - CPU interface
 	  - :planned:`planned`
 	* -
@@ -127,7 +127,7 @@ only performed on a collection of reference boards.
 .. list-table::
 	:header-rows: 1
 	:widths: 4 2 2 2
-	
+
 	* - Board
 	  - FPGA Family
 	  - PHY
@@ -159,13 +159,13 @@ only performed on a collection of reference boards.
 	* - OrangeCrab
 	  - ECP5
 	  - no hardware PHY
-	  - :planned:`Planned Full-Speed/Device Mode Support` 
+	  - :planned:`Planned Full-Speed/Device Mode Support`
 	* - FOMU
 	  - ice40 UP
 	  - no hardware PHY
-	  - :planned:`Planned Full-Speed/Device Mode Support` 
+	  - :planned:`Planned Full-Speed/Device Mode Support`
 	* - Glasgow
 	  - ice40 HX
 	  - no hardware PHY
-	  - :planned:`Planned Full-Speed Support` 
+	  - :planned:`Planned Full-Speed Support`
 
