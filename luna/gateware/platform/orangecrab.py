@@ -14,14 +14,15 @@ This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM va
 import os
 import subprocess
 
-from nmigen import Elaboratable, ClockDomain, Module
-from nmigen.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock, Connector
+from nmigen import Elaboratable, ClockDomain, Module, ClockSignal, Instance, Signal
+from nmigen.build import Resource, Subsignal, Pins, Attrs, Clock, Connector
 
 from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
 
 from .core import LUNAPlatform
 
-class StubClockDomainGenerator(Elaboratable):
+
+class OrangeCrabDomainGenerator(Elaboratable):
     """ Stub clock domain generator; stands in for the typical LUNA one.
 
     This generator creates domains; but currently does not configure them.
@@ -33,9 +34,93 @@ class StubClockDomainGenerator(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
+        # Grab our default input clock.
+        input_clock = platform.request(platform.default_clk, dir="i")
+
         # Create our domains; but don't do anything else for them, for now.
-        m.domains.usb = ClockDomain()
-        m.domains.fast = ClockDomain()
+        m.domains.sync   = ClockDomain()
+        m.domains.usb    = ClockDomain()
+        m.domains.usb_io = ClockDomain()
+        m.domains.fast   = ClockDomain()
+
+        m.submodules.pll = Instance("EHXPLLL",
+
+                # Clock in.
+                i_CLKI=input_clock,
+
+                # Generated clock outputs.
+                o_CLKOP=ClockSignal("sync"),
+                o_CLKOS=ClockSignal("usb_io"),
+
+                # Status.
+                #o_LOCK=self._pll_lock,
+
+                # PLL parameters...
+                p_PLLRST_ENA="DISABLED",
+                p_INTFB_WAKE="DISABLED",
+                p_STDBY_ENABLE="DISABLED",
+                p_DPHASE_SOURCE="DISABLED",
+                p_CLKOS3_FPHASE=0,
+                p_CLKOS3_CPHASE=0,
+                p_CLKOS2_FPHASE=0,
+                p_CLKOS2_CPHASE=7,
+                p_CLKOS_FPHASE=0,
+                p_CLKOS_CPHASE=5,
+                p_CLKOP_FPHASE=0,
+                p_CLKOP_CPHASE=5,
+                p_PLL_LOCK_MODE=0,
+                p_CLKOS_TRIM_DELAY="0",
+                p_CLKOS_TRIM_POL="FALLING",
+                p_CLKOP_TRIM_DELAY="0",
+                p_CLKOP_TRIM_POL="FALLING",
+                p_OUTDIVIDER_MUXD="DIVD",
+                p_CLKOS3_ENABLE="DISABLED",
+                p_OUTDIVIDER_MUXC="DIVC",
+                p_CLKOS2_ENABLE="DISABLED",
+                p_OUTDIVIDER_MUXB="DIVB",
+                p_CLKOS_ENABLE="ENABLED",
+                p_OUTDIVIDER_MUXA="DIVA",
+                p_CLKOP_ENABLE="ENABLED",
+                p_CLKOS3_DIV=1,
+                p_CLKOS2_DIV=8,
+                p_CLKOS_DIV=48,
+                p_CLKOP_DIV=12,
+                p_CLKFB_DIV=1,
+                p_CLKI_DIV=1,
+                p_FEEDBK_PATH="CLKOP",
+
+                # Internal feedback.
+                i_CLKFB=ClockSignal("sync"),
+
+                # Control signals.
+                i_RST=0,
+                i_PHASESEL0=0,
+                i_PHASESEL1=0,
+                i_PHASEDIR=1,
+                i_PHASESTEP=1,
+                i_PHASELOADREG=1,
+                i_STDBY=0,
+                i_PLLWAKESYNC=0,
+
+                # Output Enables.
+                i_ENCLKOP=0,
+                i_ENCLKOS=0,
+                i_ENCLKOS2=0,
+                i_ENCLKOS3=0,
+
+                # Synthesis attributes.
+                a_FREQUENCY_PIN_CLKI="48.000000",
+                a_FREQUENCY_PIN_CLKOS="48.000000",
+                a_FREQUENCY_PIN_CLKOP="12.000000",
+                a_ICP_CURRENT="12",
+                a_LPF_RESISTOR="8"
+        )
+
+        # We'll use our 48MHz clock for everything _except_ the usb_io domain...
+        m.d.comb += [
+            ClockSignal("usb")     .eq(ClockSignal("sync")),
+            ClockSignal("fast")    .eq(ClockSignal("sync"))
+        ]
 
         return m
 
@@ -50,7 +135,7 @@ class OrangeCrabPlatform(LatticeECP5Platform, LUNAPlatform):
     default_clk = "clk_48MHz"
 
     # Provide the type that'll be used to create our clock domains.
-    clock_domain_generator = StubClockDomainGenerator
+    clock_domain_generator = OrangeCrabDomainGenerator
 
     # We only have a direct connection on our USB lines, so use that for USB comms.
     default_usb_connection = "usb"
@@ -228,7 +313,34 @@ class OrangeCrabR0D2(OrangeCrabPlatform, LUNAPlatform):
             Subsignal("miso", Pins("J1"), Attrs(PULLMODE="UP")),
             Attrs(SLEW="FAST"),
             Attrs(IO_TYPE="LVCMOS33"),
-        )
+        ),
+
+        # User I/O
+        Resource("user_io",  0, Pins("N17")),
+        Resource("user_io",  1, Pins("M18")),
+        Resource("user_io",  2, Pins("C10")),
+        Resource("user_io",  3, Pins("C9")),
+        # 4
+        Resource("user_io",  5, Pins("B10")),
+        Resource("user_io",  6, Pins("B9")),
+        # 7
+        # 8
+        Resource("user_io",  9, Pins("C8")),
+        Resource("user_io",  10, Pins("B8")),
+        Resource("user_io",  11, Pins("A8")),
+        Resource("user_io",  12, Pins("H2")),
+        Resource("user_io",  13, Pins("J2")),
+        Resource("user_io",  14, Pins("N15")),
+        Resource("user_io",  15, Pins("R17")),
+        Resource("user_io",  16, Pins("N16")),
+        # 17
+        Resource("user_io",  18, Pins("L4")),
+        Resource("user_io",  19, Pins("N3")),
+        Resource("user_io",  20, Pins("N4")),
+        Resource("user_io",  21, Pins("H4")),
+        Resource("user_io",  22, Pins("G4")),
+        Resource("user_io",  23, Pins("T17")),
+
     ]
 
     connectors = [ Connector("GPIO", 0, "N17 M18 C10 C9 - B10 B9 - - C8 B8 A8 H2 J2 N15 R17 N16 - L4 N3 N4 H4 G4 T17") ]
