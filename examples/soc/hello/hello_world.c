@@ -1,7 +1,9 @@
 /**
  * This file is part of LUNA.
+ *
+ * Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+ * SPDX-License-Identifier: BSD-3-Clause
  */
-
 
 // Include our automatically generated resource file.
 // This allows us to work with e.g. our registers no matter what address they're assigned.

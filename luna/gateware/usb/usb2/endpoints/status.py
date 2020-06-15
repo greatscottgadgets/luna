@@ -1,6 +1,9 @@
 #
 # This file is part of LUNA.
 #
+# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
 """ Endpoint interfaces for providing status updates to the host.
 
 These are mainly meant for use with interrupt endpoints; and allow a host to e.g.

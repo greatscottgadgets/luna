@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2019 Great Scott Gadgets <info@greatscottgadgets.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include "common/hw.h"
 #include <string.h>
 

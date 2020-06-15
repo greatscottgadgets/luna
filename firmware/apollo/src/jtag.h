@@ -1,10 +1,14 @@
 /*
  * Code for interacting with the FPGA via JTAG.
- * This file is part of LUNA.
  *
  * This JTAG driver is intended to be as simple as possible in order to facilitate
  * configuration and debugging of the attached FPGA. It is not intended to be a general-
  * purpose JTAG link.
+ *
+ * This file is part of LUNA.
+ *
+ * Copyright (c) 2019 Great Scott Gadgets <info@greatscottgadgets.com>
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef __JTAG_H__

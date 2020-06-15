@@ -1,6 +1,10 @@
 /**
  * Interface code for communicating with the FPGA over the Debug SPI connection.
+ *
  * This file is part of LUNA.
+ *
+ * Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef __DEBUG_SPI_H__

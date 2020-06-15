@@ -1,6 +1,10 @@
 /**
  * Apollo board definitions for LUNA hardware.
+ *
  * This file is part of LUNA.
+ *
+ * Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef __APOLLO_BOARD_H__

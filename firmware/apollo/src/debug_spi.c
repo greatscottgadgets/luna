@@ -1,8 +1,12 @@
 /**
  * Interface code for communicating with the FPGA over the Debug SPI connection.
- * This file is part of LUNA.
  *
  * More debug_spi code is typically implemented in boards/<board>/debug_spi.c.
+ *
+ * This file is part of LUNA.
+ *
+ * Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <tusb.h>

@@ -1,6 +1,9 @@
 #
 # This file is part of LUNA.
 #
+# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
 """ OrangeCrab platform definitions.
 
 This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM variable:
