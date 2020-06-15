@@ -159,11 +159,11 @@ only performed on a collection of reference boards.
 	* - OrangeCrab
 	  - ECP5
 	  - no hardware PHY
-	  - :planned:`Planned Full-Speed/Device Mode Support`
+	  - :needstest:`Full-Speed/Device Mode Support`
 	* - FOMU
 	  - ice40 UP
 	  - no hardware PHY
-	  - :planned:`Planned Full-Speed/Device Mode Support`
+	  - :needstest:`Full-Speed/Device Mode Support`
 	* - Glasgow
 	  - ice40 HX
 	  - no hardware PHY

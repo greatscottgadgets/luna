@@ -79,9 +79,9 @@ class USBDeviceExample(Elaboratable):
 
         # ... and for now, attach our LEDs to our most recent control request.
         m.d.comb += [
-            platform.request('led', 0).eq(usb.tx_activity_led),
-            platform.request('led', 1).eq(usb.rx_activity_led),
-            platform.request('led', 2).eq(usb.suspended),
+            platform.request_optional('led', 0, dir="o")  .eq(usb.tx_activity_led),
+            platform.request_optional('led', 1, dir="o")  .eq(usb.rx_activity_led),
+            platform.request_optional('led', 2, dir="o")  .eq(usb.suspended),
         ]
 
         return m
