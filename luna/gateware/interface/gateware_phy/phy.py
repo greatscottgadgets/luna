@@ -157,21 +157,6 @@ class GatewarePHY(Elaboratable):
 
 
         #
-        # Receiver
-        #
-        m.submodules.receiver = receiver = RxPipeline()
-        m.d.comb += [
-            receiver.i_usbp  .eq(self._io.d_p),
-            receiver.i_usbn  .eq(self._io.d_n),
-
-            self.rx_data     .eq(receiver.o_data_payload),
-            self.rx_valid    .eq(receiver.o_data_strobe),
-            self.rx_active   .eq(receiver.o_pkt_in_progress),
-            self.rx_error    .eq(receiver.o_receive_error)
-        ]
-        m.d.usb += self.rx_complete .eq(receiver.o_pkt_end)
-
-        #
         # Transmitter
         #
         in_non_driving_mode = (self.op_mode == self.OP_MODE_NONDRIVING)
@@ -184,8 +169,6 @@ class GatewarePHY(Elaboratable):
             transmitter.i_oe            .eq(self.tx_valid),
             self.tx_ready               .eq(transmitter.o_data_strobe),
 
-            #platform.request('user_io', 2, dir="o")  .eq(transmitter.o_oe),
-
             # USB output.
             self._io.d_p.o   .eq(transmitter.o_usbp),
             self._io.d_n.o   .eq(transmitter.o_usbn),
@@ -195,7 +178,27 @@ class GatewarePHY(Elaboratable):
             self._io.d_n.oe  .eq(~in_non_driving_mode & transmitter.o_oe),
         ]
 
+
         # Generate our USB clock strobe, which should pulse at 12MHz.
         m.d.usb_io += transmitter.i_bit_strobe.eq(Rose(ClockSignal("usb")))
+
+        #
+        # Receiver
+        #
+        m.submodules.receiver = receiver = RxPipeline()
+        m.d.comb += [
+
+            # We'll listen for packets on D+ and D- _whenever we're not transmitting._.
+            # (If we listen while we're transmitting, we'll hear our own packets.)
+            receiver.i_usbp  .eq(self._io.d_p & ~transmitter.o_oe),
+            receiver.i_usbn  .eq(self._io.d_n & ~transmitter.o_oe),
+
+            self.rx_data     .eq(receiver.o_data_payload),
+            self.rx_valid    .eq(receiver.o_data_strobe & receiver.o_pkt_in_progress),
+            self.rx_active   .eq(receiver.o_pkt_in_progress),
+            self.rx_error    .eq(receiver.o_receive_error)
+        ]
+        m.d.usb += self.rx_complete .eq(receiver.o_pkt_end)
+
 
         return m
