@@ -399,8 +399,6 @@ class TxPipeline(Elaboratable):
         sp_o_data_strobe = Signal()
 
         # 12MHz domain
-
-        da_stalled_reset = Signal()
         bitstuff_valid_data = Signal()
 
         # Keep a Gray counter around to smoothly transition between states
@@ -446,7 +444,7 @@ class TxPipeline(Elaboratable):
 
             self.fit_oe.eq(state_data | state_sync),
             self.fit_dat.eq((state_data & shifter.o_data & ~bitstuff.o_stall) | sp_bit),
-            self.o_data_strobe.eq((state_data & shifter.o_get & ~stall & self.i_oe) | sp_o_data_strobe),
+            self.o_data_strobe.eq(state_data & shifter.o_get & ~stall & self.i_oe),
         ]
 
         # If we reset the shifter, then o_empty will go high on the next cycle.
@@ -518,6 +516,7 @@ class TxPipeline(Elaboratable):
             self.o_usbp.eq(nrzi.o_usbp),
             self.o_usbn.eq(nrzi.o_usbn),
             self.o_oe.eq(nrzi.o_oe),
+
         ]
 
         return m

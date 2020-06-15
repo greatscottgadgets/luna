@@ -5,10 +5,11 @@
 
 import logging
 
-from nmigen       import Signal, Module, Cat, Elaboratable, ClockSignal
+from nmigen         import Signal, Module, Cat, Elaboratable, ClockSignal
+from nmigen.hdl.ast import Rose, Past
 
-from .receiver    import RxPipeline
-from .transmitter import TxPipeline
+from .receiver      import RxPipeline
+from .transmitter   import TxPipeline
 
 class GatewarePHY(Elaboratable):
     """ Gateware that implements a UTMI-compatible transciever using raw FPGA I/O.
@@ -33,13 +34,13 @@ class GatewarePHY(Elaboratable):
         asserted when data is to be transmitted; indicates the data_in byte is valid;
         de-asserting this line terminates the transmission
     tx_ready: Signal(), output
-        indicates the the PHY is ready to accept a new byte of data, and that the transmitter 
+        indicates the the PHY is ready to accept a new byte of data, and that the transmitter
         should move on to the next byte after the given cycle
 
     rx_data: Signal(8), output
         data received from the PHY; valid when rx_valid is asserted
     rx_valid: Signal(), output
-        indicates that the data present on rx_data is new and valid data; goes high for a single usb 
+        indicates that the data present on rx_data is new and valid data; goes high for a single usb
         clock cycle to indicate new data is ready
     rx_active: Signal(), output
         indicates that the PHY is actively receiving data from the host; data is only valid when
@@ -85,7 +86,7 @@ class GatewarePHY(Elaboratable):
         The ``d_p`` and ``d_n`` signals are mandaory; the ``pullup``, ``pulldown``,
         and ``vbus_valid`` signals are optional.
     """
-        
+
     OP_MODE_NONDRIVING = 0b10
 
     def __init__(self, *, io):
@@ -165,7 +166,7 @@ class GatewarePHY(Elaboratable):
 
             self.rx_data     .eq(receiver.o_data_payload),
             self.rx_valid    .eq(receiver.o_data_strobe),
-            self.rx_active   .eq(receiver.o_pkt_in_progress | receiver.o_pkt_start),
+            self.rx_active   .eq(receiver.o_pkt_in_progress),
             self.rx_error    .eq(receiver.o_receive_error)
         ]
         m.d.usb += self.rx_complete .eq(receiver.o_pkt_end)
@@ -173,7 +174,7 @@ class GatewarePHY(Elaboratable):
         #
         # Transmitter
         #
-        in_non_driving_mode = (self.op_mode != self.OP_MODE_NONDRIVING)
+        in_non_driving_mode = (self.op_mode == self.OP_MODE_NONDRIVING)
 
         m.submodules.transmitter = transmitter = TxPipeline()
         m.d.comb += [
@@ -183,6 +184,8 @@ class GatewarePHY(Elaboratable):
             transmitter.i_oe            .eq(self.tx_valid),
             self.tx_ready               .eq(transmitter.o_data_strobe),
 
+            #platform.request('user_io', 2, dir="o")  .eq(transmitter.o_oe),
+
             # USB output.
             self._io.d_p.o   .eq(transmitter.o_usbp),
             self._io.d_n.o   .eq(transmitter.o_usbn),
@@ -190,8 +193,9 @@ class GatewarePHY(Elaboratable):
             # USB tri-state control.
             self._io.d_p.oe  .eq(~in_non_driving_mode & transmitter.o_oe),
             self._io.d_n.oe  .eq(~in_non_driving_mode & transmitter.o_oe),
-
-            transmitter.i_bit_strobe.eq(transmitter.o_data_strobe),
         ]
+
+        # Generate our USB clock strobe, which should pulse at 12MHz.
+        m.d.usb_io += transmitter.i_bit_strobe.eq(Rose(ClockSignal("usb")))
 
         return m

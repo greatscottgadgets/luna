@@ -50,7 +50,7 @@ class OrangeCrabDomainGenerator(Elaboratable):
 
                 # Generated clock outputs.
                 o_CLKOP=ClockSignal("sync"),
-                o_CLKOS=ClockSignal("usb_io"),
+                o_CLKOS=ClockSignal("usb"),
 
                 # Status.
                 #o_LOCK=self._pll_lock,
@@ -118,7 +118,7 @@ class OrangeCrabDomainGenerator(Elaboratable):
 
         # We'll use our 48MHz clock for everything _except_ the usb_io domain...
         m.d.comb += [
-            ClockSignal("usb")     .eq(ClockSignal("sync")),
+            ClockSignal("usb_io")  .eq(ClockSignal("sync")),
             ClockSignal("fast")    .eq(ClockSignal("sync"))
         ]
 
