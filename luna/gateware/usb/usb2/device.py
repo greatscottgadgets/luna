@@ -75,6 +75,9 @@ class USBDevice(Elaboratable):
     sof_detected: Signal(), output
         Pulses for one cycle each time a SOF is detected; and thus our frame number has changed.
 
+    reset_detected: Signal(), output
+        Asserted when the USB device receives a bus reset.
+
     # State signals.
     suspended: Signal(), output
         High when the device is in USB suspend. This can be (and by the spec must be) used to trigger
@@ -126,6 +129,7 @@ class USBDevice(Elaboratable):
 
         self.frame_number    = Signal(11)
         self.sof_detected    = Signal()
+        self.reset_detected  = Signal()
 
         self.suspended       = Signal()
         self.tx_activity_led = Signal()
@@ -370,10 +374,11 @@ class USBDevice(Elaboratable):
         #
 
         m.d.comb += [
-            self.suspended     .eq(reset_sequencer.suspended),
+            self.suspended        .eq(reset_sequencer.suspended),
 
-            self.sof_detected  .eq(token_detector.interface.new_frame),
-            self.frame_number  .eq(token_detector.interface.frame),
+            self.sof_detected     .eq(token_detector.interface.new_frame),
+            self.frame_number     .eq(token_detector.interface.frame),
+            self.reset_detected   .eq(reset_sequencer.bus_reset),
 
             self.tx_activity_led  .eq(tx_multiplexer.output.valid),
             self.rx_activity_led  .eq(self.utmi.rx_valid)
