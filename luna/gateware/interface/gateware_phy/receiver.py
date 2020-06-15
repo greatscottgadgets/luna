@@ -32,7 +32,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from nmigen          import Elaboratable, Module, Signal, Cat, Const
+from nmigen          import Elaboratable, Module, Signal, Cat, Const, ClockSignal
 from nmigen.lib.fifo import AsyncFIFOBuffered
 from nmigen.hdl.ast  import Past
 
@@ -399,7 +399,7 @@ class RxBitstuffRemover(Elaboratable):
 
     Clock Domain
     ------------
-    usb_12 : 12MHz
+    usb_48 : 48MHz
 
     Input Ports
     ------------
@@ -444,7 +444,7 @@ class RxBitstuffRemover(Elaboratable):
         # bit.  The fsm implements a counter in a series of several states.
         # This is intentional to help absolutely minimize the levels of logic
         # used.
-        m.submodules.stuff = stuff = DomainRenamer({'sync': 'usb'})(FSM(reset_state="D0"))
+        m.submodules.stuff = stuff = DomainRenamer({'sync': 'usb_io'})(FSM(reset_state="D0"))
 
         drop_bit = Signal(1)
 
@@ -469,7 +469,7 @@ class RxBitstuffRemover(Elaboratable):
             )
         )
 
-        m.d.usb += [
+        m.d.usb_io += [
             self.o_data.eq(self.i_data),
             self.o_stall.eq(drop_bit | ~self.i_valid),
             self.o_error.eq(drop_bit & self.i_data & self.i_valid),
@@ -520,11 +520,13 @@ class RxShifter(Elaboratable):
         #
         # I/O port
         #
-        self.i_valid = Signal()
-        self.i_data = Signal()
+        self.reset   = Signal()
 
-        self.o_data = Signal(width)
-        self.o_put = Signal()
+        self.i_valid = Signal()
+        self.i_data  = Signal()
+
+        self.o_data  = Signal(width)
+        self.o_put   = Signal()
 
 
     def elaborate(self, platform):
@@ -536,13 +538,16 @@ class RxShifter(Elaboratable):
         shift_reg = Signal(width+1, reset=0b1)
 
         m.d.comb += self.o_data.eq(shift_reg[0:width])
-        m.d.usb += self.o_put.eq(shift_reg[width-1] & ~shift_reg[width] & self.i_valid),
+        m.d.usb_io += self.o_put.eq(shift_reg[width-1] & ~shift_reg[width] & self.i_valid),
+
+        with m.If(self.reset):
+            m.d.usb_io += shift_reg.eq(1)
 
         with m.If(self.i_valid):
             with m.If(shift_reg[width]):
-                m.d.usb += shift_reg.eq(Cat(self.i_data, Const(1, shape=width)))
+                m.d.usb_io += shift_reg.eq(Cat(self.i_data, Const(1)))
             with m.Else():
-                m.d.usb += shift_reg.eq(Cat(self.i_data, shift_reg[0:width])),
+                m.d.usb_io += shift_reg.eq(Cat(self.i_data, shift_reg[0:width])),
 
         return m
 
@@ -614,13 +619,11 @@ class RxPipeline(Elaboratable):
         #
         # 1bit->8bit (1byte) gearing
         #
-        active_last_cycle = Past(detect.o_pkt_active)
-
-        m.submodules.shifter = shifter = \
-           ResetInserter(~active_last_cycle)(RxShifter(width=8))
+        m.submodules.shifter = shifter = RxShifter(width=8)
         m.d.comb += [
+            shifter.reset.eq(detect.o_pkt_end),
             shifter.i_data.eq(bitstuff.o_data),
-            shifter.i_valid.eq(~bitstuff.o_stall & detect.o_pkt_active),
+            shifter.i_valid.eq(~bitstuff.o_stall & Past(detect.o_pkt_active)),
         ]
 
         #
@@ -660,8 +663,6 @@ class RxPipeline(Elaboratable):
             m.d.usb += self.o_pkt_in_progress.eq(1)
         with m.Elif(self.o_pkt_end):
             m.d.usb += self.o_pkt_in_progress.eq(0)
-
-
 
         return m
 
