@@ -161,15 +161,19 @@ only performed on a collection of reference boards.
 	  - no hardware PHY
 	  - :needstest:`Full-Speed/Device Mode Support`
 	* - Fomu PVT/Hacker
-	  - ice40 UP
+	  - iCE40 UP
 	  - no hardware PHY
 	  - :needstest:`Full-Speed/Device Mode Support`
 	* - Fomu EVT3
-	  - ice40 UP
+	  - iCE40 UP
 	  - no hardware PHY
 	  - :needstest:`Full-Speed/Device Mode Support`
 	* - Glasgow
-	  - ice40 HX
+	  - iCE40 HX
 	  - no hardware PHY
 	  - :planned:`Planned Full-Speed Support`
+	* - TinyFPGA Bx
+	  - iCE40 LP
+	  - no hardware PHY
+	  - :needstest:`Full-Speed/Device Mode Support,`
 
