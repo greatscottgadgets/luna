@@ -152,10 +152,10 @@ only performed on a collection of reference boards.
 	  - Spartan 7
 	  - UTMI
 	  - :planned:`Planned Device Mode Support`
-	* - LambdaConcept USB Sniffer
+	* - LambdaConcept USB2Sniffer
 	  - Artix 7
 	  - ULPI x2
-	  - :planned:`Planned Device Mode Support`
+	  - :inprogress:`Work in Progress`
 	* - OrangeCrab
 	  - ECP5
 	  - no hardware PHY
