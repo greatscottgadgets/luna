@@ -83,7 +83,7 @@ class GatewarePHY(Elaboratable):
 
     io: Record(d_p, d_n, [pullup], [pulldown], [vbus_valid])
         A record containing the raw I/O signals to be used to drive our I/O-based USB connnection.
-        The ``d_p`` and ``d_n`` signals are mandaory; the ``pullup``, ``pulldown``,
+        The ``d_p`` and ``d_n`` signals are mandatory; the ``pullup``, ``pulldown``,
         and ``vbus_valid`` signals are optional.
     """
 
@@ -91,7 +91,6 @@ class GatewarePHY(Elaboratable):
 
     def __init__(self, *, io):
         self._io = io
-        logging.warn("Using not-yet-functional GatewarePHY! Things will be broken.")
 
         #
         # I/O port

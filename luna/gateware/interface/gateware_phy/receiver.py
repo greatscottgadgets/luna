@@ -35,10 +35,8 @@
 from nmigen          import Elaboratable, Module, Signal, Cat, Const, ClockSignal
 from nmigen.lib.fifo import AsyncFIFOBuffered
 from nmigen.hdl.ast  import Past
+from nmigen.hdl.xfrm import ResetInserter
 
-# TODO: these should be removed during the nMigen'ification
-from nmigen.hdl.xfrm import DomainRenamer, ResetInserter
-from nmigen.compat   import FSM, If, NextState, Case
 
 class RxClockDataRecovery(Elaboratable):
     """RX Clock Data Recovery module.
@@ -114,8 +112,6 @@ class RxClockDataRecovery(Elaboratable):
         # the line then the data may be corrupted and the packet will fail the
         # data integrity checks.
         #
-        m.submodules.lsr = lsr = DomainRenamer({'sync': 'usb_io'})(FSM())
-
         dpair = Signal(2)
         m.d.comb += dpair.eq(Cat(self._usbn, self._usbp))
 
@@ -128,22 +124,41 @@ class RxClockDataRecovery(Elaboratable):
 
         # If we are in a transition state, then we can sample the pair and
         # move to the next corresponding line state.
-        lsr.act("DT",
-            line_state_dt.eq(1),
-            Case(dpair, {
-                0b10 : NextState("DJ"),
-                0b01 : NextState("DK"),
-                0b00 : NextState("SE0"),
-                0b11 : NextState("SE1")
-            })
-        )
+        with m.FSM(domain="usb_io"):
+            with m.State("DT"):
+                m.d.comb += line_state_dt.eq(1)
 
-        # If we are in a valid line state and the value of the pair changes,
-        # then we need to move to the transition state.
-        lsr.act("DJ",  line_state_dj.eq(1),  If(dpair != 0b10, NextState("DT")))
-        lsr.act("DK",  line_state_dk.eq(1),  If(dpair != 0b01, NextState("DT")))
-        lsr.act("SE0", line_state_se0.eq(1), If(dpair != 0b00, NextState("DT")))
-        lsr.act("SE1", line_state_se1.eq(1), If(dpair != 0b11, NextState("DT")))
+                with m.Switch(dpair):
+                    with m.Case(0b10):
+                        m.next = "DJ"
+                    with m.Case(0b01):
+                        m.next = "DK"
+                    with m.Case(0b00):
+                        m.next = "SE0"
+                    with m.Case(0b11):
+                        m.next = "SE1"
+
+            # If we are in a valid line state and the value of the pair changes,
+            # then we need to move to the transition state.
+            with m.State("DJ"):
+                m.d.comb += line_state_dj.eq(1)
+                with m.If(dpair != 0b10):
+                    m.next = "DT"
+
+            with m.State("DK"):
+                m.d.comb += line_state_dk.eq(1)
+                with m.If(dpair != 0b01):
+                    m.next = "DT"
+
+            with m.State("SE0"):
+                m.d.comb += line_state_se0.eq(1)
+                with m.If(dpair != 0b00):
+                    m.next = "DT"
+
+            with m.State("SE1"):
+                m.d.comb += line_state_se1.eq(1)
+                with m.If(dpair != 0b11):
+                    m.next = "DT"
 
 
         #######################################################################
@@ -335,45 +350,42 @@ class RxPacketDetect(Elaboratable):
 
     def elaborate(self, platform):
         m = Module()
-        m.submodules.pkt = pkt = DomainRenamer({'sync': 'usb_io'})(FSM())
 
         pkt_start = Signal()
         pkt_active = Signal()
         pkt_end = Signal()
 
-        for i in range(5):
-            pkt.act("D%d" % i,
-                If(self.i_valid,
-                    If(self.i_data | self.i_se0,
-                        # Receiving '1' or SE0 early resets the packet start counter.
-                        NextState("D0")
-                    ).Else(
-                        # Receiving '0' increments the packet start counter.
-                        NextState("D%d" % (i + 1))
-                    )
-                )
-            )
+        with m.FSM(domain="usb_io"):
 
-        pkt.act("D5",
-            If(self.i_valid,
-                If(self.i_se0,
-                    NextState("D0")
-                # once we get a '1', the packet is active
-                ).Elif(self.i_data,
-                    pkt_start.eq(1),
-                    NextState("PKT_ACTIVE")
-                )
-            )
-        )
+            for i in range(5):
 
-        pkt.act("PKT_ACTIVE",
-            pkt_active.eq(1),
-            If(self.i_valid & self.i_se0,
-                NextState("D0"),
-                pkt_active.eq(0),
-                pkt_end.eq(1)
-            )
-        )
+                with m.State(f"D{i}"):
+                    with m.If(self.i_valid):
+                        with m.If(self.i_data | self.i_se0):
+                            # Receiving '1' or SE0 early resets the packet start counter.
+                            m.next = "D0"
+
+                        with m.Else():
+                            # Receiving '0' increments the packet start counter.
+                            m.next = f"D{i + 1}"
+
+            with m.State("D5"):
+                with m.If(self.i_valid):
+                    with m.If(self.i_se0):
+                        m.next = "D0"
+                    # once we get a '1', the packet is active
+                    with m.Elif(self.i_data):
+                        m.d.comb += pkt_start.eq(1)
+                        m.next = "PKT_ACTIVE"
+
+            with m.State("PKT_ACTIVE"):
+                m.d.comb += pkt_active.eq(1)
+                with m.If(self.i_valid & self.i_se0):
+                    m.d.comb += [
+                        pkt_active.eq(0),
+                        pkt_end.eq(1)
+                    ]
+                    m.next = "D0"
 
         # pass all of the outputs through a pipe stage
         m.d.comb += [
@@ -444,30 +456,26 @@ class RxBitstuffRemover(Elaboratable):
         # bit.  The fsm implements a counter in a series of several states.
         # This is intentional to help absolutely minimize the levels of logic
         # used.
-        m.submodules.stuff = stuff = DomainRenamer({'sync': 'usb_io'})(FSM(reset_state="D0"))
-
         drop_bit = Signal(1)
 
-        for i in range(6):
-            stuff.act("D%d" % i,
-                If(self.i_valid,
-                    If(self.i_data,
-                        # Receiving '1' increments the bitstuff counter.
-                        NextState("D%d" % (i + 1))
-                    ).Else(
-                        # Receiving '0' resets the bitstuff counter.
-                        NextState("D0")
-                    )
-                ),
-            )
 
-        stuff.act("D6",
-            If(self.i_valid,
-                drop_bit.eq(1),
-                # Reset the bitstuff counter, drop the data.
-                NextState("D0")
-            )
-        )
+        with m.FSM(domain="usb_io"):
+
+            for i in range(6):
+                with m.State(f"D{i}"):
+                    with m.If(self.i_valid):
+                        with m.If(self.i_data):
+                            # Receiving '1' increments the bitstuff counter.
+                            m.next = (f"D{i + 1}")
+                        with m.Else():
+                            # Receiving '0' resets the bitstuff counter.
+                            m.next = "D0"
+
+            with m.State("D6"):
+                with m.If(self.i_valid):
+                    m.d.comb += drop_bit.eq(1)
+                    # Reset the bitstuff counter, drop the data.
+                    m.next = "D0"
 
         m.d.usb_io += [
             self.o_data.eq(self.i_data),

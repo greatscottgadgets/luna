@@ -34,10 +34,7 @@
 
 from nmigen          import Elaboratable, Module, Signal, Cat, Const
 from nmigen.lib.cdc  import FFSynchronizer
-
-# TODO: these should be removed during the nMigen'ification
-from nmigen.hdl.xfrm import DomainRenamer, ResetInserter, EnableInserter
-from nmigen.compat   import FSM, If, NextState, NextValue, Case
+from nmigen.hdl.xfrm import ResetInserter
 
 
 
@@ -57,20 +54,23 @@ class TxShifter(Elaboratable):
     -----------
     Input ports are passed in via the constructor.
 
-    i_data : Signal(width)
+    i_data: Signal(width)
         Data to be transmitted.
+
+    i_enable: Signal(), input
+        When asserted, shifting will be allowed; otherwise, the shifter will be stalled.
 
     Output Ports
     ------------
     Output ports are data members of the module. All outputs are flopped.
 
-    o_data : Signal(1)
+    o_data : Signal()
         Serial data output.
 
-    o_empty : Signal(1)
+    o_empty : Signal()
         Asserted the cycle before the shifter loads in more i_data.
 
-    o_get : Signal(1)
+    o_get : Signal()
         Asserted the cycle after the shifter loads in i_data.
 
     """
@@ -80,11 +80,14 @@ class TxShifter(Elaboratable):
         #
         # I/O Port
         #
-        self.i_data = Signal(width)
-        self.o_get = Signal(1)
-        self.o_empty = Signal(1)
+        self.i_data   = Signal(width)
+        self.i_enable = Signal()
+        self.i_clear  = Signal()
 
-        self.o_data = Signal(1)
+        self.o_get    = Signal()
+        self.o_empty  = Signal()
+
+        self.o_data   = Signal()
 
 
     def elaborate(self, platform):
@@ -93,18 +96,28 @@ class TxShifter(Elaboratable):
         shifter = Signal(self._width)
         pos = Signal(self._width, reset=0b1)
 
-        empty = Signal(1)
-        m.d.sync += [
-            pos.eq(pos >> 1),
-            shifter.eq(shifter >> 1),
-            self.o_get.eq(empty),
-        ]
 
-        with m.If(empty):
-            m.d.sync += [
-                shifter.eq(self.i_data),
-                pos.eq(1 << (self._width-1)),
+        with m.If(self.i_enable):
+            empty = Signal()
+            m.d.usb += [
+                pos.eq(pos >> 1),
+                shifter.eq(shifter >> 1),
+                self.o_get.eq(empty),
             ]
+
+            with m.If(empty):
+                m.d.usb += [
+                    shifter.eq(self.i_data),
+                    pos.eq(1 << (self._width-1)),
+                ]
+
+
+        with m.If(self.i_clear):
+            m.d.usb += [
+                shifter.eq(0),
+                pos.eq(1)
+            ]
+
 
         m.d.comb += [
             empty.eq(pos[0]),
@@ -134,28 +147,28 @@ class TxNRZIEncoder(Elaboratable):
 
     Input Ports
     -----------
-    i_valid : Signal(1)
+    i_valid : Signal()
         Qualifies oe, data, and se0.
 
-    i_oe : Signal(1)
+    i_oe : Signal()
         Indicates that the transmit pipeline should be driving USB.
 
-    i_data : Signal(1)
+    i_data : Signal()
         Data bit to be transmitted on USB. Qualified by o_valid.
 
-    i_se0 : Signal(1)
+    i_se0 : Signal()
         Overrides value of o_data when asserted and indicates that SE0 state
         should be asserted on USB. Qualified by o_valid.
 
     Output Ports
     ------------
-    o_usbp : Signal(1)
+    o_usbp : Signal()
         Raw value of USB+ line.
 
-    o_usbn : Signal(1)
+    o_usbn : Signal()
         Raw value of USB- line.
 
-    o_oe : Signal(1)
+    o_oe : Signal()
         When asserted it indicates that the tx pipeline should be driving USB.
     """
 
@@ -165,104 +178,103 @@ class TxNRZIEncoder(Elaboratable):
         self.i_data = Signal()
 
         # flop all outputs
-        self.o_usbp = Signal(1)
-        self.o_usbn = Signal(1)
-        self.o_oe = Signal(1)
+        self.o_usbp = Signal()
+        self.o_usbn = Signal()
+        self.o_oe = Signal()
 
 
     def elaborate(self, platform):
         m = Module()
 
-        # Simple state machine to perform NRZI encoding.
-        m.submodules.nrzi = nrzi = FSM()
-
-        usbp = Signal(1)
-        usbn = Signal(1)
-        oe = Signal(1)
+        usbp = Signal()
+        usbn = Signal()
+        oe = Signal()
 
         # wait for new packet to start
-        nrzi.act("IDLE",
-            usbp.eq(1),
-            usbn.eq(0),
-            oe.eq(0),
+        with m.FSM(domain="usb_io"):
+            with m.State("IDLE"):
+                m.d.comb += [
+                    usbp.eq(1),
+                    usbn.eq(0),
+                    oe.eq(0),
+                ]
 
-            If(self.i_valid,
-                If(self.i_oe,
+                with m.If(self.i_valid & self.i_oe):
                     # first bit of sync always forces a transition, we idle
                     # in J so the first output bit is K.
-                    NextState("DK")
-                )
-            )
-        )
-
-        # the output line is in state J
-        nrzi.act("DJ",
-            usbp.eq(1),
-            usbn.eq(0),
-            oe.eq(1),
-
-            If(self.i_valid,
-                If(~self.i_oe,
-                    NextState("SE0A")
-                ).Elif(self.i_data,
-                    NextState("DJ")
-                ).Else(
-                    NextState("DK")
-                )
-            )
-        )
-
-        # the output line is in state K
-        nrzi.act("DK",
-            usbp.eq(0),
-            usbn.eq(1),
-            oe.eq(1),
-
-            If(self.i_valid,
-                If(~self.i_oe,
-                    NextState("SE0A")
-                ).Elif(self.i_data,
-                    NextState("DK")
-                ).Else(
-                    NextState("DJ")
-                )
-            )
-        )
-
-        # first bit of the SE0 state
-        nrzi.act("SE0A",
-            usbp.eq(0),
-            usbn.eq(0),
-            oe.eq(1),
-
-            If(self.i_valid,
-                NextState("SE0B")
-            )
-        )
-        # second bit of the SE0 state
-        nrzi.act("SE0B",
-            usbp.eq(0),
-            usbn.eq(0),
-            oe.eq(1),
-
-            If(self.i_valid,
-                NextState("EOPJ")
-            )
-        )
-
-        # drive the bus back to J before relinquishing control
-        nrzi.act("EOPJ",
-            usbp.eq(1),
-            usbn.eq(0),
-            oe.eq(1),
-
-            If(self.i_valid,
-                NextState("IDLE")
-            )
-        )
+                    m.next = "DK"
 
 
-        m.d.sync += [
+            # the output line is in state J
+            with m.State("DJ"):
+                m.d.comb += [
+                    usbp.eq(1),
+                    usbn.eq(0),
+                    oe.eq(1),
+                ]
+
+                with m.If(self.i_valid):
+                    with m.If(~self.i_oe):
+                        m.next = "SE0A"
+                    with m.Elif(self.i_data):
+                        m.next = "DJ"
+                    with m.Else():
+                        m.next = "DK"
+
+
+            # the output line is in state K
+            with m.State("DK"):
+                m.d.comb += [
+                    usbp.eq(0),
+                    usbn.eq(1),
+                    oe.eq(1),
+                ]
+
+                with m.If(self.i_valid):
+                    with m.If(~self.i_oe):
+                        m.next = "SE0A"
+                    with m.Elif(self.i_data):
+                        m.next = "DK"
+                    with m.Else():
+                        m.next = "DJ"
+
+
+            # first bit of the SE0 state
+            with m.State("SE0A"):
+                m.d.comb += [
+                    usbp.eq(0),
+                    usbn.eq(0),
+                    oe.eq(1),
+                ]
+
+                with m.If(self.i_valid):
+                    m.next = "SE0B"
+
+            # second bit of the SE0 state
+            with m.State("SE0B"):
+                m.d.comb += [
+                    usbp.eq(0),
+                    usbn.eq(0),
+                    oe.eq(1),
+                ]
+
+                with m.If(self.i_valid):
+                    m.next = "EOPJ"
+
+
+            # drive the bus back to J before relinquishing control
+            with m.State("EOPJ"):
+                m.d.comb += [
+                    usbp.eq(1),
+                    usbn.eq(0),
+                    oe.eq(1),
+                ]
+
+                with m.If(self.i_valid):
+                    m.next = "IDLE"
+
+
+        m.d.usb_io += [
             self.o_oe.eq(oe),
             self.o_usbp.eq(usbp),
             self.o_usbn.eq(usbn),
@@ -292,63 +304,58 @@ class TxBitstuffer(Elaboratable):
 
     Input Ports
     ------------
-    i_data : Signal(1)
+    i_data : Signal()
         Data bit to be transmitted on USB.
 
     Output Ports
     ------------
-    o_data : Signal(1)
+    o_data : Signal()
         Data bit to be transmitted on USB.
 
-    o_stall : Signal(1)
+    o_stall : Signal()
         Used to apply backpressure on the tx pipeline.
     """
     def __init__(self):
         self.i_data = Signal()
 
-        self.o_stall = Signal(1)
-        self.o_will_stall = Signal(1)
-        self.o_data = Signal(1)
+        self.o_stall = Signal()
+        self.o_will_stall = Signal()
+        self.o_data = Signal()
 
 
     def elaborate(self, platform):
         m = Module()
+        stuff_bit = Signal()
 
-        m.submodules.stuff = stuff = FSM()
+        with m.FSM(domain="usb"):
 
-        stuff_bit = Signal(1)
+            for i in range(5):
 
-        for i in range(5):
-            stuff.act("D%d" % i,
-                If(self.i_data,
+                with m.State(f"D{i}"):
                     # Receiving '1' increments the bitstuff counter.
-                    NextState("D%d" % (i + 1))
-                ).Else(
+                    with m.If(self.i_data):
+                        m.next = f"D{i+1}"
+
                     # Receiving '0' resets the bitstuff counter.
-                    NextState("D0")
-                )
-            )
+                    with m.Else():
+                        m.next = "D0"
 
-        stuff.act("D5",
-            If(self.i_data,
-                # There's a '1', so indicate we might stall on the next loop.
-                self.o_will_stall.eq(1),
 
-                # Receiving '1' increments the bitstuff counter.
-                NextState("D6")
-            ).Else(
-                # Receiving '0' resets the bitstuff counter.
-                NextState("D0")
-            )
-        )
+            with m.State("D5"):
+                with m.If(self.i_data):
 
-        stuff.act("D6",
-            # stuff a bit
-            stuff_bit.eq(1),
+                    # There's a '1', so indicate we might stall on the next loop.
+                    m.d.comb += self.o_will_stall.eq(1),
+                    m.next = "D6"
 
-            # Reset the bitstuff counter
-            NextState("D0")
-        )
+                with m.Else():
+                    m.next = "D0"
+
+
+            with m.State("D6"):
+                m.d.comb += stuff_bit.eq(1)
+                m.next = "D0"
+
 
         m.d.comb += [
             self.o_stall.eq(stuff_bit)
@@ -356,9 +363,9 @@ class TxBitstuffer(Elaboratable):
 
         # flop outputs
         with m.If(stuff_bit):
-            m.d.sync += self.o_data.eq(0),
+            m.d.usb += self.o_data.eq(0),
         with m.Else():
-            m.d.sync += self.o_data.eq(self.i_data)
+            m.d.usb += self.o_data.eq(self.i_data)
 
         return m
 
@@ -407,27 +414,36 @@ class TxPipeline(Elaboratable):
         state_sync = Signal()
 
 
-        tx_pipeline_fsm = FSM()
-        m.submodules.tx_pipeline_fsm = DomainRenamer({"sync": "usb"})(tx_pipeline_fsm)
+        #
+        # Transmit gearing.
+        #
+        m.submodules.shifter = shifter = TxShifter(width=8)
+        m.d.comb += [
+            shifter.i_data    .eq(self.i_data_payload),
 
-        shifter = EnableInserter(~stall)(ResetInserter(da_reset_shifter | sp_reset_shifter)(TxShifter(width=8)))
-        m.submodules.shifter = DomainRenamer({"sync": "usb"})(shifter)
+            shifter.i_enable  .eq(~stall),
+            shifter.i_clear   .eq(da_reset_shifter | sp_reset_shifter)
+        ]
 
+        #
+        # Bit-stuffing and NRZI.
+        #
         bitstuff = ResetInserter(da_reset_bitstuff)(TxBitstuffer())
-        m.submodules.bitstuff = DomainRenamer({"sync": "usb"})(bitstuff)
+        m.submodules.bitstuff = bitstuff
 
-        nrzi = TxNRZIEncoder()
-        m.submodules.nrzi = DomainRenamer({"sync": "usb_io"})(nrzi)
+        m.submodules.nrzi = nrzi = TxNRZIEncoder()
 
+
+        #
+        # Transmit controller.
+        #
 
         m.d.comb += [
-            shifter.i_data.eq(self.i_data_payload),
             # Send a data strobe when we're two bits from the end of the sync pulse.
             # This is because the pipeline takes two bit times, and we want to ensure the pipeline
             # has spooled up enough by the time we're there.
-
-
             bitstuff.i_data.eq(shifter.o_data),
+
             stall.eq(bitstuff.o_stall),
 
             sp_bit.eq(sync_pulse[0]),
@@ -459,44 +475,45 @@ class TxPipeline(Elaboratable):
             bitstuff_valid_data.eq(~stall & shifter.o_get & self.i_oe),
         ]
 
-        tx_pipeline_fsm.act('IDLE',
-            If(self.i_oe,
-                NextState('SEND_SYNC'),
-                NextValue(sync_pulse, 1 << 7),
-                NextValue(state_gray, 0b01),
-            ).Else(
-                NextValue(state_gray, 0b00),
-            )
-        )
 
-        tx_pipeline_fsm.act('SEND_SYNC',
-            NextValue(sync_pulse, sync_pulse >> 1),
+        with m.FSM(domain="usb"):
 
-            If(sync_pulse[0],
-                NextState('SEND_DATA'),
-                NextValue(state_gray, 0b11),
-            ).Else(
-                NextValue(state_gray, 0b01),
-            ),
-        )
+            with m.State('IDLE'):
+                with m.If(self.i_oe):
+                    m.d.usb += [
+                        sync_pulse.eq(1 << 7),
+                        state_gray.eq(0b01)
+                    ]
+                    m.next = "SEND_SYNC"
+                with m.Else():
+                    m.d.usb += state_gray.eq(0b00)
 
-        tx_pipeline_fsm.act('SEND_DATA',
-            If(~self.i_oe & shifter.o_empty & ~bitstuff.o_stall,
-                If(bitstuff.o_will_stall,
-                    NextState('STUFF_LAST_BIT')
-                ).Else(
-                    NextValue(state_gray, 0b10),
-                    NextState('IDLE'),
-                )
-            ).Else(
-                NextValue(state_gray, 0b11),
-            ),
-        )
 
-        tx_pipeline_fsm.act('STUFF_LAST_BIT',
-            NextValue(state_gray, 0b10),
-            NextState('IDLE'),
-        )
+            with m.State('SEND_SYNC'):
+                m.d.usb += sync_pulse.eq(sync_pulse >> 1)
+
+                with m.If(sync_pulse[0]):
+                    m.d.usb += state_gray.eq(0b11)
+                    m.next = "SEND_DATA"
+                with m.Else():
+                    m.d.usb += state_gray.eq(0b01)
+
+
+            with m.State('SEND_DATA'):
+                with m.If(~self.i_oe & shifter.o_empty & ~bitstuff.o_stall):
+                    with m.If(bitstuff.o_will_stall):
+                        m.next = 'STUFF_LAST_BIT'
+                    with m.Else():
+                        m.d.usb += state_gray.eq(0b1)
+                        m.next = 'IDLE'
+
+                with m.Else():
+                        m.d.usb += state_gray.eq(0b11)
+
+            with m.State('STUFF_LAST_BIT'):
+                m.d.usb += state_gray.eq(0b10)
+                m.next = 'IDLE'
+
 
         # 48MHz domain
         # NRZI encoding
