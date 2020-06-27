@@ -160,7 +160,11 @@ only performed on a collection of reference boards.
 	  - ECP5
 	  - no hardware PHY
 	  - :needstest:`Full-Speed/Device Mode Support`
-	* - FOMU
+	* - Fomu PVT/Hacker
+	  - ice40 UP
+	  - no hardware PHY
+	  - :needstest:`Full-Speed/Device Mode Support`
+	* - Fomu EVT3
 	  - ice40 UP
 	  - no hardware PHY
 	  - :needstest:`Full-Speed/Device Mode Support`

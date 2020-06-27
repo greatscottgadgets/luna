@@ -111,3 +111,62 @@ class FomuHackerPlatform(LatticeICE40Platform, LUNAPlatform):
         dfu_util = os.environ.get("DFU_UTIL", "dfu-util")
         with products.extract("{}.bin".format(name)) as bitstream_filename:
             subprocess.check_call([dfu_util, "-d", "1209:5bf0", "-D", bitstream_filename])
+
+
+
+class FomuEVTPlatform(LatticeICE40Platform, LUNAPlatform):
+    """ Platform for the Fomu EVT platforms. """
+
+    default_clk = "clk48"
+    name        = "Fomu EVT"
+
+    # Provide the type that'll be used to create our clock domains.
+    clock_domain_generator = FomuDomainGenerator
+
+    # We only have a direct connection on our USB lines, so use that for USB comms.
+    default_usb_connection = "usb"
+
+    device      = "iCE40UP5K"
+    package     = "SG48"
+
+    default_clk = "clk48"
+    resources   = [
+        Resource("clk48", 0, Pins("44", dir="i"),
+                 Clock(48e6), Attrs(GLOBAL=True, IO_STANDARD="SB_LVCMOS")),
+
+        Resource("led", 0, PinsN("41"), Attrs(IO_STANDARD="SB_LVCMOS")),
+        Resource("rgb_led", 0,
+            Subsignal("r", PinsN("40"), Attrs(IO_STANDARD="SB_LVCMOS")),
+            Subsignal("g", PinsN("39"), Attrs(IO_STANDARD="SB_LVCMOS")),
+            Subsignal("b", PinsN("41"),  Attrs(IO_STANDARD="SB_LVCMOS")),
+        ),
+
+        Resource("usb", 0,
+            Subsignal("d_p",    Pins("34")),
+            Subsignal("d_n",    Pins("37")),
+            Subsignal("pullup", Pins("35", dir="o")),
+            Attrs(IO_STANDARD="SB_LVCMOS"),
+        ),
+
+        # PMOD
+        Resource("user_io", 0, PinsN("25"), Attrs(IO_STANDARD="SB_LVCMOS")),
+        Resource("user_io", 1, PinsN("26"), Attrs(IO_STANDARD="SB_LVCMOS")),
+        Resource("user_io", 2, PinsN("27"), Attrs(IO_STANDARD="SB_LVCMOS")),
+        Resource("user_io", 3, PinsN("28"), Attrs(IO_STANDARD="SB_LVCMOS")),
+    ]
+
+    connectors = []
+
+
+    def toolchain_program(self, products, name):
+        """ Program the FPGA of an Fomu EVT board. """
+
+        with products.extract("{}.bin".format(name)) as bitstream_filename:
+            subprocess.check_call(["fomu-flash", "-f", bitstream_filename])
+
+
+    def toolchain_flash(self, products, name="top"):
+        """ Flash the SPI flash of an Fomu EVT board. """
+
+        with products.extract("{}.bin".format(name)) as bitstream_filename:
+            subprocess.check_call(["fomu-flash", "-w", bitstream_filename])
