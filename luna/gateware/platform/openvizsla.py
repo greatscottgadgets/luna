@@ -15,6 +15,8 @@ from nmigen import Elaboratable, ClockDomain, Module
 from nmigen.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock
 from nmigen.vendor.xilinx_spartan_3_6 import XilinxSpartan6Platform
 
+from .core import LUNAPlatform
+
 __all__ = ["OpenVizsla"]
 
 def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset_site, extras=()):
@@ -50,7 +52,7 @@ class StubClockDomainGenerator(Elaboratable):
         return m
 
 
-class OpenVizsla(XilinxSpartan6Platform):
+class OpenVizsla(XilinxSpartan6Platform, LUNAPlatform):
     """ Board description for OpenVizsla USB analyzer. """
 
     name        = "OpenVizsla"

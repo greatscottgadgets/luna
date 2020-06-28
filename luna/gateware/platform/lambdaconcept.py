@@ -30,7 +30,7 @@ def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset
         Subsignal("dir",   Pins(dir_site,    dir="i" )),
         Subsignal("nxt",   Pins(nxt_site,    dir="i" )),
         Subsignal("stp",   Pins(stp_site,    dir="o" )),
-        Subsignal("rst",   PinsN(reset_site, dir="o" )),
+        Subsignal("rst",   Pins(reset_site,  dir="o" )),
         Attrs(IOStandard="LVCMOS33", SLEW="FAST")
     )
 
@@ -154,11 +154,14 @@ class USB2SnifferPlatform(Xilinx7SeriesPlatform, LUNAPlatform):
             Attrs(IOStandard="LVCMOS33"),
         ),
 
+        # Host PHY -- connects directly to the host port.
         ULPIResource("target_phy",
             data_sites="AB18 AA18 AA19 AB20 AA20 AB21 AA21 AB22",
             clk_site="W19",
             dir_site="W21", stp_site="Y22", nxt_site="W22", reset_site="V20"),
-        ULPIResource("host_phy",
+
+        # Target PHY -- connects via a switch to the target port.
+        ULPIResource("sideband_phy",
             data_sites="AB2 AA3 AB3 Y4 AA4 AB5 AA5 AB6",
             clk_site="V4",
             dir_site="AB7", stp_site="AA6", nxt_site="AB8", reset_site="AA8"),
