@@ -139,7 +139,7 @@ only performed on a collection of reference boards.
 	* - OpenVizsla USB Analyzer
 	  - Spartan 6
 	  - ULPI
-	  - :needstest:`Fully Supported, needs testing`
+	  - :complete:`Fully Supported`
 	* - TinyFPGA Ex
 	  - ECP5 SerDes
 	  - SerDes PHY
@@ -155,7 +155,7 @@ only performed on a collection of reference boards.
 	* - LambdaConcept USB2Sniffer
 	  - Artix 7
 	  - ULPI x2
-	  - :inprogress:`Work in Progress`
+	  - :complete:`Fully Supported`
 	* - OrangeCrab
 	  - ECP5
 	  - no hardware PHY
@@ -175,5 +175,5 @@ only performed on a collection of reference boards.
 	* - TinyFPGA Bx
 	  - iCE40 LP
 	  - no hardware PHY
-	  - :needstest:`Full-Speed/Device Mode Support,`
+	  - :needstest:`Full-Speed/Device Mode Support`
 
