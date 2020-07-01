@@ -33,8 +33,7 @@ class ApolloDebugger:
 
     # This VID/PID pair is unique to development LUNA boards.
     # TODO: potentially change this to an OpenMoko VID, like other LUNA boards.
-    VENDOR_ID  = 0x16d0
-    PRODUCT_ID = 0x05a5
+    USB_IDS  = [(0x1d50, 0x615c), (0x16d0, 0x05a5)]
 
     REQUEST_SET_LED_PATTERN = 0xa1
     REQUEST_RECONFIGURE     = 0xc0
@@ -55,7 +54,12 @@ class ApolloDebugger:
         """ Sets up a connection to the debugger. """
 
         # Try to create a connection to our Apollo debug firmware.
-        device = usb.core.find(idVendor=self.VENDOR_ID, idProduct=self.PRODUCT_ID)
+        for vid, pid in self.USB_IDS:
+            device = usb.core.find(idVendor=vid, idProduct=pid)
+            if device is not None:
+                break
+
+        # If we couldn't find an Apollo device, bail out.
         if device is None:
             raise DebuggerNotFound()
 

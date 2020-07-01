@@ -176,6 +176,6 @@ submodules. You can pull down the relevant submodules using ``git``:
 
 On Linux, this can be caused by a permissions issue. Check first for the
 presence of your device using ``lsusb``; if you see a device with the
-VID/PID ``16d0:05a5``, your board is present – and you likely have a
+VID/PID ``1d50:615c``, your board is present – and you likely have a
 permissions issue. You’ll likely need to install permission-granting
 udev rules.

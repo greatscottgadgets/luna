@@ -27,8 +27,8 @@ const USB_DeviceDescriptor device_descriptor = {
 	.bDeviceProtocol        = USB_CSCP_NoDeviceProtocol,
 
 	.bMaxPacketSize0        = 64,
-	.idVendor               = 0x16d0,
-	.idProduct              = 0x05a5,
+	.idVendor               = 0x1d50,
+	.idProduct              = 0x615c,
 	.bcdDevice              = 0x0000,
 
 	.iManufacturer          = 0x01,
@@ -251,10 +251,10 @@ void *get_serial_number_string_descriptor()
 	// Read and save the device serial number as normal Base32.
 	//
 
-	// Documented in section 9.3.3 of D21 datasheet, page 32 (rev G), but no header file, 
+	// Documented in section 9.3.3 of D21 datasheet, page 32 (rev G), but no header file,
 	// these are not contiguous addresses.
 	const uint32_t	*ser[4] = {
-		 	(uint32_t *)0x0080A00C, 
+		 	(uint32_t *)0x0080A00C,
 			(uint32_t *)0x0080A040, (uint32_t *)0x0080A044, (uint32_t *)0x0080A048 };
 
 	uint32_t copy[4];
