@@ -8,14 +8,18 @@
 
 """ Generic USB analyzer backend generator for LUNA. """
 
-import sys
 import time
+import errno
 
+
+import usb
 from datetime import datetime
 
-from nmigen import Signal, Elaboratable, Module
+from nmigen                           import Signal, Elaboratable, Module
+from usb_protocol.emitters            import DeviceDescriptorCollection
 
 from luna                             import get_appropriate_platform
+from luna.usb2                        import USBDevice, USBStreamInEndpoint
 
 from luna.gateware.utils.cdc          import synchronize
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator
@@ -28,27 +32,63 @@ from luna.apollo                      import ApolloDebugger
 from luna.gateware.interface.uart     import UARTTransmitter
 
 
+USB_SPEED_HIGH       = 0b00
+USB_SPEED_FULL       = 0b01
+USB_SPEED_LOW        = 0b10
 
-DATA_AVAILABLE  = 1
-ANALYZER_RESULT = 2
+USB_VENDOR_ID        = 0x1d50
+USB_PRODUCT_ID       = 0x615b
 
-USB_SPEED_HIGH = 0b00
-USB_SPEED_FULL = 0b01
-USB_SPEED_LOW  = 0b10
-
+BULK_ENDPOINT_NUMBER  = 1
+BULK_ENDPOINT_ADDRESS = 0x80 | BULK_ENDPOINT_NUMBER
+MAX_BULK_PACKET_SIZE  = 512
 
 class USBAnalyzerApplet(Elaboratable):
     """ Gateware that serves as a generic USB analyzer backend.
 
     WARNING: This is _incomplete_! It's missing:
-        - a proper host interface
         - DRAM backing for analysis
     """
 
-    _BAUD_RATE = 115200 * 4
 
     def __init__(self, usb_speed=USB_SPEED_FULL):
         self.usb_speed = usb_speed
+
+
+    def create_descriptors(self):
+        """ Create the descriptors we want to use for our device. """
+
+        descriptors = DeviceDescriptorCollection()
+
+        #
+        # We'll add the major components of the descriptors we we want.
+        # The collection we build here will be necessary to create a standard endpoint.
+        #
+
+        # We'll need a device descriptor...
+        with descriptors.DeviceDescriptor() as d:
+            d.idVendor           = USB_VENDOR_ID
+            d.idProduct          = USB_PRODUCT_ID
+
+            d.iManufacturer      = "LUNA"
+            d.iProduct           = "USB Analyzer"
+            d.iSerialNumber      = "[autodetect serial here]"
+
+            d.bNumConfigurations = 1
+
+
+        # ... and a description of the USB configuration we'll provide.
+        with descriptors.ConfigurationDescriptor() as c:
+
+            with c.InterfaceDescriptor() as i:
+                i.bInterfaceNumber = 0
+
+                with i.EndpointDescriptor() as e:
+                    e.bEndpointAddress = BULK_ENDPOINT_ADDRESS
+                    e.wMaxPacketSize   = MAX_BULK_PACKET_SIZE
+
+
+        return descriptors
 
 
     def elaborate(self, platform):
@@ -59,7 +99,7 @@ class USBAnalyzerApplet(Elaboratable):
         m.submodules.clocking = clocking
 
         # Create our UTMI translator.
-        ulpi = platform.request(platform.default_usb_connection)
+        ulpi = platform.request("target_phy")
         m.submodules.utmi = utmi = UTMITranslator(ulpi=ulpi)
 
         # Strap our power controls to be in VBUS passthrough by default,
@@ -83,29 +123,33 @@ class USBAnalyzerApplet(Elaboratable):
             utmi.term_select .eq(0)
         ]
 
-        # Create our UART uplink.
-        uart = platform.request("uart")
-        clock_freq = platform.DEFAULT_CLOCK_FREQUENCIES_MHZ['sync'] * 1000000
+        # Create our USB uplink interface...
+        uplink_ulpi = platform.request("host_phy")
+        m.submodules.usb = usb = USBDevice(bus=uplink_ulpi)
 
-        transmitter = UARTTransmitter(divisor=clock_freq // self._BAUD_RATE)
-        m.submodules.transmitter = transmitter
+        # Add our standard control endpoint to the device.
+        descriptors = self.create_descriptors()
+        usb.add_standard_control_endpoint(descriptors)
+
+        # Add a stream endpoint to our device.
+        stream_ep = USBStreamInEndpoint(
+            endpoint_number=BULK_ENDPOINT_NUMBER,
+            max_packet_size=MAX_BULK_PACKET_SIZE
+        )
+        usb.add_endpoint(stream_ep)
 
         # Create a USB analyzer, and connect a register up to its output.
         m.submodules.analyzer = analyzer = USBAnalyzer(utmi_interface=utmi)
 
         m.d.comb += [
+            # USB stream uplink.
+            stream_ep.stream            .connect(analyzer.stream),
 
-            # UART uplink
-            uart.tx                     .eq(transmitter.tx),
-
-            # Internal connections.
-            transmitter.data            .eq(analyzer.data_out),
-            transmitter.send            .eq(analyzer.data_available),
-            analyzer.next               .eq(transmitter.accepted),
+            usb.connect                 .eq(1),
 
             # LED indicators.
             platform.request("led", 0)  .eq(analyzer.capturing),
-            platform.request("led", 1)  .eq(analyzer.data_available),
+            platform.request("led", 1)  .eq(analyzer.stream.valid),
             platform.request("led", 2)  .eq(analyzer.overrun),
 
             platform.request("led", 3)  .eq(utmi.session_valid),
@@ -125,28 +169,12 @@ class USBAnalyzerConnection:
     work without requiring changes in e.g. our ViewSB frontend.
     """
 
-    @staticmethod
-    def _find_serial_connection():
-        """ Attempts to find a serial connection to the USB analyzer. """
-        import serial.tools.list_ports
-
-        # Generate a search string including our VID/PID.
-        vid_pid = f"{ApolloDebugger.VENDOR_ID:04x}:{ApolloDebugger.PRODUCT_ID:04x}"
-
-        for port in serial.tools.list_ports.grep(vid_pid):
-            return serial.Serial(port.device, USBAnalyzerApplet._BAUD_RATE)
-
-        raise IOError("could not find a debug connection!")
-
-
     def __init__(self):
         """ Creates our connection to the USBAnalyzer. """
 
-        # For now, we'll connect to the target via the Apollo debug controller.
-        # This should be replaced by a high-speed USB link soon; but for now
-        # we'll use the slow debug connection.
-        self._debugger = ApolloDebugger()
-        self._serial   = self._find_serial_connection()
+        self._buffer = bytearray()
+        self._device = None
+
 
 
     def build_and_configure(self, capture_speed):
@@ -160,11 +188,28 @@ class USBAnalyzerConnection:
         platform = get_appropriate_platform()
         platform.build(analyzer, do_program=True)
 
-        self._serial.flush()
+        time.sleep(3)
 
-    def _get_next_byte(self):
-        datum = self._serial.read(1)
-        return datum[0]
+        # For now, we'll use a slow, synchronous connection to the device via pyusb.
+        # This should be replaced with libusb1 for performance.
+        while not self._device:
+
+            # FIXME: add timeout
+            self._device = usb.core.find(idVendor=USB_VENDOR_ID, idProduct=USB_PRODUCT_ID)
+
+
+    def _fetch_data_into_buffer(self):
+        """ Attempts a single data read from the analyzer into our buffer. """
+
+        try:
+            data = self._device.read(BULK_ENDPOINT_ADDRESS, MAX_BULK_PACKET_SIZE)
+            self._buffer.extend(data)
+        except usb.core.USBError as e:
+            if e.errno == errno.ETIMEDOUT:
+                pass
+            else:
+                raise
+
 
 
     def read_raw_packet(self):
@@ -177,15 +222,26 @@ class USBAnalyzerConnection:
         """
 
         size = 0
+        packet = None
 
-        # Read our two-byte header from the debugger...
-        while not size:
-            size = (self._get_next_byte() << 16) | self._get_next_byte()
+        # Read until we get enough data to determine our packet's size...
+        while not packet:
+            while len(self._buffer) < 3:
+                self._fetch_data_into_buffer()
 
-        # ... and read our packet.
-        packet = bytearray([self._get_next_byte() for _ in range(size)])
+            # Extract our size from our buffer.
+            size = (self._buffer.pop(0) << 8) | self._buffer.pop(0)
 
-        # Return our packet.
+            # ... and read until we have a packet.
+            while len(self._buffer) < size:
+                self._fetch_data_into_buffer()
+
+            # Extract our raw packet...
+            packet = self._buffer[0:size]
+            del self._buffer[0:size]
+
+
+        # ... and return it.
         # TODO: extract and provide status flags
         # TODO: generate a timestamp on-device
         return packet, datetime.now(), None
