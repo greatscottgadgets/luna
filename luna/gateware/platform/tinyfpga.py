@@ -34,22 +34,25 @@ class TinyFPGABxDomainGenerator(Elaboratable):
 
         # Create our domains...
         m.domains.sync   = ClockDomain()
-        m.domains.sync24 = ClockDomain()
+        #m.domains.sync24 = ClockDomain()
 
         m.domains.usb    = ClockDomain()
         m.domains.usb_io = ClockDomain()
         m.domains.fast   = ClockDomain()
 
-        # ... create our 48 MHz USB clock...
-        m.submodules.pll = Instance("SB_PLL40_CORE",
+        # ... create our 48 MHz IO and 12 MHz USB clock...
+        m.submodules.pll = Instance("SB_PLL40_2F_CORE",
             i_REFERENCECLK  = platform.request(platform.default_clk),
             i_RESETB        = Const(1),
             i_BYPASS        = Const(0),
 
-            o_PLLOUTCORE    = ClockSignal("sync"),
+            o_PLLOUTCOREA   = ClockSignal("sync"),
+            o_PLLOUTCOREB   = ClockSignal("usb"),
 
             # Create a 48 MHz PLL clock...
             p_FEEDBACK_PATH = "SIMPLE",
+            p_PLLOUT_SELECT_PORTA = "GENCLK",
+            p_PLLOUT_SELECT_PORTB = "SHIFTREG_0deg",
             p_DIVR          = 0,
             p_DIVF          = 47,
             p_DIVQ          = 4,
@@ -61,12 +64,6 @@ class TinyFPGABxDomainGenerator(Elaboratable):
             ClockSignal("usb_io")  .eq(ClockSignal("sync")),
             ClockSignal("fast")    .eq(ClockSignal("sync"))
         ]
-
-        # HACK: Generate a 12MHz clock out of logic.
-        # This is generically not a great idea, but it's actually what Lattice recommends
-        # (TN1008), so who are we to judge? [Submit your answers to /dev/null, please.]
-        m.d.sync   += ClockSignal("sync24")  .eq(~ClockSignal("sync24"))
-        m.d.sync24 += ClockSignal("usb")     .eq(~ClockSignal("usb"))
 
         return m
 
