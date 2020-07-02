@@ -63,14 +63,14 @@ class GatewarePHY(Elaboratable):
         contains a ``vbus_valid`` element; otherwise it is hard connected to '0'
 
     xcvr_select: Signal(2), input
-        Selects the active USB speed. This transceiever only functions as a full speed transciever; so
+        Selects the active USB speed. This transceiver only functions as a full speed transciever; so
         this signal is effectively ignored. To support connection to high-speed gateware, this module
         will prevent the USB lines from being driven when this signal is 0b00; allowing the gateware to
         attempt a high-speed detection handshake without adverse affect.
     term_select: Signal(), input
         When asserted, this will connect the device's full speed pull-up resistor.
     op_mode: Signal(2), input
-        Selects the operating mode of the UTMI transceiever. A value of 0 causes normal operationg;
+        Selects the operating mode of the UTMI transceiver. A value of 0 causes normal operations;
         a value of 1 prevents D+ and D- from being driven; and a value of 2 disables bit-stuffing.
 
     dm_pulldown: Signal(), input
@@ -87,7 +87,9 @@ class GatewarePHY(Elaboratable):
         and ``vbus_valid`` signals are optional.
     """
 
-    OP_MODE_NONDRIVING = 0b10
+    OP_MODE_NORMAL      = 0b00
+    OP_MODE_NONDRIVING  = 0b10
+    OP_MODE_NO_ENCODING = 0b01
 
     def __init__(self, *, io):
         self._io = io
@@ -158,25 +160,51 @@ class GatewarePHY(Elaboratable):
         #
         # Transmitter
         #
-        in_non_driving_mode = (self.op_mode == self.OP_MODE_NONDRIVING)
+        in_normal_mode       = (self.op_mode == self.OP_MODE_NORMAL)
+        in_non_encoding_mode = (self.op_mode == self.OP_MODE_NO_ENCODING)
 
         m.submodules.transmitter = transmitter = TxPipeline()
-        m.d.comb += [
 
-            # UTMI Transmit data.
-            transmitter.i_data_payload  .eq(self.tx_data),
-            transmitter.i_oe            .eq(self.tx_valid),
-            self.tx_ready               .eq(transmitter.o_data_strobe),
 
-            # USB output.
-            self._io.d_p.o   .eq(transmitter.o_usbp),
-            self._io.d_n.o   .eq(transmitter.o_usbn),
+        # When we're in normal mode, we'll drive the USB bus with our standard USB transmitter data.
+        with m.If(in_normal_mode):
+            m.d.comb += [
 
-            # USB tri-state control.
-            self._io.d_p.oe  .eq(~in_non_driving_mode & transmitter.o_oe),
-            self._io.d_n.oe  .eq(~in_non_driving_mode & transmitter.o_oe),
-        ]
+                # UTMI Transmit data.
+                transmitter.i_data_payload  .eq(self.tx_data),
+                transmitter.i_oe            .eq(self.tx_valid),
+                self.tx_ready               .eq(transmitter.o_data_strobe),
 
+                # USB output.
+                self._io.d_p.o   .eq(transmitter.o_usbp),
+                self._io.d_n.o   .eq(transmitter.o_usbn),
+
+                # USB tri-state control.
+                self._io.d_p.oe  .eq(transmitter.o_oe),
+                self._io.d_n.oe  .eq(transmitter.o_oe),
+            ]
+
+
+        # When we're in non-encoding mode ("disable bitstuff and NRZI"),
+        # we'll output to D+ and D- directly when tx_valid is true.
+        with m.Elif(in_non_encoding_mode):
+            m.d.comb += [
+                # USB output.
+                self._io.d_p.o   .eq(self.tx_data),
+                self._io.d_n.o   .eq(~self.tx_data),
+
+                # USB tri-state control.
+                self._io.d_p.oe  .eq(self.tx_valid),
+                self._io.d_n.oe  .eq(self.tx_valid)
+            ]
+
+        # When we're in other modes (non-driving or invalid), we'll not output at all.
+        # This block does nothing, as signals default to zero, but it makes the intention obvious.
+        with m.Else():
+            m.d.comb += [
+                self._io.d_p.oe  .eq(0),
+                self._io.d_n.oe  .eq(0),
+            ]
 
         # Generate our USB clock strobe, which should pulse at 12MHz.
         m.d.usb_io += transmitter.i_bit_strobe.eq(Rose(ClockSignal("usb")))

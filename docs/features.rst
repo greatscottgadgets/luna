@@ -29,7 +29,7 @@ Support for Device Mode
 	  - :complete:`feature complete`
 	* -
 	  - full-speed using raw gpio / pull resistors
-	  - :inprogress:`mostly working; some features missing`
+	  - :inprogress:`complete; needs cleanup/docs`
 	* -
 	  - super-speed using PIPE PHY
 	  - :planned:`planned`
