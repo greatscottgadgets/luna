@@ -140,8 +140,12 @@ only performed on a collection of reference boards.
 	  - Spartan 6
 	  - ULPI
 	  - :complete:`Fully Supported`
+	* - LambdaConcept ECPIX-5
+	  - ECP5
+	  - ULPI, SerDes PHY
+	  - :complete:`High-Speed Fully Supported` / :planned:`Super-Speed Planned`
 	* - TinyFPGA Ex
-	  - ECP5 SerDes
+	  - ECP5
 	  - SerDes PHY
 	  - :planned:`Planned Super-Speed Device Mode`
 	* - Daisho
