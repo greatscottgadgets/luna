@@ -203,12 +203,6 @@ class ECPIX5PlatformRev02(LatticeECP5Platform, LUNAPlatform):
     default_clk = "clk100"
     default_rst = "rst"
 
-    #
-    # !!! WARNING !!!
-    # These pin mappings were adapted from an nMigen platform definition for r01,
-    # and quickly checked for errors against a schematic. There may be inconsistencies.
-    #
-
     # Provide the type that'll be used to create our clock domains.
     clock_domain_generator = StubClockDomainGenerator
 
@@ -276,7 +270,7 @@ class ECPIX5PlatformRev02(LatticeECP5Platform, LUNAPlatform):
             Subsignal("dqs",    DiffPairs("V4 V1", "U5 U2", dir="io"), Attrs(IO_TYPE="SSTL135D_I")),
             Subsignal("dq",     Pins("T4 W4 R4 W5 R6 P6 P5 P4 R1 W3 T2 V3 U3 W1 T1 W2", dir="io")),
             Subsignal("dm",     Pins("J4 H5", dir="o")),
-            Subsignal("odt",    Pins("P3", dir="o")),
+            Subsignal("odt",    Pins("L2", dir="o")),
             Attrs(IO_TYPE="SSTL135_I")
         ),
 
@@ -367,7 +361,6 @@ class ECPIX5PlatformRev02(LatticeECP5Platform, LUNAPlatform):
             ftdi_layout_init 0xfff8 0xfffb
             reset_config none
             adapter_khz 25000
-
             jtag newtap ecp5 tap -irlen 8 -expected-id 0x81113043
             """
         }
