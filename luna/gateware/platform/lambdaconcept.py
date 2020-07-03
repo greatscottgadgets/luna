@@ -203,6 +203,12 @@ class ECPIX5PlatformRev02(LatticeECP5Platform, LUNAPlatform):
     default_clk = "clk100"
     default_rst = "rst"
 
+    #
+    # !!! WARNING !!!
+    # These pin mappings were adapted from an nMigen platform definition for r01,
+    # and quickly checked for errors against a schematic. There may be inconsistencies.
+    #
+
     # Provide the type that'll be used to create our clock domains.
     clock_domain_generator = StubClockDomainGenerator
 
