@@ -18,6 +18,7 @@ Contributions are always appreciated.
    intro
    features
    getting_started
+   custom_hardware
    gateware/usb2_device
    gateware/endpoint
    hardware/bringup_guide
