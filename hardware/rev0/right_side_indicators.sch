@@ -109,11 +109,11 @@ Wire Wire Line
 Wire Wire Line
 	3150 4400 3950 4400
 Text HLabel 3950 5400 2    50   Output ~ 0
-DEBUG_SPI_MISO
+DEBUG_SPI_CIPO
 Text HLabel 3950 4600 2    50   Input ~ 0
 DEBUG_SPI_CLK
 Text HLabel 3950 4400 2    50   Input ~ 0
-DEBUG_SPI_MOSI
+DEBUG_SPI_COPI
 Text HLabel 3950 4900 2    50   Input ~ 0
 DEBUG_SPI_CS
 Wire Wire Line
