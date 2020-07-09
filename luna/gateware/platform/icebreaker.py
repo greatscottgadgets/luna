@@ -48,14 +48,16 @@ class IceBreakerDomainGenerator(Elaboratable):
         # ... ensure our clock is never instantiated with a Global buffer.
         platform.lookup(platform.default_clk).attrs['GLOBAL'] = False
 
-        # ... create our 48 MHz IO and 12 MHz USB clock...
+        # ... create our 48 MHz IO and 12 MHz USB clocks...
+        clk48 = Signal()
+        clk12 = Signal()
         m.submodules.pll = Instance("SB_PLL40_2F_PAD",
             i_PACKAGEPIN    = platform.request(platform.default_clk, dir="i"),
             i_RESETB        = Const(1),
             i_BYPASS        = Const(0),
 
-            o_PLLOUTGLOBALA   = ClockSignal("sync"),
-            o_PLLOUTGLOBALB   = ClockSignal("usb"),
+            o_PLLOUTGLOBALA   = clk48,
+            o_PLLOUTGLOBALB   = clk12,
 
             # Create a 48 MHz PLL clock...
             p_FEEDBACK_PATH = "SIMPLE",
@@ -67,11 +69,19 @@ class IceBreakerDomainGenerator(Elaboratable):
             p_FILTER_RANGE  = 1,
         )
 
+        # ... and constrain them to their new frequencies.
+        platform.add_clock_constraint(clk48, 48e6)
+        platform.add_clock_constraint(clk12, 12e6)
+
+
         # We'll use our 48MHz clock for everything _except_ the usb domain...
         m.d.comb += [
-            ClockSignal("usb_io")  .eq(ClockSignal("sync")),
-            ClockSignal("fast")    .eq(ClockSignal("sync"))
+            ClockSignal("usb_io")  .eq(clk48),
+            ClockSignal("fast")    .eq(clk48),
+            ClockSignal("sync")    .eq(clk48),
+            ClockSignal("usb")     .eq(clk12)
         ]
+
 
         return m
 
