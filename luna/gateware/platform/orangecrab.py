@@ -215,6 +215,16 @@ class OrangeCrabR0D1(OrangeCrabPlatform, LUNAPlatform):
             Subsignal("miso", Pins("J1"), Attrs(PULLMODE="UP")),
             Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST"),
         ),
+
+        # USB Connector.
+        Resource("usb", 0,
+            Subsignal("d_p",    Pins("N1", dir="io")),
+            Subsignal("d_n",    Pins("M2", dir="io")),
+            Subsignal("pullup", Pins("N2", dir="o")),
+            Attrs(IO_TYPE="LVCMOS33")
+        ),
+
+
     ]
 
     connectors = [ Connector("GPIO", 0, "N17 M18 C10 C9 - B10 B9 - - C8 B8 A8 H2 J2 N15 R17 N16 - - - - - - - -") ]

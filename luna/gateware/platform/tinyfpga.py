@@ -34,8 +34,6 @@ class TinyFPGABxDomainGenerator(Elaboratable):
 
         # Create our domains...
         m.domains.sync   = ClockDomain()
-        #m.domains.sync24 = ClockDomain()
-
         m.domains.usb    = ClockDomain()
         m.domains.usb_io = ClockDomain()
         m.domains.fast   = ClockDomain()
