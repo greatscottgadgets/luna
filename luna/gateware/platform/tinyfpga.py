@@ -39,13 +39,15 @@ class TinyFPGABxDomainGenerator(Elaboratable):
         m.domains.fast   = ClockDomain()
 
         # ... create our 48 MHz IO and 12 MHz USB clock...
+        clk48 = Signal()
+        clk12 = Signal()
         m.submodules.pll = Instance("SB_PLL40_2F_CORE",
             i_REFERENCECLK  = platform.request(platform.default_clk),
             i_RESETB        = Const(1),
             i_BYPASS        = Const(0),
 
-            o_PLLOUTCOREA   = ClockSignal("sync"),
-            o_PLLOUTCOREB   = ClockSignal("usb"),
+            o_PLLOUTCOREA   = clk48,
+            o_PLLOUTCOREB   = clk12,
 
             # Create a 48 MHz PLL clock...
             p_FEEDBACK_PATH = "SIMPLE",
@@ -57,10 +59,16 @@ class TinyFPGABxDomainGenerator(Elaboratable):
             p_FILTER_RANGE  = 1,
         )
 
+        # ... and constrain them to their new frequencies.
+        platform.add_clock_constraint(clk48, 48e6)
+        platform.add_clock_constraint(clk12, 12e6)
+
         # We'll use our 48MHz clock for everything _except_ the usb domain...
         m.d.comb += [
-            ClockSignal("usb_io")  .eq(ClockSignal("sync")),
-            ClockSignal("fast")    .eq(ClockSignal("sync"))
+            ClockSignal("usb")     .eq(clk12),
+            ClockSignal("sync")    .eq(clk48),
+            ClockSignal("usb_io")  .eq(clk48),
+            ClockSignal("fast")    .eq(clk48)
         ]
 
         return m
