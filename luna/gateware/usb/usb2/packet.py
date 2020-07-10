@@ -280,9 +280,11 @@ class USBTokenDetector(Elaboratable):
     SOF_PID      = 0b0101
     TOKEN_SUFFIX =   0b01
 
-    def __init__(self, *, utmi, filter_by_address=True):
+    def __init__(self, *, utmi, filter_by_address=True, domain_clock=60e6, fs_only=False):
         self.utmi = utmi
         self.filter_by_address = filter_by_address
+        self._domain_clock = domain_clock
+        self._fs_only = fs_only
 
         #
         # I/O port
@@ -322,7 +324,7 @@ class USBTokenDetector(Elaboratable):
         # Giving this unit a timer separate from a device's main
         # timer simplifies the architecture significantly; and
         # removes a primary source of timer contention.
-        m.submodules.timer = USBInterpacketTimer()
+        m.submodules.timer = USBInterpacketTimer(domain_clock=self._domain_clock, fs_only=self._fs_only)
         timer              = InterpacketTimerInterface()
         m.d.comb += m.submodules.timer.speed.eq(self.speed)
 
@@ -1815,23 +1817,52 @@ class USBInterpacketTimer(Elaboratable):
     #     and 6.5 LS bit periods is equivalent to 260 ULPI clocks. [ULPI 1.1, Figure 18].
     #   - A HS device needs to wait 8 HS bit periods before transmitting [USB2, 7.1.18.2].
     #     Each ULPI cycle is 8 HS bit periods, so we'll only need to wait one cycle.
-
-    # TODO: potentially reduce these to account for processing delays?
-    _HS_RX_TO_TX_DELAY = (  1,  24)
-    _FS_RX_TO_TX_DELAY = ( 10,  32)
-    _LS_RX_TO_TX_DELAY = ( 80, 260)
+    _HS_RX_TO_TX_DELAY     = {60e6: (  1,  24)}
+    _FS_RX_TO_TX_DELAY     = {60e6: ( 10,  32), 12e6: (2, 7)}
+    _LS_RX_TO_TX_DELAY     = {60e6: ( 80, 260)}
 
     # Per the USB 2.0 and ULPI 1.1 specifications, after transission:
     #   - A FS/LS can assume it won't receive a response after 16 bit times [USB2, 7.1.18.1].
     #     This is equivalent to 80 ULPI clocks (FS), or 640 ULPI clocks (LS).
     #   - A HS device can assume it won't receive a response after 736 bit times.
     #     This is equivalent to 92 ULPI clocks.
-    _HS_TX_TO_RX_TIMEOUT =  92
-    _FS_TX_TO_RX_TIMEOUT =  80
-    _LS_TX_TO_RX_TIMEOUT = 640
+    _HS_TX_TO_RX_TIMEOUT = {60e6:  92}
+    _FS_TX_TO_RX_TIMEOUT = {60e6:  80, 12e6: 16}
+    _LS_TX_TO_RX_TIMEOUT = {60e6: 640}
 
 
-    def __init__(self):
+    def __init__(self, domain_clock=60e6, fs_only=False):
+        self._fs_only = fs_only
+
+        # Start off with empty delays -- this doesn't change anything, but makes
+        # linters happy. :)
+        self._hs_rx_to_tx_delay   = None
+        self._ls_rx_to_tx_delay   = None
+        self._hs_rx_to_tx_timeout = None
+        self._ls_rx_to_tx_timeout = None
+
+        # Validate that we have a usable FS Rx/Tx delay.
+        if domain_clock not in self._FS_RX_TO_TX_DELAY:
+            raise ValueError(f"Domain clock must be in {self._FS_TX_TO_RX_TIMEOUT.keys()}, not {domain_clock}.")
+
+        # Capture our FS delay for the current clock speed.
+        self._fs_rx_to_tx_delay   = self._FS_RX_TO_TX_DELAY[domain_clock]
+        self._fs_tx_to_rx_timeout = self._FS_TX_TO_RX_TIMEOUT[domain_clock]
+        self._counter_max = self._FS_TX_TO_RX_TIMEOUT[domain_clock]
+
+        # If we're not in a FS-only configuration, capture our other delays.
+        if not self._fs_only:
+            if domain_clock not in self._HS_RX_TO_TX_DELAY:
+                raise ValueError(f"Domain clock must be in {self._FS_TX_TO_RX_TIMEOUT.keys()}, not {domain_clock}.")
+
+            # Capute our HS and LS delays for the given clock speed.
+            self._hs_rx_to_tx_delay   = self._HS_RX_TO_TX_DELAY[domain_clock]
+            self._ls_rx_to_tx_delay   = self._LS_RX_TO_TX_DELAY[domain_clock]
+            self._hs_tx_to_rx_timeout = self._HS_TX_TO_RX_TIMEOUT[domain_clock]
+            self._ls_tx_to_rx_timeout = self._LS_TX_TO_RX_TIMEOUT[domain_clock]
+            self._counter_max         = self._LS_TX_TO_RX_TIMEOUT[domain_clock]
+
+
 
         # List of interfaces to users of this module.
         self._interfaces               = []
@@ -1867,7 +1898,7 @@ class USBInterpacketTimer(Elaboratable):
         # This should be able to count up to our longest delay. We'll allow our
         # counter to be able to increment one past its maximum, and let it saturate
         # there, after the count.
-        counter = Signal(range(0, self._LS_TX_TO_RX_TIMEOUT + 2))
+        counter = Signal(range(0, self._counter_max + 2))
 
         # Reset our timer whenever any of our interfaces request a timer start.
         reset_signals = (interface.start for interface in self._interfaces)
@@ -1876,7 +1907,7 @@ class USBInterpacketTimer(Elaboratable):
         # When a reset is requested, start the counter from 0.
         with m.If(any_reset):
             m.d.usb += counter.eq(0)
-        with m.Elif(counter < self._LS_TX_TO_RX_TIMEOUT + 1):
+        with m.Elif(counter < self._counter_max + 1):
             m.d.usb += counter.eq(counter + 1)
 
         #
@@ -1885,23 +1916,25 @@ class USBInterpacketTimer(Elaboratable):
         # makes the documentation above clearer.
         #
         with m.If(self.speed == USBSpeed.HIGH):
-            m.d.comb += [
-                rx_to_tx_at_min   .eq(counter == self._HS_RX_TO_TX_DELAY[0]),
-                rx_to_tx_at_max   .eq(counter == self._HS_RX_TO_TX_DELAY[1]),
-                tx_to_rx_timeout  .eq(counter == self._HS_TX_TO_RX_TIMEOUT)
-            ]
+            if not self._fs_only:
+                m.d.comb += [
+                    rx_to_tx_at_min   .eq(counter == self._hs_rx_to_tx_delay[0]),
+                    rx_to_tx_at_max   .eq(counter == self._hs_rx_to_tx_delay[1]),
+                    tx_to_rx_timeout  .eq(counter == self._hs_tx_to_rx_timeout)
+                ]
         with m.Elif(self.speed == USBSpeed.FULL):
             m.d.comb += [
-                rx_to_tx_at_min   .eq(counter == self._FS_RX_TO_TX_DELAY[0]),
-                rx_to_tx_at_max   .eq(counter == self._FS_RX_TO_TX_DELAY[1]),
-                tx_to_rx_timeout  .eq(counter == self._FS_TX_TO_RX_TIMEOUT)
+                rx_to_tx_at_min   .eq(counter == self._fs_rx_to_tx_delay[0]),
+                rx_to_tx_at_max   .eq(counter == self._fs_rx_to_tx_delay[1]),
+                tx_to_rx_timeout  .eq(counter == self._fs_tx_to_rx_timeout)
             ]
         with m.Else():
-            m.d.comb += [
-                rx_to_tx_at_min   .eq(counter == self._LS_RX_TO_TX_DELAY[0]),
-                rx_to_tx_at_max   .eq(counter == self._LS_RX_TO_TX_DELAY[1]),
-                tx_to_rx_timeout  .eq(counter == self._LS_TX_TO_RX_TIMEOUT)
-            ]
+            if not self._fs_only:
+                m.d.comb += [
+                    rx_to_tx_at_min   .eq(counter == self._hs_rx_to_tx_delay[0]),
+                    rx_to_tx_at_max   .eq(counter == self._hs_rx_to_tx_delay[1]),
+                    tx_to_rx_timeout  .eq(counter == self._hs_tx_to_rx_timeout)
+                ]
 
         # Tie our strobes to each of our consumers.
         for interface in self._interfaces:

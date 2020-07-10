@@ -40,12 +40,14 @@ class FomuDomainGenerator(Elaboratable):
         m.domains.fast   = ClockDomain()
 
         # ... and create our 12 MHz USB clock.
+        clk12 = Signal()
+
         m.submodules.pll = Instance("SB_PLL40_CORE",
             i_REFERENCECLK  = ClockSignal("sync"),
             i_RESETB        = Const(1),
             i_BYPASS        = Const(0),
 
-            o_PLLOUTCORE    = ClockSignal("usb"),
+            o_PLLOUTCORE    = clk12,
 
             # Create a 24 MHz PLL clock...
             p_FEEDBACK_PATH = "SIMPLE",
@@ -58,8 +60,12 @@ class FomuDomainGenerator(Elaboratable):
             p_PLLOUT_SELECT ="GENCLK_HALF"
         )
 
-        # We'll use our 48MHz clock for everything _except_ the usb_io domain...
+        # Relax the 12MHz clock down to 12MHz.
+        platform.add_clock_constraint(clk12, 12e6)
+
+        # We'll use our 48MHz clock for everything _except_ the usb domain...
         m.d.comb += [
+            ClockSignal("usb")     .eq(clk12),
             ClockSignal("usb_io")  .eq(ClockSignal("sync")),
             ClockSignal("fast")    .eq(ClockSignal("sync"))
         ]

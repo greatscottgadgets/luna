@@ -116,7 +116,7 @@ class OrangeCrabDomainGenerator(Elaboratable):
                 a_LPF_RESISTOR="8"
         )
 
-        # We'll use our 48MHz clock for everything _except_ the usb_io domain...
+        # We'll use our 48MHz clock for everything _except_ the usb domain...
         m.d.comb += [
             ClockSignal("usb_io")  .eq(ClockSignal("sync")),
             ClockSignal("fast")    .eq(ClockSignal("sync"))
