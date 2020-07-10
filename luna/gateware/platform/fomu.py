@@ -118,6 +118,50 @@ class FomuHackerPlatform(LatticeICE40Platform, LUNAPlatform):
         with products.extract("{}.bin".format(name)) as bitstream_filename:
             subprocess.check_call([dfu_util, "-d", "1209:5bf0", "-D", bitstream_filename])
 
+class FomuPVTPlatform(LatticeICE40Platform, LUNAPlatform):
+    """ Platform for the Fomu PVT platforms """
+
+    default_clk = "clk48"
+    name        = "Fomu PVT"
+
+    # Provide the type that'll be used to create our clock domains.
+    clock_domain_generator = FomuDomainGenerator
+
+    # We only have a direct connection on our USB lines, so use that for USB comms.
+    default_usb_connection = "usb"
+
+    device      = "iCE40UP5K"
+    package     = "UWG30"
+    default_clk = "clk48"
+    resources   = [
+        Resource("clk48", 0, Pins("F4", dir="i"),
+                 Clock(48e6), Attrs(GLOBAL=True, IO_STANDARD="SB_LVCMOS")),
+
+        Resource("led", 0, PinsN("B5"), Attrs(IO_STANDARD="SB_LVCMOS")),
+        Resource("rgb_led", 0,
+            Subsignal("r", PinsN("B5"), Attrs(IO_STANDARD="SB_LVCMOS")),
+            Subsignal("g", PinsN("A5"), Attrs(IO_STANDARD="SB_LVCMOS")),
+            Subsignal("b", PinsN("C5"),  Attrs(IO_STANDARD="SB_LVCMOS")),
+        ),
+
+        Resource("usb", 0,
+            Subsignal("d_p",    Pins("A1")),
+            Subsignal("d_n",    Pins("A2")),
+            Subsignal("pullup", Pins("A4", dir="o")),
+            Attrs(IO_STANDARD="SB_LVCMOS"),
+        ),
+    ]
+
+    connectors = []
+
+
+    def toolchain_program(self, products, name):
+        """ Program the flash of a FomuPVT  board. """
+
+        # Use the DFU bootloader to program the ECP5 bitstream.
+        dfu_util = os.environ.get("DFU_UTIL", "dfu-util")
+        with products.extract("{}.bin".format(name)) as bitstream_filename:
+            subprocess.check_call([dfu_util, "-d", "1209:5bf0", "-D", bitstream_filename])
 
 
 class FomuEVTPlatform(LatticeICE40Platform, LUNAPlatform):
