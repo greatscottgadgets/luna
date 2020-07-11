@@ -1,14 +1,14 @@
 #
 # This file is part of LUNA.
 #
-# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# Copyright (c) 2019 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
 """ Hackaday SuperCon 2019 Badge Platform definitions.
 
 This is an -unsupported- platform! To use it, you'll need to set your LUNA_PLATFORM variable:
 
-    > export LUNA_PLATFORM="luna.gateware.platform.hackaday:Supercon2020Badge"
+    > export LUNA_PLATFORM="luna.gateware.platform.hackaday:Supercon2019Badge"
 
 This board is not routinely tested, and performance is not guaranteed.
 """
@@ -112,10 +112,10 @@ class SuperconDomainGenerator(Elaboratable):
         return m
 
 
-class Supercon2020Badge(LatticeECP5Platform, LUNAPlatform):
-    """ Platform for the Supercon 2020 badge (final, black PCB). """
+class Supercon2019Badge(LatticeECP5Platform, LUNAPlatform):
+    """ Platform for the Supercon 2019 badge (final, black PCB). """
 
-    name        = "HAD Supercon 2020 Badge"
+    name        = "HAD Supercon 2019 Badge"
 
     device      = "LFE5U-45F"
     package     = "BG381"
