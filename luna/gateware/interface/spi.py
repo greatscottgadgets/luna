@@ -85,8 +85,8 @@ class SPIDeviceInterface(Elaboratable):
         # Generate the leading and trailing edge detectors.
         # Note that we use rising and falling edge detectors, but call these leading and
         # trailing edges, as our clock here may have been inverted.
-        leading_edge  = Rose(serial_clock)
-        trailing_edge = Fell(serial_clock)
+        leading_edge  = Rose(serial_clock, domain="sync")
+        trailing_edge = Fell(serial_clock, domain="sync")
 
         # Determine the sample and output edges based on the SPI clock phase.
         sample_edge = trailing_edge if self.clock_phase else leading_edge
@@ -336,7 +336,7 @@ class SPICommandInterface(Elaboratable):
         m = Module()
         spi = self.spi
 
-        sample_edge = Fell(spi.sck)
+        sample_edge = Fell(spi.sck, domain="sync")
 
         # Bit counter: counts the number of bits received.
         max_bit_count = max(self.word_size, self.command_size)
