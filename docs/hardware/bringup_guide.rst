@@ -163,7 +163,7 @@ Once you’ve validated connectivity, you’re ready to try running the
 Troubleshooting
 ---------------
 
-**Issue: some of the build files weren't found; ``make`` produces a message like ``no rule to make target``. ***
+**Issue: some of the build files weren't found;** ``make`` **produces a message like "** ``no rule to make target`` **".**
 
 Chances are, your clone of LUNA is was pulled down without its
 submodules. You can pull down the relevant submodules using ``git``:
