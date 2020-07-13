@@ -631,7 +631,7 @@ class RxPipeline(Elaboratable):
         m.d.comb += [
             shifter.reset.eq(detect.o_pkt_end),
             shifter.i_data.eq(bitstuff.o_data),
-            shifter.i_valid.eq(~bitstuff.o_stall & Past(detect.o_pkt_active)),
+            shifter.i_valid.eq(~bitstuff.o_stall & Past(detect.o_pkt_active, domain="usb_io")),
         ]
 
         #
