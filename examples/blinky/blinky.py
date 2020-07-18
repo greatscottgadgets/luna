@@ -10,6 +10,7 @@ import sys
 from nmigen import Signal, Module, Elaboratable, ClockDomain, ClockSignal, Cat
 
 from luna import top_level_cli
+from luna.gateware.platform import NullPin
 
 class Blinky(Elaboratable):
     """ Hardware module that validates basic LUNA functionality. """
@@ -21,8 +22,8 @@ class Blinky(Elaboratable):
         m = Module()
 
         # Grab our I/O connectors.
-        leds    = [platform.request_optional("led", i, dir="o") for i in range(0, 6)]
-        user_io = [platform.request_optional("user_io", i, dir="o") for i in range(0, 4)]
+        leds    = [platform.request_optional("led", i, default=NullPin()).o for i in range(0, 8)]
+        user_io = [platform.request_optional("user_io", i, default=NullPin()).o for i in range(0, 8)]
 
         # Clock divider / counter.
         counter = Signal(28)

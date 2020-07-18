@@ -103,9 +103,6 @@ class USBStreamOutDeviceExample(Elaboratable):
             stream_in.last              .eq(stream_out.last),
             stream_out.ready            .eq(stream_in.ready),
 
-            platform.request("led", 0)  .eq(stream_out.valid),
-
-
             usb.connect                 .eq(1)
         ]
 

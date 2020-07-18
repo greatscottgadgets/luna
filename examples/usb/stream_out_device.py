@@ -12,6 +12,7 @@ from usb_protocol.emitters   import DeviceDescriptorCollection
 
 from luna                    import top_level_cli
 from luna.usb2               import USBDevice, USBStreamOutEndpoint
+from luna.gateware.platform  import NullPin
 
 
 class USBStreamOutDeviceExample(Elaboratable):
@@ -80,8 +81,8 @@ class USBStreamOutDeviceExample(Elaboratable):
         )
         usb.add_endpoint(stream_ep)
 
-        leds    = Cat(platform.request("led", i) for i in range(6))
-        user_io = Cat(platform.request("user_io", i, dir="o") for i in range(4))
+        leds    = Cat(platform.request_optional("led", i, default=NullPin()) for i in range(6))
+        user_io = Cat(platform.request_optional("user_io", i, default=NullPin()) for i in range(4))
 
         # Always stream our USB data directly onto our User I/O and LEDS.
         with m.If(stream_ep.stream.valid):

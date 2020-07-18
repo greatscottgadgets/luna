@@ -230,10 +230,10 @@ class SimpleSoC(CPUSoC, Elaboratable):
         # If we're automatically creating a debug connection, do so.
         if self._auto_debug:
             m.d.comb += [
-                self.cpu._cpu.jtag.tck  .eq(synchronize(m, platform.request("user_io", 0, dir="i"))),
-                self.cpu._cpu.jtag.tms  .eq(synchronize(m, platform.request("user_io", 1, dir="i"))),
-                self.cpu._cpu.jtag.tdi  .eq(synchronize(m, platform.request("user_io", 2, dir="i"))),
-                platform.request("user_io", 3, dir="o")  .eq(self.cpu._cpu.jtag.tdo)
+                self.cpu._cpu.jtag.tck  .eq(synchronize(m, platform.request("user_io", 0, dir="i").i)),
+                self.cpu._cpu.jtag.tms  .eq(synchronize(m, platform.request("user_io", 1, dir="i").i)),
+                self.cpu._cpu.jtag.tdi  .eq(synchronize(m, platform.request("user_io", 2, dir="i").i)),
+                platform.request("user_io", 3, dir="o").o  .eq(self.cpu._cpu.jtag.tdo)
             ]
 
         return m

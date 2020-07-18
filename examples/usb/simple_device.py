@@ -11,6 +11,7 @@ from nmigen                         import Elaboratable, Module
 from usb_protocol.emitters          import DeviceDescriptorCollection
 
 from luna                           import top_level_cli
+from luna.gateware.platform         import NullPin
 from luna.gateware.usb.usb2.device  import USBDevice
 
 
@@ -79,9 +80,9 @@ class USBDeviceExample(Elaboratable):
 
         # ... and for now, attach our LEDs to our most recent control request.
         m.d.comb += [
-            platform.request_optional('led', 0, dir="o")  .eq(usb.tx_activity_led),
-            platform.request_optional('led', 1, dir="o")  .eq(usb.rx_activity_led),
-            platform.request_optional('led', 2, dir="o")  .eq(usb.suspended),
+            platform.request_optional('led', 0, default=NullPin()).o  .eq(usb.tx_activity_led),
+            platform.request_optional('led', 1, default=NullPin()).o  .eq(usb.rx_activity_led),
+            platform.request_optional('led', 2, default=NullPin()).o  .eq(usb.suspended),
         ]
 
         return m

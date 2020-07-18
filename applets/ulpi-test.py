@@ -44,7 +44,7 @@ class ULPIDiagnostic(Elaboratable):
         m.submodules.clocking = clocking
 
         # Grab a reference to our debug-SPI bus.
-        board_spi = synchronize(m, platform.request("debug_spi"))
+        board_spi = synchronize(m, platform.request("debug_spi").i)
 
         # Create our SPI-connected registers.
         m.submodules.spi_registers = spi_registers = SPIRegisterInterface(7, 8)
@@ -58,16 +58,16 @@ class ULPIDiagnostic(Elaboratable):
         # Strap our power controls to be in VBUS passthrough by default,
         # on the target port.
         m.d.comb += [
-            platform.request("power_a_port")      .eq(0),
-            platform.request("pass_through_vbus") .eq(1),
+            platform.request("power_a_port").o      .eq(0),
+            platform.request("pass_through_vbus").o .eq(1),
         ]
 
 
         # Hook up our LEDs to status signals.
         m.d.comb += [
-            platform.request("led", 2)  .eq(utmi.session_valid),
-            platform.request("led", 3)  .eq(utmi.rx_active),
-            platform.request("led", 4)  .eq(utmi.rx_error)
+            platform.request("led", 2).o  .eq(utmi.session_valid),
+            platform.request("led", 3).o  .eq(utmi.rx_active),
+            platform.request("led", 4).o  .eq(utmi.rx_error)
         ]
 
         # Set up our parameters.
@@ -93,9 +93,9 @@ class ULPIDiagnostic(Elaboratable):
         spi_registers.add_read_only_register(ANALYZER_RESULT, read=analyzer.data_out, read_strobe=read_strobe)
 
         m.d.comb += [
-            platform.request("led", 0)  .eq(analyzer.capturing),
-            platform.request("led", 1)  .eq(analyzer.data_available),
-            platform.request("led", 5)  .eq(analyzer.overrun),
+            platform.request("led", 0).o  .eq(analyzer.capturing),
+            platform.request("led", 1).o  .eq(analyzer.data_available),
+            platform.request("led", 5).o  .eq(analyzer.overrun),
 
             analyzer.next               .eq(read_strobe)
         ]

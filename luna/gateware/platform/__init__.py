@@ -11,6 +11,7 @@ import logging
 import importlib
 import importlib.util
 
+from nmigen import Record
 from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
 
 from .luna_r0_1 import LUNAPlatformRev0D1
@@ -89,3 +90,14 @@ def get_appropriate_platform() -> LatticeECP5Platform:
 
         logging.warning(f"Couldn't auto-detect connected platform. Assuming {platform.name}.")
         return platform
+
+
+class NullPin(Record):
+    """ Stand-in for a I/O record. """
+
+    def __init__(self, size=1):
+        super().__init__([
+            ('i', size),
+            ('o', size),
+            ('oe', 1),
+        ])

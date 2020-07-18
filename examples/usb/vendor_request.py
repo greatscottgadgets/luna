@@ -10,6 +10,7 @@ from usb_protocol.types             import USBRequestType
 from usb_protocol.emitters          import DeviceDescriptorCollection
 
 from luna                           import top_level_cli
+from luna.gateware.platform         import NullPin
 from luna.gateware.usb.usb2.device  import USBDevice
 from luna.gateware.usb.usb2.request import USBRequestHandler
 
@@ -26,11 +27,11 @@ class LEDRequestHandler(USBRequestHandler):
         setup             = self.interface.setup
 
         # Grab a reference to the board's LEDs.
-        leds  = Cat(platform.request("led", i) for i in range(6))
+        leds  = Cat(platform.request_optional("led", i, default=NullPin()).i for i in range(8))
 
         #
         # Vendor request handlers.
-        #
+
         with m.If(setup.type == USBRequestType.VENDOR):
             with m.Switch(setup.request):
 

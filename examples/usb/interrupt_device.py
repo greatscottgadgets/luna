@@ -97,13 +97,6 @@ class USBInterruptExample(Elaboratable):
             usb.full_speed_only  .eq(1 if os.getenv('LUNA_FULL_ONLY') else 0),
         ]
 
-        # ... and for now, attach our LEDs to our most recent control request.
-        m.d.comb += [
-            platform.request('led', 0).eq(usb.tx_activity_led),
-            platform.request('led', 1).eq(usb.rx_activity_led),
-            platform.request('led', 2).eq(usb.suspended),
-        ]
-
         return m
 
 
