@@ -264,7 +264,7 @@ class USBEndpointMultiplexer(Elaboratable):
 
         # We'll connect our PID toggle to whichever interface has a valid transmission going.
         for interface in self._interfaces:
-            with conditional(interface.tx.valid | Past(interface.tx.valid, domain="usb_io")):
+            with conditional(interface.tx.valid | Past(interface.tx.valid, domain="usb")):
                 m.d.comb += shared.tx_pid_toggle.eq(interface.tx_pid_toggle)
 
             conditional = m.Elif
