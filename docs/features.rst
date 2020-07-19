@@ -65,7 +65,7 @@ Support for Device Mode
 	  - :complete:`feature complete`
 	* -
 	  - ``OUT`` stream helpers
-	  - :needstest:`complete, could use expansion`
+	  - :complete:`feature complete`
 	* -
 	  - CPU interface
 	  - :inprogress:`working; needs more interfaces & examples`
@@ -163,15 +163,19 @@ only performed on a collection of reference boards.
 	* - OrangeCrab
 	  - ECP5
 	  - no hardware PHY
-	  - :needstest:`Full-Speed/Device Mode Support`
+	  - :complete:`Full-Speed/Device Mode Support`
+	* - ULX3S
+	  - ECP5
+	  - no hardware PHY
+	  - :complete:`Full-Speed/Device Mode Support`
 	* - Fomu PVT/Hacker
 	  - iCE40 UP
 	  - no hardware PHY
-	  - :needstest:`Full-Speed/Device Mode Support`
+	  - :complete:`Full-Speed/Device Mode Support`
 	* - Fomu EVT3
 	  - iCE40 UP
 	  - no hardware PHY
-	  - :needstest:`Full-Speed/Device Mode Support`
+	  - :complete:`Full-Speed/Device Mode Support`
 	* - Glasgow
 	  - iCE40 HX
 	  - no hardware PHY
@@ -179,5 +183,5 @@ only performed on a collection of reference boards.
 	* - TinyFPGA Bx
 	  - iCE40 LP
 	  - no hardware PHY
-	  - :needstest:`Full-Speed/Device Mode Support`
+	  - :complete:`Full-Speed/Device Mode Support`
 
