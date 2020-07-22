@@ -330,7 +330,7 @@ class SyncSerialILA(Elaboratable):
         # Figure out how many bytes we'll send per sample.
         # We'll always send things squished into 32-bit chunks, as this is what the SPI engine
         # on our Debug Controller likes most.
-        words_per_sample = (self.ila.sample_depth + 31) // 32
+        words_per_sample = (self.ila.sample_width + 31) // 32
 
         self.bytes_per_sample = words_per_sample * 4
         self.bits_per_word = self.bytes_per_sample * 8
