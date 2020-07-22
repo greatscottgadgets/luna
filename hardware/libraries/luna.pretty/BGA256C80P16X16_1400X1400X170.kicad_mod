@@ -195,7 +195,7 @@
   (pad L10 smd circle (at 1.2 2 90) (size 0.41 0.41) (layers F.Cu F.Paste F.Mask))
   (pad L11 smd circle (at 2 2 90) (size 0.41 0.41) (layers F.Cu F.Paste F.Mask))
   (pad L12 smd circle (at 2.8 2 90) (size 0.41 0.41) (layers F.Cu F.Paste F.Mask))
-  (pad L13 smd circle (at 3.6 2 90) (size 0.41 0.41) (layers F.Cu F.Paste F.SilkS F.Mask))
+  (pad L13 smd circle (at 3.6 2 90) (size 0.41 0.41) (layers F.Cu F.Paste F.Mask))
   (pad L14 smd circle (at 4.4 2 90) (size 0.41 0.41) (layers F.Cu F.Paste F.Mask))
   (pad L15 smd circle (at 5.2 2 90) (size 0.41 0.41) (layers F.Cu F.Paste F.Mask))
   (pad L16 smd circle (at 6 2 90) (size 0.41 0.41) (layers F.Cu F.Paste F.Mask))
