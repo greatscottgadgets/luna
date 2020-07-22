@@ -469,6 +469,7 @@ class ILAFrontend(metaclass=ABCMeta):
         for signal in self.ila.signals:
             signal_width = len(signal)
             signal_bits  = raw_sample[position : position + signal_width]
+            position += signal_width
 
             sample[signal.name] = signal_bits
 
