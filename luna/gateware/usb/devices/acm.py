@@ -10,10 +10,60 @@ from nmigen                            import Elaboratable, Module, Signal
 
 from ...stream                         import StreamInterface
 from ..usb2.device                     import USBDevice
+from ..usb2.request                    import USBRequestHandler, StallOnlyRequestHandler
 from ..usb2.endpoints.stream           import USBStreamInEndpoint, USBStreamOutEndpoint
 
+from usb_protocol.types                import USBRequestType
 from usb_protocol.emitters             import DeviceDescriptorCollection
 from usb_protocol.emitters.descriptors import cdc
+
+
+class ACMRequestHandlers(USBRequestHandler):
+    """ Minimal set of request handlers to implement ACM functionality.
+
+    Implements just enough of the requests to be usable on major operating system.
+    In testing, macOS and Linux are fine will all requests being stalled; while Windows
+    seems to be happy as long as SET_LINE_CODING is implemented. We'll implement only
+    that, and stall every other handler.
+    """
+
+    SET_LINE_CODING = 0x20
+
+    def elaborate(self, platform):
+        m = Module()
+
+        interface         = self.interface
+        setup             = self.interface.setup
+
+        #
+        # Class request handlers.
+        #
+
+        with m.If(setup.type == USBRequestType.CLASS):
+            with m.Switch(setup.request):
+
+                # SET_LINE_CODING: The host attempts to tell us how it wants serial data
+                # encoding. Since we output a stream, we'll ignore the actual line coding.
+                with m.Case(self.SET_LINE_CODING):
+
+                    # Always ACK the data out...
+                    with m.If(interface.rx_ready_for_response):
+                        m.d.comb += interface.handshakes_out.ack.eq(1)
+
+                    # ... and accept whatever the request was.
+                    with m.If(interface.status_requested):
+                        m.d.comb += self.send_zlp()
+
+
+                with m.Case():
+
+                    #
+                    # Stall unhandled requests.
+                    #
+                    with m.If(interface.status_requested | interface.data_requested):
+                        m.d.comb += interface.handshakes_out.stall.eq(1)
+
+                return m
 
 
 class USBSerialDevice(Elaboratable):
@@ -153,7 +203,17 @@ class USBSerialDevice(Elaboratable):
 
         # Create our core USB device, and add a standard control endpoint.
         m.submodules.usb = usb = USBDevice(bus=self._bus)
-        usb.add_standard_control_endpoint(self.create_descriptors())
+        control_ep = usb.add_standard_control_endpoint(self.create_descriptors())
+
+        # Attach our class request handlers.
+        control_ep.add_request_handler(ACMRequestHandlers())
+
+        # Attach class-request handlers that stall any vendor or reserved requests,
+        # as we don't have or need any.
+        stall_condition = lambda setup : \
+            (setup.type == USBRequestType.VENDOR) | \
+            (setup.type == USBRequestType.RESERVED)
+        control_ep.add_request_handler(StallOnlyRequestHandler(stall_condition))
 
         # Create our status/communications endpoint; but don't ever drive its stream.
         # This should be optimized down to an endpoint that always NAKs.
