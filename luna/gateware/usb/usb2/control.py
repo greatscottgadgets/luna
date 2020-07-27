@@ -34,19 +34,24 @@ class USBControlEndpoint(Elaboratable):
     ----------
     interface: EndpointInterface
         The interface from this endpoint to the core device hardware.
+
+    Parameters
+    ----------
+        utmi: UTMI bus, or equivalent translator
+            The UTMI bus we'll monitor for data. We'll consider this read-only.
+        endpoint_number: int, optional
+            The endpoint number for this control interface; defaults to (and almost always should
+            be) zero.
+        standalone: bool
+            Debug parameter. If true, this module will operate without external components;
+            i.e. without an internal data-CRC generator, or tokenizer. In this case, tokenizer
+            and timer should be set to None; and will be ignored.
     """
 
-    def __init__(self, *, utmi, standalone=False):
-        """
-        Parameters:
-            utmi       -- The UTMI bus we'll monitor for data. We'll consider this read-only.
-
-            standalone     -- Debug parameter. If true, this module will operate without external components;
-                              i.e. without an internal data-CRC generator, or tokenizer. In this case, tokenizer
-                              and timer should be set to None; and will be ignored.
-        """
-        self.utmi       = utmi
-        self.standalone = standalone
+    def __init__(self, *, utmi, endpoint_number=0, standalone=False):
+        self.utmi             = utmi
+        self._standalone      = standalone
+        self._endpoint_number = endpoint_number
 
         #
         # I/O Port
@@ -103,7 +108,7 @@ class USBControlEndpoint(Elaboratable):
         # Test scaffolding.
         #
 
-        if self.standalone:
+        if self._standalone:
 
             # Create our timer...
             m.submodules.timer = timer = USBInterpacketTimer()
@@ -204,6 +209,7 @@ class USBControlEndpoint(Elaboratable):
         # Core control request handler.
         # Behavior dictated by [USB2, 8.5.3].
         #
+        endpoint_targeted = (self.interface.tokenizer.endpoint == self._endpoint_number)
         with m.FSM(domain="usb"):
 
             # SETUP -- The "SETUP" phase of a control request. We'll wait here
@@ -211,7 +217,7 @@ class USBControlEndpoint(Elaboratable):
             with m.State('SETUP'):
 
                 # We won't do anything until we receive a SETUP token.
-                with m.If(setup_decoder.packet.received):
+                with m.If(setup_decoder.packet.received & endpoint_targeted):
 
                     # If our SETUP packet indicates we'll have a data stage (wLength > 0)
                     # move to the DATA stage. Otherwise, move directly to the status stage [8.5.3].
@@ -234,13 +240,14 @@ class USBControlEndpoint(Elaboratable):
                 self._handle_setup_reset(m)
 
                 # Wait until we have an IN token, and are allowed to respond to it.
-                with m.If(interface.tokenizer.ready_for_response & interface.tokenizer.is_in):
+                allowed_to_respond = interface.tokenizer.ready_for_response & endpoint_targeted
+                with m.If(allowed_to_respond & interface.tokenizer.is_in):
 
                     # Notify the request handler to prepare a response.
                     m.d.comb += request_handler.data_requested.eq(1)
 
                 # Once we get an OUT token, we should move on to the STATUS stage. [USB2, 8.5.3]
-                with m.If(interface.tokenizer.new_token & interface.tokenizer.is_out):
+                with m.If(endpoint_targeted & interface.tokenizer.new_token & interface.tokenizer.is_out):
                     m.next = 'STATUS_OUT'
 
 
@@ -251,7 +258,7 @@ class USBControlEndpoint(Elaboratable):
                 # and the most recent token pointed to our endpoint. This ensures the
                 # request handler only ever sees data events related to it; this simplifies
                 # the request handler logic significantly.
-                with m.If((interface.tokenizer.endpoint == 0) & interface.tokenizer.is_out):
+                with m.If(endpoint_targeted & interface.tokenizer.is_out):
                     m.d.comb += [
                         interface.rx                           .connect(request_handler.rx),
                         request_handler.rx_ready_for_response  .eq(interface.rx_ready_for_response)
@@ -271,7 +278,8 @@ class USBControlEndpoint(Elaboratable):
 
                 # When we get an IN token, the host is looking for a status-stage ZLP.
                 # Notify the target handler.
-                with m.If(interface.tokenizer.ready_for_response & interface.tokenizer.is_in):
+                allowed_to_respond = interface.tokenizer.ready_for_response & endpoint_targeted
+                with m.If(allowed_to_respond & interface.tokenizer.is_in):
                     m.d.comb += request_handler.status_requested.eq(1)
 
 
@@ -281,7 +289,8 @@ class USBControlEndpoint(Elaboratable):
                 self._handle_setup_reset(m)
 
                 # Once we've received a new DATA packet, we're ready to handle a status request.
-                with m.If(interface.rx_ready_for_response & interface.tokenizer.is_out):
+                allowed_to_respond = interface.rx_ready_for_response & endpoint_targeted
+                with m.If(allowed_to_respond & interface.tokenizer.is_out):
                     m.d.comb += request_handler.status_requested.eq(1)
 
         return m
