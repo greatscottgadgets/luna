@@ -104,7 +104,7 @@ class USBSerialDevice(Elaboratable):
 
                 i.bInterfaceClass    = 0x02 # CDC
                 i.bInterfaceSubclass = 0x02 # ACM
-                i.bInterfaceProtocol = 0x02 # AT commands / UART
+                i.bInterfaceProtocol = 0x01 # AT commands / UART
 
                 # Provide the default CDC version.
                 i.add_subordinate_descriptor(cdc.HeaderDescriptorEmitter())
