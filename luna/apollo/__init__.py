@@ -50,6 +50,12 @@ class ApolloDebugger:
     }
 
 
+    # LUNA subdevices (specialized variants of the LUNA board) use a major of 0xFE.
+    SUBDEVICE_MAJORS = {
+        0xFE: "Amalthea"
+    }
+
+
     def __init__(self):
         """ Sets up a connection to the debugger. """
 
@@ -128,14 +134,27 @@ class ApolloDebugger:
         if self.major == self.EXTERNAL_BOARD_MAJOR:
             return self.EXTERNAL_BOARD_NAMES[self.minor]
 
-        # Otherwise, identify it by its revision number.
+        # If this is a non-LUNA board, we'll look up its name in our table.
+        if self.major in self.SUBDEVICE_MAJORS:
+            product_name = self.SUBDEVICE_MAJORS[self.major]
+            major        = 0 # For now?
         else:
-            return f"LUNA r{self.major}.{self.minor}"
+            product_name = "LUNA"
+            major        = self.major
+
+        # Otherwise, identify it by its revision number.
+        return f"{product_name} r{major}.{self.minor}"
 
 
     def get_compatibility_string(self):
         """ Returns 'LUNA' for a LUNA board; or 'LUNA-compatible' for supported external board."""
-        return 'LUNA-compatible' if (self.major == self.EXTERNAL_BOARD_MAJOR) else 'LUNA'
+
+        if self.major == self.EXTERNAL_BOARD_MAJOR:
+            return 'LUNA-compatible'
+        elif self.major in self.SUBDEVICE_MAJORS:
+            return self.SUBDEVICE_MAJORS[self.major]
+
+        return 'LUNA'
 
 
     def out_request(self, number, value=0, index=0, data=None, timeout=5000):

@@ -9,12 +9,32 @@
 import logging
 
 from nmigen import Signal, Record
-from nmigen.build.res import ResourceError
+from nmigen.build.res import ResourceError, Subsignal, Resource, Pins
+
+
+#
+# This is temporary until we have the equivalent of this merged into nmigen-boards.
+#
+def ULPIResource(*args, data, clk, dir, nxt, stp, rst=None,
+            clk_dir='i', invert_rst=False, attrs=None, conn=None):
+    assert clk_dir in ('i', 'o',)
+
+    io = []
+    io.append(Subsignal("data", Pins(data, dir="io", conn=conn, assert_width=8)))
+    io.append(Subsignal("clk", Pins(clk, dir=clk_dir, conn=conn, assert_width=1)))
+    io.append(Subsignal("dir", Pins(dir, dir="i", conn=conn, assert_width=1)))
+    io.append(Subsignal("nxt", Pins(nxt, dir="i", conn=conn, assert_width=1)))
+    io.append(Subsignal("stp", Pins(stp, dir="o", conn=conn, assert_width=1)))
+    if rst is not None:
+        io.append(Subsignal("rst", Pins(rst, dir="o", invert=invert_rst,
+            conn=conn, assert_width=1)))
+    if attrs is not None:
+        io.append(attrs)
+    return Resource.family(*args, default_name="usb", ios=io)
 
 
 class LUNAPlatform:
     """ Mixin that extends nMigen platforms with extra functionality."""
-
 
     def request_optional(self, name, number=0, *args, default, expected=False, **kwargs):
         """ Specialized version of .request() for "optional" I/O.

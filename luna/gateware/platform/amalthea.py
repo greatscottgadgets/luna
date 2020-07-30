@@ -1,19 +1,19 @@
 #
-# This file is part of LUNA.
+# This file is part of Amalthea.
 #
-# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
-# SPDX-License-Identifier: BSD-3-Clause
 
 import os
 
 from nmigen.build import *
 from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
+
 from nmigen_boards.resources import *
 
 from .core import LUNAPlatform, ULPIResource
 from ..architecture.car import LunaECP5DomainGenerator
 
-__all__ = ["LUNAPlatformRev0D2"]
+
+__all__ = ["AmaltheaPlatformRev0D1"]
 
 #
 # Note that r0.2+ have D+/D- swapped to avoid having to cross D+/D- in routing.
@@ -21,10 +21,8 @@ __all__ = ["LUNAPlatformRev0D2"]
 # This is supported by a PHY feature that allows you to swap pins 13 + 14.
 #
 
-class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
-    """ Board description for the pre-release r0.1 revision of LUNA. """
-
-    name        = "LUNA r0.2"
+class AmaltheaPlatformRev0D1(LatticeECP5Platform, LUNAPlatform):
+    name        = "Amalthea r0.1"
 
     device      = "LFE5U-12F"
     package     = "BG256"
@@ -34,9 +32,6 @@ class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
 
     # Provide the type that'll be used to create our clock domains.
     clock_domain_generator = LunaECP5DomainGenerator
-
-    # By default, assume we'll be connecting via our target PHY.
-    default_usb_connection = "target_phy"
 
     #
     # Default clock frequencies for each of our clock domains.
@@ -91,17 +86,9 @@ class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
             Attrs(IO_TYPE="LVCMOS33")
         ),
 
-        #
-        # Note: r0.1 has a DFM issue that makes it difficult to solder a BGA with
-        # reliable connections on the intended SCK pin (P12), and lacks a CS pin on the
-        # debug SPI; which seems like a silly omission.
-        #
-        # Accordingly, we're mapping the debug SPI and UART over the same pins, as the
-        # microcontroller can use either.
-        #
-
         # UART connected to the debug controller; can be routed to a host via CDC-ACM.
         UARTResource(0, rx="R14", tx="T14", attrs=Attrs(IO_TYPE="LVCMOS33")),
+
 
         # SPI bus connected to the debug controller, for simple register exchanges.
         # Note that the Debug Controller is the master on this bus.
@@ -123,14 +110,6 @@ class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
         ULPIResource("host_phy",
             data="G2 G1 F2 F1 E1 D1 C1 B1", clk="K2", clk_dir='o',
             dir="J1", nxt="H2", stp="J2", rst="K1", invert_rst=True),
-        ULPIResource("target_phy",
-            data="D16 E15 E16 F15 F16 G15 J16 K16", clk="B15", clk_dir='o',
-            dir="C15", nxt="C16", stp="B16", rst="G16", invert_rst=True),
-
-        # Target port power switching.
-        Resource("power_a_port",       0, Pins("C14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("pass_through_vbus",  0, Pins("D14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("target_vbus_fault",  0, Pins("K15", dir="i"), Attrs(IO_TYPE="LVCMOS33")),
 
         # HyperRAM (1V8 domain).
         Resource("ram", 0,
@@ -145,7 +124,28 @@ class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
             Attrs(IO_TYPE="LVCMOS18", SLEWRATE="FAST")
         ),
 
+        # Radio.
+        Resource("radio", 0,
+            Subsignal("rst",   PinsN("C14", dir="o")),
+
+            Subsignal("clk",   Pins( "K14", dir="o")),
+            Subsignal("sel",   PinsN("E16", dir="o")),
+            Subsignal("copi",  Pins( "F16", dir="o")),
+            Subsignal("cipo",  Pins( "G16", dir="i")),
+
+            Subsignal("irq",   Pins( "F15", dir="i")),
+
+            Subsignal("rxclk", DiffPairs("J16", "J15", dir="i"), Attrs(IO_TYPE="LVDS", DIFFRESISTOR="100", PULLMODE="UP"), Clock(64e6)),
+            Subsignal("rxd09", DiffPairs("D16", "E15", dir="i"), Attrs(IO_TYPE="LVDS", DIFFRESISTOR="100")),
+            Subsignal("rxd24", DiffPairs("K16", "K15", dir="i"), Attrs(IO_TYPE="LVDS", DIFFRESISTOR="100")),
+
+            Subsignal("txclk", DiffPairs("B16", "B15", dir="o"), Attrs(IO_TYPE="LVCMOS33D", DRIVE="4")),
+            Subsignal("txd",   DiffPairs("C16", "C15", dir="o"), Attrs(IO_TYPE="LVCMOS33D", DRIVE="4")),
+            Attrs(IO_TYPE="LVCMOS33"),
+        ),
+
         # User I/O connections.
+        # TODO: Update these for io0+/- & io1+/-
         Resource("user_io", 0, Pins("A5", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
         Resource("user_io", 1, Pins("A4", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
         Resource("user_io", 2, Pins("A3", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
@@ -153,10 +153,13 @@ class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
     ]
 
     connectors = [
+
+        # User I/O connector.
         Connector("user_io", 0, """
             A5  -  A2
             A4  -  A3
         """)
+
     ]
 
     def toolchain_prepare(self, fragment, name, **kwargs):

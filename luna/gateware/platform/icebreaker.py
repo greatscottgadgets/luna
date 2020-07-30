@@ -6,13 +6,14 @@
 
 """ iCEBreaker Platform definitions.
 
-This platform does not have an explicit USB port. Instead, you'll need to connect a USB breakout.
+The iCEBreaker Bitsy is a non-core board. To use it, you'll need to set your LUNA_PLATFORM variable:
 
-This is an -unsupported- platform! To use it, you'll need to set your LUNA_PLATFORM variable:
+    > export LUNA_PLATFORM="luna.gateware.platform.icebreaker:IceBreakerBitsyPlatform"
+
+The full size iCEBreaker does not have an explicit USB port. Instead, you'll need to connect a USB breakout.
+The full iCEBreaker is an -unsupported- platform! To use it, you'll need to set your LUNA_PLATFORM variable:
 
     > export LUNA_PLATFORM="luna.gateware.platform.icebreaker:IceBreakerPlatform"
-
-This board is not routinely tested, and performance is not guaranteed.
 """
 
 import os
@@ -20,21 +21,19 @@ import logging
 import subprocess
 
 
-from nmigen import Elaboratable, ClockDomain, Module, ClockSignal, Instance, Signal, Const
-from nmigen.build import Resource, Subsignal, Pins, Attrs, Clock, Connector, PinsN
+from nmigen import *
+from nmigen.build import *
 from nmigen.vendor.lattice_ice40 import LatticeICE40Platform
+
+from nmigen_boards.resources import *
+from nmigen_boards.icebreaker import ICEBreakerPlatform as _IceBreakerPlatform
+from nmigen_boards.icebreaker_bitsy import ICEBreakerBitsyPlatform as _IceBreakerBitsyPlatform
 
 from .core import LUNAPlatform
 
 
 class IceBreakerDomainGenerator(Elaboratable):
-    """ Stub clock domain generator; stands in for the typical LUNA one.
-
-    This generator creates domains; but currently does not configure them.
-    """
-
-    def __init__(self, *, clock_frequencies=None, clock_signal_name=None):
-        pass
+    """ Creates clock domains for the iCEBreaker. """
 
     def elaborate(self, platform):
         m = Module()
@@ -86,69 +85,36 @@ class IceBreakerDomainGenerator(Elaboratable):
         return m
 
 
-class IceBreakerPlatform(LatticeICE40Platform, LUNAPlatform):
-    """ Base class for Fomu platforms. """
-
-    device      = "iCE40UP5K"
-    package     = "SG48"
-    name        = "iCEBreaker"
-
-    # Provide the type that'll be used to create our clock domains.
+class IceBreakerPlatform(_IceBreakerPlatform, LUNAPlatform):
+    name                   = "iCEBreaker"
     clock_domain_generator = IceBreakerDomainGenerator
+    default_usb_connection = "usb_pmod_1a"
 
-    # We only have a direct connection on our USB lines, so use that for USB comms.
-    default_usb_connection = "tnt_usb"
+    additional_resources   = [
+        # iCEBreaker official pmod, in 1A and 1B.
+        DirectUSBResource("usb_pmod_1a", 0, d_p="47", d_n="45", pullup="4",
+            attrs=Attrs(IO_STANDARD="SB_LVCMOS")),
+        DirectUSBResource("usb_pmod_1b", 0, d_p="34", d_n="31", pullup="38",
+            attrs=Attrs(IO_STANDARD="SB_LVCMOS")),
 
-    default_clk = "clk12"
-    resources   = [
-        Resource("clk12", 0, Pins("35", dir="i"),
-                 Clock(12e6), Attrs(GLOBAL=True, IO_STANDARD="SB_LVCMOS")),
-
-        Resource("led",   0, PinsN("11", dir="o"), Attrs(IO_STANDARD="SB_LVCMOS")),
-        Resource("led",   1, PinsN("37", dir="o"), Attrs(IO_STANDARD="SB_LVCMOS")),
-
-        # Semantic aliases
-        Resource("led_r", 0, PinsN("11", dir="o"), Attrs(IO_STANDARD="SB_LVCMOS")),
-        Resource("led_g", 0, PinsN("37", dir="o"), Attrs(IO_STANDARD="SB_LVCMOS")),
-
-        # Default USB position.
-        Resource("tnt_usb", 0,
-            Subsignal("d_p",    Pins("31")),
-            Subsignal("d_n",    Pins("34")),
-            Subsignal("pullup", Pins("38", dir="o")),
-            Attrs(IO_STANDARD="SB_LVCMOS"),
-        ),
-
-        Resource("kbeckmann_usb", 0,
-            Subsignal("d_p",    Pins("43")),
-            Subsignal("d_n",    Pins("38")),
-            Subsignal("pullup", Pins("34", dir="o")),
-            Attrs(IO_STANDARD="SB_LVCMOS"),
-        ),
-
-        # Compatibility aliases.
-        Resource("user_io", 0, PinsN("4", dir="io"), Attrs(IO_STANDARD="SB_LVCMOS")),
-        Resource("user_io", 1, PinsN("2", dir="io"), Attrs(IO_STANDARD="SB_LVCMOS")),
-        Resource("user_io", 2, PinsN("47", dir="io"), Attrs(IO_STANDARD="SB_LVCMOS")),
-        Resource("user_io", 3, PinsN("25", dir="io"), Attrs(IO_STANDARD="SB_LVCMOS")),
-
-    ]
-    connectors = [
-        Connector("pmod", 0, " 4  2 47 45 - -  3 48 46 44 - -"), # PMOD1A
-        Connector("pmod", 1, "43 38 34 31 - - 42 36 32 28 - -"), # PMOD1B
-        Connector("pmod", 2, "27 25 21 19 - - 26 23 20 18 - -"), # PMOD2
+        # Other USB layouts.
+        DirectUSBResource("tnt_usb", 0,  d_p="31", d_n="34", pullup="38",
+            attrs=Attrs(IO_STANDARD="SB_LVCMOS")),
+        DirectUSBResource("keckmann_usb", 0,  d_p="43", d_n="38", pullup="34",
+            attrs=Attrs(IO_STANDARD="SB_LVCMOS")),
     ]
 
     def __init__(self, *args, **kwargs):
         logging.warning("This platform is not officially supported, and thus not tested. Your results may vary.")
         logging.warning("Note also that this platform does not use the iCEBreaker's main USB port!")
         logging.warning("You'll need to connect a cable or pmod. See the platform file for more info.")
+
         super().__init__(*args, **kwargs)
+        self.add_resources(self.additional_resources)
 
-    def toolchain_program(self, products, name):
-        iceprog = os.environ.get("ICEPROG", "iceprog")
-        with products.extract("{}.bin".format(name)) as bitstream_filename:
-            subprocess.check_call([iceprog, bitstream_filename])
 
-    def toolchain_flash(self, products, name="top"):
-        self.toolchain_program(products, name)
+
+class IceBreakerBitsyPlatform(_IceBreakerBitsyPlatform, LUNAPlatform):
+    name                   = "iCEBreaker Bitsy"
+    clock_domain_generator = IceBreakerDomainGenerator
+    default_usb_connection = "usb"

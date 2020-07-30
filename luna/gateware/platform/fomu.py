@@ -14,10 +14,13 @@ This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM va
 import os
 import subprocess
 
-
-from nmigen import Elaboratable, ClockDomain, Module, ClockSignal, Instance, Signal, Const
-from nmigen.build import Resource, Subsignal, Pins, Attrs, Clock, Connector, PinsN
+from nmigen import *
+from nmigen.build import *
 from nmigen.vendor.lattice_ice40 import LatticeICE40Platform
+
+from nmigen_boards.fomu_hacker import FomuHackerPlatform as _FomuHackerPlatform
+from nmigen_boards.fomu_pvt import FomuPVTPlatform as _FomuPVTPlatform
+from nmigen_boards.resources import *
 
 from .core import LUNAPlatform
 
@@ -73,95 +76,16 @@ class FomuDomainGenerator(Elaboratable):
         return m
 
 
-class FomuHackerPlatform(LatticeICE40Platform, LUNAPlatform):
-    """ Base class for Fomu platforms. """
-
-    default_clk = "clk48"
-    name        = "Fomu Hacker"
-
-    # Provide the type that'll be used to create our clock domains.
+class FomuHackerPlatform(_FomuHackerPlatform, LUNAPlatform):
+    name                   = "Fomu Hacker"
     clock_domain_generator = FomuDomainGenerator
-
-    # We only have a direct connection on our USB lines, so use that for USB comms.
     default_usb_connection = "usb"
 
-    device      = "iCE40UP5K"
-    package     = "UWG30"
-    default_clk = "clk48"
-    resources   = [
-        Resource("clk48", 0, Pins("F5", dir="i"),
-                 Clock(48e6), Attrs(GLOBAL=True, IO_STANDARD="SB_LVCMOS")),
 
-        Resource("led", 0, PinsN("C5"), Attrs(IO_STANDARD="SB_LVCMOS")),
-        Resource("rgb_led", 0,
-            Subsignal("r", PinsN("C5"), Attrs(IO_STANDARD="SB_LVCMOS")),
-            Subsignal("g", PinsN("B5"), Attrs(IO_STANDARD="SB_LVCMOS")),
-            Subsignal("b", PinsN("A5"),  Attrs(IO_STANDARD="SB_LVCMOS")),
-        ),
-
-        Resource("usb", 0,
-            Subsignal("d_p",    Pins("A4")),
-            Subsignal("d_n",    Pins("A2")),
-            Subsignal("pullup", Pins("D5", dir="o")),
-            Attrs(IO_STANDARD="SB_LVCMOS"),
-        ),
-    ]
-
-    connectors = []
-
-
-    def toolchain_program(self, products, name):
-        """ Program the flash of a FomuHacker  board. """
-
-        # Use the DFU bootloader to program the ECP5 bitstream.
-        dfu_util = os.environ.get("DFU_UTIL", "dfu-util")
-        with products.extract("{}.bin".format(name)) as bitstream_filename:
-            subprocess.check_call([dfu_util, "-d", "1209:5bf0", "-D", bitstream_filename])
-
-class FomuPVTPlatform(LatticeICE40Platform, LUNAPlatform):
-    """ Platform for the Fomu PVT platforms """
-
-    default_clk = "clk48"
-    name        = "Fomu PVT"
-
-    # Provide the type that'll be used to create our clock domains.
+class FomuPVT(_FomuPVTPlatform, LUNAPlatform):
+    name                   = "Fomu PVT/Production"
     clock_domain_generator = FomuDomainGenerator
-
-    # We only have a direct connection on our USB lines, so use that for USB comms.
     default_usb_connection = "usb"
-
-    device      = "iCE40UP5K"
-    package     = "UWG30"
-    default_clk = "clk48"
-    resources   = [
-        Resource("clk48", 0, Pins("F4", dir="i"),
-                 Clock(48e6), Attrs(GLOBAL=True, IO_STANDARD="SB_LVCMOS")),
-
-        Resource("led", 0, PinsN("B5"), Attrs(IO_STANDARD="SB_LVCMOS")),
-        Resource("rgb_led", 0,
-            Subsignal("r", PinsN("B5"), Attrs(IO_STANDARD="SB_LVCMOS")),
-            Subsignal("g", PinsN("A5"), Attrs(IO_STANDARD="SB_LVCMOS")),
-            Subsignal("b", PinsN("C5"),  Attrs(IO_STANDARD="SB_LVCMOS")),
-        ),
-
-        Resource("usb", 0,
-            Subsignal("d_p",    Pins("A1")),
-            Subsignal("d_n",    Pins("A2")),
-            Subsignal("pullup", Pins("A4", dir="o")),
-            Attrs(IO_STANDARD="SB_LVCMOS"),
-        ),
-    ]
-
-    connectors = []
-
-
-    def toolchain_program(self, products, name):
-        """ Program the flash of a FomuPVT  board. """
-
-        # Use the DFU bootloader to program the ECP5 bitstream.
-        dfu_util = os.environ.get("DFU_UTIL", "dfu-util")
-        with products.extract("{}.bin".format(name)) as bitstream_filename:
-            subprocess.check_call([dfu_util, "-d", "1209:5bf0", "-D", bitstream_filename])
 
 
 class FomuEVTPlatform(LatticeICE40Platform, LUNAPlatform):
@@ -184,25 +108,10 @@ class FomuEVTPlatform(LatticeICE40Platform, LUNAPlatform):
         Resource("clk48", 0, Pins("44", dir="i"),
                  Clock(48e6), Attrs(GLOBAL=True, IO_STANDARD="SB_LVCMOS")),
 
-        Resource("led", 0, PinsN("41"), Attrs(IO_STANDARD="SB_LVCMOS")),
-        Resource("rgb_led", 0,
-            Subsignal("r", PinsN("40"), Attrs(IO_STANDARD="SB_LVCMOS")),
-            Subsignal("g", PinsN("39"), Attrs(IO_STANDARD="SB_LVCMOS")),
-            Subsignal("b", PinsN("41"),  Attrs(IO_STANDARD="SB_LVCMOS")),
-        ),
+        LEDResources(pins="41", invert=True, attrs=Attrs(IO_STANDARD="SB_LVCMOS")),
+        RGBLEDResource(0, r="40", g="39", b="41", invert=True, attrs=Attrs(IO_STANDARD="SB_LVCMOS")),
 
-        Resource("usb", 0,
-            Subsignal("d_p",    Pins("34")),
-            Subsignal("d_n",    Pins("37")),
-            Subsignal("pullup", Pins("35", dir="o")),
-            Attrs(IO_STANDARD="SB_LVCMOS"),
-        ),
-
-        # PMOD
-        Resource("user_io", 0, PinsN("25"), Attrs(IO_STANDARD="SB_LVCMOS")),
-        Resource("user_io", 1, PinsN("26"), Attrs(IO_STANDARD="SB_LVCMOS")),
-        Resource("user_io", 2, PinsN("27"), Attrs(IO_STANDARD="SB_LVCMOS")),
-        Resource("user_io", 3, PinsN("28"), Attrs(IO_STANDARD="SB_LVCMOS")),
+        DirectUSBResource(0, d_p="34", d_n="37", pullup="35", attrs=Attrs(IO_STANDARD="SB_LVCMOS")),
     ]
 
     connectors = []

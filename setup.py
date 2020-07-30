@@ -25,7 +25,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     python_requires="~=3.7",
-    install_requires=['pyusb', 'nmigen', 'pyvcd', 'usb_protocol', 'libusb1'],
+    install_requires=['pyusb', 'nmigen', 'nmigen_boards', 'pyvcd', 'usb_protocol', 'libusb1'],
     setup_requires=['setuptools', 'setuptools_scm'],
     entry_points= {
         'console_scripts': [

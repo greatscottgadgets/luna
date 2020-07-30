@@ -8,35 +8,23 @@
 
 This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM variable:
 
-    > export LUNA_PLATFORM="luna.gateware.platform.openvizsla:OpenVizsla
+    > export LUNA_PLATFORM="luna.gateware.platform.openvizsla:OpenVizslaPlatform
 """
 
-from nmigen import Elaboratable, ClockDomain, Module
-from nmigen.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock
+from nmigen import *
+from nmigen.build import *
 from nmigen.vendor.xilinx_spartan_3_6 import XilinxSpartan6Platform
 
-from .core import LUNAPlatform
+from nmigen_boards.resources import *
 
-__all__ = ["OpenVizsla"]
+from .core import LUNAPlatform, ULPIResource
 
-def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset_site, extras=()):
-    """ Generates a set of resources for a ULPI-connected USB PHY. """
+__all__ = ["OpenVizslaPlatform"]
 
-    return Resource(name, 0,
-        Subsignal("data",  Pins(data_sites,  dir="io")),
-        Subsignal("clk",   Pins(clk_site,    dir="i" ), Attrs(PULLDOWN="TRUE"), Clock(60e6)),
-        Subsignal("dir",   Pins(dir_site,    dir="i" )),
-        Subsignal("nxt",   Pins(nxt_site,    dir="i" )),
-        Subsignal("stp",   Pins(stp_site,    dir="o" )),
-        Subsignal("rst",   PinsN(reset_site, dir="o" )),
-        Attrs(SLEW="FAST")
-    )
+class OpenVizslaClockDomainGenerator(Elaboratable):
+    """ OpenVizsla clock domain generator.
+        Assumes the ULPI PHY will be providing a USB clock.
 
-
-class StubClockDomainGenerator(Elaboratable):
-    """ Stub clock domain generator; stands in for the typical LUNA one.
-
-    This generator creates domains; but currently does not configuration.
     """
 
     def __init__(self, *, clock_frequencies=None, clock_signal_name=None):
@@ -46,27 +34,29 @@ class StubClockDomainGenerator(Elaboratable):
         m = Module()
 
         # Create our domains; but don't do anything else for them, for now.
-        m.domains.usb = ClockDomain()
+        m.domains.sync = ClockDomain()
+        m.domains.usb  = ClockDomain()
         m.domains.fast = ClockDomain()
+
+        m.d.comb += [
+            ClockSignal("sync")  .eq(ClockSignal("usb")),
+            ClockSignal("fast")  .eq(ClockSignal("usb"))
+        ]
 
         return m
 
 
-class OpenVizsla(XilinxSpartan6Platform, LUNAPlatform):
+class OpenVizslaPlatform(XilinxSpartan6Platform, LUNAPlatform):
     """ Board description for OpenVizsla USB analyzer. """
 
-    name        = "OpenVizsla"
+    name                   = "OpenVizsla"
 
-    device      = "xc6slx9"
-    package     = "tqg144"
-    speed       = "3"
+    device                 = "xc6slx9"
+    package                = "tqg144"
+    speed                  = "3"
+    default_clk            = "clk_12MHz"
 
-    default_clk = "clk_12MHz"
-
-    # Provide the type that'll be used to create our clock domains.
-    clock_domain_generator = StubClockDomainGenerator
-
-    # We only have a single PHY; so use it directly.
+    clock_domain_generator = OpenVizslaClockDomainGenerator
     default_usb_connection = "target_phy"
 
     #
@@ -77,43 +67,17 @@ class OpenVizsla(XilinxSpartan6Platform, LUNAPlatform):
         # Clocks.
         Resource("clk_12MHz", 0, Pins("P50", dir="i"), Clock(12e6), Attrs(IOSTANDARD="LVCMOS33")),
 
-        # User button.
-        Resource("btn", 0, Pins("P67", dir="i"), Attrs(IOSTANDARD="LVCMOS33")),
-
-        # User LEDs.
-        Resource("led", 0, Pins("P57", dir="o"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("led", 1, Pins("P58", dir="o"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("led", 2, Pins("P59", dir="o"), Attrs(IOSTANDARD="LVCMOS33")),
+        # Buttons / LEDs.
+        *ButtonResources(pins="P67", attrs=Attrs(IOSTANDARD="LVCMOS33")),
+        *LEDResources(pins="P57 P58 P59", attrs=Attrs(IOSTANDARD="LVCMOS33")),
 
         # Core ULPI PHY.
-        ULPIResource("target_phy",
-            data_sites="P120 P119 P118 P117 P116 P115 P114 P112", clk_site="P123",
-            dir_site="P124", nxt_site="P121", stp_site="P126", reset_site="P127",
+        ULPIResource("target_phy", 0,
+            data="P120 P119 P118 P117 P116 P115 P114 P112", clk="P123",
+            dir="P124", nxt="P121", stp="P126", rst="P127", invert_rst=True,
+            attrs=Attrs(IOSTANDARD="LVCMOS33")
         ),
 
-        # Extra pins that the OpenVizsla calls the "spare" pins.
-        Resource("spare", 2, Pins("P102"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 3, Pins("P101"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 4, Pins("P100"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 5, Pins("P99"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 6, Pins("P98"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 7, Pins("P97"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 8, Pins("P95"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 9, Pins("P94"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 10, Pins("P93"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 11, Pins("P92"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 12, Pins("P88"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 13, Pins("P87"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 14, Pins("P85"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 15, Pins("P84"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 16, Pins("P83"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 17, Pins("P82"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 18, Pins("P81"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 19, Pins("P80"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 20, Pins("P79"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 21, Pins("P78"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 22, Pins("P75"), Attrs(IOSTANDARD="LVCMOS33")),
-        Resource("spare", 23, Pins("P74"), Attrs(IOSTANDARD="LVCMOS33")),
 
         # FTDI FIFO connection.
         Resource("ftdi", 0,
@@ -129,14 +93,16 @@ class OpenVizsla(XilinxSpartan6Platform, LUNAPlatform):
         ),
 
         # Trigger in/out pins.
-        # There's nothing stopping these from being used as I/O, so we'll allow them to be used either way.
         Resource("trigger_in",  0, Pins("P75"), Attrs(IOSTANDARD="LVCMOS33")),
         Resource("trigger_out", 0, Pins("P74"), Attrs(IOSTANDARD="LVCMOS33")),
     ]
 
-    # TODO: detail the Spare connector here?
-    connectors = []
-
+    connectors = [
+        Connector("spare", 0,
+            "-   -   P102 P101 P100 P99 P98 P97 P95 P94 P93 P92" # continued
+            "P88 P87 P85 P84  P83  P82  P81 P80 P79 P78 P75 P74"
+        )
+    ]
 
     def toolchain_program(self, products, name):
         """ Programs the OpenVizsla's FPGA. """
