@@ -176,6 +176,10 @@ only performed on a collection of reference boards.
 	  - iCE40 UP
 	  - no hardware PHY
 	  - :complete:`Full-Speed/Device Mode Support`
+	* - iCEBreaker Bitsy
+	  - iCE40 UP
+	  - no hardware PHY
+	  - :complete:`Full-Speed/Device Mode Support`
 	* - Glasgow
 	  - iCE40 HX
 	  - no hardware PHY
