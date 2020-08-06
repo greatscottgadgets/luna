@@ -148,6 +148,10 @@ only performed on a collection of reference boards.
 	  - ECP5
 	  - SerDes PHY
 	  - :planned:`Planned Super-Speed Device Mode`
+	* - Logicbone
+	  - ECP5
+	  - SerDes PHY
+	  - :complete:`Full-Speed Fully Supported` / :planned:`Super-Speed Planned`
 	* - Daisho
 	  - Cyclone IV
 	  - PIPE
