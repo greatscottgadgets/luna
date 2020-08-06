@@ -482,7 +482,7 @@ class ILAFrontend(metaclass=ABCMeta):
 
     def _parse_samples(self, raw_samples):
         """ Converts raw, binary samples to dictionaries of name -> sample. """
-        return (self._parse_sample(sample) for sample in raw_samples)
+        return [self._parse_sample(sample) for sample in raw_samples]
 
 
     def refresh(self):
