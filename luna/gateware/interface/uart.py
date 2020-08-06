@@ -203,19 +203,22 @@ class UARTTransmitterTest(LunaGatewareTestCase):
 class UARTTransmitterPeripheral(Elaboratable):
     """ Wishbone-attached variant of our UARTTransmitter.
 
-    I/O port:
-        O: tx   -- The UART line to use for transmission.
-        B: bus  -- Wishbone interface used for UART connections.
+    Attributes
+    ----------
+    tx: Signal(), output
+        The UART line to use for transmission.
+    bus: wishbone bus
+        Wishbone interface used for UART connections.
+
+    Parameters
+    ----------
+    divisor: int
+        number of `sync` clock cycles per bit period
     """
 
     # TODO: include a variant of misoc/LiteX's autoregister mechanism
 
     def __init__(self, divisor):
-        """
-        Parameters:
-            divisor -- number of `sync` clock cycles per bit period
-        """
-
         self.divisor = divisor
 
         #
@@ -240,6 +243,182 @@ class UARTTransmitterPeripheral(Elaboratable):
             self.tx.eq(tx.tx)
         ]
         return m
+
+
+class UARTMultibyteTransmitter(Elaboratable):
+    """ UART transmitter capable of sending wide words.
+
+    Intended for communicating with the debug controller; currently assumes 8n1.
+    Transmits our words little-endian.
+
+    Attributes
+    ----------
+
+    tx: Signal(), output
+        The UART output.
+    stream: input stream
+        The data to be transmitted.
+
+    accepted: Signal(), output
+        Strobe that indicates when the `data` word has been latched in;
+        and the next data byte can be presented.
+    idle: Signal(), output
+        Asserted when the transmitter is idle; and thus pulsing `send_active`
+        will start a new transmission.
+
+    Parameters
+    ------------
+    byte_width: int
+        The number of bytes to be accepted at once.
+
+    divisor: int
+        The number of `sync` clock cycles per bit period.
+    """
+    def __init__(self, *, byte_width, divisor):
+        self.byte_width = byte_width
+        self.divisor = divisor
+
+        #
+        # I/O port
+        #
+        self.tx              = Signal(reset=1)
+        self.stream          = StreamInterface(payload_width=byte_width * 8)
+
+        self.idle            = Signal()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Create our core UART transmitter.
+        m.submodules.uart = uart = UARTTransmitter(divisor=self.divisor)
+
+        # We'll put each word to be sent through an shift register
+        # that shifts out words a byte at a time.
+        data_shift = Signal.like(self.stream.payload)
+
+        # Count how many bytes we have left to send.
+        bytes_to_send = Signal(range(0, self.byte_width + 1))
+
+        m.d.comb += [
+
+            # Connect our transmit output directly through.
+            self.tx.eq(uart.tx),
+
+            # Always provide our UART with the least byte of our shift register.
+            uart.stream.payload.eq(data_shift[0:8])
+        ]
+
+
+
+
+        with m.FSM() as f:
+            m.d.comb += self.idle.eq(f.ongoing('IDLE'))
+
+            # IDLE: transmitter is waiting for input
+            with m.State("IDLE"):
+                m.d.comb += self.stream.ready.eq(1)
+
+                # Once we get a send request, fill in our shift register, and start shifting.
+                with m.If(self.stream.valid):
+                    m.d.sync += [
+                        data_shift         .eq(self.stream.payload),
+                        bytes_to_send      .eq(self.byte_width - 1),
+                    ]
+                    m.next = "TRANSMIT"
+
+
+            # TRANSMIT: actively send each of the bytes of our word
+            with m.State("TRANSMIT"):
+                m.d.comb += uart.stream.valid.eq(1)
+
+                # Once the UART is accepting our input...
+                with m.If(uart.stream.ready):
+
+                    # ... if we have bytes left to send, move to the next one.
+                    with m.If(bytes_to_send > 0):
+                        m.d.sync += [
+                            bytes_to_send .eq(bytes_to_send - 1),
+                            data_shift    .eq(data_shift[8:]),
+                        ]
+
+                    # Otherwise, complete the frame.
+                    with m.Else():
+                        m.d.comb += self.stream.ready.eq(1)
+
+                        # If we still have data to send, move to the next byte...
+                        with m.If(self.stream.valid):
+                            m.d.sync += [
+                                bytes_to_send      .eq(bytes_to_send - 1),
+                                data_shift         .eq(self.stream.payload),
+                            ]
+
+                        # ... otherwise, move to our idle state.
+                        with m.Else():
+                            m.next = "IDLE"
+
+
+        return m
+
+
+class UARTMultibyteTransmitterTest(LunaGatewareTestCase):
+    DIVISOR = 10
+
+    FRAGMENT_UNDER_TEST = UARTMultibyteTransmitter
+    FRAGMENT_ARGUMENTS = dict(divisor=DIVISOR, byte_width=4)
+
+
+    def advance_half_bit(self):
+        yield from self.advance_cycles(self.DIVISOR // 2)
+
+    def advance_bit(self):
+        yield from self.advance_cycles(self.DIVISOR)
+
+
+    def assert_data_sent(self, byte_expected):
+        dut = self.dut
+
+        # Our start bit should remain present until the next bit period.
+        yield from self.advance_half_bit()
+        self.assertEqual((yield dut.tx), 0)
+
+        # We should then see each bit of our data, LSB first.
+        bits = [int(i) for i in f"{byte_expected:08b}"]
+        for bit in bits[::-1]:
+            yield from self.advance_bit()
+            self.assertEqual((yield dut.tx), bit)
+
+        # Finally, we should see a stop bit.
+        yield from self.advance_bit()
+        self.assertEqual((yield dut.tx), 1)
+
+        yield from self.advance_cycles(2)
+
+
+    @sync_test_case
+    def test_burst_transmit(self):
+        dut = self.dut
+        stream = dut.stream
+
+        # We should remain idle until a transmit is requested...
+        yield from self.advance_cycles(10)
+        self.assertEqual((yield dut.idle), 1)
+        self.assertEqual((yield dut.stream.ready), 1)
+
+        # Transmit a four-byte word.
+        yield stream.payload.eq(0x11223355)
+        yield stream.valid.eq(1)
+
+        # We should see our data become accepted; and we
+        # should see a start bit.
+        yield
+        self.assertEqual((yield stream.ready), 1)
+
+        # Ensure we get our data correctly, and that our transmitter
+        # isn't accepting data mid-frame.
+        yield from self.assert_data_sent(0x55)
+        self.assertEqual((yield stream.ready), 0)
+        yield from self.assert_data_sent(0x33)
 
 
 
