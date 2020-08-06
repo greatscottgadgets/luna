@@ -6,10 +6,9 @@ import os
 
 from nmigen.build import *
 from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
-
 from nmigen_boards.resources import *
 
-from .core import LUNAPlatform, ULPIResource
+from .core import LUNAPlatform
 from ..architecture.car import LunaECP5DomainGenerator
 
 
@@ -22,16 +21,15 @@ __all__ = ["AmaltheaPlatformRev0D1"]
 #
 
 class AmaltheaPlatformRev0D1(LatticeECP5Platform, LUNAPlatform):
-    name        = "Amalthea r0.1"
+    name                   = "Amalthea r0.1"
 
-    device      = "LFE5U-12F"
-    package     = "BG256"
-    speed       = os.getenv("LUNA_SPEED_GRADE", "8")
+    device                 = "LFE5U-12F"
+    package                = "BG256"
+    speed                  = os.getenv("LUNA_SPEED_GRADE", "8")
 
-    default_clk = "clk_60MHz"
-
-    # Provide the type that'll be used to create our clock domains.
+    default_clk            = "clk_60MHz"
     clock_domain_generator = LunaECP5DomainGenerator
+    default_usb_connection = "host_phy"
 
     #
     # Default clock frequencies for each of our clock domains.
@@ -104,12 +102,14 @@ class AmaltheaPlatformRev0D1(LatticeECP5Platform, LUNAPlatform):
         *LEDResources(pins="L16 L15 M16 M15 N16 P15", attrs=Attrs(IO_TYPE="LVCMOS33")),
 
         # USB PHYs
-        ULPIResource("sideband_phy",
+        ULPIResource("sideband_phy", 0,
             data="R2 R1 P2 P1 N1 M2 M1 L2", clk="R4", clk_dir='o',
-            dir="T3", nxt="T2", stp="T4", rst="R3", invert_rst=True),
-        ULPIResource("host_phy",
+            dir="T3", nxt="T2", stp="T4", rst="R3", rst_invert=True,
+            attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
+        ULPIResource("host_phy", 0,
             data="G2 G1 F2 F1 E1 D1 C1 B1", clk="K2", clk_dir='o',
-            dir="J1", nxt="H2", stp="J2", rst="K1", invert_rst=True),
+            dir="J1", nxt="H2", stp="J2", rst="K1", rst_invert=True,
+            attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
 
         # HyperRAM (1V8 domain).
         Resource("ram", 0,

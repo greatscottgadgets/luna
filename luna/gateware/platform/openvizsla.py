@@ -16,8 +16,7 @@ from nmigen.build import *
 from nmigen.vendor.xilinx_spartan_3_6 import XilinxSpartan6Platform
 
 from nmigen_boards.resources import *
-
-from .core import LUNAPlatform, ULPIResource
+from .core import LUNAPlatform
 
 __all__ = ["OpenVizslaPlatform"]
 
@@ -74,7 +73,7 @@ class OpenVizslaPlatform(XilinxSpartan6Platform, LUNAPlatform):
         # Core ULPI PHY.
         ULPIResource("target_phy", 0,
             data="P120 P119 P118 P117 P116 P115 P114 P112", clk="P123",
-            dir="P124", nxt="P121", stp="P126", rst="P127", invert_rst=True,
+            dir="P124", nxt="P121", stp="P126", rst="P127", rst_invert=True,
             attrs=Attrs(IOSTANDARD="LVCMOS33")
         ),
 
