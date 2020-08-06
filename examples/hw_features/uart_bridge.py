@@ -29,6 +29,7 @@ class UARTBridgeExample(Elaboratable):
         # Create our UART transmitter.
         transmitter = UARTTransmitter(divisor=int(clock_freq // 115200))
         m.submodules.transmitter = transmitter
+        stream = transmitter.stream
 
         # Create a counter that will let us transmit ten times per second.
         counter = Signal(range(0, char_freq))
@@ -42,14 +43,14 @@ class UARTBridgeExample(Elaboratable):
 
         # ... and count through it whenever we send a letter.
         current_letter = Signal(range(0, len(letters)))
-        with m.If(transmitter.accepted):
+        with m.If(stream.ready):
             m.d.sync += current_letter.eq(current_letter + 1)
 
 
         # Hook everything up.
         m.d.comb += [
-            transmitter.data.eq(letters[current_letter]),
-            transmitter.send.eq(counter == 0),
+            stream.payload  .eq(letters[current_letter]),
+            stream.valid    .eq(counter == 0),
 
             uart.tx.eq(transmitter.tx)
         ]
