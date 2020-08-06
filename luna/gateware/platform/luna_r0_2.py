@@ -22,7 +22,7 @@ __all__ = ["LUNAPlatformRev0D2"]
 #
 
 class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
-    """ Board description for the pre-release r0.1 revision of LUNA. """
+    """ Board description for the pre-release r0.2 revision of LUNA. """
 
     name        = "LUNA r0.2"
 

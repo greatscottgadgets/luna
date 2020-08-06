@@ -29,29 +29,42 @@ from ..test.utils    import LunaGatewareTestCase, sync_test_case
 class IntegratedLogicAnalyzer(Elaboratable):
     """ Super-simple integrated-logic-analyzer generator class for LUNA.
 
-    I/O port:
-        I: trigger                  -- A strobe that determines when we should start sampling.
-        O: sampling                 -- Indicates when sampling is in progress.
-        O: complete                 -- Indicates when sampling is complete and ready to be read.
+    Attributes
+    ----------
+    trigger: Signal(), input
+        A strobe that determines when we should start sampling.
+    sampling: Signal(), output
+        Indicates when sampling is in progress.
 
-        I: captured_sample_number[] -- Can be used to read the current sample number
-        O: captured_sample          -- The sample corresponding to the relevant sample number.
-                                       Can be broken apart by using Cat(*signals).
+    complete: Signal(), output
+        Indicates when sampling is complete and ready to be read.
+
+    captured_sample_number: Signal(), output
+        Can be used to read the current sample number.
+
+    captured_sample: Signal(), output
+        The sample corresponding to the relevant sample number.
+        Can be broken apart by using Cat(*signals).
+
+    Parameters
+    ----------
+    signals: iterable of Signals
+        An iterable of signals that should be captured by the ILA.
+    sample_depth: int
+        The depth of the desired buffer, in samples.
+
+    domain: string
+        The clock domain in which the ILA should operate.
+    sample_rate: float
+        Cosmetic indication of the sample rate. Used to format output.
+    samples_pretrigger: int
+        The number of our samples which should be captured _before_ the trigger.
+        This also can act like an implicit synchronizer; so asynchronous inputs
+        are allowed if this number is >= 2. Note that the trigger strobe is read
+        on the rising edge of the clock.
     """
 
     def __init__(self, *, signals, sample_depth, domain="sync", sample_rate=60e6, samples_pretrigger=1):
-        """
-        Parameters:
-            signals            -- An iterable of signals that should be captured by the ILA.
-            sample_depth       -- The depth of the desired buffer, in samples.
-            domain             -- The clock domain in which the ILA should operate.
-            sample_rate        -- Cosmetic indication of the sample rate. Used to format output.
-            samples_pretrigger -- The number of our samples which should be captured _before_ the trigger.
-                                  This also can act like an implicit synchronizer; so asynchronous inputs
-                                  are allowed if this number is >= 2. Note that the trigger strobe is read
-                                  on the rising edge of the
-        """
-
         self.domain             = domain
         self.signals            = signals
         self.inputs             = Cat(*signals)
@@ -268,33 +281,48 @@ class SyncSerialILA(Elaboratable):
     sample on each rising edge. Once a new sample is complete, the next sample begins
     on the next 32-bit boundary.
 
-    I/O port:
-        I: trigger                  -- A strobe that determines when we should start sampling.
-        O: sampling                 -- Indicates when sampling is in progress.
-        O: complete                 -- Indicates when sampling is complete and ready to be read.
+    Attributes
+    ----------
+    trigger: Signal(), input
+        A strobe that determines when we should start sampling.
+    sampling: Signal(), output
+        Indicates when sampling is in progress.
+    complete: Signal(), output
+        Indicates when sampling is complete and ready to be read.
 
-        I: sck       -- Serial clock for the SPI lines.
-        O: sdo       -- Serial data out for the SPI lines.
-        I: cs        -- Chip select for the SPI lines.
-    """
+    sck: Signal(), input
+        Serial clock for the SPI lines.
+    sdo: Signal(), output
+        Serial data out for the SPI lines.
+    cs: Signal(), input
+        Chip select for the SPI lines.
 
+    Parameters
+    ----------
+    signals: iterable of Signals
+        An iterable of signals that should be captured by the ILA.
+    sample_depth: int
+        The depth of the desired buffer, in samples.
 
-    def __init__(self, *, signals, sample_depth, clock_polarity=0, clock_phase=1, cs_idles_high=False, **kwargs):
-        """
-        Parameters:
-            signals            -- An iterable of signals that should be captured by the ILA.
-            sample_depth       -- The depth of the desired buffer, in samples.
-            domain             -- The clock domain in which the ILA should operate.
-            samples_pretrigger -- The number of our samples which should be captured _before_ the trigger.
+    domain: string
+        The clock domain in which the ILA should operate.
+    samples_pretrigger: int
+        The number of our samples which should be captured _before_ the trigger.
                                   This also can act like an implicit synchronizer; so asynchronous inputs
                                   are allowed if this number is >= 2.
-            clock_polarity     -- Clock polarity for the output SPI transciever. Optional.
-            clock_phase        -- Clock phase for the output SPI transciever. Optional.
-            cs_idles_high      -- If True, the CS line will be assumed to be asserted when cs=0.
-                                  If False or not provided, the CS line will be assumed to be asserted when cs=1
-                                  This can be used to share a simple two-device SPI bus, so two internal endpoints
-                                  can use the same CS line, with two opposite polarities.
-        """
+
+    clock_polarity: int, 0 or 1 
+        Clock polarity for the output SPI transciever. Optional.
+    clock_phase: int, 0 or 1
+        Clock phase for the output SPI transciever. Optional.
+    cs_idles_high: bool, optional
+        If True, the CS line will be assumed to be asserted when cs=0.
+        If False or not provided, the CS line will be assumed to be asserted when cs=1.
+        This can be used to share a simple two-device SPI bus, so two internal endpoints
+        can use the same CS line, with two opposite polarities.
+    """
+
+    def __init__(self, *, signals, sample_depth, clock_polarity=0, clock_phase=1, cs_idles_high=False, **kwargs):
 
         #
         # I/O port
@@ -308,7 +336,7 @@ class SyncSerialILA(Elaboratable):
         self.clock_phase = clock_phase
         self.clock_polarity = clock_polarity
 
-        # Extract the domain from our keyword arguments, and then translate it to syn
+        # Extract the domain from our keyword arguments, and then translate it to sync
         # before we pass it back below. We'll use a DomainRenamer at the boundary to
         # handle non-sync domains.
         self.domain = kwargs.get('domain', 'sync')
@@ -389,6 +417,10 @@ class SyncSerialILA(Elaboratable):
         m.d.sync += [
             self.ila.captured_sample_number .eq(current_sample_number)
         ]
+
+        # Convert our sync domain to the domain requested by the user, if necessary.
+        if self.domain != "sync":
+            m = DomainRenamer({"sync": self.domain})(m)
 
         return m
 
