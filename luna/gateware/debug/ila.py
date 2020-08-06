@@ -332,8 +332,12 @@ class SyncSerialILA(Elaboratable):
         # on our Debug Controller likes most.
         words_per_sample = (self.ila.sample_width + 31) // 32
 
-        self.bytes_per_sample = words_per_sample * 4
-        self.bits_per_word = self.bytes_per_sample * 8
+        # Bolster our bits_per_word up to a power of two...
+        self.bits_per_word = words_per_sample * 4 * 8
+        self.bits_per_word = 2 ** ((self.bits_per_word - 1).bit_length())
+
+        # ... and compute how many bits should be used.
+        self.bytes_per_sample = self.bits_per_word // 8
 
         # Expose our ILA's trigger and status ports directly.
         self.trigger  = self.ila.trigger
@@ -372,7 +376,7 @@ class SyncSerialILA(Elaboratable):
 
             # From then on, we'll move to the next sample whenever we're finished
             # scanning out a word (and thus our current samples are latched in).
-            with m.Elif(interface.word_complete):
+            with m.Elif(interface.word_accepted):
                 m.d.sync += current_sample_number.eq(current_sample_number + 1)
 
         # Whenever CS is low, we should be providing the very first sample,
