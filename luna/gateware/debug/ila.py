@@ -22,8 +22,10 @@ from nmigen.lib.cdc  import FFSynchronizer
 from vcd             import VCDWriter
 from vcd.gtkw        import GTKWSave
 
-from ..interface.spi import SPIDeviceInterface, SPIBus, SPIGatewareTestCase
-from ..test.utils    import LunaGatewareTestCase, sync_test_case
+from ..stream         import StreamInterface
+from ..interface.uart import UARTMultibyteTransmitter
+from ..interface.spi  import SPIDeviceInterface, SPIBus, SPIGatewareTestCase
+from ..test.utils     import LunaGatewareTestCase, sync_test_case
 
 
 class IntegratedLogicAnalyzer(Elaboratable):
@@ -39,9 +41,9 @@ class IntegratedLogicAnalyzer(Elaboratable):
     complete: Signal(), output
         Indicates when sampling is complete and ready to be read.
 
-    captured_sample_number: Signal(), output
-        Can be used to read the current sample number.
-
+    captured_sample_number: Signal(), input
+        Selects which sample the ILA will output. Effectively the address for the ILA's
+        sample buffer.
     captured_sample: Signal(), output
         The sample corresponding to the relevant sample number.
         Can be broken apart by using Cat(*signals).
@@ -478,6 +480,246 @@ class SyncSerialReadoutILATest(SPIGatewareTestCase):
             i += 1
 
 
+
+
+class StreamILA(Elaboratable):
+    """ Super-simple ILA that outputs its samples over a Stream.
+    Create a receiver for this object by calling apollo.ila_receiver_for(<this>).
+
+    This protocol is simple: we wait for a trigger; and then broadcast our samples.
+    We broadcast one buffer of samples per each subsequent trigger.
+
+    Attributes
+    ----------
+    trigger: Signal(), input
+        A strobe that determines when we should start sampling.
+    sampling: Signal(), output
+        Indicates when sampling is in progress.
+    complete: Signal(), output
+        Indicates when sampling is complete and ready to be read.
+
+    stream: output stream
+        Stream output for the ILA.
+
+    Parameters
+    ----------
+    signals: iterable of Signals
+        An iterable of signals that should be captured by the ILA.
+    sample_depth: int
+        The depth of the desired buffer, in samples.
+
+    domain: string
+        The clock domain in which the ILA should operate.
+    samples_pretrigger: int
+        The number of our samples which should be captured _before_ the trigger.
+        This also can act like an implicit synchronizer; so asynchronous inputs
+        are allowed if this number is >= 2.
+    """
+
+    def __init__(self, *, signals, sample_depth, **kwargs):
+
+        # Extract the domain from our keyword arguments, and then translate it to sync
+        # before we pass it back below. We'll use a DomainRenamer at the boundary to
+        # handle non-sync domains.
+        self.domain = kwargs.get('domain', 'sync')
+        kwargs['domain'] = 'sync'
+
+        # Create our core integrated logic analyzer.
+        self.ila = IntegratedLogicAnalyzer(
+            signals=signals,
+            sample_depth=sample_depth,
+            **kwargs)
+
+        # Copy some core parameters from our inner ILA.
+        self.signals       = signals
+        self.sample_width  = self.ila.sample_width
+        self.sample_depth  = self.ila.sample_depth
+        self.sample_rate   = self.ila.sample_rate
+        self.sample_period = self.ila.sample_period
+
+        # Bolster our bits per sample "word" up to a power of two.
+        self.bits_per_sample = 2 ** ((self.ila.sample_width - 1).bit_length())
+        self.bytes_per_sample = self.bits_per_sample // 8
+
+        #
+        # I/O port
+        #
+        self.stream  = StreamInterface(payload_width=self.bits_per_sample)
+        self.trigger = Signal()
+
+
+        # Expose our ILA's trigger and status ports directly.
+        self.sampling = self.ila.sampling
+        self.complete = self.ila.complete
+
+
+    def elaborate(self, platform):
+        m  = Module()
+        m.submodules.ila = ila = self.ila
+
+        # Count where we are in the current transmission.
+        current_sample_number = Signal(range(0, ila.sample_depth))
+
+        # Always present the current sample number to our ILA, and the current
+        # sample value to the UART.
+        m.d.comb += [
+            ila.captured_sample_number  .eq(current_sample_number),
+            self.stream.payload         .eq(ila.captured_sample)
+        ]
+
+        with m.FSM():
+
+            # IDLE -- we're currently waiting for a trigger before capturing samples.
+            with m.State("IDLE"):
+
+                # Always allow triggering, as we're ready for the data.
+                m.d.comb += self.ila.trigger.eq(self.trigger)
+
+                # Once we're triggered, move onto the SAMPLING state.
+                with m.If(self.trigger):
+                    m.next = "SAMPLING"
+
+
+            # SAMPLING -- the internal ILA is sampling; we're now waiting for it to
+            # complete. This state is similar to IDLE; except we block triggers in order
+            # to cleanly avoid a race condition.
+            with m.State("SAMPLING"):
+
+                # Once our ILA has finished sampling, prepare to read out our samples.
+                with m.If(self.ila.complete):
+                    m.d.sync += [
+                        current_sample_number  .eq(0),
+                        self.stream.first      .eq(1)
+                    ]
+                    m.next = "SENDING"
+
+
+            # SENDING -- we now have a valid buffer of samples to send up to the host;
+            # we'll transmit them over our stream interface.
+            with m.State("SENDING"):
+                m.d.comb += [
+                    # While we're sending, we're always providing valid data to the UART.
+                    self.stream.valid  .eq(1),
+
+                    # Indicate when we're on the last sample.
+                    self.stream.last   .eq(current_sample_number == (self.sample_depth - 1))
+                ]
+
+                # Each time the UART accepts a valid word, move on to the next one.
+                with m.If(self.stream.ready):
+                    m.d.sync += [
+                        current_sample_number .eq(current_sample_number + 1),
+                        self.stream.first     .eq(0)
+                    ]
+
+                    # If this was the last sample, we're done! Move back to idle.
+                    with m.If(self.stream.last):
+                        m.next = "IDLE"
+
+
+        # Convert our sync domain to the domain requested by the user, if necessary.
+        if self.domain != "sync":
+            m = DomainRenamer({"sync": self.domain})(m)
+
+        return m
+
+
+
+class AsyncSerialILA(Elaboratable):
+    """ Super-simple ILA that reads samples out over a UART connection.
+    Create a receiver for this object by calling apollo.ila_receiver_for(<this>).
+
+    This protocol is simple: we wait for a trigger; and then broadcast our samples.
+    We broadcast one buffer of samples per each subsequent trigger.
+
+    Attributes
+    ----------
+    trigger: Signal(), input
+        A strobe that determines when we should start sampling.
+    sampling: Signal(), output
+        Indicates when sampling is in progress.
+    complete: Signal(), output
+        Indicates when sampling is complete and ready to be read.
+
+    tx: Signal(), output
+        Serial output for the ILA.
+
+    Parameters
+    ----------
+    signals: iterable of Signals
+        An iterable of signals that should be captured by the ILA.
+    sample_depth: int
+        The depth of the desired buffer, in samples.
+
+    divisor: int
+        The number of `sync` clock cycles per bit period.
+
+    domain: string
+        The clock domain in which the ILA should operate.
+    samples_pretrigger: int
+        The number of our samples which should be captured _before_ the trigger.
+        This also can act like an implicit synchronizer; so asynchronous inputs
+        are allowed if this number is >= 2.
+    """
+
+    def __init__(self, *, signals, sample_depth, divisor, **kwargs):
+        self.divisor = divisor
+
+        #
+        # I/O port
+        #
+        self.tx      = Signal()
+
+        # Extract the domain from our keyword arguments, and then translate it to sync
+        # before we pass it back below. We'll use a DomainRenamer at the boundary to
+        # handle non-sync domains.
+        self.domain = kwargs.get('domain', 'sync')
+        kwargs['domain'] = 'sync'
+
+        # Create our core integrated logic analyzer.
+        self.ila = StreamILA(
+            signals=signals,
+            sample_depth=sample_depth,
+            **kwargs)
+
+        # Copy some core parameters from our inner ILA.
+        self.signals          = signals
+        self.sample_width     = self.ila.sample_width
+        self.sample_depth     = self.ila.sample_depth
+        self.sample_rate      = self.ila.sample_rate
+        self.sample_period    = self.ila.sample_period
+        self.bits_per_sample  = self.ila.bits_per_sample
+        self.bytes_per_sample = self.ila.bytes_per_sample
+
+        # Expose our ILA's trigger and status ports directly.
+        self.trigger  = self.ila.trigger
+        self.sampling = self.ila.sampling
+        self.complete = self.ila.complete
+
+
+    def elaborate(self, platform):
+        m  = Module()
+        m.submodules.ila = ila = self.ila
+
+        # Create our UART transmitter, and connect it to our stream interface.
+        m.submodules.uart = uart = UARTMultibyteTransmitter(
+            byte_width=self.bytes_per_sample,
+            divisor=self.divisor
+        )
+        m.d.comb +=[
+            uart.stream  .connect(ila.stream),
+            self.tx      .eq(uart.tx)
+        ] 
+
+
+        # Convert our sync domain to the domain requested by the user, if necessary.
+        if self.domain != "sync":
+            m = DomainRenamer({"sync": self.domain})(m)
+
+        return m
+
+
+
 class ILAFrontend(metaclass=ABCMeta):
     """ Class that communicates with an ILA module and emits useful output. """
 
@@ -648,6 +890,51 @@ class ILAFrontend(metaclass=ABCMeta):
         finally:
             os.remove(vcd_filename)
             os.remove(gtkw_filename)
+
+
+class AsyncSerialILAFrontend(ILAFrontend):
+    """ UART-based ILA transport.
+    
+    Parameters
+    ------------
+    port: string
+        The serial port to use to connect. This is typically a path on *nix systems.
+    ila: IntegratedLogicAnalyzer
+        The ILA object to work with.
+    """
+
+    def __init__(self, *args, ila, **kwargs):
+        import serial
+
+        self._port = serial.Serial(*args, **kwargs)
+        self._port.reset_input_buffer()
+
+        super().__init__(ila)
+
+
+    def _split_samples(self, all_samples):
+        """ Returns an iterator that iterates over each sample in the raw binary of samples. """
+        from luna.apollo.support.bits import bits
+
+        sample_width_bytes = self.ila.bytes_per_sample
+
+        # Iterate over each sample, and yield its value as a bits object.
+        for i in range(0, len(all_samples), sample_width_bytes):
+            raw_sample    = all_samples[i:i + sample_width_bytes]
+            sample_length = len(Cat(self.ila.signals))
+
+            yield bits.from_bytes(raw_sample, length=sample_length, byteorder='big')
+
+
+    def _read_samples(self):
+        """ Reads a set of ILA samples, and returns them. """
+
+        sample_width_bytes = self.ila.bytes_per_sample
+        total_to_read      = self.ila.sample_depth * sample_width_bytes
+
+        # Fetch all of our samples from the given device.
+        all_samples = self._port.read(total_to_read)
+        return list(self._split_samples(all_samples))
 
 
 if __name__ == "__main__":

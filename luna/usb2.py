@@ -11,10 +11,12 @@ from .gateware.usb.usb2.device           import USBDevice
 from .gateware.usb.usb2.endpoint         import EndpointInterface
 from .gateware.usb.usb2.request          import RequestHandlerInterface
 from .gateware.usb.usb2.endpoints.stream import USBStreamInEndpoint, USBStreamOutEndpoint
+from .gateware.usb.usb2.endpoints.stream import USBMultibyteStreamInEndpoint
 from .gateware.usb.usb2.endpoints.status import USBSignalInEndpoint
 
 __all__ = [
     'USBDevice',
     'EndpointInterface', 'RequestHandlerInterface',
-    'USBStreamInEndpoint', 'USBStreamOutEndpoint', 'USBSignalInEndpoint'
+    'USBStreamInEndpoint', 'USBStreamOutEndpoint', 'USBMultibyteStreamInEndpoint',
+    'USBSignalInEndpoint',
 ]

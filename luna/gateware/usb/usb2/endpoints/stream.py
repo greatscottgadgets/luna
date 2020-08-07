@@ -94,6 +94,145 @@ class USBStreamInEndpoint(Elaboratable):
 
 
 
+class USBMultibyteStreamInEndpoint(Elaboratable):
+    """ Endpoint interface that transmits a simple data stream to a host.
+
+    This interface is suitable for a single bulk or interrupt endpoint.
+
+    This variant accepts streams with payload sizes that are a multiple of one byte; data is always
+    transmitted to the host in little-endian byte order.
+
+    This endpoint interface will automatically generate ZLPs when a stream packet would end without
+    a short data packet. If the stream's ``last`` signal is tied to zero, then a continuous stream of
+    maximum-length-packets will be sent with no inserted ZLPs.
+
+    This implementation is double buffered; and can store a single packets worth of data while transmitting
+    a second packet.
+
+
+    Attributes
+    ----------
+    stream: StreamInterface, input stream
+        Full-featured stream interface that carries the data we'll transmit to the host.
+    interface: EndpointInterface
+        Communications link to our USB device.
+
+
+    Parameters
+    ----------
+    byte_width: int
+        The number of bytes to be accepted at once.
+    endpoint_number: int
+        The endpoint number (not address) this endpoint should respond to.
+    max_packet_size: int
+        The maximum packet size for this endpoint. Should match the wMaxPacketSize provided in the
+        USB endpoint descriptor.
+    """
+    def __init__(self, *, byte_width, endpoint_number, max_packet_size):
+        self._byte_width      = byte_width
+        self._endpoint_number = endpoint_number
+        self._max_packet_size = max_packet_size
+
+        #
+        # I/O port
+        #
+        self.stream          = StreamInterface(payload_width=byte_width * 8)
+        self.interface       = EndpointInterface()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Create our core, single-byte-wide endpoint, and attach it directly to our interface.
+        m.submodules.stream_ep = stream_ep = USBStreamInEndpoint(
+            endpoint_number=self._endpoint_number,
+            max_packet_size=self._max_packet_size
+        )
+        stream_ep.interface = self.interface
+
+        # Create semantic aliases for byte-wise and word-wise streams;
+        # so the code below reads more clearly.
+        byte_stream = stream_ep.stream
+        word_stream = self.stream
+
+        # We'll put each word to be sent through an shift register
+        # that shifts out words a byte at a time.
+        data_shift = Signal.like(word_stream.payload)
+
+        # Latched versions of our first and last signals.
+        first_latched = Signal()
+        last_latched  = Signal()
+
+        # Count how many bytes we have left to send.
+        bytes_to_send = Signal(range(0, self._byte_width + 1))
+
+        # Always provide our inner transmitter with the least byte of our shift register.
+        m.d.comb += byte_stream.payload.eq(data_shift[0:8])
+
+
+        with m.FSM(domain="usb"):
+
+            # IDLE: transmitter is waiting for input
+            with m.State("IDLE"):
+                m.d.comb += word_stream.ready.eq(1)
+
+                # Once we get a send request, fill in our shift register, and start shifting.
+                with m.If(word_stream.valid):
+                    m.d.usb += [
+                        data_shift         .eq(word_stream.payload),
+                        first_latched      .eq(word_stream.first),
+                        last_latched       .eq(word_stream.last),
+
+                        bytes_to_send      .eq(self._byte_width - 1),
+                    ]
+                    m.next = "TRANSMIT"
+
+
+            # TRANSMIT: actively send each of the bytes of our word
+            with m.State("TRANSMIT"):
+                m.d.comb += byte_stream.valid.eq(1)
+
+                # Once the byte-stream is accepting our input...
+                with m.If(byte_stream.ready):
+                    is_first_byte = (bytes_to_send == self._byte_width - 1)
+                    is_last_byte  = (bytes_to_send == 0)
+
+                    # Pass through our First and Last signals, but only on the first and
+                    # last bytes of our word, respectively.
+                    m.d.comb += [
+                        byte_stream.first  .eq(first_latched & is_first_byte),
+                        byte_stream.last   .eq(last_latched  & is_last_byte)
+                    ]
+
+                    # ... if we have bytes left to send, move to the next one.
+                    with m.If(bytes_to_send > 0):
+                        m.d.usb += [
+                            bytes_to_send .eq(bytes_to_send - 1),
+                            data_shift    .eq(data_shift[8:]),
+                        ]
+
+                    # Otherwise, complete the frame.
+                    with m.Else():
+                        m.d.comb += word_stream.ready.eq(1)
+
+                        # If we still have data to send, move to the next byte...
+                        with m.If(self.stream.valid):
+                            m.d.usb += [
+                                data_shift     .eq(word_stream.payload),
+                                first_latched  .eq(word_stream.first),
+                                last_latched   .eq(word_stream.last),
+
+                                bytes_to_send  .eq(self._byte_width - 1),
+                            ]
+
+                        # ... otherwise, move to our idle state.
+                        with m.Else():
+                            m.next = "IDLE"
+
+
+        return m
+
+
 
 class USBStreamOutEndpoint(Elaboratable):
     """ Endpoint interface that receives data from the host, and produces a simple data stream.
@@ -245,3 +384,4 @@ class USBStreamOutEndpoint(Elaboratable):
 
 
         return m
+

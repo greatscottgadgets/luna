@@ -311,7 +311,6 @@ class UARTMultibyteTransmitter(Elaboratable):
 
 
 
-
         with m.FSM() as f:
             m.d.comb += self.idle.eq(f.ongoing('IDLE'))
 
@@ -349,7 +348,7 @@ class UARTMultibyteTransmitter(Elaboratable):
                         # If we still have data to send, move to the next byte...
                         with m.If(self.stream.valid):
                             m.d.sync += [
-                                bytes_to_send      .eq(bytes_to_send - 1),
+                                bytes_to_send      .eq(self.byte_width - 1),
                                 data_shift         .eq(self.stream.payload),
                             ]
 

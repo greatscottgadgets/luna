@@ -118,3 +118,8 @@ class IceBreakerBitsyPlatform(_IceBreakerBitsyPlatform, LUNAPlatform):
     name                   = "iCEBreaker Bitsy"
     clock_domain_generator = IceBreakerDomainGenerator
     default_usb_connection = "usb"
+
+    def toolchain_program(self, products, name):
+        dfu_util = os.environ.get("DFU_UTIL", "dfu-util")
+        with products.extract("{}.bin".format(name)) as bitstream_filename:
+            subprocess.check_call([dfu_util, "-d", "1209:6146", "-a", "0", "-R", "-D", bitstream_filename])
