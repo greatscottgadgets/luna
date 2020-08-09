@@ -20,6 +20,7 @@ class HIDDevice(Elaboratable):
         manufacturer_string="LUNA",
         product_string="HID Register Reader",
         serial_number=None, max_packet_size=64,
+        hid_report=None,
         usage_page=0x01, usage=0x0):
 
         self._bus                 = bus
@@ -29,6 +30,7 @@ class HIDDevice(Elaboratable):
         self._product_string      = product_string
         self._serial_number       = serial_number
         self._max_packet_size     = max_packet_size
+        self._hid_report          = hid_report
         self._usage_page          = usage_page
         self._usage               = usage
 
@@ -78,17 +80,20 @@ class HIDDevice(Elaboratable):
                 i.iInterface = 0x00
 
                 hid_header = HIDDescriptor(descriptors)
-                hid_header.add_report_item(HIDPrefix.USAGE_PAGE, self._usage_page)
-                hid_header.add_report_item(HIDPrefix.USAGE, self._usage)
-                hid_header.add_report_item(HIDPrefix.COLLECTION, 0x01)
-                for (signal, input_range, usage) in self.inputs:
-                    hid_header.add_report_item(HIDPrefix.LOGICAL_MIN, *self._int_to_le_bytes(input_range.start))
-                    hid_header.add_report_item(HIDPrefix.LOGICAL_MAX, *self._int_to_le_bytes(input_range.stop))
-                    hid_header.add_report_item(HIDPrefix.REPORT_SIZE, *self._int_to_le_bytes(signal.shape().width))
-                    hid_header.add_report_item(HIDPrefix.REPORT_COUNT, 0x01),
-                    hid_header.add_report_item(HIDPrefix.USAGE, usage)
-                    hid_header.add_input_item()
-                hid_header.add_report_item(HIDPrefix.END_COLLECTION)
+                if self._hid_report:
+                    hid_header.add_report_raw(self._hid_report)
+                else:
+                    hid_header.add_report_item(HIDPrefix.USAGE_PAGE, self._usage_page)
+                    hid_header.add_report_item(HIDPrefix.USAGE, self._usage)
+                    hid_header.add_report_item(HIDPrefix.COLLECTION, 0x01)
+                    for (signal, input_range, usage) in self.inputs:
+                        hid_header.add_report_item(HIDPrefix.LOGICAL_MIN, *self._int_to_le_bytes(input_range.start))
+                        hid_header.add_report_item(HIDPrefix.LOGICAL_MAX, *self._int_to_le_bytes(input_range.stop))
+                        hid_header.add_report_item(HIDPrefix.REPORT_SIZE, *self._int_to_le_bytes(signal.shape().width))
+                        hid_header.add_report_item(HIDPrefix.REPORT_COUNT, 0x01),
+                        hid_header.add_report_item(HIDPrefix.USAGE, usage)
+                        hid_header.add_input_item()
+                    hid_header.add_report_item(HIDPrefix.END_COLLECTION)
 
                 i.add_subordinate_descriptor(hid_header)
 
