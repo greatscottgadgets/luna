@@ -7,7 +7,7 @@ from ..usb2.endpoints.status                  import USBSignalInEndpoint
 
 from usb_protocol.types                       import USBRequestType,USBTransferType
 from usb_protocol.emitters                    import DeviceDescriptorCollection
-from usb_protocol.emitters.descriptors.hid    import HIDDescriptor, HIDPrefixes
+from usb_protocol.emitters.descriptors.hid    import HIDDescriptor, HIDPrefix
 
 
 
@@ -78,17 +78,17 @@ class HIDDevice(Elaboratable):
                 i.iInterface = 0x00
 
                 hid_header = HIDDescriptor(descriptors)
-                hid_header.add_report(HIDPrefixes.USAGE_PAGE, self._usage_page)
-                hid_header.add_report(HIDPrefixes.USAGE, self._usage)
-                hid_header.add_report(HIDPrefixes.COLLECTION, 0x01)
+                hid_header.add_report_item(HIDPrefix.USAGE_PAGE, self._usage_page)
+                hid_header.add_report_item(HIDPrefix.USAGE, self._usage)
+                hid_header.add_report_item(HIDPrefix.COLLECTION, 0x01)
                 for (signal, input_range, usage) in self.inputs:
-                    hid_header.add_report(HIDPrefixes.LOGICAL_MIN, *self._int_to_le_bytes(input_range.start))
-                    hid_header.add_report(HIDPrefixes.LOGICAL_MAX, *self._int_to_le_bytes(input_range.stop))
-                    hid_header.add_report(HIDPrefixes.REPORT_SIZE, *self._int_to_le_bytes(signal.shape().width))
-                    hid_header.add_report(HIDPrefixes.REPORT_COUNT, 0x01),
-                    hid_header.add_report(HIDPrefixes.USAGE, usage)
-                    hid_header.add_input()
-                hid_header.add_report(HIDPrefixes.END_COLLECTION)
+                    hid_header.add_report_item(HIDPrefix.LOGICAL_MIN, *self._int_to_le_bytes(input_range.start))
+                    hid_header.add_report_item(HIDPrefix.LOGICAL_MAX, *self._int_to_le_bytes(input_range.stop))
+                    hid_header.add_report_item(HIDPrefix.REPORT_SIZE, *self._int_to_le_bytes(signal.shape().width))
+                    hid_header.add_report_item(HIDPrefix.REPORT_COUNT, 0x01),
+                    hid_header.add_report_item(HIDPrefix.USAGE, usage)
+                    hid_header.add_input_item()
+                hid_header.add_report_item(HIDPrefix.END_COLLECTION)
 
                 i.add_subordinate_descriptor(hid_header)
 
