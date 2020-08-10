@@ -9,3 +9,4 @@ pyusb
 pyvcd
 pyserial~=3.4
 libusb1
+prompt-toolkit
