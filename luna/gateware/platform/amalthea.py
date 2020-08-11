@@ -107,7 +107,7 @@ class AmaltheaPlatformRev0D1(LatticeECP5Platform, LUNAPlatform):
             dir="T3", nxt="T2", stp="T4", rst="R3", rst_invert=True,
             attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
         ULPIResource("host_phy", 0,
-            data="G2 G1 F2 F1 E1 D1 C1 B1", clk="K2", clk_dir='o',
+            data="G2 G1 F2 F1 E1 D1 C1 C2", clk="K2", clk_dir='o',
             dir="J1", nxt="H2", stp="J2", rst="K1", rst_invert=True,
             attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
 
@@ -145,22 +145,12 @@ class AmaltheaPlatformRev0D1(LatticeECP5Platform, LUNAPlatform):
         ),
 
         # User I/O connections.
-        # TODO: Update these for io0+/- & io1+/-
-        Resource("user_io", 0, Pins("A5", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
-        Resource("user_io", 1, Pins("A4", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
-        Resource("user_io", 2, Pins("A3", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
-        Resource("user_io", 3, Pins("A2", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
-    ]
-
-    connectors = [
-
-        # User I/O connector.
-        Connector("user_io", 0, """
-            A5  -  A2
-            A4  -  A3
-        """)
+        Resource("io", 0, DiffPairs("B1", "B2"), Attrs(IO_TYPE="LVDS")),
+        Resource("io", 1, DiffPairs("C3", "D3"), Attrs(IO_TYPE="LVDS")),
 
     ]
+
+    connectors = []
 
     def toolchain_prepare(self, fragment, name, **kwargs):
         overrides = {
