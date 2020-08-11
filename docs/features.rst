@@ -91,10 +91,10 @@ Support for Device Mode
 	  - user-defined
 	  - :planned:`planned`
 	* -
-	  - ``IN`` stream helpers
-	  - :planned:`planned`
+	  - ``IN`` transfer helpers
+	  - :needstest:`complete; needs examples and testing`
 	* -
-	  - ``OUT`` stream helpers
+	  - ``OUT`` transfer helpers
 	  - :planned:`planned`
 	* -
 	  - CPU interface
