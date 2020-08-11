@@ -41,5 +41,6 @@ class LatticeECP5_85F(JTAGDevice):
 class IntelCycloneIV_EP4CE30(JTAGDevice):
     """ Class representing a JTAG-connected CycloneIV, as on Daisho. """
 
+    DEVICE      = "EP4CE30"
     DESCRIPTION = "Intel/Altera EP4CE30 Cyclone-IV FPGA"
     SUPPORTED_IDCODES = [0x020f40dd]
