@@ -107,7 +107,7 @@ class AmaltheaPlatformRev0D1(LatticeECP5Platform, LUNAPlatform):
             dir="T3", nxt="T2", stp="T4", rst="R3", rst_invert=True,
             attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
         ULPIResource("host_phy", 0,
-            data="G2 G1 F2 F1 E1 D1 C1 B1", clk="K2", clk_dir='o',
+            data="G2 G1 F2 F1 E1 D1 C1 C2", clk="K2", clk_dir='o',
             dir="J1", nxt="H2", stp="J2", rst="K1", rst_invert=True,
             attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
 
