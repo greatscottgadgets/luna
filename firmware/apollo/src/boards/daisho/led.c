@@ -98,7 +98,7 @@ void heartbeat_task(void)
 	static uint32_t start_ms = 0;
 
 	// Blink every interval ms
-	if ( board_millis() - start_ms < blink_pattern) {
+	if (board_millis() - start_ms < blink_pattern) {
 		return; // not enough time
 	}
 

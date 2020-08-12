@@ -14,6 +14,18 @@
 #ifndef __JTAG_H__
 #define __JTAG_H__
 
+/**
+ * JTAG implementation quirk flags.
+ */
+enum
+{
+	// Some serial engines can only send bytes from MSB to LSB, rather than
+	// the LSB to MSB that JTAG requires. Since we're typically using a serial
+	// engine to send whole bytes, this requires whole bytes to be flipped, but
+	// not any straggling bits. Setting this quirk will automatically handle this case.
+	JTAG_QUIRK_FLIP_BITS_IN_WHOLE_BYTES = (1 << 0)
+};
+
 typedef enum e_TAPState
 {
 	STATE_TEST_LOGIC_RESET =  0,
@@ -130,5 +142,15 @@ bool handle_jtag_stop(uint8_t rhport, tusb_control_request_t const* request);
  * Reads the current JTAG TAP state. Mostly intended as a debug aid.
  */
 bool handle_jtag_get_state(uint8_t rhport, tusb_control_request_t const* request);
+
+
+/**
+ * Reads information about this device's JTAG implementation.
+ * 
+ * Responds with two uint32s:
+ *    - the maximum JTAG buffer size, in bytes
+ *    - a bitfield indicating any quirks present
+ */
+bool handle_jtag_get_info(uint8_t rhport, tusb_control_request_t const* request);
 
 #endif

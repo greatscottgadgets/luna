@@ -41,6 +41,8 @@ enum {
 	VENDOR_REQUEST_JTAG_GET_STATE          = 0xb6,
 	VENDOR_REQUEST_JTAG_BULK_SCAN          = 0xb7,
 
+	VENDOR_REQUEST_JTAG_GET_INFO           = 0xb8,
+
 	// General programming requests.
 	VENDOR_REQUEST_TRIGGER_RECONFIGURATION = 0xc0,
 
@@ -126,6 +128,8 @@ bool tud_vendor_control_request_cb(uint8_t rhport, tusb_control_request_t const*
 			return handle_jtag_stop(rhport, request);
 		case VENDOR_REQUEST_JTAG_GET_STATE:
 			return handle_jtag_get_state(rhport, request);
+		case VENDOR_REQUEST_JTAG_GET_INFO:
+			return handle_jtag_get_info(rhport, request);
 
 		// LED control requests.
 		case VENDOR_REQUEST_SET_LED_PATTERN:

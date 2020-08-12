@@ -29,6 +29,16 @@ uint8_t jtag_out_buffer[256] __attribute__((aligned(4)));
 
 
 /**
+ * By default, assume the implementation has no quirks.
+ * Boards can override this function to specify their quirks, which are defined in jtag.h
+ */
+__attribute__((weak)) uint32_t get_quirks(void)
+{
+	return 0;
+}
+
+
+/**
  * Simple request that clears the JTAG out buffer.
  */
 bool handle_jtag_request_clear_out_buffer(uint8_t rhport, tusb_control_request_t const* request)
@@ -131,4 +141,20 @@ bool handle_jtag_stop(uint8_t rhport, tusb_control_request_t const* request)
 	jtag_deinit();
 
 	return tud_control_xfer(rhport, request, NULL, 0);
+}
+
+
+
+/**
+ * Reads information about this device's JTAG implementation.
+ * 
+ * Responds with two uint32s:
+ *    - the maximum JTAG buffer size, in bytes
+ *    - a bitfield indicating any quirks present
+ */
+bool handle_jtag_get_info(uint8_t rhport, tusb_control_request_t const* request)
+{
+	// Send back two uint32s: one indicating our buffer size, and the other any quirks.
+	uint32_t response[2] = {sizeof(jtag_out_buffer), get_quirks()};
+	return tud_control_xfer(rhport, request, response, sizeof(response));
 }

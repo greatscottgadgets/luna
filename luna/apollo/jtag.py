@@ -21,7 +21,18 @@ REQUEST_JTAG_SCAN             = 0xb3
 REQUEST_JTAG_RUN_CLOCK        = 0xb4
 REQUEST_JTAG_GO_TO_STATE      = 0xb5
 REQUEST_JTAG_GET_STATE        = 0xb6
+REQUEST_JTAG_GET_INFO         = 0xb8
 REQUEST_JTAG_STOP             = 0xbe
+
+#
+# List of JTAG implementaiton quirks.
+#
+
+# Some serial engines can only send bytes from MSB to LSB, rather than
+# the LSB to MSB that JTAG requires. Since we're typically using a serial
+# engine to send whole bytes, this requires whole bytes to be flipped, but
+# not any straggling bits. Setting this quirk will automatically handle this case.
+QUIRK_FLIP_BITS_IN_WHOLE_BYTES = (1 << 0)
 
 
 class JTAGPatternError(IOError):
@@ -132,7 +143,13 @@ class JTAGChain:
 
         # Configure our chain to run at the relevant frequency.
         self.frequency = int(max_frequency)
+
+        # Default to 2048 bits per scan.
+        # This will be overridden in many cases by the autodetectin methods below.
         self.max_bits_per_scan = 256 * 8
+
+        # By default, don't assume any quirks.
+        self._bit_reverse_whole_bytes = False
 
 
     def initialize(self):
@@ -145,6 +162,21 @@ class JTAGChain:
 
     def __enter__(self):
         """ Starts a new JTAG communication. """
+
+        # First, get our vitals on the JTAG connection...
+        try:
+            jtag_info = self.debugger.in_request(REQUEST_JTAG_GET_INFO, length=8)
+
+            # .. including the maximum amount we're allowed to squish into a transaciton...
+            self.max_bits_per_scan = int.from_bytes(jtag_info[0:4], byteorder='little') * 8
+
+            # ... and any platform quirks present.
+            quirks = int.from_bytes(jtag_info[4:], byteorder='little')
+            self._bit_reverse_whole_bytes = bool(quirks & QUIRK_FLIP_BITS_IN_WHOLE_BYTES)
+
+        except IOError:
+            pass
+
 
         # Enable our JTAG comms.
         self.debugger.out_request(REQUEST_JTAG_START)
@@ -196,14 +228,15 @@ class JTAGChain:
         response = bytearray()
         self.debugger.out_request(REQUEST_JTAG_CLEAR_OUT_BUFFER)
 
-        while bits_to_scan > 0:
-            bits_in_chunk = min(bits_to_scan, self.max_bits_per_scan)
-            bits_to_scan -= bits_in_chunk
+        bits_left_to_scan = bits_to_scan
+        while bits_left_to_scan > 0:
+            bits_in_chunk = min(bits_left_to_scan, self.max_bits_per_scan)
+            bits_left_to_scan -= bits_in_chunk
             chunk = self._receive_data_chunk(bits_in_chunk)
 
             response.extend(chunk)
 
-        return response
+        return self._reverse_bits_where_necessary(bits_to_scan, response)
 
 
     def _pad_data_to_length(self, length_in_bits, data=None):
@@ -269,6 +302,28 @@ class JTAGChain:
 
 
 
+    def _reverse_bits_where_necessary(self, bits_to_scan, byte_data):
+        """ Applies any neceessary bit-manipulations before/after a JTAG scan.
+
+        Used as some hardware can only send MSB->LSB, and not LSB->MSB.
+        """
+
+        # Quick helper function to reverse the bits in our bitstream.
+        def reverse_bits(num):
+            binstr = "{:08b}".format(num)
+            return int(binstr[::-1], 2)
+
+        if not self._bit_reverse_whole_bytes:
+            return byte_data
+
+        # Reverse all bits in any whole bytes.
+        bit_reversed = bytearray(byte_data)
+        for i in range(bits_to_scan // 8):
+            bit_reversed[i] = reverse_bits(bit_reversed[i])
+
+        return bit_reversed
+
+
     def _scan_data_chunk(self, bits_to_scan, byte_data, ignore_response=False, advance_state=False):
         """ Performs a raw scan-in of data, and returns the result. """
 
@@ -278,11 +333,14 @@ class JTAGChain:
         # Perform our actual data scan-in.
         # TODO: break larger-than-maximum transactions into smaller ones.
         if byte_data:
-            self.debugger.out_request(REQUEST_JTAG_SET_OUT_BUFFER, data=byte_data)
+            bytes_to_send = self._reverse_bits_where_necessary(bits_to_scan, byte_data)
+            self.debugger.out_request(REQUEST_JTAG_SET_OUT_BUFFER, data=bytes_to_send)
+
         self.debugger.out_request(REQUEST_JTAG_SCAN, value=bits_to_scan, index=1 if advance_state else 0)
 
         if not ignore_response:
             result = self.debugger.in_request(REQUEST_JTAG_GET_IN_BUFFER, length=bytes_to_read)
+            result = self._reverse_bits_where_necessary(bits_to_scan, result)
         else:
             result = b""
 
