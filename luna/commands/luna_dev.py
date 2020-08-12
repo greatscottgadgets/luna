@@ -80,12 +80,13 @@ def play_svf_file(device, args):
             logging.error("")
 
 
-def configure_ecp5(device, args):
+def configure_fpga(device, args):
     """ Command that prints information about devices connected to the scan chain to the console. """
+
 
     with device.jtag as jtag:
 
-        programmer = ECP5_JTAGProgrammer(jtag)
+        programmer = device.create_jtag_programmer(jtag)
 
         with open(args.argument, "rb") as f:
             bitstream = f.read()
@@ -196,7 +197,7 @@ def main():
 
         # JTAG commands
         'svf':         play_svf_file,
-        'configure':   configure_ecp5,
+        'configure':   configure_fpga,
         'reconfigure': reconfigure_ecp5,
 
         # SPI debug exchanges

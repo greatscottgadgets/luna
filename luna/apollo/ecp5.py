@@ -330,7 +330,7 @@ class ECP5CommandBasedProgrammer(ECP5Programmer):
         pass
 
 
-    def _generate_bit_reversed_bitstream(self, bitstream):
+    def _generate_bit_reversed_bitstream(self, bitstream, byte_reverse=False):
         """
         Generates a copy of the provided bitstream with the bits in each byte
         reversed -- in the format the FPGA likes them for MSPI mode.
@@ -351,6 +351,9 @@ class ECP5CommandBasedProgrammer(ECP5Programmer):
         for i in range(len(bit_reversed)):
             bit_reversed[i] = reverse_bits(bit_reversed[i])
 
+        if byte_reverse:
+            bit_reversed = bit_reversed[::-1]
+
         return bit_reversed
 
 
@@ -361,7 +364,7 @@ class ECP5CommandBasedProgrammer(ECP5Programmer):
                 can be passed to bytearray's constructor is acceptable.
         """
 
-        bitstream = self._generate_bit_reversed_bitstream(bitstream)
+        bitstream = self._generate_bit_reversed_bitstream(bitstream, byte_reverse=True)
 
         self.chain.debugger.set_led_pattern(self.chain.debugger.LED_PATTERN_UPLOAD)
 
@@ -376,7 +379,7 @@ class ECP5CommandBasedProgrammer(ECP5Programmer):
             # Capture the part ID, and then verify that our bitstream matches.
             # FIXME: use the bitstream file to get the ID, not our exected LUNA ID
             self._capture_part_id()
-            self._execute_command(self.Opcode.VERIFY_ID, b"\x21\x11\x10\x43")
+            #self._execute_command(self.Opcode.VERIFY_ID, b"\x21\x11\x10\x43")
 
             # ???
             self._execute_command(0x1C, bits(b"\x3f" + b"\xff" * 63, 510), check_status=False, bits_per_size_unit=1)

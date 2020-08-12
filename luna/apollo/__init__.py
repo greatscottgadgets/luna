@@ -10,6 +10,8 @@ from .jtag  import JTAGChain
 from .flash import ConfigurationFlash
 from .spi   import DebugSPIConnection
 from .ila   import ApolloILAFrontend
+from .ecp5  import ECP5_JTAGProgrammer
+from .intel import IntelJTAGProgrammer
 
 from .onboard_jtag import *
 
@@ -47,6 +49,10 @@ class ApolloDebugger:
     EXTERNAL_BOARD_MAJOR = 0xFF
     EXTERNAL_BOARD_NAMES = {
         0: "Daisho [rev 31-Oct-2014]"
+    }
+
+    EXTERNAL_BOARD_PROGRAMMERS = {
+        0: IntelJTAGProgrammer
     }
 
 
@@ -155,6 +161,19 @@ class ApolloDebugger:
             return self.SUBDEVICE_MAJORS[self.major]
 
         return 'LUNA'
+
+    def create_jtag_programmer(self, jtag_chain):
+        """ Returns the JTAG programmer for the given device. """
+
+        # If this is an external programmer, return its programmer type.
+        if self.major == self.EXTERNAL_BOARD_MAJOR:
+            programmer = self.EXTERNAL_BOARD_PROGRAMMERS[self.minor]
+        # Otherwise, it should be an ECP5.
+        else:
+            programmer = ECP5_JTAGProgrammer
+
+        return programmer(jtag_chain)
+
 
 
     def out_request(self, number, value=0, index=0, data=None, timeout=5000):

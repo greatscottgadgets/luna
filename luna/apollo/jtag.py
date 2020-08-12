@@ -242,7 +242,9 @@ class JTAGChain:
 
         receive  = bytearray()
         if byte_data:
-            transmit = bytearray(byte_data)
+            transmit = bytearray(byte_data)[::-1]
+
+        #self._realign_data_if_necessary(bits_to_scan, transmit)
 
         bytes_per_chunk = self.max_bits_per_scan // 8
         bits_per_chunk  = bytes_per_chunk * 8
@@ -263,7 +265,7 @@ class JTAGChain:
 
             receive.extend(result)
 
-        return receive
+        return receive[::-1]
 
 
 
@@ -324,9 +326,6 @@ class JTAGChain:
         # This both ensures we have a known format; and implicitly handles things like padding.
         if tdi:
             data_bits = bits(tdi, length, byteorder=byteorder)
-
-            # Bit-reverse our data, so we're sending LSB first, per the JTAG spec.
-            #data_bits = bits(data_bits.to_str()[::-1])
 
             # Convert from our raw data to the format we'll need to send down to the device.
             bit_length = len(data_bits)
@@ -526,7 +525,7 @@ class JTAGChain:
         """
 
         # Create the parser that will run our SVF file, and run our SVF.
-        parser = SVFParser(svf_string, GreatfetSVFEventHandler(self, log_function, error_log_function))
+        parser = SVFParser(svf_string, ApolloSVFEventHandler(self, log_function, error_log_function))
         parser.parse_file()
 
 
@@ -551,7 +550,7 @@ class JTAGChain:
 
 
 
-class GreatfetSVFEventHandler(SVFEventHandler):
+class ApolloSVFEventHandler(SVFEventHandler):
     """ SVF event handler that delegates handling of SVF instructions to a GreatFET JTAG interface. """
 
 
@@ -603,7 +602,8 @@ class GreatfetSVFEventHandler(SVFEventHandler):
 
     def svf_trst(self, mode):
         """Called when the ``TRST`` command is encountered."""
-        warn('SVF provided TRST command; but this implementation does not yet support driving the TRST line')
+        if mode != "ABSENT":
+            warn('SVF provided TRST command; but this implementation does not yet support driving the TRST line')
 
 
     def svf_state(self, state, path):
