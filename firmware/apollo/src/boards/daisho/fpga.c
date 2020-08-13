@@ -10,7 +10,10 @@
 #include <bsp/board.h>
 #include <apollo_board.h>
 
+#include <fpga_clk.h>
 
+
+// Power sequencing pins.
 enum {
 	PIN_FRONTEND_EN  = _DAISHO_GPIO(0, 20),
 
@@ -18,17 +21,21 @@ enum {
 	PIN_VREG_EN_1V2  = _DAISHO_GPIO(0, 18),
 	PIN_VREG_EN_1V8  = _DAISHO_GPIO(1, 28),
 	PIN_VREG_EN_2V5  = _DAISHO_GPIO(0, 16),
-	PIN_VREG_EN_3V3  = _DAISHO_GPIO(0, 16),
 	PIN_VREG_EN_3V3A = _DAISHO_GPIO(0, 14),
 };
+
 
 
 static void fpga_initialize_power(void)
 {
 	gpio_t rail_enables[] = {
 		PIN_FRONTEND_EN, PIN_VREG_EN_1V1, PIN_VREG_EN_1V2, PIN_VREG_EN_1V8,
-		PIN_VREG_EN_2V5, PIN_VREG_EN_3V3, PIN_VREG_EN_3V3A
+		PIN_VREG_EN_2V5, PIN_VREG_EN_3V3A
 	};
+
+	// Pin multiplex the power pins that default to JTAG roles.
+	Chip_IOCON_PinMux(LPC_IOCON, _DAISHO_PORT(PIN_VREG_EN_3V3A),
+		_DAISHO_PIN(PIN_VREG_EN_3V3A), 0, IOCON_FUNC1);
 
 	// Start up with all of the regulators off.
 	for (unsigned i = 0; i < TU_ARRAY_SIZE(rail_enables); ++i) {
@@ -41,7 +48,7 @@ static void fpga_initialize_power(void)
 static void fpga_core_power_sequence(void)
 {
 	gpio_t rail_enables[] = {
-		PIN_VREG_EN_1V2, PIN_VREG_EN_2V5, PIN_VREG_EN_1V8, PIN_VREG_EN_1V1
+		PIN_VREG_EN_1V2, PIN_VREG_EN_2V5, PIN_VREG_EN_1V8, PIN_VREG_EN_1V1,
 	};
 
 	// Sequence each of our regulators on.
@@ -51,17 +58,21 @@ static void fpga_core_power_sequence(void)
 }
 
 
-
-
 /**
- * Sets up the I/O pins needed to configure the FPGA.
+ * Sets up the I/O state necessary to bring up the FPGA.
  */
 void fpga_io_init(void)
 {
+	// Bring up power...
 	fpga_initialize_power();
 	board_delay(1000);
 	fpga_core_power_sequence();
 	board_delay(1000);
+
+	// ... bring up the clock generator for the FPGA...
+	gpio_set_pin_level(PIN_VREG_EN_3V3A, true);
+	board_delay(1000);
+	fpga_initialize_clocking();
 }
 
 

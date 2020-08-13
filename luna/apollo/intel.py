@@ -62,20 +62,22 @@ class IntelJTAGProgrammer:
 
         # The actual JTAG commands for loading bitstreams are not clearly documented;
         # these values were found by copying the least collection of instructions that
-        # seemed to result in a reliable configuration from a Quartus-generated SVF.
+        # seemed to result in a reliable configuration from a Quartus-generated SVF,
+        # and correlating with CYIV-51008, which references some instruction ordering
+        # and names without additional documentation.
         #
         # These could be very wrong.
         #
         IR_LENGTH         = 10
-        LOAD_BITSTREAM    = 0x002
-        END_CONFIGURATION = 0x003
+        JTAG_PROGRAM      = 0x002
+        JTAG_STARTUP      = 0x003
 
         # Upload our bitstream to our board ...
-        self.chain.shift_instruction(LOAD_BITSTREAM, length=IR_LENGTH, state_after='IRPAUSE')
+        self.chain.shift_instruction(JTAG_PROGRAM, length=IR_LENGTH, state_after='IRPAUSE')
         self.chain.shift_data(tdi=bitstream, length=bitstream_length_bits,
             ignore_response=True, state_after='IDLE', byteorder='little')
 
         # ... and apply it / let it start.
-        self.chain.shift_instruction(END_CONFIGURATION, length=IR_LENGTH, state_after='IRPAUSE')
+        self.chain.shift_instruction(JTAG_STARTUP, length=IR_LENGTH, state_after='IRPAUSE')
         self.chain.run_test(102400)
 
