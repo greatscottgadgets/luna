@@ -100,11 +100,10 @@ class ArtyA7Platform(Xilinx7SeriesPlatform, LUNAPlatform):
     resources   = [
         Resource("clk100", 0, Pins("E3", dir="i"),
                  Clock(100e6), Attrs(IOSTANDARD="LVCMOS33")),
-        DirectUSBResource(0, d_p="G13", d_n="B11", pullup="A11", attrs=Attrs(IOStandard="LVCMOS33")),
+        DirectUSBResource(0, d_p="U12", d_n="V12", pullup="V10", attrs=Attrs(IOStandard="LVCMOS33")),
     ]
 
     connectors = []
-
 
     def toolchain_prepare(self, fragment, name, **kwargs):
         overrides = {
@@ -113,10 +112,8 @@ class ArtyA7Platform(Xilinx7SeriesPlatform, LUNAPlatform):
             "script_after_bitstream":
                 "write_cfgmem -force -format bin -interface spix4 -size 16 "
                 "-loadbit \"up 0x0 {name}.bit\" -file {name}.bin".format(name=name),
+            "add_constraints":
+                "set_clock_groups -asynchronous -group [get_clocks -of_objects [get_pins -regexp .*/pll/CLKOUT0]] -group [get_clocks -of_objects [get_pins -regexp .*/pll/CLKOUT1]]",
         }
         return super().toolchain_prepare(fragment, name, **overrides, **kwargs)
 
-    def toolchain_program(self, products, name):
-        xc3sprog = os.environ.get("XC3SPROG", "xc3sprog")
-        with products.extract("{}.bit".format(name)) as bitstream_filename:
-            subprocess.run([xc3sprog, "-c", "nexys4", bitstream_filename], check=True)
