@@ -4,14 +4,14 @@
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
-""" LambdaConcept board platform definitions.
+""" Arty A7 board platform definitions.
 
 This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM variable:
 
-    > export LUNA_PLATFORM="luna.gateware.platform.lambdaconcept:USB2SnifferPlatform"
+    > export LUNA_PLATFORM="luna.gateware.platform.arty_a7:ArtyA7Platform"
 or
 
-    > export LUNA_PLATFORM="luna.gateware.platform.lambdaconcept:ECPIX5PlatformRev02"
+    > export LUNA_PLATFORM="luna.gateware.platform.arty_a7:ArtyA7Platform"
 """
 
 import os
