@@ -114,7 +114,7 @@ class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
         ),
 
         # FPGA-connected LEDs.
-        *LEDResources(pins="L16 L15 M16 M15 N16 P15", attrs=Attrs(IO_TYPE="LVCMOS33")),
+        *LEDResources(pins="L16 L15 M16 M15 N16 P15", attrs=Attrs(IO_TYPE="LVCMOS33"), invert=True),
 
         # USB PHYs
         ULPIResource("sideband_phy", 0,
