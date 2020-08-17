@@ -27,7 +27,7 @@ class LEDRequestHandler(USBRequestHandler):
         setup             = self.interface.setup
 
         # Grab a reference to the board's LEDs.
-        leds  = Cat(platform.request_optional("led", i, default=NullPin()).i for i in range(8))
+        leds  = Cat(platform.request_optional("led", i, default=NullPin()).o for i in range(8))
 
         #
         # Vendor request handlers.
