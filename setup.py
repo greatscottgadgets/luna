@@ -25,7 +25,14 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     python_requires="~=3.7",
-    install_requires=['pyusb', 'nmigen', 'nmigen_boards', 'pyvcd', 'usb_protocol', 'libusb1'],
+    install_requires=[
+        'pyusb',
+        'nmigen @ git+https://github.com/nmigen/nmigen.git',
+        'nmigen_boards @ git+https://github.com/nmigen/nmigen-boards.git',
+        'pyvcd',
+        'usb_protocol @ git+https://github.com/usb-tools/python-usb-protocol.git',
+        'pyserial~=3.4',
+        'libusb1'],
     setup_requires=['setuptools', 'setuptools_scm'],
     entry_points= {
         'console_scripts': [
