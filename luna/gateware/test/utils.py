@@ -13,7 +13,7 @@ import unittest
 from functools import wraps
 
 from nmigen import Signal
-from nmigen.test.utils import FHDLTestCase
+from luna.gateware.utils.FHDLTestCase import FHDLTestCase
 from nmigen.back.pysim import Simulator
 
 
