@@ -13,7 +13,6 @@ import unittest
 from functools import wraps
 
 from nmigen import Signal
-from nmigen.test.utils import FHDLTestCase
 from nmigen.back.pysim import Simulator
 
 
@@ -60,7 +59,7 @@ def fast_domain_test_case(process_function):
 
 
 
-class LunaGatewareTestCase(FHDLTestCase):
+class LunaGatewareTestCase(unittest.TestCase):
 
     domain = 'sync'
 
