@@ -12,7 +12,7 @@ from luna import top_level_cli
 
 from luna.gateware.utils.cdc     import synchronize
 from luna.gateware.interface.spi import SPIRegisterInterface
-
+from luna.gateware.platform      import NullPin
 
 class DebugSPIRegisterExample(Elaboratable):
     """ Gateware meant to demonstrate use of the Debug Controller's register interface. """
@@ -33,7 +33,7 @@ class DebugSPIRegisterExample(Elaboratable):
         spi_registers.add_read_only_register(3, read=0xdeadbeef)
 
         # ... and tie our LED register to our LEDs.
-        led_out   = Cat([platform.request("led", i, dir="o") for i in range(0, 6)])
+        led_out   = Cat([platform.request_optional("led", i, default=NullPin()).o for i in range(0, 8)])
         m.d.comb += led_out.eq(led_reg)
 
         # Connect up our synchronized copies of the SPI registers.

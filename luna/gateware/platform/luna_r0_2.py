@@ -104,7 +104,7 @@ class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
         UARTResource(0, rx="R14", tx="T14", attrs=Attrs(IO_TYPE="LVCMOS33")),
 
         # SPI bus connected to the debug controller, for simple register exchanges.
-        # Note that the Debug Controller is the master on this bus.
+        # Note that the Debug Controller is the controller on this bus.
         Resource("debug_spi", 0,
             Subsignal("sck",  Pins( "R13", dir="i")),
             Subsignal("sdi",  Pins( "P13", dir="i")),
