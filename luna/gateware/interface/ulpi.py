@@ -1207,6 +1207,9 @@ class UTMITranslator(Elaboratable):
                     " You may need to handle clocking manually.")
 
 
+        # Hook up our reset signal iff our ULPI bus has one.
+        if hasattr(self.ulpi, 'rst'):
+            m.d.comb += self.ulpi.rst  .eq(ResetSignal("usb")),
 
 
         # Connect our ULPI control signals to each of our subcomponents.
@@ -1217,9 +1220,6 @@ class UTMITranslator(Elaboratable):
 
             # Generate our busy signal.
             self.busy                    .eq(any_busy),
-
-            # Connect up our clock and reset signals.
-            self.ulpi.rst                .eq(ResetSignal("usb")),
 
             # Connect our data inputs to the event decoder.
             # Note that the event decoder is purely passive.
