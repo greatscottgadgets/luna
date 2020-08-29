@@ -1,0 +1,56 @@
+#
+# This file is part of LUNA.
+#
+# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# SPDX-License-Identifier: BSD-3-Clause
+"""
+Contains the organizing hardware used to add USB3 Device functionality
+to your own designs; including the core :class:`USBSuperSpeedDevice` class.
+"""
+
+import logging
+
+from nmigen import *
+
+# USB3 Protocol Stack
+from .physical import USB3PhysicalLayer
+from .link     import USB3LinkLayer
+
+
+class USBSuperSpeedDevice(Elaboratable):
+    """ Core gateware common to all LUNA USB3 devices. """
+
+    def __init__(self, *, phy):
+        self._phy = phy
+
+        # TODO: remove when complete
+        logging.warning("USB3 device support is not at all complete!")
+        logging.warning("Do not expect -anything- to work!")
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        #
+        # Physical layer.
+        #
+        m.submodules.physical = physical = USB3PhysicalLayer(phy=self._phy)
+
+        #
+        # Link layer.
+        #
+        m.submodules.link = link = USB3LinkLayer(physical_layer=physical)
+
+
+        #
+        # Protocol layer.
+        #
+        # TODO
+
+        #
+        # Application layer.
+        #
+        # TODO
+
+
+        return m

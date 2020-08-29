@@ -34,22 +34,25 @@ class LogicboneDomainGenerator(Elaboratable):
 
     def elaborate(self, platform):
         m = Module()
-        locked = Signal()
 
         # Grab our default input clock.
-        input_clock = platform.request(platform.default_clk, dir="i")
+        clk25 = platform.request(platform.default_clk, dir="i")
+        reset = platform.request(platform.default_rst, dir="i")
 
         # Create our domains; but don't do anything else for them, for now.
         m.domains.sync   = ClockDomain()
         m.domains.usb    = ClockDomain()
         m.domains.usb_io = ClockDomain()
+        m.domains.ss     = ClockDomain()
         m.domains.fast   = ClockDomain()
 
-        feedback = Signal()
-        m.submodules.pll = Instance("EHXPLLL",
+        # USB FS PLL
+        feedback    = Signal()
+        usb2_locked = Signal()
+        m.submodules.fs_pll = Instance("EHXPLLL",
 
                 # Status.
-                o_LOCK=locked,
+                o_LOCK=usb2_locked,
 
                 # PLL parameters...
                 p_PLLRST_ENA="DISABLED",
@@ -86,13 +89,13 @@ class LogicboneDomainGenerator(Elaboratable):
                 p_CLKFB_DIV = 6,
 
                 # Clock in.
-                i_CLKI=input_clock,
+                i_CLKI=clk25,
 
                 # Internal feedback.
                 i_CLKFB=feedback,
 
                 # Control signals.
-                i_RST=0,
+                i_RST=reset,
                 i_PHASESEL0=0,
                 i_PHASESEL1=0,
                 i_PHASEDIR=1,
@@ -107,7 +110,7 @@ class LogicboneDomainGenerator(Elaboratable):
 
                 # Generated clock outputs.
                 o_CLKOP=feedback,
-                o_CLKOS2=ClockSignal("sync"),
+                o_CLKOS2=ClockSignal("usb_io"),
                 o_CLKOS3=ClockSignal("usb"),
 
                 # Synthesis attributes.
@@ -121,15 +124,91 @@ class LogicboneDomainGenerator(Elaboratable):
                 a_MFG_GMCREF_SEL="2"
         )
 
+        # Generate the clocks we need for running our SerDes.
+        feedback     = Signal()
+        usb3_locked  = Signal()
+        m.submodules.ss_pll = Instance("EHXPLLL",
+
+                # Clock in.
+                i_CLKI=clk25,
+
+                # Generated clock outputs.
+                o_CLKOP=feedback,
+                o_CLKOS= ClockSignal("ss"),
+                o_CLKOS2=ClockSignal("fast"),
+
+                # Status.
+                o_LOCK=usb3_locked,
+
+                # PLL parameters...
+                p_CLKI_DIV=1,
+                p_PLLRST_ENA="DISABLED",
+                p_INTFB_WAKE="DISABLED",
+                p_STDBY_ENABLE="DISABLED",
+                p_DPHASE_SOURCE="DISABLED",
+                p_CLKOS3_FPHASE=0,
+                p_CLKOS3_CPHASE=0,
+                p_CLKOS2_FPHASE=0,
+                p_CLKOS2_CPHASE=5,
+                p_CLKOS_FPHASE=0,
+                p_CLKOS_CPHASE=5,
+                p_CLKOP_FPHASE=0,
+                p_CLKOP_CPHASE=5,
+                p_PLL_LOCK_MODE=0,
+                p_CLKOS_TRIM_DELAY="0",
+                p_CLKOS_TRIM_POL="FALLING",
+                p_CLKOP_TRIM_DELAY="0",
+                p_CLKOP_TRIM_POL="FALLING",
+                p_OUTDIVIDER_MUXD="DIVD",
+                p_CLKOS3_ENABLE="DISABLED",
+                p_OUTDIVIDER_MUXC="DIVC",
+                p_CLKOS2_ENABLE="ENABLED",
+                p_OUTDIVIDER_MUXB="DIVB",
+                p_CLKOS_ENABLE="ENABLED",
+                p_OUTDIVIDER_MUXA="DIVA",
+                p_CLKOP_ENABLE="ENABLED",
+                p_CLKOS3_DIV=1,
+                p_CLKOS2_DIV=2,
+                p_CLKOS_DIV=4,
+                p_CLKOP_DIV=20,
+                p_CLKFB_DIV=1,
+                p_FEEDBK_PATH="CLKOP",
+
+                # Internal feedback.
+                i_CLKFB=feedback,
+
+                # Control signals.
+                i_RST=reset,
+                i_PHASESEL0=0,
+                i_PHASESEL1=0,
+                i_PHASEDIR=1,
+                i_PHASESTEP=1,
+                i_PHASELOADREG=1,
+                i_STDBY=0,
+                i_PLLWAKESYNC=0,
+
+                # Output Enables.
+                i_ENCLKOP=0,
+                i_ENCLKOS=0,
+                i_ENCLKOS2=0,
+                i_ENCLKOS3=0,
+
+                # Synthesis attributes.
+                a_ICP_CURRENT="12",
+                a_LPF_RESISTOR="8"
+        )
+
+
+
         # We'll use our 48MHz clock for everything _except_ the usb domain...
         m.d.comb += [
-            ClockSignal("usb_io")  .eq(ClockSignal("sync")),
-            ClockSignal("fast")    .eq(ClockSignal("sync")),
+            ClockSignal("sync")    .eq(ClockSignal("ss")),
 
-            ResetSignal("sync")    .eq(~locked),
-            ResetSignal("usb")     .eq(~locked),
-            ResetSignal("usb_io")  .eq(~locked),
-            ResetSignal("fast")    .eq(~locked),
+            ResetSignal("usb")     .eq(~usb2_locked),
+            ResetSignal("usb_io")  .eq(~usb2_locked),
+            ResetSignal("ss")      .eq(~usb3_locked),
+            ResetSignal("sync")    .eq(~usb3_locked),
+            ResetSignal("fast")    .eq(~usb3_locked),
         ]
 
         return m
@@ -151,11 +230,21 @@ class LogicbonePlatform(LatticeECP5Platform, LUNAPlatform):
         Resource("rst", 0, PinsN("C17", dir="i"), Attrs(IO_TYPE="LVCMOS33")),
         Resource("refclk", 0, Pins("M19", dir="i"), Attrs(IO_TYPE="LVCMOS18"), Clock(25e6)),
 
+        # SerDes connections.
+        Resource("serdes", 0,
+            Subsignal("rx", DiffPairs("Y5", "Y6")),
+            Subsignal("tx", DiffPairs("W4", "W5")),
+        ),
+        Resource("serdes", 1,
+            Subsignal("rx", DiffPairs("Y8", "Y7")),
+            Subsignal("tx", DiffPairs("W8", "W9")),
+        ),
+
         # VBUS Detection is on the USB-C PD controller for both ports.
         DirectUSBResource("usb", 0, d_p="B12", d_n="C12", pullup="C16"),
         DirectUSBResource("usb", 1, d_p="R1",  d_n="T1",  pullup="T2"),
 
-        *LEDResources(pins="D16 C15 C13 B13", attrs=Attrs(IO_TYPE="LVCMOS33")),
+        *LEDResources(pins="D16 C15 C13 B13", attrs=Attrs(IO_TYPE="LVCMOS33"), invert=True),
 
         *SwitchResources(pins={0: "U2"}, attrs=Attrs(IO_TYPE="LVCMOS33")),
 

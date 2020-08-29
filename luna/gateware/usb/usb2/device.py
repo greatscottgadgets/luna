@@ -3,7 +3,6 @@
 #
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
-
 """
 Contains the organizing hardware used to add USB Device functionality
 to your own designs; including the core :class:`USBDevice` class.
@@ -34,7 +33,7 @@ from ...test.usb2              import USBDeviceTest
 
 
 class USBDevice(Elaboratable):
-    """ Core gateware common to all LUNA USB devices.
+    """ Core gateware common to all LUNA USB2 devices.
 
     The ``USBDevice`` module contains the low-level communications hardware necessary to implement a USB device;
     including hardware for maintaining device state, detecting events, reading data from the host, and generating

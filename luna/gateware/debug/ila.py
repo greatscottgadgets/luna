@@ -314,7 +314,7 @@ class SyncSerialILA(Elaboratable):
                                   This also can act like an implicit synchronizer; so asynchronous inputs
                                   are allowed if this number is >= 2.
 
-    clock_polarity: int, 0 or 1 
+    clock_polarity: int, 0 or 1
         Clock polarity for the output SPI transciever. Optional.
     clock_phase: int, 0 or 1
         Clock phase for the output SPI transciever. Optional.
@@ -751,9 +751,9 @@ class AsyncSerialILA(Elaboratable):
             divisor=self.divisor
         )
         m.d.comb +=[
-            uart.stream  .connect(ila.stream),
+            uart.stream  .stream_eq(ila.stream),
             self.tx      .eq(uart.tx)
-        ] 
+        ]
 
 
         # Convert our sync domain to the domain requested by the user, if necessary.
@@ -937,7 +937,7 @@ class ILAFrontend(metaclass=ABCMeta):
 
 class AsyncSerialILAFrontend(ILAFrontend):
     """ UART-based ILA transport.
-    
+
     Parameters
     ------------
     port: string
