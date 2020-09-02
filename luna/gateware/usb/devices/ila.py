@@ -33,8 +33,8 @@ class USBIntegratedLogicAnalyer(Elaboratable):
         # Store our USB bus.
         self._bus = bus
 
-        # Force the ILA into the USB domain.
-        kwargs['domain'] = 'usb'
+        # Force the ILA's output into the USB domain.
+        kwargs['o_domain'] = 'usb'
 
         # Create our core ILA, which we'll use later.
         self.ila = StreamILA(*args, **kwargs)

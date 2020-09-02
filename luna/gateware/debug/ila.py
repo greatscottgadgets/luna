@@ -19,6 +19,7 @@ from abc             import ABCMeta, abstractmethod
 from nmigen          import Signal, Module, Cat, Elaboratable, Memory, ClockDomain, DomainRenamer
 from nmigen.hdl.ast  import Rose
 from nmigen.lib.cdc  import FFSynchronizer
+from nmigen.lib.fifo import AsyncFIFOBuffered
 from vcd             import VCDWriter
 from vcd.gtkw        import GTKWSave
 
@@ -510,19 +511,23 @@ class StreamILA(Elaboratable):
 
     domain: string
         The clock domain in which the ILA should operate.
+    o_domain: string
+        The clock domain in which the output stream will be generated.
+        If omitted, defaults to the same domain as the core ILA.
     samples_pretrigger: int
         The number of our samples which should be captured _before_ the trigger.
         This also can act like an implicit synchronizer; so asynchronous inputs
         are allowed if this number is >= 2.
     """
 
-    def __init__(self, *, signals, sample_depth, **kwargs):
-
+    def __init__(self, *, signals, sample_depth, o_domain=None, **kwargs):
         # Extract the domain from our keyword arguments, and then translate it to sync
         # before we pass it back below. We'll use a DomainRenamer at the boundary to
         # handle non-sync domains.
         self.domain = kwargs.get('domain', 'sync')
         kwargs['domain'] = 'sync'
+
+        self._o_domain = o_domain if o_domain else self.domain
 
         # Create our core integrated logic analyzer.
         self.ila = IntegratedLogicAnalyzer(
@@ -557,6 +562,11 @@ class StreamILA(Elaboratable):
         m  = Module()
         m.submodules.ila = ila = self.ila
 
+        if self._o_domain == self.domain:
+            in_domain_stream = self.stream
+        else:
+            in_domain_stream = StreamInterface(payload_width=self.bits_per_sample)
+
         # Count where we are in the current transmission.
         current_sample_number = Signal(range(0, ila.sample_depth))
 
@@ -564,7 +574,7 @@ class StreamILA(Elaboratable):
         # sample value to the UART.
         m.d.comb += [
             ila.captured_sample_number  .eq(current_sample_number),
-            self.stream.payload         .eq(ila.captured_sample)
+            in_domain_stream.payload    .eq(ila.captured_sample)
         ]
 
         with m.FSM():
@@ -589,7 +599,7 @@ class StreamILA(Elaboratable):
                 with m.If(self.ila.complete):
                     m.d.sync += [
                         current_sample_number  .eq(0),
-                        self.stream.first      .eq(1)
+                        in_domain_stream.first      .eq(1)
                     ]
                     m.next = "SENDING"
 
@@ -599,23 +609,57 @@ class StreamILA(Elaboratable):
             with m.State("SENDING"):
                 m.d.comb += [
                     # While we're sending, we're always providing valid data to the UART.
-                    self.stream.valid  .eq(1),
+                    in_domain_stream.valid  .eq(1),
 
                     # Indicate when we're on the last sample.
-                    self.stream.last   .eq(current_sample_number == (self.sample_depth - 1))
+                    in_domain_stream.last   .eq(current_sample_number == (self.sample_depth - 1))
                 ]
 
                 # Each time the UART accepts a valid word, move on to the next one.
-                with m.If(self.stream.ready):
+                with m.If(in_domain_stream.ready):
                     m.d.sync += [
                         current_sample_number .eq(current_sample_number + 1),
-                        self.stream.first     .eq(0)
+                        in_domain_stream.first     .eq(0)
                     ]
 
                     # If this was the last sample, we're done! Move back to idle.
                     with m.If(self.stream.last):
                         m.next = "IDLE"
 
+
+        # If we're not streaming out of the same domain we're capturing from,
+        # we'll add some clock-domain crossing hardware.
+        if self._o_domain != self.domain:
+            in_domain_signals  = Cat(
+                in_domain_stream.first,
+                in_domain_stream.payload,
+                in_domain_stream.last
+            )
+            out_domain_signals = Cat(
+                self.stream.first,
+                self.stream.payload,
+                self.stream.last
+            )
+
+            # Create our async FIFO...
+            m.submodules.cdc = fifo = AsyncFIFOBuffered(
+                width=len(in_domain_signals),
+                depth=16,
+                w_domain="sync",
+                r_domain=self._o_domain
+            )
+
+            m.d.comb += [
+                # ... fill it from our in-domain stream...
+                fifo.w_data             .eq(in_domain_signals),
+                fifo.w_en               .eq(in_domain_stream.valid),
+                in_domain_stream.ready  .eq(fifo.w_rdy),
+
+                # ... and output it into our outupt stream.
+                out_domain_signals      .eq(fifo.r_data),
+                self.stream.valid       .eq(fifo.r_rdy),
+                fifo.r_en               .eq(self.stream.ready)
+            ]
 
         # Convert our sync domain to the domain requested by the user, if necessary.
         if self.domain != "sync":
@@ -819,9 +863,8 @@ class ILAFrontend(metaclass=ABCMeta):
 
             # If we're adding a clock...
             if add_clock:
-                clock_value  = 0
+                clock_value  = 1
                 clock_signal = writer.register_var('ila', 'ila_clock', 'integer', size=1, init=clock_value ^ 1)
-
 
             # Create named values for each of our signals.
             for signal in self.ila.signals:

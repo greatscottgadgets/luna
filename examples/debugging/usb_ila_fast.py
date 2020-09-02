@@ -21,12 +21,11 @@ class ILAExample(Elaboratable):
         self.hello   = Signal(8)
 
         self.ila = USBIntegratedLogicAnalyer(
-            domain="usb",  # Sample from the USB domain.
             signals=[
                 self.counter,
                 self.hello
             ],
-            sample_depth=32
+            sample_depth=32,
         )
 
 
@@ -50,7 +49,7 @@ class ILAExample(Elaboratable):
 
         current_letter = Signal(range(0, len(letters)))
 
-        m.d.usb += current_letter.eq(current_letter + 1)
+        m.d.sync += current_letter.eq(current_letter + 1)
         m.d.comb += self.hello.eq(letters[current_letter])
 
         # Set our ILA to trigger each time the counter is at a random value.
