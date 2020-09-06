@@ -9,7 +9,7 @@ import sys
 from nmigen import Signal, Module, Elaboratable, ClockDomain, ClockSignal, Cat, Array
 
 from luna                          import top_level_cli
-from luna.gateware.usb.devices.ila import USBIntegratedLogicAnalyer
+from luna.gateware.usb.devices.ila import USBIntegratedLogicAnalyzer
 from luna.gateware.usb.devices.ila import USBIntegratedLogicAnalyzerFrontend
 
 
@@ -20,7 +20,7 @@ class ILAExample(Elaboratable):
         self.counter = Signal(16)
         self.hello   = Signal(8)
 
-        self.ila = USBIntegratedLogicAnalyer(
+        self.ila = USBIntegratedLogicAnalyzer(
             signals=[
                 self.counter,
                 self.hello
