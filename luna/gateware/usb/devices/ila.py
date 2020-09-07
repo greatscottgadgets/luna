@@ -19,7 +19,7 @@ from usb_protocol.emitters             import DeviceDescriptorCollection
 from usb_protocol.emitters.descriptors import cdc
 
 
-class USBIntegratedLogicAnalyer(Elaboratable):
+class USBIntegratedLogicAnalyzer(Elaboratable):
     """ Pre-made gateware that presents a USB-connected ILA.
 
     Samples are presented over a USB endpoint.
