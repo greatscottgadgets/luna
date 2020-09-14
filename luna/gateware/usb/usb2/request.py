@@ -519,7 +519,7 @@ class USBRequestHandlerMultiplexer(Elaboratable):
             pass_signals=('ready',)
         )
         tx_mux.add_interfaces(i.tx for i in self._interfaces)
-        m.d.comb += self.shared.tx.connect(tx_mux.output)
+        m.d.comb += self.shared.tx.stream_eq(tx_mux.output)
 
         # OR together all of our handshake-generation requests.
         any_ack   = functools.reduce(operator.__or__, (i.handshakes_out.ack   for i in self._interfaces))

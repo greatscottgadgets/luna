@@ -78,10 +78,10 @@ class USBStreamInEndpoint(Elaboratable):
             tx_manager.active           .eq(interface.tokenizer.endpoint == self._endpoint_number),
 
             # Connect up our transfer manager to our input stream...
-            tx_manager.transfer_stream  .connect(self.stream),
+            tx_manager.transfer_stream  .stream_eq(self.stream),
 
             # ... and our output stream...
-            interface.tx                .connect(tx_manager.packet_stream),
+            interface.tx                .stream_eq(tx_manager.packet_stream),
             interface.tx_pid_toggle     .eq(tx_manager.data_pid),
 
             # ... and connect through our token/handshake signals.
@@ -300,7 +300,7 @@ class USBStreamOutEndpoint(Elaboratable):
         # internally as our main stream.
         m.submodules.boundary_detector = boundary_detector = USBOutStreamBoundaryDetector()
         m.d.comb += [
-            interface.rx                   .connect(boundary_detector.unprocessed_stream),
+            interface.rx                   .stream_eq(boundary_detector.unprocessed_stream),
             boundary_detector.complete_in  .eq(interface.rx_complete),
             boundary_detector.invalid_in   .eq(interface.rx_invalid),
         ]

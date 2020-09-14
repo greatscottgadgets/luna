@@ -86,6 +86,12 @@ class USBOutStreamInterface(Record):
         ]
 
 
+    def stream_eq(self, other):
+        """ Generates a list of connections that connect this stream to the provided UTMIReceiveInterface. """
+        return self.connect(other)
+
+
+
 
 class USBOutStreamBoundaryDetector(Elaboratable):
     """ Gateware that detects USBOutStream packet boundaries, and generates First and Last signals.
@@ -125,9 +131,7 @@ class USBOutStreamBoundaryDetector(Elaboratable):
     ----------
     domain: str
         The name of the domain the stream belongs to; defaults to "usb".
-
     """
-
 
     def __init__(self, domain="usb"):
 
@@ -313,6 +317,25 @@ class USBOutStreamBoundaryDetectorTest(LunaUSBGatewareTestCase):
         self.assertEqual((yield processed_stream.payload),  0xDD)
         self.assertEqual((yield dut.first), 0)
         self.assertEqual((yield dut.last), 1)
+
+
+class USBRawSuperSpeedStream(StreamInterface):
+    """ Variant of LUNA's StreamInterface optimized for carrying raw USB3 data.
+
+    Low-level USB3 data-streams consist of both data bytes ("data") and control flags,
+    which differentiate standard data bytes from data bytes used for control.
+
+    This variant comes implicitly with the relevant control flags; and is sized to allow
+    gearing that makes USB3's high-speed signals manageable.
+
+    Parameters
+    ----------
+    payload_words: int
+        The number of payload words (1 byte data, 1 bit control) to include in the current stream.
+    """
+
+    def __init__(self, payload_words=4):
+        super().__init__(payload_width=8 *payload_words, extra_fields=[('ctrl', payload_words)])
 
 
 if __name__ == "__main__":

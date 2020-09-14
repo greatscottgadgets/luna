@@ -239,8 +239,8 @@ class USBSerialDevice(Elaboratable):
 
         # Connect up our I/O.
         m.d.comb += [
-            serial_tx_endpoint.stream  .connect(self.tx),
-            self.rx                    .connect(serial_rx_endpoint.stream),
+            serial_tx_endpoint.stream  .stream_eq(self.tx),
+            self.rx                    .stream_eq(serial_rx_endpoint.stream),
             usb.connect                .eq(self.connect)
         ]
 

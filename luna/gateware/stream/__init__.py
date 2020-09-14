@@ -17,25 +17,44 @@ class StreamInterface(Record):
     interaction with USB PHYs. Accordingly, some uses may add restrictions; this
     is typically indicated by subclassing this interface.
 
-    In the following signals list, 'T' indicates a signal driven by the sender;
-    and 'R' indicates a signal driven by the receiver.
+    Attributes
+    -----------
+    valid: Signal(), from originator
+        Indicates that the current payload bytes are valid pieces of the current transaction.
+    first: Signal(), from originator
+        Indicates that the payload byte is the first byte of a new packet.
+    last: Signal(), from originator
+        Indicates that the payload byte is the last byte of the current packet.
+    payload: Signal(payload_width), from originator
+        The data payload to be transmitted.
 
-    Signals:
-        T: valid      -- Indicates that an active transaction is underway
-        T: first      -- Indicates that the payload byte is the first byte of a new packet.
-        T: last       -- Indicates that the payload byte is the last byte of the current packet.
-        T: payload[]  -- The data payload to be transmitted.
+    ready: Signal(), from receiver
+        Indicates that the receiver will accept the payload byte at the next active
+        clock edge. Can be de-asserted to put backpressure on the transmitter.
 
-        R: ready      -- Indicates that the receiver will accept the payload byte at the next active
-                         clock edge. Can be de-asserted to slew the transmitter.
+    Parameters
+    ----------
+    payload_width: int
+        The width of the stream's payload, in bits.
+    extra_fields: list of tuples, optional
+        A flat (non-nested) list of tuples indicating any extra fields present.
+        Similar to a record's layout field; but cannot be nested.
     """
 
-
-    def __init__(self, payload_width=8):
+    def __init__(self, payload_width=8, extra_fields=None):
         """
         Parameter:
             payload_width -- The width of the payload packets.
         """
+
+        # If we don't have any extra fields, use an empty list in its place.
+        if extra_fields is None:
+            extra_fields = []
+
+        # ... store our extra fields...
+        self._extra_fields = extra_fields
+
+        # ... and create our basic stream.
         super().__init__([
             ('valid',    1),
             ('ready',    1),
@@ -44,19 +63,50 @@ class StreamInterface(Record):
             ('last',     1),
 
             ('payload',  payload_width),
+            *extra_fields
         ])
 
 
-    def attach(self, interface):
-        return [
-            interface.valid    .eq(self.valid),
-            interface.first    .eq(self.first),
-            interface.last     .eq(self.last),
-            interface.payload  .eq(self.payload),
+    def attach(self, interface, omit=None):
+        # Create lists of fields to be copied -to- the interface (RHS fields),
+        # and lists of fields to be copied -from- the interface (LHS fields).
+        rhs_fields = ['valid', 'first', 'last', 'payload', *self._extra_fields]
+        lhs_fields = ['ready']
+        assignments = []
 
-            self.ready         .eq(interface.ready)
-        ]
+        if omit:
+            rhs_fields = [field for field in rhs_fields if field not in omit]
+            lhs_fields = [field for field in lhs_fields if field not in omit]
 
 
-    def connect(self, interface):
-        return interface.attach(self)
+        # Create each of our assignments.
+        for field in rhs_fields:
+            assignment = interface[field].eq(self[field])
+            assignments.append(assignment)
+        for field in lhs_fields:
+            assignment = self[field].eq(interface[field])
+            assignments.append(assignment)
+
+        return assignments
+
+    def connect(self, interface, omit=None):
+        return self.attach(interface, omit=omit)
+
+
+    def stream_eq(self, interface, omit=None):
+        """ A hopefully more clear version of .connect() that more clearly indicates data_flow direction.
+
+        This will either solve a common footgun or introduce a new one. We'll see and adapt accordingly.
+        """
+        return interface.attach(self, omit=omit)
+
+
+    def __getattr__(self, name):
+
+        # Allow "data" to be a semantic alias for payload.
+        # In some cases, this makes more sense to write; so we'll allow either.
+        # Individual sections of the code base should stick to one or the other (please).
+        if name == 'data':
+            name = "payload"
+
+        return super().__getattr__(name)

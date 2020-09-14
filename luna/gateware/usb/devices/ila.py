@@ -19,16 +19,17 @@ from usb_protocol.emitters             import DeviceDescriptorCollection
 from usb_protocol.emitters.descriptors import cdc
 
 
-class USBIntegratedLogicAnalyzer(Elaboratable):
+class USBIntegratedLogicAnalyer(Elaboratable):
     """ Pre-made gateware that presents a USB-connected ILA.
 
     Samples are presented over a USB endpoint.
     """
 
     BULK_ENDPOINT_NUMBER = 1
-    MAX_BULK_PACKET_SIZE = 64
 
-    def __init__(self, *args, bus=None, **kwargs):
+    def __init__(self, *args, bus=None, delayed_connect=False, max_packet_size=512, **kwargs):
+        self._delayed_connect = delayed_connect
+        self._max_packet_size = max_packet_size
 
         # Store our USB bus.
         self._bus = bus
@@ -89,7 +90,7 @@ class USBIntegratedLogicAnalyzer(Elaboratable):
 
                 with i.EndpointDescriptor() as e:
                     e.bEndpointAddress = 0x80 | self.BULK_ENDPOINT_NUMBER
-                    e.wMaxPacketSize   = self.MAX_BULK_PACKET_SIZE
+                    e.wMaxPacketSize   = self._max_packet_size
 
 
         return descriptors
@@ -117,15 +118,24 @@ class USBIntegratedLogicAnalyzer(Elaboratable):
         # Add a stream endpoint to our device.
         stream_ep = USBMultibyteStreamInEndpoint(
             endpoint_number=self.BULK_ENDPOINT_NUMBER,
-            max_packet_size=self.MAX_BULK_PACKET_SIZE,
+            max_packet_size=self._max_packet_size,
             byte_width=self.ila.bytes_per_sample
         )
         usb.add_endpoint(stream_ep)
 
+        # Handle our connection criteria: we'll either connect immediately,
+        # or once sampling is done, depending on our _delayed_connect setting.
+        connect = Signal()
+        if self._delayed_connect:
+            with m.If(self.ila.complete):
+                m.d.usb += connect.eq(1)
+        else:
+            m.d.comb += connect.eq(1)
+
         # Connect up our I/O and our ILA streams.
         m.d.comb += [
-            stream_ep.stream  .connect(self.ila.stream),
-            usb.connect       .eq(1)
+            stream_ep.stream  .stream_eq(self.ila.stream),
+            usb.connect       .eq(connect)
         ]
 
         return m
@@ -134,7 +144,7 @@ class USBIntegratedLogicAnalyzer(Elaboratable):
 
 class USBIntegratedLogicAnalyzerFrontend(ILAFrontend):
     """ Frontend for USB-attached integrated logic analyzers.
-    
+
     Parameters
     ------------
     delay: int

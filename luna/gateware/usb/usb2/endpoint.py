@@ -247,7 +247,7 @@ class USBEndpointMultiplexer(Elaboratable):
             pass_signals=('ready',)
         )
         tx_mux.add_interfaces(i.tx for i in self._interfaces)
-        m.d.comb += self.shared.tx.connect(tx_mux.output)
+        m.d.comb += self.shared.tx.stream_eq(tx_mux.output)
 
         # OR together all of our handshake-generation requests...
         self.or_join_interface_signals(m, lambda interface : interface.handshakes_out.ack)
