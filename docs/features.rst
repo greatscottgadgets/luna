@@ -29,13 +29,13 @@ Support for Device Mode
 	  - :complete:`feature complete`
 	* -
 	  - full-speed using raw gpio / pull resistors
-	  - :inprogress:`complete; needs cleanup/docs`
+	  - :complete:`feature complete`
 	* -
 	  - super-speed using PIPE PHY
-	  - :planned:`planned`
+	  - :inprogress:`in progress`
 	* -
-	  - super-speed using PIPE PHY
-	  - :planned:`planned`
+	  - super-speed using SerDes PHY
+	  - :inprogress:`in progress`
 	* -
 	  - low speed, via ULPI/UTMI PHY
 	  - :planned:`untested`
@@ -121,7 +121,7 @@ a priority, but contributions are welcome.
 "Reference" Boards
 ------------------
 
-The LUNA library is intended to work on any FPGA with sufficient fabric performand and resources; but testing is
+The LUNA library is intended to work on any FPGA with sufficient fabric performance and resources; but testing is
 only performed on a collection of reference boards.
 
 .. list-table::

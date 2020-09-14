@@ -4,7 +4,6 @@ pyusb
 -e git://github.com/nmigen/nmigen-soc.git#egg=nmigen-soc
 -e git://github.com/nmigen/nmigen-boards.git#egg=nmigen_boards
 -e git://github.com/lambdaconcept/minerva.git#egg=minerva
--e git://github.com/lambdaconcept/lambdasoc.git#egg=lambdasoc
 -e git://github.com/usb-tools/python-usb-protocol.git#egg=usb_protocol
 -e git://github.com/greatscottgadgets/luna.git#egg=luna
 pyvcd
