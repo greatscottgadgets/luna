@@ -335,7 +335,49 @@ class USBRawSuperSpeedStream(StreamInterface):
     """
 
     def __init__(self, payload_words=4):
-        super().__init__(payload_width=8 *payload_words, extra_fields=[('ctrl', payload_words)])
+        super().__init__(payload_width=8 * payload_words, extra_fields=[('ctrl', payload_words)])
+
+
+    def stream_eq(self, interface, *, endian_swap=False, omit=None, **kwargs):
+        """ Extend the global ``stream_eq`` operator to swap endianness. """
+
+        # If we're not performing an endian swap, delegate directly to our parent.
+        if endian_swap == False:
+            return super().stream_eq(interface, omit=omit, **kwargs)
+
+        # Otherwise, perform our full endian swap.
+
+        if omit is None:
+            omit = []
+
+        # Add ``data`` and ``ctrl`` to the list of fields to omit, as we'll
+        # create those connection operations ourselves.
+        omit = [*omit, 'code', 'data']
+
+        # Gather the operations used to perform the basic ``stream_eq``...
+        operations = super().stream_eq(interface, omit=omit, **kwargs)
+
+        # ... and then add the operations necessary to connect our data/ctrl,
+        # with endianness swaps.
+        payload_words = len(self.ctrl)
+        for i in range(payload_words):
+
+            # Figure out what word we want to grab from, on the RHS.
+            # It only matters that this is the word opposite of the word we're reading in the LHS.
+            rhs_word_index = (payload_words - i) -1
+
+            # Create the operations necessary to perform our assignment with our endian swap...
+            endian_swap_operations = [
+                self.data.word_select(i, 8)  .eq(interface.data.word_select(rhs_word_index, 8)),
+                self.ctrl[i]                 .eq(interface.ctrl[rhs_word_index])
+            ]
+
+            #... and add it to our overall list of operations.
+            operations.extend(endian_swap_operations)
+
+
+        return operations
+
 
 
 if __name__ == "__main__":

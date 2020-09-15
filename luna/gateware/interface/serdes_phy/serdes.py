@@ -820,6 +820,8 @@ class SerdesRXInit(Elaboratable):
                         m.next = "IDLE"
 
             with m.State("READY"):
+                pass
+
                 with m.If(_tx_lol | _rx_lol | _rx_los):
                     m.next = "IDLE"
 

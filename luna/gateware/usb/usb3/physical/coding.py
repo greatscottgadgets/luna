@@ -43,5 +43,6 @@ SHP =  NamedSymbol("SHP", K(27, 7), "Start Header Packet")
 END =  NamedSymbol("END", K(29, 7), "End")
 SLC =  NamedSymbol("SLC", K(30, 7), "Start Link Command")
 EPF =  NamedSymbol("EPF", K(23, 7), "End Packet Framing")
+IDL =  NamedSymbol("IDL", D(0, 0),  "Logical Idle")
 
 symbols = [SKP, SDP, EDB, SUB, COM, RSD, SHP, END, SLC, EPF]

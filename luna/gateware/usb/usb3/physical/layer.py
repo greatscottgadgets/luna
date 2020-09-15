@@ -33,17 +33,29 @@ class USB3PhysicalLayer(Elaboratable):
         #
         # I/O port
         #
+
+        # Physical link state.
+        self.physical_layer_ready  = Signal()
+        self.invert_rx_polarity    = Signal()
+
+        # Scrambling control.
         self.enable_scrambling     = Signal()
 
+        # Raw data streams.
         self.sink                  = USBRawSuperSpeedStream()
         self.source                = USBRawSuperSpeedStream()
 
         # Temporary?
         self.train_alignment       = Signal()
 
+        # Receiver detection.
+        self.perform_rx_detection  = Signal()
+        self.link_partner_detected = Signal()
+
         # LFPS control.
         self.send_lfps_polling     = Signal()
         self.lfps_polling_detected = Signal()
+        self.total_lfps_sent       = Signal(16)
 
 
 
@@ -54,9 +66,19 @@ class USB3PhysicalLayer(Elaboratable):
         # PHY interfacing.
         #
         m.d.comb += [
+
+            # Indicate that the physical layer is ready as soon as our PHY has started up.
+            self.physical_layer_ready    .eq(self._phy.ready),
+
+            # Pass along most of our low-level signals to the PHY.
+            # TODO: translate these to PIPE
+            self._phy.rx_polarity        .eq(self.invert_rx_polarity),
             self._phy.train_alignment    .eq(self.train_alignment),
             self._phy.send_lfps_polling  .eq(self.send_lfps_polling),
             self.lfps_polling_detected   .eq(self._phy.lfps_polling_detected),
+
+            # For now, pretend we always see a receiver.
+            self.link_partner_detected   .eq(1)
         ]
 
 
@@ -67,6 +89,7 @@ class USB3PhysicalLayer(Elaboratable):
         m.submodules.scrambler = scrambler = Scrambler()
         m.d.comb += [
             scrambler.enable  .eq(self.enable_scrambling),
+            scrambler.clear   .eq(~self.enable_scrambling),
 
             scrambler.sink    .stream_eq(self.sink),
             self._phy.sink    .stream_eq(scrambler.source)

@@ -276,19 +276,6 @@ class ECP5SerDes(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-        # For now, we'll always use 2x gearing, so we'll always have two words per clock,
-        # at 10 bits each. Each word is a raw 8b10 word; and thus contains 8b of data and 1b of control;
-        # encoded as a single 10b word.
-        words_per_clock = self._io_words
-        data_width      = self._io_data_width
-
-        # Instantiate our generic 8b10 encoder...
-        #m.submodules.encoder = encoder = DomainRenamer("tx")(Encoder(words_per_clock, True))
-
-        # ... and create an 8b10 decoder for each channel.
-        #decoders = [DomainRenamer("rx")(Decoder(True)) for _ in range(words_per_clock)]
-        #m.submodules += decoders
-
         # The ECP5 SerDes uses a simple feedback mechanism to keep its FIFO clocks in sync
         # with the FPGA's fabric. Accordingly, we'll need to capture the output clocks and then
         # pass them back to the SerDes; this allows the placer to handle clocking correctly, allows us
@@ -302,11 +289,9 @@ class ECP5SerDes(Elaboratable):
         rx_lol     = Signal()
         rx_lsm     = Signal()
         rx_align   = Signal()
-        rx_data    = Signal(20)
         rx_bus     = Signal(24)
 
         tx_lol     = Signal()
-        tx_data    = Signal(20)
         tx_bus     = Signal(24)
 
 
@@ -331,8 +316,6 @@ class ECP5SerDes(Elaboratable):
         #
         # Clocking / reset control.
         #
-        # FIXME: replace these with local domains?
-        m.submodules.rx_init = rx_init = SerdesRXInit(tx_lol, rx_lol, rx_los, rx_lsm)
 
         # Create a local transmit domain, for our transmit-side hardware.
         m.domains.tx = ClockDomain()
@@ -439,8 +422,9 @@ class ECP5SerDes(Elaboratable):
             # CHX — protocol
             p_CHX_PROTOCOL          = "G8B10B",
             p_CHX_UC_MODE           = "0b1",
+
             p_CHX_ENC_BYPASS        = "0b0",    # Bypass 8b10b encoder
-            p_CHX_DEC_BYPASS        = "0b0",    # Bypass 8b10b encoder
+            p_CHX_DEC_BYPASS        = "0b0",    # Bypass 8b10b decoder
 
             # CHX receive --------------------------------------------------------------------------
             # CHX RX ­— power management
@@ -448,8 +432,8 @@ class ECP5SerDes(Elaboratable):
             i_CHX_FFC_RXPWDNB       = 1,
 
             # CHX RX ­— reset
-            i_CHX_FFC_RRST          = ~self.rx_enable | rx_init.rrst,
-            i_CHX_FFC_LANE_RX_RST   = ~self.rx_enable | rx_init.lane_rx_rst,
+            i_CHX_FFC_RRST          = ~self.rx_enable,
+            i_CHX_FFC_LANE_RX_RST   = ~self.rx_enable,
 
             # CHX RX ­— input
             i_CHX_HDINP             = self._rx_pads.p,
@@ -490,7 +474,7 @@ class ECP5SerDes(Elaboratable):
 
             p_CHX_AUTO_FACQ_EN      = "0b1",    # undocumented (wizard value used)
             p_CHX_AUTO_CALIB_EN     = "0b1",    # undocumented (wizard value used)
-            p_CHX_PDEN_SEL          = "0b1",    # phase detector disabled on LOS
+            p_CHX_PDEN_SEL          = "0b0",    # phase detector disabled on LOS
 
             p_CHX_DCOATDCFG         = "0b00",   # begin undocumented (sample code used)
             p_CHX_DCOATDDLY         = "0b00",
@@ -519,13 +503,6 @@ class ECP5SerDes(Elaboratable):
 
             # CHX RX — loss of lock
             o_CHX_FFS_RLOL          = rx_lol,
-
-            # CHx_RXLSM? CHx_RXWA?
-            #p_CHX_LSM_DISABLE        = "0b1",
-            #p_CHX_WA_BYPASS          = "0b1",
-            #p_CHX_RXWA              = "ENABLED",
-            #p_CHX_RXLSM             = "ENABLED",
-            #i_CHX_FFC_ENABLE_CGALIGN = rx_align,
 
             # CHX RX — link state machine
             # Note that Lattice Diamond needs these in their provided bases (and string lengths!).
@@ -653,27 +630,6 @@ class ECP5SerDes(Elaboratable):
         ]
 
 
-        # Connect the data bits of from the SerDes bus directly through to our
-        # encoder/decoder signals.
-        #m.d.comb += [
-        #    tx_bus[ 0:10].eq(tx_data[ 0:10]),
-        #    tx_bus[12:22].eq(tx_data[10:20]),
-
-        #    rx_data[ 0:10].eq(rx_bus[ 0:10]),
-        #    rx_data[10:20].eq(rx_bus[12:22]),
-        #]
-        #for i in range(words_per_clock):
-        #    m.d.rx += decoders[i].input.eq(rx_data[10*i:10*(i+1)])
-
-
-        #for i in range(words_per_clock):
-        #    m.d.comb += [
-        #        encoder.k[i]                   .eq(self.sink.ctrl[i]),
-        #        encoder.d[i]                   .eq(self.sink.data[8*i:8*(i+1)]),
-        #        self.source.ctrl[i]            .eq(decoders[i].k),
-        #        self.source.data[8*i:8*(i+1)]  .eq(decoders[i].d),
-        #    ]
-
         return m
 
 
@@ -711,6 +667,10 @@ class LunaECP5SerDes(Elaboratable):
         self.use_tx_as_gpio = Signal()
         self.tx_gpio        = Signal()
         self.rx_gpio        = Signal()
+
+        # Debug interface.
+        self.raw_rx_data    = Signal(16)
+        self.raw_rx_ctrl    = Signal(2)
 
 
     def elaborate(self, platform):
@@ -764,22 +724,19 @@ class LunaECP5SerDes(Elaboratable):
             serdes.tx_idle             .eq(self.tx_idle),
             serdes.tx_enable           .eq(self.enable),
 
-            tx_datapath.sink            .stream_eq(self.sink),
-            serdes.sink                 .stream_eq(tx_datapath.source),
+            tx_datapath.sink           .stream_eq(self.sink),
+            serdes.sink                .stream_eq(tx_datapath.source),
 
-            serdes.tx_gpio_en           .eq(self.use_tx_as_gpio),
-            serdes.tx_gpio              .eq(self.tx_gpio)
+            serdes.tx_gpio_en          .eq(self.use_tx_as_gpio),
+            serdes.tx_gpio             .eq(self.tx_gpio)
         ]
-
-        # Pass through a synchronized version of our SerDes' rx-gpio.
-        m.submodules += FFSynchronizer(serdes.rx_gpio, self.rx_gpio, o_domain="fast")
 
 
 
         #
         # Receive datapath.
         #
-        m.submodules.rx_datapath     = rx_datapath     = RxDatapath("rx")
+        m.submodules.rx_datapath = rx_datapath = RxDatapath("rx")
 
         m.d.comb += [
             self.rx_idle            .eq(serdes.rx_idle),
@@ -791,6 +748,16 @@ class LunaECP5SerDes(Elaboratable):
             rx_datapath.sink        .stream_eq(serdes.source),
             self.source             .stream_eq(rx_datapath.source)
         ]
+
+        # Pass through a synchronized version of our SerDes' rx-gpio.
+        m.submodules += FFSynchronizer(serdes.rx_gpio, self.rx_gpio, o_domain="fast")
+
+        # debug signals
+        m.d.comb += [
+            self.raw_rx_data.eq(serdes.source.data),
+            self.raw_rx_ctrl.eq(serdes.source.ctrl),
+        ]
+
 
         #serdes.source           .connect(rx_substitution.sink),
         #rx_substitution.source  .connect(rx_datapath.sink),   # FIXME: patch back in the RxSub

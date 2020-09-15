@@ -22,7 +22,7 @@ class LUNAPlatform:
 
         # Ensure our platform has what it needs to create our USB3 PHY.
         if not hasattr(self, "default_usb3_phy"):
-            raise ValueError(f"Platform {self.name} has not default USB3 PHY; cannot create one automatically.")
+            raise ValueError(f"Platform {self.name} has no default USB3 PHY; cannot create one automatically.")
 
         # Create our PHY, allowing it access to our object.
         return self.default_usb3_phy(self)

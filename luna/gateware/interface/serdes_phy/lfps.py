@@ -671,7 +671,7 @@ class LFPSTransceiver(Elaboratable):
             self.tx_count              .eq(polling_generator.count),
 
             # ... and take control of the Tx GPIO whenever we're driving our polling pattern.
-            self.drive_tx_gpio         .eq(self.tx_polling)
+            self.drive_tx_gpio         .eq(self.tx_polling & ~self.tx_idle)
         ]
 
         return m

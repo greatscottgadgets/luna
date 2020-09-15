@@ -6,7 +6,12 @@
 #
 # Code based on ``litex`` and ``usb3_pipe``.
 # SPDX-License-Identifier: BSD-3-Clause
-""" Link training support gateware. """
+""" Link training support gateware.
+
+Note that much of the gateware in this module is written big endian;
+as this makes the test sets match the standard. This is handled automatically
+by the link layer gateware.
+"""
 
 from nmigen import *
 
