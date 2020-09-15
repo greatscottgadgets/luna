@@ -22,8 +22,6 @@ from ...test.utils import LunaGatewareTestCase, sync_test_case
 from ...usb.stream import USBRawSuperSpeedStream
 
 from ...usb.usb3.physical.coding import K, COM, SKP
-from .utils import WaitTimer
-
 
 
 #
@@ -751,81 +749,6 @@ class TxDatapath(Elaboratable):
         return m
 
 
-#
-# SerDes functionality
-#
-
-class SerdesRXInit(Elaboratable):
-    def __init__(self, tx_lol, rx_lol, rx_los, rx_lsm):
-        self._tx_lol = tx_lol
-        self._rx_lol = rx_lol
-        self._rx_los = rx_los
-        self._rx_lsm = rx_lsm
-
-        self.rrst        = Signal()
-        self.lane_rx_rst = Signal()
-
-    def elaborate(self, platform):
-        m = Module()
-
-        _tx_lol      = Signal()
-        _rx_lol      = Signal()
-        _rx_los      = Signal()
-        _rx_lsm      = Signal()
-        _rx_lsm_seen = Signal()
-        m.submodules += [
-            FFSynchronizer(self._tx_lol, _tx_lol),
-            FFSynchronizer(self._rx_lol, _rx_lol),
-            FFSynchronizer(self._rx_los, _rx_los),
-            FFSynchronizer(self._rx_lsm, _rx_lsm),
-        ]
-
-        timer = WaitTimer(int(4e5))
-        m.submodules += timer
-
-        with m.FSM(domain="ss"):
-            with m.State("IDLE"):
-                m.d.comb += self.lane_rx_rst.eq(1),
-                with m.If(~_tx_lol):
-                    m.next = "RESET-ALL"
-
-            with m.State("RESET-ALL"):
-                m.d.comb += [
-                    self.rrst.eq(1),
-                    self.lane_rx_rst.eq(1),
-                ]
-                m.next = "RESET-PCS"
-
-            with m.State("RESET-PCS"):
-                m.d.comb += [
-                    self.lane_rx_rst.eq(1),
-                    timer.wait.eq(~_rx_lol & ~_rx_los),
-                ]
-                with m.If(timer.done):
-                    m.d.comb += timer.wait.eq(0)
-                    m.d.ss   += _rx_lsm_seen.eq(0)
-                    m.next = "CHECK-LSM"
-
-            with m.State("CHECK-LSM"):
-                m.d.ss   += _rx_lsm_seen.eq(_rx_lsm_seen | _rx_lsm)
-                m.d.comb += timer.wait.eq(1)
-
-                with m.If(_rx_lsm_seen & ~_rx_lsm):
-                    m.next = "IDLE"
-
-                with m.If(timer.done):
-                    with m.If(_rx_lsm):
-                        m.next = "READY"
-                    with m.Else():
-                        m.next = "IDLE"
-
-            with m.State("READY"):
-                pass
-
-                with m.If(_tx_lol | _rx_lol | _rx_los):
-                    m.next = "IDLE"
-
-        return m
 
 if __name__ == "__main__":
     unittest.main()

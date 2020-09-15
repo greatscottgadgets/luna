@@ -93,7 +93,7 @@ class StreamInterface(Record):
         return self.attach(interface, omit=omit)
 
 
-    def stream_eq(self, interface, omit=None):
+    def stream_eq(self, interface, *, omit=None):
         """ A hopefully more clear version of .connect() that more clearly indicates data_flow direction.
 
         This will either solve a common footgun or introduce a new one. We'll see and adapt accordingly.

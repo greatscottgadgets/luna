@@ -3,18 +3,19 @@
 #
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # Copyright (c) 2020 Florent Kermarrec <florent@enjoy-digital.fr>
+# Copyright (c) 2020 whitequark@whitequark.org
 #
-# Code based on ``litex`` and ``usb3_pipe``.
+# The ECP5's DCU parameters/signals/instance have been partially documented by whitequark
+# as part of the Yumewatari project: https://github.com/whitequark/Yumewatari.
+#
+# Code based in part on ``litex`` and ``liteiclink``.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from nmigen import *
-from nmigen.lib.cdc import FFSynchronizer, PulseSynchronizer, ResetSynchronizer
-from nmigen.hdl.ast import Past
-
+from nmigen.lib.cdc import FFSynchronizer, ResetSynchronizer
 
 from ....usb.stream import USBRawSuperSpeedStream
-from ..serdes       import TxDatapath, RxDatapath, SerdesRXInit
+from ..serdes       import TxDatapath, RxDatapath
 
 
 class ECP5SerDesPLLConfiguration:
@@ -359,10 +360,6 @@ class ECP5SerDes(Elaboratable):
         # Core SerDes instantiation.
         #
         serdes_params = dict(
-            # ECP5's DCU parameters/signals/instance have been documented by whitequark as part of
-            #             Yumewatari project: https://github.com/whitequark/Yumewatari
-            #                  Copyright (C) 2018 whitequark@whitequark.org
-            # DCU ----------------------------------------------------------------------------------
             # DCU — power management
             p_D_MACROPDB            = "0b1",
             p_D_IB_PWDNB            = "0b1",    # undocumented (required for RX)
@@ -606,7 +603,7 @@ class ECP5SerDes(Elaboratable):
         serdes.attrs["BEL"] = "X42/Y71/DCU"
 
         #
-        # TX and RX datapaths (Serdes <-> stream conversion)
+        # TX and RX datapaths (SerDes <-> stream conversion)
         #
         sink   = self.sink
         source = self.source
@@ -698,12 +695,7 @@ class LunaECP5SerDes(Elaboratable):
             refclk = self._refclk
 
         #
-        # PLL configuration.
-        #
-
-
-        #
-        # Raw serdes...
+        # Raw serdes.
         #
         pll_config = ECP5SerDesPLLConfiguration(refclk, refclk_freq=self._refclk_frequency, linerate=5e9)
         serdes  = ECP5SerDes(
@@ -732,7 +724,6 @@ class LunaECP5SerDes(Elaboratable):
         ]
 
 
-
         #
         # Receive datapath.
         #
@@ -757,10 +748,5 @@ class LunaECP5SerDes(Elaboratable):
             self.raw_rx_data.eq(serdes.source.data),
             self.raw_rx_ctrl.eq(serdes.source.ctrl),
         ]
-
-
-        #serdes.source           .connect(rx_substitution.sink),
-        #rx_substitution.source  .connect(rx_datapath.sink),   # FIXME: patch back in the RxSub
-        #m.submodules.rx_substitution = rx_substitution = RXErrorSubstitution(serdes, "rx") # FIXME
 
         return m

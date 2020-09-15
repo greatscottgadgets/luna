@@ -4,7 +4,7 @@
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # Copyright (c) 2020 Florent Kermarrec <florent@enjoy-digital.fr>
 #
-# Code based on ``litex`` and ``usb3_pipe``.
+# Code based in part on ``usb3_pipe``.
 # SPDX-License-Identifier: BSD-3-Clause
 """ Low-frequency periodic signaling gateware.
 
