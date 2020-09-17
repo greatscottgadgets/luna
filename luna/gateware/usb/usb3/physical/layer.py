@@ -47,6 +47,7 @@ class USB3PhysicalLayer(Elaboratable):
 
         # Temporary?
         self.train_alignment       = Signal()
+        self.train_equalizer       = Signal()
 
         # Receiver detection.
         self.perform_rx_detection  = Signal()
@@ -75,12 +76,12 @@ class USB3PhysicalLayer(Elaboratable):
             self._phy.rx_polarity        .eq(self.invert_rx_polarity),
             self._phy.train_alignment    .eq(self.train_alignment),
             self._phy.send_lfps_polling  .eq(self.send_lfps_polling),
+            self._phy.train_equalizer    .eq(self.train_equalizer),
             self.lfps_polling_detected   .eq(self._phy.lfps_polling_detected),
 
             # For now, pretend we always see a receiver.
             self.link_partner_detected   .eq(1)
         ]
-
 
 
         #

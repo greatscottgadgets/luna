@@ -233,20 +233,15 @@ class LFPSDetector(Elaboratable):
         #
         # I/O port
         #
-        self.rx_gpio = Signal() # i
-        self.detect  = Signal() # o
+        self.signaling_detected = Signal() # i
+        self.detect             = Signal() # o
 
 
     def elaborate(self, platform):
         m = Module()
 
-        # Create a LFPS square-wave detector, which we'll use to detect the square wave
-        # present during LFPS bursts.
-        m.submodules.detector = burst_detector = LFPSSquareWaveDetector(fast_clock_frequency=self._fast_clock_frequency)
-        m.d.comb += burst_detector.rx_gpio.eq(self.rx_gpio)
-
         # Create an in-domain version of our square-wave-detector signal.
-        present = synchronize(m, burst_detector.present)
+        present = synchronize(m, self.signaling_detected)
 
         # Figure out how large of a counter we're going to need...
         burst_cycles_min    = _ns_to_cycles(self._clock_frequency, self._pattern.burst.t_min)
@@ -633,14 +628,14 @@ class LFPSTransceiver(Elaboratable):
         #
         # I/O port
         #
-        self.drive_tx_gpio = Signal()
-        self.tx_gpio       = Signal()
-        self.rx_gpio       = Signal()
+        self.drive_tx_gpio           = Signal()
+        self.tx_gpio                 = Signal()
+        self.lfps_signaling_detected = Signal()
 
-        self.rx_polling    = Signal()
-        self.tx_idle       = Signal()
-        self.tx_polling    = Signal()
-        self.tx_count      = Signal(16)
+        self.rx_polling              = Signal()
+        self.tx_idle                 = Signal()
+        self.tx_polling              = Signal()
+        self.tx_count                = Signal(16)
 
 
     def elaborate(self, platform):
@@ -652,8 +647,8 @@ class LFPSTransceiver(Elaboratable):
         polling_checker = LFPSDetector(_PollingLFPS, self._clock_frequency, self._fast_clock_frequency)
         m.submodules += polling_checker
         m.d.comb += [
-            polling_checker.rx_gpio  .eq(self.rx_gpio),
-            self.rx_polling          .eq(polling_checker.detect)
+            polling_checker.signaling_detected  .eq(self.lfps_signaling_detected),
+            self.rx_polling                     .eq(polling_checker.detect)
         ]
 
         #

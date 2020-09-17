@@ -15,7 +15,7 @@ from ...stream import USBRawSuperSpeedStream
 
 #
 # Scrambling modules.
-# See [USB3.2: Appendix B].
+# See [USB3.2r1: Appendix B].
 #
 
 class ScramblerLFSR(Elaboratable):

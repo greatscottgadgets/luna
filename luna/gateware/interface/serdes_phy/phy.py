@@ -40,11 +40,17 @@ class SerDesPHY(Elaboratable):
 
         # Temporary?
         self.train_alignment       = Signal()
+        self.train_equalizer       = Signal()
         self.rx_polarity           = Signal()
 
         self.lfps_polling_detected = Signal()
         self.send_lfps_polling     = Signal()
         self.total_lfps_sent       = Signal()
+
+        # Debug output.
+        self.alignment_offset        = Signal()
+        self.rx_gpio                 = Signal()
+        self.lfps_signaling_detected = Signal()
 
 
     def elaborate(self, platform):
@@ -60,17 +66,22 @@ class SerDesPHY(Elaboratable):
             fast_clock_frequency=self._fast_clock_frequency
         )
         m.d.comb += [
-            lfps.tx_polling              .eq(self.send_lfps_polling),
-            self.lfps_polling_detected   .eq(lfps.rx_polling),
-            self.total_lfps_sent         .eq(lfps.tx_count),
+            lfps.tx_polling               .eq(self.send_lfps_polling),
+            self.lfps_polling_detected    .eq(lfps.rx_polling),
+            self.total_lfps_sent          .eq(lfps.tx_count),
 
             # Pass through our Tx GPIO signals directly to our SerDes.
-            self._serdes.use_tx_as_gpio  .eq(lfps.drive_tx_gpio),
-            self._serdes.tx_gpio         .eq(lfps.tx_gpio),
-            self._serdes.tx_idle         .eq(lfps.tx_idle),
+            self._serdes.use_tx_as_gpio   .eq(lfps.drive_tx_gpio),
+            self._serdes.tx_gpio          .eq(lfps.tx_gpio),
+            self._serdes.tx_idle          .eq(lfps.tx_idle),
 
             # Capture the Rx GPIO signal from our SerDes.
-            lfps.rx_gpio                 .eq(self._serdes.rx_gpio)
+            lfps.lfps_signaling_detected  .eq(self._serdes.lfps_signaling_detected),
+
+            # Debug
+            self.alignment_offset         .eq(self._serdes.alignment_offset),
+            self.lfps_signaling_detected  .eq(lfps.lfps_signaling_detected),
+            self.rx_gpio                  .eq(self._serdes.rx_gpio)
         ]
 
         #
@@ -79,14 +90,15 @@ class SerDesPHY(Elaboratable):
 
         # TODO: replace these with PIPE signals
         m.d.comb += [
-            self.ready               .eq(self._serdes.ready),
+            self.ready                    .eq(self._serdes.ready),
 
-            self._serdes.enable      .eq(1),
-            self._serdes.rx_align    .eq(self.train_alignment),
-            self._serdes.rx_polarity .eq(self.rx_polarity),
+            self._serdes.enable           .eq(1),
+            self._serdes.rx_align         .eq(self.train_alignment),
+            self._serdes.rx_polarity      .eq(self.rx_polarity),
+            self._serdes.train_equalizer  .eq(self.train_equalizer),
 
-            self._serdes.sink        .stream_eq(self.sink,           endian_swap=self._little_endian),
-            self.source              .stream_eq(self._serdes.source, endian_swap=self._little_endian)
+            self._serdes.sink             .stream_eq(self.sink,           endian_swap=self._little_endian),
+            self.source                   .stream_eq(self._serdes.source, endian_swap=self._little_endian)
         ]
 
 

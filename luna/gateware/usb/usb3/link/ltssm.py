@@ -61,6 +61,7 @@ class LTSSMController(Elaboratable):
 
         # SerDes / link control signals.
         self.train_alignment       = Signal()
+        self.train_equalizer       = Signal()
         self.engage_terminations   = Signal()
         self.invert_rx_polarity    = Signal()
 
@@ -97,9 +98,9 @@ class LTSSMController(Elaboratable):
         #  Control Signals
         #
         m.d.comb += [
-            # For now, continuously train alignment. This signal is likely to go away,
-            # unless one of the SerDes PHYs requires special treatment.
+            # For now, continuously train word alignment. If this works, this signal will go away.
             self.train_alignment      .eq(1),
+            self.train_equalizer      .eq(1),
 
             # Engage our receive terminations, unless the current state directs otherwise.
             self.engage_terminations  .eq(1)
@@ -233,8 +234,14 @@ class LTSSMController(Elaboratable):
                     ts2_seen      .eq(0)
                 ]
 
+                # Our role in this state is to both send TSEQs to enable equalizer training, and to
+                # train our own equalizer. We'll request that our frontend train its equalizer, where
+                # possible.
+                #m.d.comb += self.train_equalizer.eq(1)
+
                 # Continuously send TSEQs; these are used to perform receiver equalization training.
                 m.d.comb += self.send_tseq_burst.eq(1)
+
 
                 # Once we've sent a full burst of 35536 TSEQs, we can begin our link training handshake.
                 with m.If(self.ts_burst_complete):

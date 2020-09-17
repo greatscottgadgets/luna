@@ -1,3 +1,4 @@
+
 #
 # This file is part of LUNA.
 #
@@ -142,10 +143,10 @@ class ECPIX5DomainGenerator(Elaboratable):
                 p_CLKI_DIV = 20,
                 p_CLKOP_ENABLE = "ENABLED",
                 p_CLKOP_DIV = 16,
-                p_CLKOP_CPHASE = 9,
+                p_CLKOP_CPHASE = 15,
                 p_CLKOP_FPHASE = 0,
 
-                p_CLKOS_DIV = 10,
+                p_CLKOS_DIV = 12,
                 p_CLKOS_CPHASE = 0,
                 p_CLKOS_FPHASE = 0,
 
@@ -217,25 +218,34 @@ class ECPIX5DomainGenerator(Elaboratable):
 class ECPIX5SuperSpeedPHY(SerDesPHY):
     """ Superspeed PHY configuration for the ECPIX5. """
 
-    SYNC_FREQUENCY = 125e6
-    FAST_FREQUENCY = 250e6
+    REFCLK_FREQUENCY = 100e6
+    SYNC_FREQUENCY   = 125e6
+    FAST_FREQUENCY   = 250e6
 
+    SERDES_DUAL    = 0
     SERDES_CHANNEL = 1
 
 
     def __init__(self, platform):
 
-        # Grab the I/O that implements our SerDes interface...
-        serdes_io      = platform.request("serdes", self.SERDES_CHANNEL, dir={'tx':"-", 'rx':"-"})
+        # Grab the I/O that implements our SerDes interface, ensuring our directions are '-',
+        # so we don't create any I/O buffering hardware.
+        serdes_io_directions = {
+            'ch0':    {'tx':"-", 'rx':"-"},
+            'ch1':    {'tx':"-", 'rx':"-"},
+            'refclk': '-',
+        }
+        serdes_io      = platform.request("serdes", self.SERDES_DUAL, dir=serdes_io_directions)
+        serdes_channel = getattr(serdes_io, f"ch{self.SERDES_CHANNEL}")
 
         # Create our SerDes interface...
         self.serdes = LunaECP5SerDes(platform,
             sys_clk      = ClockSignal("sync"),
             sys_clk_freq = self.SYNC_FREQUENCY,
-            refclk_pads  = ClockSignal("fast"),
-            refclk_freq  = self.FAST_FREQUENCY,
-            tx_pads      = serdes_io.tx,
-            rx_pads      = serdes_io.rx,
+            refclk_pads  = serdes_io.refclk,
+            refclk_freq  = self.REFCLK_FREQUENCY,
+            tx_pads      = serdes_channel.tx,
+            rx_pads      = serdes_channel.rx,
             channel      = self.SERDES_CHANNEL
         )
 
@@ -258,16 +268,38 @@ class ECPIX5SuperSpeedPHY(SerDesPHY):
 
 
 class _ECPIXExtensions:
+
+    # Create a reference
+
     additional_resources = [
+
+        #
+        # SerDes pins; necessary to synthesize using Diamond.
+        #
+        # It doesn't seem like these location values are actually used; but Diamond needs them
+        # to be *there*. We'll provide correct ones in case it ever decides to use them.
+        #
         Resource("serdes", 0,
-            Subsignal("rx", DiffPairs("Y5", "Y6")),
-            Subsignal("tx", DiffPairs("W4", "W5")),
-            Attrs(PULLMODE="NONE")
+            Subsignal("ch0",
+                Subsignal("rx", DiffPairs("AF6",  "AF7")),
+                Subsignal("tx", DiffPairs("AD7",  "AD8")),
+            ),
+            Subsignal("ch1",
+                Subsignal("rx", DiffPairs("AF9",  "AF10")),
+                Subsignal("tx", DiffPairs("AD10", "AD11")),
+            ),
+            Subsignal("refclk", DiffPairs("AF12", "AF13"))
         ),
         Resource("serdes", 1,
-            Subsignal("rx", DiffPairs("Y8", "Y7")),
-            Subsignal("tx", DiffPairs("W8", "W9")),
-            Attrs(PULLMODE="NONE")
+            Subsignal("ch0",
+                Subsignal("rx", DiffPairs("AF16",  "AF17")),
+                Subsignal("tx", DiffPairs("AD16",  "AD17")),
+            ),
+            Subsignal("ch1",
+                Subsignal("rx", DiffPairs("AF18",  "AF19")),
+                Subsignal("tx", DiffPairs("AD19", "AD20")),
+            ),
+            Subsignal("refclk", DiffPairs("AF21", "AF22"))
         ),
 
         # XXX: temporary, pmod USB for debugging

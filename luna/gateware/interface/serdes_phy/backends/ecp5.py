@@ -10,12 +10,15 @@
 #
 # Code based in part on ``litex`` and ``liteiclink``.
 # SPDX-License-Identifier: BSD-3-Clause
+""" SerDes backend for the ECP5. """
+
 
 from nmigen import *
 from nmigen.lib.cdc import FFSynchronizer, ResetSynchronizer
 
 from ....usb.stream import USBRawSuperSpeedStream
-from ..serdes       import TxDatapath, RxDatapath
+from ..datapath     import TransmitPreprocessing, ReceivePostprocessing
+from ..lfps         import LFPSSquareWaveDetector
 
 
 class ECP5SerDesPLLConfiguration:
@@ -223,6 +226,247 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
         return m
 
 
+
+class ECP5SerDesEqualizerInterface(Elaboratable):
+    """ Interface that controls the ECP5 SerDes' equalization settings via SCI.
+
+    Currently takes full ownership of the SerDes Client Interface.
+
+    This unit allows runtime changing of the SerDes' equalizer settings.
+
+    Attributes
+    ----------
+    enable_equalizer: Signal(), input
+        Assert to enable the SerDes' equalizer.
+    equalizer_pole: Signal(4), input
+        Selects the pole used for the input equalization; ostensibly shifting the knee on the
+        linear equalizer. The meaning of these values are not documented by Lattice.
+    equalizer_level: Signal(2), input
+        Selects the equalizer's gain. 0 = 6dB, 1 = 9dB, 2 = 12dB, 3 = undocumented.
+        Note that the value `3` is marked as "not used" in the SerDes manual; but then used anyway
+        by Lattice's reference designs.
+    """
+
+    SERDES_EQUALIZATION_REGISTER = 0x19
+
+    def __init__(self, sci, serdes_channel):
+        self._sci     = sci
+        self._channel = serdes_channel
+
+        #
+        # I/O port
+        #
+        self.enable_equalizer = Signal()
+        self.equalizer_pole   = Signal(4)
+        self.equalizer_level  = Signal(2)
+
+
+    def elaborate(self, platform):
+        m = Module()
+        sci = self._sci
+
+        # Build the value to be written into the SCI equalizer register.
+        m.d.comb += [
+            sci.dat_w[0]    .eq(self.enable_equalizer),
+            sci.dat_w[1:5]  .eq(self.equalizer_pole),
+            sci.dat_w[5:7]  .eq(self.equalizer_level),
+
+            # Set up a write to the equalizer control register.
+            sci.chan_sel   .eq(self._channel),
+            sci.we         .eq(1),
+            sci.adr        .eq(self.SERDES_EQUALIZATION_REGISTER),
+        ]
+
+        return m
+
+
+
+
+class ECP5SerDesEqualizer(Elaboratable):
+    """ Interface that controls the ECP5 SerDes' equalization settings via SCI.
+
+    Currently takes full ownership of the SerDes Client Interface.
+
+    Ideally, an analog-informed receiver equalization would occur during USB3 link training. However,
+    we're at best a simulacrum of a USB3 PHY built on an undocumented SerDes; so we'll do the best we
+    can by measuring 8b10b encoding errors and trying various equalization settings until we've "minimized"
+    bit error rate.
+
+    Attributes
+    ----------
+    train_equalizer: Signal(), input
+        When high, this unit attempts to train the Rx linear equalizer in order to minimize errors.
+        This should be held only when a spectrally-rich data set is present, such as a training sequence.
+
+    encoding_error_detected: Signal(), input
+        Strobe; should be high each time the SerDes encounters an 8b10b encoding error.
+    """
+
+    # We'll try each equalizer setting for ~1024 cycles.
+    # This value could easily be higher; but the higher this goes, the slower our counters
+    # get; and we're operating in our fast, edge domain.
+    CYCLES_PER_TRIAL = 127
+
+
+    def __init__(self, sci, channel):
+        self._sci     = sci
+        self._channel = channel
+
+        #
+        # I/O port
+        #
+        self.train_equalizer         = Signal()
+        self.encoding_error_detected = Signal()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        #
+        # Equalizer interface.
+        #
+        m.submodules.interface = interface = ECP5SerDesEqualizerInterface(
+            sci=self._sci,
+            serdes_channel=self._channel
+        )
+
+        #
+        # Bit error counter.
+        #
+        clear_errors    = Signal()
+        bit_errors_seen = Signal(range(self.CYCLES_PER_TRIAL + 1))
+
+        with m.If(clear_errors):
+            m.d.tx += bit_errors_seen.eq(0)
+        with m.Elif(self.encoding_error_detected):
+            m.d.tx += bit_errors_seen.eq(bit_errors_seen + 1)
+
+
+        #
+        # Naive equalization trainer.
+        #
+
+        # We'll use the naive-est possible algorithm: we'll try every setting and see what
+        # minimizes bit error rate. This could definitely be improved upon, but without documentation
+        # for the equalizer, we're best going for an exhaustive approach.
+
+        # We'll track six bits, as we have four bits of pole and two bits of gain we want to try.
+        current_settings = Signal(6)
+        m.d.comb += [
+            interface.enable_equalizer                                .eq(1),
+            Cat(interface.equalizer_level, interface.equalizer_pole)  .eq(current_settings)
+        ]
+
+        # Keep track of the best equalizer setting seen thus far.
+        best_equalizer_setting = Signal.like(current_settings)
+        best_bit_error_count   = Signal.like(bit_errors_seen)
+
+        # Keep track of how long we've been in this trial.
+        cycles_spent_in_trial  = Signal(range(self.CYCLES_PER_TRIAL))
+
+
+        # If we're actively training the equalizer...
+        with m.If(self.train_equalizer):
+            m.d.tx += cycles_spent_in_trial.eq(cycles_spent_in_trial + 1)
+
+            # If we're finishing a trial...
+            with m.If(cycles_spent_in_trial == (self.CYCLES_PER_TRIAL - 1)):
+
+                # ... clear our error count...
+                m.d.comb += clear_errors.eq(1)
+
+                # ... move to the next set of settings ...
+                m.d.tx += current_settings.eq(current_settings + 1)
+
+                # ... and if this is a new best, store it.
+                with m.If(bit_errors_seen < best_bit_error_count):
+                    m.d.tx += [
+                        best_bit_error_count    .eq(bit_errors_seen),
+                        best_equalizer_setting  .eq(current_settings)
+                    ]
+
+        # If we're not currently in training, always apply our known best settings.
+        with m.Else():
+            m.d.tx += current_settings.eq(best_equalizer_setting)
+
+
+        return m
+
+
+class ECP5ResetSequencer(Elaboratable):
+    """ Reset sequencer; ensures that the PLL starts in the correct state. """
+
+    def __init__(self):
+
+        #
+        # I/O port
+        #
+
+        # Status in.
+        self.rx_pll_locked     = Signal()
+        self.tx_pll_locked     = Signal()
+
+        # Reset out.
+        self.serdes_tx_reset   = Signal()
+        self.serdes_rx_reset   = Signal()
+        self.pcs_reset         = Signal()
+
+        # Status out.
+        self.complete          = Signal()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Per [TN1261-21: "Reset Sequence"], the SerDes requires the following bring-up ordering:
+        # 1. Start the SerDes Tx, and then wait for its PLL lock.
+        # 2. Release the SerDes Rx reset, and then wait for the SerDes' internal bit clock to be asserted.
+        #    We see this as the Rx PLL locking.
+        # 3. Release the PCS reset.
+
+        with m.FSM(domain="fast"):
+
+            # Hold everything in reset, initially.
+            with m.State("INITIAL_RESET"):
+                m.d.comb += [
+                    self.serdes_tx_reset  .eq(1),
+                    self.serdes_rx_reset  .eq(1),
+                    self.pcs_reset        .eq(1)
+                ]
+
+                # Once we've strobed our reset, wait for the transmitter to start up.
+                m.next = "WAIT_FOR_TRANSMITTER_STARTUP"
+
+
+            # Hold the receiver and PLL in reset until the transmitter starts up.
+            with m.State("WAIT_FOR_TRANSMITTER_STARTUP"):
+                m.d.comb += [
+                    self.serdes_rx_reset  .eq(1),
+                    self.pcs_reset     .eq(1),
+                ]
+
+                # We know the transmitter has started up once its PLL is locked.
+                with m.If(self.tx_pll_locked):
+                    m.next = "WAIT_FOR_RECEIVER_STARTUP"
+
+
+            # Hold the protocol engine in reset until the receiver starts up.
+            with m.State("WAIT_FOR_RECEIVER_STARTUP"):
+                m.d.comb += self.pcs_reset.eq(1)
+
+                # We know the receiver has started up once its PLL is locked.
+                with m.If(self.rx_pll_locked):
+                    m.next = "STARTED_UP"
+
+
+            # Finally, we're all started up. Assert no resets.
+            with m.State("STARTED_UP"):
+                m.d.comb += self.complete.eq(1)
+
+
+        return m
+
+
 class ECP5SerDes(Elaboratable):
     """ Abstraction layer for working with the ECP5 SerDes. """
 
@@ -245,8 +489,9 @@ class ECP5SerDes(Elaboratable):
         # I/O port.
         #
 
-        # Core Rx and Tx lines.
+        self.train_equalizer        = Signal()
 
+        # Core Rx and Tx lines.
         self.sink   = USBRawSuperSpeedStream(payload_words=self._io_words)
         self.source = USBRawSuperSpeedStream(payload_words=self._io_words)
 
@@ -318,6 +563,14 @@ class ECP5SerDes(Elaboratable):
         # Clocking / reset control.
         #
 
+        # The SerDes needs to be brought up gradually; we'll do that here.
+        m.submodules.reset_sequencer = reset = ECP5ResetSequencer()
+        m.d.comb += [
+            reset.tx_pll_locked  .eq(~tx_lol),
+            reset.rx_pll_locked  .eq(~rx_lol)
+        ]
+
+
         # Create a local transmit domain, for our transmit-side hardware.
         m.domains.tx = ClockDomain()
         m.d.comb    += ClockSignal("tx").eq(txoutclk)
@@ -332,28 +585,6 @@ class ECP5SerDes(Elaboratable):
         m.submodules += [
             ResetSynchronizer(ResetSignal("sync"), domain="rx"),
             FFSynchronizer(~ResetSignal("rx"), self.rx_ready)
-        ]
-
-        # TODO: set up proper clock domain constraints for our Tx and Rx domains.
-        # Currently, we're omitting these; as nextpnr can't correctly deal with false
-        # paths created during our clock domain crossing.
-        #
-        #   self.tx_clk_freq = pll.config["linerate"]/data_width
-        #   self.rx_clk_freq = pll.config["linerate"]/data_width
-        #   platform.add_clock_constraint(serdes.txoutclk, serdes.tx_clk_freq)
-        #   platform.add_clock_constraint(serdes.rxoutclk, serdes.rx_clk_freq)
-        #   platform.add_false_path_constraints(sys_clk, serdes.cd_tx.clk, serdes.cd_rx.clk)
-
-        #
-        # SerDes register translation & SCI interface.
-        #
-        m.submodules.sci = sci = ECP5SerDesConfigInterface(self)
-        m.submodules.sci_reconfig = sci_control = ECP5SerDesRegisterTranslator(self, sci)
-        m.d.comb += [
-            sci_control.loopback.eq(self.loopback),
-            sci_control.tx_idle.eq(self.tx_idle),
-            sci_control.rx_polarity.eq(self.rx_invert),
-            sci_control.tx_polarity.eq(self.tx_invert)
         ]
 
         #
@@ -389,7 +620,8 @@ class ECP5SerDes(Elaboratable):
                  1: "0b000"}[1],                # DIV/1
             p_D_BITCLK_LOCAL_EN     = "0b1",    # Use clock from local PLL
 
-            # DCU ­— unknown
+
+            # Clock multiplier unit configuration
             p_D_CMUSETBIASI         = "0b00",   # begin undocumented (10BSER sample code used)
             p_D_CMUSETI4CPP         = "0d3",
             p_D_CMUSETI4CPZ         = "0d3",
@@ -401,6 +633,7 @@ class ECP5SerDes(Elaboratable):
             p_D_CMUSETP1GM          = "0b000",
             p_D_CMUSETP2AGM         = "0b000",
             p_D_CMUSETZGM           = "0b000",
+
             p_D_SETIRPOLY_AUX       = "0b01",
             p_D_SETICONST_AUX       = "0b01",
             p_D_SETIRPOLY_CH        = "0b01",
@@ -417,11 +650,11 @@ class ECP5SerDes(Elaboratable):
 
             # CHX common ---------------------------------------------------------------------------
             # CHX — protocol
-            p_CHX_PROTOCOL          = "G8B10B",
+            p_CHX_PROTOCOL          = "10BSER",
             p_CHX_UC_MODE           = "0b1",
 
-            p_CHX_ENC_BYPASS        = "0b0",    # Bypass 8b10b encoder
-            p_CHX_DEC_BYPASS        = "0b0",    # Bypass 8b10b decoder
+            p_CHX_ENC_BYPASS        = "0b0",    # Use the 8b10b encoder
+            p_CHX_DEC_BYPASS        = "0b0",    # Use the 8b10b decoder
 
             # CHX receive --------------------------------------------------------------------------
             # CHX RX ­— power management
@@ -429,16 +662,16 @@ class ECP5SerDes(Elaboratable):
             i_CHX_FFC_RXPWDNB       = 1,
 
             # CHX RX ­— reset
-            i_CHX_FFC_RRST          = ~self.rx_enable,
-            i_CHX_FFC_LANE_RX_RST   = ~self.rx_enable,
+            i_CHX_FFC_RRST          = ~self.rx_enable | reset.serdes_rx_reset,
+            i_CHX_FFC_LANE_RX_RST   = ~self.rx_enable | reset.pcs_reset,
 
             # CHX RX ­— input
             i_CHX_HDINP             = self._rx_pads.p,
             i_CHX_HDINN             = self._rx_pads.n,
 
             p_CHX_REQ_EN            = "0b1",    # Enable equalizer
-            p_CHX_REQ_LVL_SET       = "0b11",
-            p_CHX_RX_RATE_SEL       = "0d10",   # Equalizer  pole position
+            p_CHX_REQ_LVL_SET       = "0b01",
+            p_CHX_RX_RATE_SEL       = "0d09",   # Equalizer  pole position
             p_CHX_RTERM_RX          = {
                 "5k-ohms":        "0b00000",
                 "80-ohms":        "0b00001",
@@ -447,9 +680,9 @@ class ECP5SerDes(Elaboratable):
                 "60-ohms":        "0b01011",
                 "50-ohms":        "0b10011",
                 "46-ohms":        "0b11001",
-                "wizard-50-ohms": "0d22"}["50-ohms"],
+                "wizard-50-ohms": "0d22"}["wizard-50-ohms"],
             p_CHX_RXIN_CM           = "0b11",   # CMFB (wizard value used)
-            p_CHX_RXTERM_CM         = "0b11",   # RX Input (wizard value used)
+            p_CHX_RXTERM_CM         = "0b10",   # RX Input (wizard value used)
 
             # CHX RX ­— clocking
             i_CHX_RX_REFCLK         = self._pll.refclk,
@@ -505,11 +738,15 @@ class ECP5SerDes(Elaboratable):
             # Note that Lattice Diamond needs these in their provided bases (and string lengths!).
             # Changing their bases will work with the open toolchain, but will make Diamond mad.
             i_CHX_FFC_SIGNAL_DETECT = rx_align,
+
             o_CHX_FFS_LS_SYNC_STATUS= rx_lsm,
+
             p_CHX_ENABLE_CG_ALIGN   = "0b1",
+
             p_CHX_UDF_COMMA_MASK    = "0x0ff",  # compare the 8 lsbs
             p_CHX_UDF_COMMA_A       = "0x003",   # "0b0000000011", # K28.1, K28.5 and K28.7
             p_CHX_UDF_COMMA_B       = "0x07c",   # "0b0001111100", # K28.1, K28.5 and K28.7
+
 
             p_CHX_CTC_BYPASS        = "0b1",    # bypass CTC FIFO
             p_CHX_MIN_IPG_CNT       = "0b11",   # minimum interpacket gap of 4
@@ -529,8 +766,8 @@ class ECP5SerDes(Elaboratable):
             i_CHX_FFC_TXPWDNB       = 1,
 
             # CHX TX ­— reset
-            i_D_FFC_TRST            = ~self.tx_enable,
-            i_CHX_FFC_LANE_TX_RST   = ~self.tx_enable,
+            i_D_FFC_TRST            = ~self.tx_enable | reset.serdes_tx_reset,
+            i_CHX_FFC_LANE_TX_RST   = ~self.tx_enable | reset.pcs_reset,
 
             # CHX TX ­— output
             o_CHX_HDOUTP            = self._tx_pads.p,
@@ -545,7 +782,7 @@ class ECP5SerDes(Elaboratable):
                 "60-ohms":        "0b01011",
                 "50-ohms":        "0b10011",
                 "46-ohms":        "0b11001",
-                "wizard-50-ohms": "0d19"}["wizard-50-ohms"],
+                "wizard-50-ohms": "0d19"}["50-ohms"],
 
             p_CHX_TDRV_SLICE0_CUR   = "0b011",  # 400 uA
             p_CHX_TDRV_SLICE0_SEL   = "0b01",   # main data
@@ -572,15 +809,15 @@ class ECP5SerDes(Elaboratable):
             **{"i_CHX_FF_TX_D_%d" % n: tx_bus[n] for n in range(len(tx_bus))},
 
             # SCI interface.
-            **{"i_D_SCIWDATA%d" % n: sci.sci_wdata[n] for n in range(8)},
-            **{"i_D_SCIADDR%d"   % n: sci.sci_addr[n] for n in range(6)},
-            **{"o_D_SCIRDATA%d" % n: sci.sci_rdata[n] for n in range(8)},
-            i_D_SCIENAUX  = sci.dual_sel,
-            i_D_SCISELAUX = sci.dual_sel,
-            i_CHX_SCIEN   = sci.chan_sel,
-            i_CHX_SCISEL  = sci.chan_sel,
-            i_D_SCIRD     = sci.sci_rd,
-            i_D_SCIWSTN   = sci.sci_wrn,
+            #**{"i_D_SCIWDATA%d" % n: sci.sci_wdata[n] for n in range(8)},
+            #**{"i_D_SCIADDR%d"   % n: sci.sci_addr[n] for n in range(6)},
+            #**{"o_D_SCIRDATA%d" % n: sci.sci_rdata[n] for n in range(8)},
+            #i_D_SCIENAUX  = sci.dual_sel,
+            #i_D_SCISELAUX = sci.dual_sel,
+            #i_CHX_SCIEN   = sci.chan_sel,
+            #i_CHX_SCISEL  = sci.chan_sel,
+            #i_D_SCIRD     = sci.sci_rd,
+            #i_D_SCIWSTN   = sci.sci_wrn,
 
             # Out-of-band signaling Rx support.
             p_CHX_LDR_RX2CORE_SEL     = "0b1",            # Enables low-speed out-of-band input.
@@ -634,7 +871,8 @@ class ECP5SerDes(Elaboratable):
 class LunaECP5SerDes(Elaboratable):
     """ Wrapper around the core ECP5 SerDes that optimizes the SerDes for USB3 use. """
 
-    def __init__(self, platform, sys_clk, sys_clk_freq, refclk_pads, refclk_freq, tx_pads, rx_pads, channel):
+    def __init__(self, platform, sys_clk, sys_clk_freq, refclk_pads, refclk_freq,
+            tx_pads, rx_pads, channel, dual=0, refclk_num=None, fast_clock_frequency=250e6):
         self._primary_clock           = sys_clk
         self._primary_clock_frequency = sys_clk_freq
         self._refclk                  = refclk_pads
@@ -642,28 +880,36 @@ class LunaECP5SerDes(Elaboratable):
         self._tx_pads                 = tx_pads
         self._rx_pads                 = rx_pads
         self._channel                 = channel
+        self._dual                    = dual
+        self._refclk_num              = refclk_num if refclk_num else dual
+        self._fast_clock_frequency    = 250e6
 
         #
         # I/O port
         #
-        self.sink   = USBRawSuperSpeedStream()
-        self.source = USBRawSuperSpeedStream()
+        self.sink                    = USBRawSuperSpeedStream()
+        self.source                  = USBRawSuperSpeedStream()
 
-        self.enable = Signal(reset=1) # i
-        self.ready  = Signal()        # o
+        self.enable                  = Signal(reset=1) # i
+        self.ready                   = Signal()        # o
 
-        self.tx_polarity = Signal()   # i
-        self.tx_idle     = Signal()   # i
-        self.tx_pattern  = Signal(20) # i
+        self.train_equalizer         = Signal()
 
-        self.rx_polarity = Signal()   # i
-        self.rx_idle     = Signal()   # o
-        self.rx_align    = Signal()   # i
+        self.tx_polarity             = Signal()   # i
+        self.tx_idle                 = Signal()   # i
+        self.tx_pattern              = Signal(20) # i
+
+        self.rx_polarity             = Signal()   # i
+        self.rx_idle                 = Signal()   # o
+        self.rx_align                = Signal()   # i
 
         # GPIO interface.
-        self.use_tx_as_gpio = Signal()
-        self.tx_gpio        = Signal()
-        self.rx_gpio        = Signal()
+        self.use_tx_as_gpio          = Signal()
+        self.tx_gpio                 = Signal()
+        self.rx_gpio                 = Signal()
+
+        # LFPS detection interface.
+        self.lfps_signaling_detected = Signal()
 
         # Debug interface.
         self.raw_rx_data    = Signal(16)
@@ -688,7 +934,7 @@ class LunaECP5SerDes(Elaboratable):
                 p_REFCK_PWDNB = "0b1",
                 p_REFCK_RTERM = "0b1", # 100 Ohm
             )
-            refclk_in.attrs["LOC"] =  "EXTREF0"
+            refclk_in.attrs["LOC"] =  f"EXTREF{self._refclk_num}"
 
         # Otherwise, we'll accept the reference clock directly.
         else:
@@ -705,13 +951,16 @@ class LunaECP5SerDes(Elaboratable):
             channel     = self._channel,
         )
         m.submodules.serdes = serdes
-        m.d.comb += self.ready.eq(serdes.tx_ready & serdes.rx_ready),
+        m.d.comb += [
+            serdes.train_equalizer  .eq(self.train_equalizer),
+            self.ready              .eq(serdes.tx_ready & serdes.rx_ready)
+        ]
 
 
         #
         # Transmit datapath.
         #
-        m.submodules.tx_datapath = tx_datapath = TxDatapath("tx")
+        m.submodules.tx_datapath = tx_datapath = TransmitPreprocessing()
         m.d.comb += [
             serdes.tx_idle             .eq(self.tx_idle),
             serdes.tx_enable           .eq(self.enable),
@@ -727,8 +976,7 @@ class LunaECP5SerDes(Elaboratable):
         #
         # Receive datapath.
         #
-        m.submodules.rx_datapath = rx_datapath = RxDatapath("rx")
-
+        m.submodules.rx_datapath = rx_datapath = ReceivePostprocessing()
         m.d.comb += [
             self.rx_idle            .eq(serdes.rx_idle),
 
@@ -742,6 +990,17 @@ class LunaECP5SerDes(Elaboratable):
 
         # Pass through a synchronized version of our SerDes' rx-gpio.
         m.submodules += FFSynchronizer(serdes.rx_gpio, self.rx_gpio, o_domain="fast")
+
+
+        #
+        # LFPS Detection
+        #
+        m.submodules.lfps_detector = lfps_detector = LFPSSquareWaveDetector(self._fast_clock_frequency)
+        m.d.comb += [
+            lfps_detector.rx_gpio         .eq(self.rx_gpio),
+            self.lfps_signaling_detected  .eq(lfps_detector.present)
+        ]
+
 
         # debug signals
         m.d.comb += [

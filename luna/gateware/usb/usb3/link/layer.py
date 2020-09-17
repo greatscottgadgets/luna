@@ -10,8 +10,9 @@ from nmigen import *
 from ...stream  import USBRawSuperSpeedStream
 from ..physical.coding import IDL
 
-
+from .idle         import IdleHandshakeHandler
 from .ltssm        import LTSSMController
+from .command      import LinkCommandDetector
 from .ordered_sets import TSTransceiver
 
 
@@ -33,17 +34,34 @@ class USB3LinkLayer(Elaboratable):
         self.sink                  = USBRawSuperSpeedStream()
         self.source                = USBRawSuperSpeedStream()
 
+        # Status signals.
+        self.trained               = Signal()
+
+        # Debug / status signals.  = Signal()
+        self.in_training           = Signal()
+        self.sending_ts1s          = Signal()
+        self.sending_ts2s          = Signal()
 
 
     def elaborate(self, platform):
         m = Module()
         physical_layer = self._physical_layer
 
+        # Mark ourselves as always consuming physical-layer packets.
+        m.d.comb += physical_layer.source.ready.eq(1)
+
         #
         # Training Set Detectors/Emitters
         #
         m.submodules.ts = ts = TSTransceiver()
         m.d.comb += ts.sink.stream_eq(physical_layer.source, omit={"ready"}, endian_swap=True),
+
+
+        #
+        # Idle handshake / logical idle detection.
+        #
+        m.submodules.idle = idle = IdleHandshakeHandler()
+        m.d.comb += idle.sink.stream_eq(physical_layer.source, omit={'ready'})
 
 
         #
@@ -65,7 +83,6 @@ class USB3LinkLayer(Elaboratable):
             physical_layer.send_lfps_polling  .eq(ltssm.send_lfps_polling),
 
             # Training set detectors
-            ltssm.tseq_detected               .eq(ts.tseq_detected),
             ltssm.ts1_detected                .eq(ts.ts1_detected),
             ltssm.inverted_ts1_detected       .eq(ts.inverted_ts1_detected),
             ltssm.ts2_detected                .eq(ts.ts2_detected),
@@ -76,12 +93,26 @@ class USB3LinkLayer(Elaboratable):
             ts.send_ts2_burst                 .eq(ltssm.send_ts2_burst),
             ltssm.ts_burst_complete           .eq(ts.burst_complete),
 
+            # Equalizer control.
+            physical_layer.train_equalizer    .eq(ltssm.train_equalizer),
+
             # Scrambling control.
             physical_layer.enable_scrambling  .eq(ltssm.enable_scrambling),
 
             # Idle detection.
-            # FIXME: actually detect idle
-            ltssm.logical_idle_detected       .eq(1)
+            ltssm.logical_idle_detected       .eq(1 | idle.idle_detected),
+
+            # Status signaling.
+            self.trained                      .eq(ltssm.link_ready),
+            self.in_training                  .eq(ltssm.send_tseq_burst | ltssm.send_ts1_burst | ltssm.send_ts2_burst)
+        ]
+
+        #
+        # Link command handling.
+        #
+        m.submodules.lc_receiver = lc_receiver = LinkCommandDetector()
+        m.d.comb += [
+            lc_receiver.sink  .stream_eq(physical_layer.source, omit={'ready'})
         ]
 
 
@@ -90,12 +121,12 @@ class USB3LinkLayer(Elaboratable):
         #
 
         # If we're transmitting training sets, pass those to the physical layer.
-        with m.If(ts.transmitting):
+        with m.If(ts.transmitting & ~ltssm.link_ready):
             m.d.comb += physical_layer.sink.stream_eq(ts.source, endian_swap=True)
 
         # Otherwise, if we have valid data to transmit, pass that along.
-        with m.Elif(self.source.valid):
-            m.d.comb += physical_layer.sink.stream_eq(self.source)
+        with m.Elif(self.sink.valid):
+            m.d.comb += physical_layer.sink.stream_eq(self.sink)
 
         # Otherwise, always generate logical idle symbols.
         with m.Else():
@@ -104,6 +135,14 @@ class USB3LinkLayer(Elaboratable):
                 physical_layer.sink.data.eq(IDL.value),
                 physical_layer.sink.ctrl.eq(0),
             ]
+
+        #
+        # Debugging
+        #
+        m.d.comb += [
+            self.sending_ts1s.eq(ltssm.send_ts1_burst),
+            self.sending_ts2s.eq(ltssm.send_ts2_burst)
+        ]
 
 
         return m

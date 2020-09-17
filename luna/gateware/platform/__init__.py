@@ -19,6 +19,9 @@ from .luna_r0_2 import LUNAPlatformRev0D2
 from .daisho    import DaishoPlatform
 from .amalthea  import AmaltheaPlatformRev0D1
 
+from .core      import NullPin
+
+
 
 # Stores the latest platform; for reference / automagic.
 LATEST_PLATFORM = LUNAPlatformRev0D2

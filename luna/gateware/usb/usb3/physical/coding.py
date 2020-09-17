@@ -8,6 +8,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Code for USB3 physical-layer encoding. """
 
+from nmigen import *
+
 def K(x, y):
     """ Converts K/control codes to bytes
 
@@ -28,21 +30,62 @@ def D(x, y):
 class NamedSymbol:
     """ Simple encapsulation of a USB3 symbol, with simple metadata. """
 
-    def __init__(self, name, value, description=""):
+    def __init__(self, name, value, description="", is_data=False):
         self.name        = name
         self.value       = value
         self.description = description
+        self.ctrl        = 0 if is_data else 1
 
-SKP =  NamedSymbol("SKP", K(28, 1), "Skip")
-SDP =  NamedSymbol("SDP", K(28, 2), "Start Data Packet")
-EDB =  NamedSymbol("EDB", K(28, 3), "End Bad")
-SUB =  NamedSymbol("SUB", K(28, 4), "Decode Error Substitution")
-COM =  NamedSymbol("COM", K(28, 5), "Comma")
-RSD =  NamedSymbol("RSD", K(28, 6), "Reserved")
-SHP =  NamedSymbol("SHP", K(27, 7), "Start Header Packet")
-END =  NamedSymbol("END", K(29, 7), "End")
-SLC =  NamedSymbol("SLC", K(30, 7), "Start Link Command")
-EPF =  NamedSymbol("EPF", K(23, 7), "End Packet Framing")
-IDL =  NamedSymbol("IDL", D(0, 0),  "Logical Idle")
+    def value_const(self):
+        """ Returns this symbol's data value as an nMigen const. """
+        return Const(self.value, 8)
+
+    def ctrl_const(self):
+        """ Returns this symbol's ctrl value as an nMigen const. """
+        return Const(self.ctrl, 1)
+
+
+SKP =  NamedSymbol("SKP", K(28, 1), "Skip")                              # 3c
+SDP =  NamedSymbol("SDP", K(28, 2), "Start Data Packet")                 # 5c
+EDB =  NamedSymbol("EDB", K(28, 3), "End Bad")                           # 7c
+SUB =  NamedSymbol("SUB", K(28, 4), "Decode Error Substitution")         # 9c
+COM =  NamedSymbol("COM", K(28, 5), "Comma")                             # bc
+RSD =  NamedSymbol("RSD", K(28, 6), "Reserved")                          # dc
+SHP =  NamedSymbol("SHP", K(27, 7), "Start Header Packet")               # fb
+END =  NamedSymbol("END", K(29, 7), "End")                               # fd
+SLC =  NamedSymbol("SLC", K(30, 7), "Start Link Command")                # fe
+EPF =  NamedSymbol("EPF", K(23, 7), "End Packet Framing")                # f7
+IDL =  NamedSymbol("IDL", D(0, 0),  "Logical Idle", is_data=True)        # 00
 
 symbols = [SKP, SDP, EDB, SUB, COM, RSD, SHP, END, SLC, EPF]
+
+
+def stream_matches_symbols(stream, sym0, sym1, sym2, sym3):
+    """ Returns an nMigen conditional that evaluates true when a stream contains the given four symbols.
+
+    Notes:
+        - The given conditional evaluates to False when ``stream.valid`` is falsey.
+        - Assumes the stream is little endian, so the bytes of the stream would read SYM3 SYM2 SYM1 SYM0.
+    """
+
+    target_symbols = [sym3, sym2, sym1, sym0]
+
+    # Create constants that match the target data/ctrl bits for the given set of symbols.
+    target_data = Cat(symbol.value_const() for symbol in target_symbols)
+    target_ctrl = Cat(symbol.ctrl_const() for  symbol in target_symbols)
+
+    return (
+        stream.valid                 &
+        (stream.data == target_data) &
+        (stream.ctrl == target_ctrl)
+    )
+
+
+def stream_word_matches_symbol(stream, word_number, *, symbol):
+    """ Returns an nMigen conditional that evaluates true if the given word of a stream matches the given symbol. """
+
+    return (
+        stream.valid &
+        (stream.data.word_select(word_number, 8) == symbol.value) &
+        (stream.ctrl[word_number])
+    )
