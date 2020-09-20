@@ -207,7 +207,9 @@ class GatewarePHY(Elaboratable):
             ]
 
         # Generate our USB clock strobe, which should pulse at 12MHz.
-        m.d.usb_io += transmitter.i_bit_strobe.eq(Rose(ClockSignal("usb"), domain="usb_io"))
+        counter = Signal(2)
+        m.d.usb_io += counter.eq(counter + 1)
+        m.d.comb += transmitter.i_bit_strobe.eq(counter == 0)
 
         #
         # Receiver
