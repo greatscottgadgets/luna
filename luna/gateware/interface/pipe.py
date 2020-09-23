@@ -18,9 +18,9 @@ class GearedPIPEInterface(Elaboratable):
     with the following exceptions:
 
         - ``tx_data``   is 32 bits wide, rather than 16
-        - ``tx_data_k`` is 4  bits wide, rather than  2
+        - ``tx_datak`` is 4  bits wide, rather than  2
         - ``rx_data``   is 32 bits wide, rather than 16
-        - ``rx_data_k`` is 4  bits wide, rather than  2
+        - ``rx_datak`` is 4  bits wide, rather than  2
 
     This module *requires* that a half-rate / 125MHz clock that's in phase with the ``pipe_io``
     clock be provided to the ``pipe`` domain. This currently must be handled per-device, so it
@@ -28,13 +28,6 @@ class GearedPIPEInterface(Elaboratable):
 
     This module optionally can connect the PIPE I/O clock (``pclk``) to the design's clocking
     network. This configuration is recommended.
-
-    Attributes
-    ----------
-    rx_bytes: Array of four Signal(8)s, output
-        Alias for rx_data broken into four discrete bytes.
-    tx_bytes: Array of four Signal(8)s, input
-        Alias for tx_data broken into four discrete bytes.
 
 
     Parameters
@@ -49,8 +42,8 @@ class GearedPIPEInterface(Elaboratable):
 
     # Provide standard XDR settings that can be used when requesting an interface.
     GEARING_XDR = {
-        'tx_data': 2, 'tx_data_k': 2,
-        'rx_data': 2, 'rx_data_k': 2,
+        'tx_data': 2, 'tx_datak': 2,
+        'rx_data': 2, 'rx_datak': 2, 'rx_valid': 2
     }
 
 
@@ -74,15 +67,13 @@ class GearedPIPEInterface(Elaboratable):
         # Override the I/O we'll handle specially.
         self.tx_clk    = out_record(1)
         self.tx_data   = out_record(32)
-        self.tx_data_k = out_record(4)
+        self.tx_datak  = out_record(4)
 
         self.pclk      = in_record(1)
         self.rx_data   = in_record(32)
-        self.rx_data_k = in_record(4)
+        self.rx_datak  = in_record(4)
+        self.rx_valid  = in_record(4)
 
-        # Create ``tx_bytes`` and ``rx_bytes`` aliases with easy byte access.
-        self.tx_bytes = Array(self.tx_data.o[i:i+8] for i in range(0, 32, 8))
-        self.rx_bytes = Array(self.rx_data.i[i:i+8] for i in range(0, 32, 8))
 
     def elaborate(self, platform):
         m = Module()
@@ -92,38 +83,45 @@ class GearedPIPEInterface(Elaboratable):
             m.d.comb += [
                 # Drive our I/O boundary clock with our PHY clock directly,
                 # and replace our geared clock with the relevant divided clock.
-                ClockSignal("pipe_io_rx")  .eq(self._io.pclk.i),
-                self.pclk.i                .eq(ClockSignal("pipe_rx")),
+                ClockSignal("ss_rx")  .eq(self._io.pclk.i),
+                self.pclk.i           .eq(ClockSignal("ss")),
 
                 # Drive our raw TX clock with our I/O clock, and drive our local copy
                 # with our geared-down clock.
-                self._io.tx_clk.o          .eq(ClockSignal("pipe_io_tx")),
-                self.tx_clk.o              .eq(ClockSignal("pipe_tx"))
+                self._io.tx_clk.o     .eq(ClockSignal("ss_tx")),
+                self.tx_clk.o         .eq(ClockSignal("ss"))
             ]
 
         # DDR I/O setup: we'll tie our geared I/O clocks to our raw PHY clock.
-        # Our PHY is half-rate, but
         m.d.comb += [
-            self._io.tx_data.o_clk    .eq(ClockSignal("pipe_tx")),
-            self._io.tx_data_k.o_clk  .eq(ClockSignal("pipe_tx")),
+            self._io.tx_data.o_clk    .eq(ClockSignal("ss_tx")),
+            self._io.tx_datak.o_clk   .eq(ClockSignal("ss_tx")),
 
-            self._io.rx_data.i_clk    .eq(ClockSignal("pipe_rx")),
-            self._io.rx_data_k.i_clk  .eq(ClockSignal("pipe_rx")),
+            self._io.rx_data.i_clk    .eq(ClockSignal("ss_rx")),
+            self._io.rx_datak.i_clk   .eq(ClockSignal("ss_rx")),
+            self._io.rx_valid.i_clk   .eq(ClockSignal("ss_rx")),
         ]
 
         # Handle our geared inputs.
         m.d.comb += [
             # We'll output tx_data bytes {0, 1} and _then_ {2, 3}.
-            self._io.tx_data.o0       .eq(self.tx_data.o[0:16]),
-            self._io.tx_data.o1       .eq(self.tx_data.o[16:32]),
-            self._io.tx_data_k.o0     .eq(self.tx_data_k.o[0:2]),
-            self._io.tx_data_k.o1     .eq(self.tx_data_k.o[2:4]),
+            self._io.tx_data.o0    .eq(self.tx_data.o[0:16]),
+            self._io.tx_data.o1    .eq(self.tx_data.o[16:32]),
+            self._io.tx_datak.o0   .eq(self.tx_datak.o[0:2]),
+            self._io.tx_datak.o1   .eq(self.tx_datak.o[2:4]),
 
             # We'll capture rx_data bytes {0, 1} and _then_ {2, 3}.
-            self.rx_data.i[0:16]      .eq(self._io.rx_data.i0),
-            self.rx_data.i[16:32]     .eq(self._io.rx_data.i1),
-            self.rx_data_k.i[0:2]     .eq(self._io.rx_data_k.i0),
-            self.rx_data_k.i[2:4]     .eq(self._io.rx_data_k.i1),
+            self.rx_data.i[0:16]   .eq(self._io.rx_data.i0),
+            self.rx_data.i[16:32]  .eq(self._io.rx_data.i1),
+            self.rx_datak.i[0:2]  .eq(self._io.rx_datak.i0),
+            self.rx_datak.i[2:4]  .eq(self._io.rx_datak.i1),
+
+            # The PHY uses rx_valid to indicate the validity of two bytes at once.
+            # We'll expand that out to four bytes, as we'd get if we had an ungeared PHY.
+            self.rx_valid.i[0]    .eq(self._io.rx_valid.i0),
+            self.rx_valid.i[1]    .eq(self._io.rx_valid.i0),
+            self.rx_valid.i[2]    .eq(self._io.rx_valid.i1),
+            self.rx_valid.i[3]    .eq(self._io.rx_valid.i1),
         ]
 
         return m
