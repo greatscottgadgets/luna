@@ -5,6 +5,10 @@
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
+import sys
+import logging
+import os.path
+
 from nmigen                                  import Elaboratable, Module, Cat
 from nmigen.hdl.rec                          import Record
 
@@ -16,8 +20,6 @@ from luna.gateware.soc                       import SimpleSoC
 
 from luna.gateware.usb.usb2.device           import USBDevice, USBDeviceController
 from luna.gateware.usb.usb2.interfaces.eptri import SetupFIFOInterface, InFIFOInterface, OutFIFOInterface
-
-
 
 
 CLOCK_FREQUENCIES_MHZ = {
@@ -38,8 +40,6 @@ class EptriDeviceExample(Elaboratable):
 
         # Create our SoC...
         self.soc = soc = SimpleSoC()
-
-        # ... add our firmware image ...
         soc.add_rom("eptri_example.bin", 0x4000)
 
         # ... add some bulk RAM ...
@@ -74,8 +74,13 @@ class EptriDeviceExample(Elaboratable):
         m = Module()
         m.submodules.soc = self.soc
 
+        # Check for our prerequisites before building.
+        if not os.path.exists("eptri_example.bin"):
+            logging.error("Firmware binary not found -- you may want to build this with `make program`.")
+            sys.exit(-1)
+
         # Generate our domain clocks/resets.
-        m.submodules.car = platform.clock_domain_generator(CLOCK_FREQUENCIES_MHZ)
+        m.submodules.car = platform.clock_domain_generator(clock_frequencies=CLOCK_FREQUENCIES_MHZ)
 
         # Connect up our UART.
         uart_io = platform.request("uart", 0)
@@ -99,5 +104,6 @@ class EptriDeviceExample(Elaboratable):
 
 
 if __name__ == "__main__":
+
     design = EptriDeviceExample()
     top_level_cli(design, cli_soc=design.soc)
