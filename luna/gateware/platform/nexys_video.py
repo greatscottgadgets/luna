@@ -37,21 +37,26 @@ class NexysVideoClockDomainGenerator(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-        # Create our domains; but don't do anything else for them, for now.
-        m.domains.usb     = ClockDomain()
-        m.domains.usb_io  = ClockDomain()
-        m.domains.sync    = ClockDomain()
-        m.domains.ss      = ClockDomain()
-        m.domains.ss_rx   = ClockDomain()
-        m.domains.ss_tx   = ClockDomain()
-        m.domains.fast    = ClockDomain()
+        # Synthetic clock domains.
+        m.domains.sync     = ClockDomain(reset_less=True)
+        m.domains.fast     = ClockDomain()
+
+        # USB 2 clock domains.
+        m.domains.usb      = ClockDomain()
+        m.domains.usb_io   = ClockDomain()
+
+        # 250 MHz I/O boundary clocks
+        m.domains.ss_io         = ClockDomain()
+        m.domains.ss_io_shifted = ClockDomain()
+
+        # 125 MHz ss clocks
+        m.domains.ss            = ClockDomain()
+        m.domains.ss_shifted    = ClockDomain()
 
         # Grab our main clock.
         clk50 = platform.request(platform.default_clk)
 
         # USB2 PLL connections.
-        clk12         = Signal()
-        clk48         = Signal()
         usb2_locked   = Signal()
         usb2_feedback = Signal()
         m.submodules.usb2_pll = Instance("PLLE2_ADV",
@@ -71,59 +76,78 @@ class NexysVideoClockDomainGenerator(Elaboratable):
             i_CLKFBIN              = usb2_feedback,
             o_CLKFBOUT             = usb2_feedback,
             i_CLKIN1               = clk50,
-            o_CLKOUT0              = clk12,
-            o_CLKOUT1              = clk48,
+            o_CLKOUT0              = ClockSignal("usb"),
+            o_CLKOUT1              = ClockSignal("usb_io"),
             o_LOCKED               = usb2_locked,
         )
 
+        clk_idelay         = Signal()
 
-        # USB3 PLL connections.
-        clk16         = Signal()
-        clk125        = Signal()
-        clk250        = Signal()
-        usb3_locked   = Signal()
-        usb3_feedback = Signal()
-        m.submodules.usb3_pll = Instance("PLLE2_ADV",
-            p_BANDWIDTH            = "OPTIMIZED",
-            p_COMPENSATION         = "ZHOLD",
+        usb3_locked        = Signal()
+        usb3_feedback      = Signal()
+
+        m.submodules.usb3_pll = Instance("PLLE2_BASE",
             p_STARTUP_WAIT         = "FALSE",
+
+            # 250 MHz input from PCLK, VCO at 1GHz
+            i_CLKIN1               = ClockSignal("ss_io"),
+            p_REF_JITTER1          = 0.01,
+            p_CLKIN1_PERIOD        = 4.0,
             p_DIVCLK_DIVIDE        = 1,
-            p_CLKFBOUT_MULT        = 10,    # VCO = 1000 MHz
+            p_CLKFBOUT_MULT        = 4,
             p_CLKFBOUT_PHASE       = 0.000,
-            p_CLKOUT0_DIVIDE       = 4,     # CLKOUT0 = 250 MHz (1000/4)
-            p_CLKOUT0_PHASE        = 0.000,
-            p_CLKOUT0_DUTY_CYCLE   = 0.500,
-            p_CLKOUT1_DIVIDE       = 8,     # CLKOUT1 = 125 MHz (1000/8)
-            p_CLKOUT1_PHASE        = 0.000,
-            p_CLKOUT1_DUTY_CYCLE   = 0.500,
-            p_CLKOUT2_DIVIDE       = 64,    # CLKOUT2 = 16 MHz  (1000/64)
-            p_CLKOUT2_PHASE        = 0.000,
-            p_CLKOUT2_DUTY_CYCLE   = 0.500,
-            p_CLKIN1_PERIOD        = 20.000,
+
+            o_LOCKED               = usb3_locked,
+
+            # Clock feedback.
             i_CLKFBIN              = usb3_feedback,
             o_CLKFBOUT             = usb3_feedback,
-            i_CLKIN1               = clk50,
-            o_CLKOUT0              = clk250,
-            o_CLKOUT1              = clk125,
-            o_CLKOUT2              = clk16,
-            o_LOCKED               = usb3_locked,
+
+            # CLKOUT0 = 125 MHz (1/2 PCLK)
+            p_CLKOUT0_DIVIDE       = 8,
+            p_CLKOUT0_PHASE        = 0.0,
+            o_CLKOUT0              = ClockSignal("ss"),
+
+            # CLKOUT1 = 125 MHz / 8ns (1/2 PCLK + phase delay)
+            # We want to sample our input after 2ns. This is >=90 degrees of this clock.
+            p_CLKOUT1_DIVIDE       = 8,
+            p_CLKOUT1_PHASE        = 270.0,
+            o_CLKOUT1              = ClockSignal("ss_shifted"),
+
+            # CLKOUT2 = 250 MHz (PCLK + phase delay)
+            p_CLKOUT2_DIVIDE       = 4,
+            p_CLKOUT2_PHASE        = 90.0,
+            o_CLKOUT2              = ClockSignal("ss_io_shifted"),
+
+            # CLKOUT3 = 200 MHz (for our the chip's I/O delay equalization)
+            p_CLKOUT3_DIVIDE       = 5,
+            p_CLKOUT3_PHASE        = 0.0,
+            o_CLKOUT3              = clk_idelay
+        )
+
+        # Create our I/O delay compensation unit.
+        m.submodules.idelayctrl = Instance("IDELAYCTRL",
+            i_REFCLK = clk_idelay,
+            i_RST    = ~usb3_locked
         )
 
         # Connect up our clock domains.
         m.d.comb += [
-            ClockSignal("usb")      .eq(clk12),
-            ClockSignal("usb_io")   .eq(clk48),
-            ClockSignal("sync")     .eq(clk125),
-            ClockSignal("ss")       .eq(clk125),
-            ClockSignal("ss_tx")    .eq(clk125),
-            ClockSignal("fast")     .eq(clk250),
+            # Synthetic clock domains.
+            ClockSignal("sync")           .eq(clk50),
+            ClockSignal("fast")           .eq(ClockSignal("ss_io")),
+            ResetSignal("fast")           .eq(~usb3_locked),
 
-            ResetSignal("usb")      .eq(~usb2_locked),
-            ResetSignal("usb_io")   .eq(~usb2_locked),
-            ResetSignal("sync")     .eq(~usb3_locked),
-            ResetSignal("ss")       .eq(~usb3_locked),
-            ResetSignal("ss_tx")    .eq(~usb3_locked),
-            ResetSignal("fast")     .eq(~usb3_locked),
+            # USB2 resets
+            ResetSignal("usb")            .eq(~usb2_locked),
+            ResetSignal("usb_io")         .eq(~usb2_locked),
+
+            # USB3 resets
+
+            ResetSignal("ss")             .eq(~usb3_locked),
+            ResetSignal("ss_io")          .eq(~usb3_locked),
+            ResetSignal("ss_shifted")     .eq(~usb3_locked),
+            ResetSignal("ss_io_shifted")  .eq(~usb3_locked),
         ]
 
         return m
@@ -135,13 +159,13 @@ class NexysVideoAB07SuperspeedPHY(GearedPIPEInterface):
     VADJ_VOLTAGE = '2.5V'
 
     def __init__(self, platform):
-        logging.info("Using Global Designs AB07 PHY board, connected via FMC.")
+        logging.info("Using DesignGateway AB07 PHY board, connected via FMC.")
 
         # Grab the geared I/O for our PIPE PHY...
         phy_connection = platform.request('ab07_usbfmc_pipe', xdr=GearedPIPEInterface.GEARING_XDR)
 
         # ... and create a PIPE interface around it.
-        super().__init__(pipe=phy_connection)
+        super().__init__(pipe=phy_connection, invert_rx_polarity_signal=True)
 
 
     def elaborate(self, platform):
@@ -200,9 +224,9 @@ class NexysVideoPlatform(Xilinx7SeriesPlatform, LUNAPlatform):
         Resource("cpu_reset", 0, PinsN("G4"), Attrs(IOSTANDARD="LVCMOS15")),
 
         # Simple I/O
-        *LEDResources(pins="T14 T15 T16 U16 V15 W16 W15 Y13", attrs=Attrs(IOSTANDARD="LVCMOS25"), invert=True),
-        *SwitchResources(pins="E22 F21 G21 G22 H17 J16 K13 M17", attrs=Attrs(IOSTANDARD="LVCMOS25"), invert=True),
-        *ButtonResources(pins="B22 D22 C12 D14 F15 G4", attrs=Attrs(IOSTANDARD="LVCMOS25"), invert=True),
+        *LEDResources(pins="T14 T15 T16 U16 V15 W16 W15 Y13", attrs=Attrs(IOSTANDARD="LVCMOS25")),
+        *SwitchResources(pins="E22 F21 G21 G22 H17 J16 K13 M17", attrs=Attrs(IOSTANDARD="LVCMOS25")),
+        *ButtonResources(pins="B22 D22 C12 D14 F15 G4", attrs=Attrs(IOSTANDARD="LVCMOS25")),
 
         # Adjustable voltage select
         Resource("vadj_select", 0, Pins("AA13 AB17", dir="o"), Attrs(IOSTANDARD="LVCMOS25")),
@@ -302,18 +326,18 @@ class NexysVideoPlatform(Xilinx7SeriesPlatform, LUNAPlatform):
             Subsignal("rx_datak",      Pins("FMC_0:LA28_N FMC_0:LA29_N", dir="i")),
 
             # Receive status/config.
-            Subsignal("rx_status",      Pins("FMC_0:LA22_N FMC_0:LA25_N", dir="i" )),
+            Subsignal("rx_status",      Pins("FMC_0:LA22_N FMC_0:LA25_N FMC_0:LA23_N", dir="i" )),
             Subsignal("rx_elecidle",    Pins("FMC_0:LA10_N",            dir="io")),
             Subsignal("rx_polarity",    Pins("FMC_0:LA24_N",            dir="o" )),
             Subsignal("rx_termination", Pins("FMC_0:LA18_CC_N",         dir="o" )),
 
             # Full-PHY Control and status.
-            Subsignal("reset",          PinsN("FMC_0:LA02_N",           dir="o" )),
-            Subsignal("phy_reset",      PinsN("FMC_0:LA08_N",           dir="o" )),
+            Subsignal("reset",          PinsN("FMC_0:LA02_N",             dir="o" )),
+            Subsignal("phy_reset",      PinsN("FMC_0:LA08_N",             dir="o" )),
             Subsignal("power_down",     Pins("FMC_0:LA07_N FMC_0:LA12_N", dir="o" )),
-            Subsignal("phy_status",     Pins("FMC_0:LA19_N",            dir="io")),
-            Subsignal("pwrpresent",     Pins("FMC_0:LA31_N",            dir="i" )),
-            Subsignal("out_enable",     Pins("FMC_0:LA04_N"  ,          dir="o" )),
+            Subsignal("phy_status",     Pins("FMC_0:LA19_N",              dir="i")),
+            Subsignal("pwrpresent",     Pins("FMC_0:LA31_N",              dir="i" )),
+            Subsignal("out_enable",     Pins("FMC_0:LA04_N"  ,            dir="o" )),
 
             # Attributes
             Attrs(IOSTANDARD="LVCMOS25")
@@ -383,19 +407,19 @@ class NexysVideoPlatform(Xilinx7SeriesPlatform, LUNAPlatform):
             Subsignal("rx_datak", Pins("FMC_0:LA02_N FMC_0:LA05_P", dir="i")),
 
             # Receive status signals.
-            Subsignal("rx_polarity",    Pins("FMC_0:LA16_N",                        dir="i" )),
-            Subsignal("rx_termination", Pins("FMC_0:LA13_N",                        dir="i" )),
-            Subsignal("rx_elecidle",    Pins("FMC_0:LA11_N",                        dir="io")),
-            Subsignal("rx_status",      Pins("FMC_0:LA14_P FMC_0:LA15_P FMC_0:LA14_N",  dir="i" )),
+            Subsignal("rx_polarity",    Pins("FMC_0:LA16_N",                           dir="i" )),
+            Subsignal("rx_termination", Pins("FMC_0:LA13_N",                           dir="i" )),
+            Subsignal("rx_elecidle",    Pins("FMC_0:LA11_N",                           dir="io")),
+            Subsignal("rx_status",      Pins("FMC_0:LA14_P FMC_0:LA15_P FMC_0:LA14_N", dir="i" )),
 
             # Full-PHY Control and status.
-            Subsignal("phy_reset_n",   PinsN("FMC_0:LA12_P",             dir="o" )),
-            Subsignal("power_down",    Pins( "FMC_0:LA12_N FMC_0:LA13_P",  dir="o" )),
-            Subsignal("rate",          Pins( "FMC_0:LA28_P",             dir="o" )),
-            Subsignal("elas_buf_mode", Pins( "FMC_0:LA15_N",             dir="o" )),
-            Subsignal("phy_status",    Pins( "FMC_0:LA16_P",             dir="io")),
-            Subsignal("pwr_present",   Pins( "FMC_0:LA32_P",             dir="i" )),
-            Subsignal("reset_n",       Pins( "FMC_0:LA32_N",             dir="o" )),
+            Subsignal("phy_reset",     PinsN("FMC_0:LA12_P",              dir="o" )),
+            Subsignal("power_down",    Pins( "FMC_0:LA12_N FMC_0:LA13_P", dir="o" )),
+            Subsignal("rate",          Pins( "FMC_0:LA28_P",              dir="o" )),
+            Subsignal("elas_buf_mode", Pins( "FMC_0:LA15_N",              dir="o" )),
+            Subsignal("phy_status",    Pins( "FMC_0:LA16_P",              dir="io")),
+            Subsignal("pwr_present",   Pins( "FMC_0:LA32_P",              dir="i" )),
+            Subsignal("reset",         PinsN("FMC_0:LA32_N",              dir="o" )),
 
             Attrs(IOSTANDARD="LVCMOS18")
         ),
@@ -416,7 +440,13 @@ class NexysVideoPlatform(Xilinx7SeriesPlatform, LUNAPlatform):
         Resource("hitech_fmc_clkout", 0, Pins("FMC_0:LA00_CC_P", dir="i"), Attrs(IOSTANDARD="LVCMOS18")),
 
         # Example direct-USB connection.
-        DirectUSBResource(0, d_p="JA:0", d_n="JA:1", pullup="JA:2")
+        DirectUSBResource(0, d_p="JA_0:1", d_n="JA_0:2", pullup="JA_0:3", attrs=Attrs(IOSTANDARD="LVCMOS33")),
+
+        # Convenience: User I/O
+        Resource("user_io", 0, Pins("JB_0:1"), Attrs(IOSTANDARD="LVCMOS33")),
+        Resource("user_io", 1, Pins("JB_0:2"), Attrs(IOSTANDARD="LVCMOS33")),
+        Resource("user_io", 2, Pins("JB_0:3"), Attrs(IOSTANDARD="LVCMOS33")),
+        Resource("user_io", 3, Pins("JB_0:4"), Attrs(IOSTANDARD="LVCMOS33"))
     ]
 
     #
@@ -506,10 +536,10 @@ class NexysVideoPlatform(Xilinx7SeriesPlatform, LUNAPlatform):
         ),
 
         # pmods
-        Connector("ja", 0,    "AB22 AB21 AB20 AB18 Y21 AA21 AA20 AA18"),  # IOSTANDARD=LVCMOS33
-        Connector("jb", 0,    "V9   V8   V7   W7   W9  Y9   Y8   Y7  "),  # IOSTANDARD=LVCMOS33
-        Connector("jc", 0,    "Y6   AA6  AA8  AB8  R6  T6   AB7  AB6 "),  # IOSTANDARD=LVCMOS33
-        Connector("jxadc", 0, "J14  H13  G15  J15  H14 G13  G16  H15 "),  # VCCIO driven by VADJ
+        Connector("JA", 0,    "AB22 AB21 AB20 AB18 - - Y21 AA21 AA20 AA18 - - "),  # IOSTANDARD=LVCMOS33
+        Connector("JB", 0,    "V9   V8   V7   W7   - - W9  Y9   Y8   Y7   - - "),  # IOSTANDARD=LVCMOS33
+        Connector("JC", 0,    "Y6   AA6  AA8  AB8  - - R6  T6   AB7  AB6  - - "),  # IOSTANDARD=LVCMOS33
+        Connector("JXADC", 0, "J14  H13  G15  J15  - - H14 G13  G16  H15  - - "),  # VCCIO driven by VADJ
     ]
 
 
@@ -538,7 +568,7 @@ class NexysVideoPlatform(Xilinx7SeriesPlatform, LUNAPlatform):
                 global _CHIPNAME
                 xc7_program $_CHIPNAME.tap
             }
-            """
+            """,
         }
 
 

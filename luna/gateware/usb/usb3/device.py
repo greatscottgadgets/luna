@@ -23,8 +23,9 @@ from ..stream  import USBRawSuperSpeedStream
 class USBSuperSpeedDevice(Elaboratable):
     """ Core gateware common to all LUNA USB3 devices. """
 
-    def __init__(self, *, phy):
+    def __init__(self, *, phy, sync_frequency):
         self._phy = phy
+        self._sync_frequency = sync_frequency
 
         # TODO: remove when complete
         logging.warning("USB3 device support is not at all complete!")
@@ -50,7 +51,8 @@ class USBSuperSpeedDevice(Elaboratable):
         #
         # Physical layer.
         #
-        m.submodules.physical = physical = USB3PhysicalLayer(phy=self._phy)
+        m.submodules.physical = physical = \
+                USB3PhysicalLayer(phy=self._phy, sync_frequency=self._sync_frequency)
         m.d.comb += [
             self.data_tap  .stream_eq(physical.source, omit={'ready'})
         ]

@@ -60,6 +60,18 @@ IDL =  NamedSymbol("IDL", D(0, 0),  "Logical Idle", is_data=True)        # 00
 symbols = [SKP, SDP, EDB, SUB, COM, RSD, SHP, END, SLC, EPF]
 
 
+def get_word_for_symbols(sym0, sym1, sym2, sym3):
+    """ Returns a pair of nMigen contants containing the data and ctrl values for the given symbols. """
+
+    target_symbols = [sym3, sym2, sym1, sym0]
+
+    # Create constants that match the target data/ctrl bits for the given set of symbols.
+    target_data = Cat(symbol.value_const() for symbol in target_symbols)
+    target_ctrl = Cat(symbol.ctrl_const() for  symbol in target_symbols)
+
+    return target_data, target_ctrl
+
+
 def stream_matches_symbols(stream, sym0, sym1, sym2, sym3):
     """ Returns an nMigen conditional that evaluates true when a stream contains the given four symbols.
 
@@ -68,11 +80,7 @@ def stream_matches_symbols(stream, sym0, sym1, sym2, sym3):
         - Assumes the stream is little endian, so the bytes of the stream would read SYM3 SYM2 SYM1 SYM0.
     """
 
-    target_symbols = [sym3, sym2, sym1, sym0]
-
-    # Create constants that match the target data/ctrl bits for the given set of symbols.
-    target_data = Cat(symbol.value_const() for symbol in target_symbols)
-    target_ctrl = Cat(symbol.ctrl_const() for  symbol in target_symbols)
+    target_data, target_ctrl = get_word_for_symbols(sym0, sym1, sym2, sym3)
 
     return (
         stream.valid                 &
@@ -89,3 +97,4 @@ def stream_word_matches_symbol(stream, word_number, *, symbol):
         (stream.data.word_select(word_number, 8) == symbol.value) &
         (stream.ctrl[word_number])
     )
+

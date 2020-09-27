@@ -14,6 +14,8 @@ import math
 
 from nmigen import *
 from nmigen.lib.coding import Encoder
+from nmigen.lib.cdc    import PulseSynchronizer
+
 
 
 class LTSSMController(Elaboratable):
@@ -31,10 +33,6 @@ class LTSSMController(Elaboratable):
         Should be asserted whenever a USB reset is detected; including a power-on reset (e.g.
         the PHY has yet to start up), or LFPS warm reset signaling.
 
-    train_alignment: Signal(), output
-        Asserted when the link is most ready to perform initial alignment training; e.g. while
-        TSEQ test sequences are being exchanged. For some physical layer interfaces, this additional
-        metadata helps with initial comma alignment.
     engage_terminations: Signal(), output
         When asserted, the physical layer should be applying link terminations.
     invert_rx_polarity: Signal(). output
@@ -56,38 +54,45 @@ class LTSSMController(Elaboratable):
         #
         # I/O port.
         #
-        self.link_ready            = Signal()
-        self.in_usb_reset          = Signal()
+        self.power_on_reset            = Signal()
 
-        # SerDes / link control signals.
-        self.train_alignment       = Signal()
-        self.train_equalizer       = Signal()
-        self.engage_terminations   = Signal()
-        self.invert_rx_polarity    = Signal()
+        self.link_ready                = Signal()
+        self.in_usb_reset              = Signal()
+
+        # Power states.
+        self.phy_ready                 = Signal()
+        self.power_state               = Signal(2, reset=2)
+        self.power_transition_complete = Signal()
+
+        # Link control signals.
+        self.tx_electrical_idle        = Signal()
+        self.engage_terminations       = Signal()
+        self.invert_rx_polarity        = Signal()
 
         # Receiver detection.
-        self.perform_rx_detection  = Signal()
-        self.link_partner_detected = Signal()
+        self.perform_rx_detection      = Signal()
+        self.link_partner_detected     = Signal()
 
         # LFPS detection / emission.
-        self.lfps_polling_detected = Signal()
-        self.send_lfps_polling     = Signal()
+        self.lfps_polling_detected     = Signal()
+        self.send_lfps_polling         = Signal()
+        self.lfps_cycles_sent          = Signal(16)
 
         # Training set detection signals.
-        self.tseq_detected         = Signal()
-        self.ts1_detected          = Signal()
-        self.inverted_ts1_detected = Signal()
-        self.ts2_detected          = Signal()
+        self.tseq_detected             = Signal()
+        self.ts1_detected              = Signal()
+        self.inverted_ts1_detected     = Signal()
+        self.ts2_detected              = Signal()
 
         # Training set generation signals.
-        self.send_tseq_burst       = Signal()
-        self.send_ts1_burst        = Signal()
-        self.send_ts2_burst        = Signal()
-        self.ts_burst_complete     = Signal()
+        self.send_tseq_burst           = Signal()
+        self.send_ts1_burst            = Signal()
+        self.send_ts2_burst            = Signal()
+        self.ts_burst_complete         = Signal()
 
         # Late-stage link management; physical layer control.
-        self.enable_scrambling     = Signal()
-        self.logical_idle_detected = Signal()
+        self.enable_scrambling         = Signal()
+        self.logical_idle_detected     = Signal()
 
 
 
@@ -98,13 +103,10 @@ class LTSSMController(Elaboratable):
         #  Control Signals
         #
         m.d.comb += [
-            # For now, continuously train word alignment. If this works, this signal will go away.
-            self.train_alignment      .eq(1),
-            self.train_equalizer      .eq(1),
-
             # Engage our receive terminations, unless the current state directs otherwise.
             self.engage_terminations  .eq(1)
         ]
+
 
 
         #
@@ -186,10 +188,21 @@ class LTSSMController(Elaboratable):
             # Rx.Detect.Reset -- we've just started link bringup post-reset; and are ready to
             # perform any necessary link configuration.
             with m.State("Rx.Detect.Reset"):
+                m.d.comb += [
 
-                # We'll wait in this state until our board is brought up, and we're not detecting
+                    # Keep ourselves from transmitting until we're ready to send...
+                    self.tx_electrical_idle   .eq(1),
+
+                    # ... and prevent ourselves from presenting receiver terminations until
+                    # our PHY has started up; so the other side doesn't start LFPS polling, yet.
+                    self.engage_terminations  .eq(0)
+
+                ]
+
+
+                # We'll wait in this state until our PHY is brought up, and we're not detecting
                 # any Warm Reset LFPS signaling.
-                with m.If(~self.in_usb_reset):
+                with m.If(~self.in_usb_reset & self.phy_ready):
                     transition_to_state("Rx.Detect.Active")
 
 
@@ -198,9 +211,8 @@ class LTSSMController(Elaboratable):
             # detect whether we're connected to another SuperSpeed transciever via a cable, so
             # we don't waste time performing link training if our link isn't there.
             with m.State("Rx.Detect.Active"):
+                m.d.comb += self.tx_electrical_idle.eq(1)
 
-                # For now, we'll always assume that we have a link partner present.
-                # TODO: correctly detect a link partner and move to Polling.LFPS or Rx.Detect.Quiet.
                 transition_to_state("Polling.LFPS")
 
 
@@ -208,17 +220,54 @@ class LTSSMController(Elaboratable):
             # begin exchanging LFPS messages; giving the two sides the opportunity to sync up and
             # establish initial DC characteristics. [USB 3.2r1: 7.5.4.3]
             with m.State("Polling.LFPS"):
+                m.d.comb += self.tx_electrical_idle.eq(1)
+
+                # We'll track if we've seen LFPS bursts during this state;
+                # and keep a moving target of how many LFPS bursts we need to see.
+                lfps_burst_seen   = Signal()
+                target_lfps_count = Signal(16)
+
+                tasks_on_entry['Polling.LFPS'] = [
+                    lfps_burst_seen    .eq(0),
+                    target_lfps_count  .eq(16)
+                ]
 
                 # Continuously send our LFPS polling.
                 m.d.comb += self.send_lfps_polling.eq(1)
 
-                # Once we see a valid LFPS polling response, we can move to exchanging test sets.
-                with m.If(self.lfps_polling_detected):
-                    transition_to_state("Polling.RxEQ")
+                # To move forward with the LTSSM, we'll need to:
+                # - Have sent at least 16 bursts.
+                # - Have transmitted at least four bursts since we first saw a burst.
+                with m.If(self.lfps_cycles_sent >= target_lfps_count):
+
+                    # If this is the first burst we've seen, move our target forward;
+                    # so we can meet our second condition.
+                    with m.If(self.lfps_polling_detected & ~lfps_burst_seen):
+                        m.d.ss += [
+                            lfps_burst_seen    .eq(1),
+                            target_lfps_count  .eq(self.lfps_cycles_sent + 4)
+                        ]
+
+                    # If we've sent enough, -and- we meet our condition, move forward.
+                    with m.If(lfps_burst_seen):
+                            transition_to_state("Polling.RxEQ")
+
+
+                # If we haven't yet sent 16 bursts, track how many bursts we have sent.
+                with m.Elif(lfps_burst_seen):
+                    m.d.ss += lfps_burst_seen.eq(1)
+
+                    with m.If(self.lfps_cycles_sent > 12):
+                        m.d.ss += target_lfps_count.eq(self.lfps_cycles_sent + 4)
+
+
 
                 # If we've never seen polling, we'll exit to Compliance once this passes. [USB 3.2r1: 7.5.4.3]
                 with m.If(~polling_seen):
                     transition_on_timeout(360e-3, to="Compliance")
+                #with m.Else():
+                #    transition_on_timeout(360e-4, "SS.Disabled")
+
 
 
             # Polling.RxEQ -- we've now seen the other side of our link, and are ready to initialize
@@ -234,21 +283,15 @@ class LTSSMController(Elaboratable):
                     ts2_seen      .eq(0)
                 ]
 
-                # Our role in this state is to both send TSEQs to enable equalizer training, and to
-                # train our own equalizer. We'll request that our frontend train its equalizer, where
-                # possible.
-                #m.d.comb += self.train_equalizer.eq(1)
-
                 # Continuously send TSEQs; these are used to perform receiver equalization training.
                 m.d.comb += self.send_tseq_burst.eq(1)
-
 
                 # Once we've sent a full burst of 35536 TSEQs, we can begin our link training handshake.
                 with m.If(self.ts_burst_complete):
                     transition_to_state("Polling.Active")
 
 
-            # Polling.Active -- we've now exchanged our initial test sequences, and we're ready to
+            # Polling.Active -- we've now exchanged our initial training sequences, and we're ready to
             # begin exchaning our core training sequences. We'll start sending TS1, and let the PHY handle
             # link training until it reliably the same thing from the host. [USB 3.2r1: 7.5.4.8]
             with m.State("Polling.Active"):

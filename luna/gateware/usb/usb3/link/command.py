@@ -11,7 +11,7 @@ import operator
 from nmigen         import *
 from nmigen.hdl.ast import Past
 
-from ..physical.coding import SLC, EPF, stream_matches_symbols
+from ..physical.coding import SLC, EPF, stream_matches_symbols, get_word_for_symbols
 
 from ...stream import USBRawSuperSpeedStream
 
@@ -57,8 +57,6 @@ class LinkCommandDetector(Elaboratable):
     new_command: signal(), output
         Strobe; indicates that a new link command has been received, and the details of this command
         are ready to be read.
-
-
     """
 
     def __init__(self):
@@ -140,6 +138,118 @@ class LinkCommandDetector(Elaboratable):
                     # No matter the word's validity, we'll move back to waiting for a new command header;
                     # as we can't do anything about invalid commands.
                     m.next = "WAIT_FOR_LCSTART"
+
+
+        return m
+
+
+
+class LinkCommandGenerator(Elaboratable):
+    """ USB3 Link Command Generator.
+
+    This module generates link commands on the USB3 bus.
+
+    Attributes
+    ----------
+    source: USBRawSuperSpeedStream(), output stream
+        The data generated in sending our link commands.
+
+    command: Signal(4), output
+        The link command; including its two-bit class and two-bit type.
+    subtype: Signal(4), output
+        The link command's subtype.
+
+    bus_idle: Signal(), input
+        Should be held high when the USB bus is idle (and thus we're ready to send data).
+    generate: Signal(), input
+        Strobe; indicates that a link command should be generated.
+
+    done: Signal(), output
+        Indicates that the link command will be complete this cycle; and thus this unit will
+        be ready to send another link command next cycle.
+    """
+
+
+    def __init__(self):
+
+        #
+        # I/O port
+        #
+        self.source = USBRawSuperSpeedStream()
+
+        # Link command information.
+        self.command    = Signal(4)
+        self.subtype    = Signal(4)
+
+        # Control inputs.
+        self.bus_idle   = Signal()
+        self.generate   = Signal()
+        self.done       = Signal()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Latched versions of our signals guaranteed not to change mid-transmission.
+        latched_command = Signal.like(self.command)
+        latched_subtype = Signal.like(self.subtype)
+
+
+        with m.FSM(domain="ss"):
+
+            # IDLE -- we're currently waiting to generate a link command
+            with m.State("IDLE"):
+
+                # Once we have a generate command...
+                with m.If(self.generate):
+
+                    # ... latch in our command and subtype ...
+                    m.d.ss += [
+                        latched_command  .eq(self.command),
+                        latched_subtype  .eq(self.subtype)
+                    ]
+
+                    # ... and start transmitting, if we can...
+                    with m.If(self.bus_idle):
+                        m.next = "TRANSMIT_HEADER"
+                    # ... otherwise, wait for the bus.
+                    with m.Else():
+                        m.next = "WAIT_FOR_BUS"
+
+            # WAIT_FOR_BUS -- we've received a generate command, and are now
+            # waiting for the bus to be idle to send it.
+            with m.State("WAIT_FOR_BUS"):
+
+                with m.If(self.bus_idle):
+                    m.next = "TRANSMIT_HEADER"
+
+            # TRANSMIT_HEADER -- we're starting our link command by transmitting a header.
+            with m.State("TRANSMIT_HEADER"):
+
+                # Drive the bus with our header...
+                header_data, header_ctrl = get_word_for_symbols(SLC, SLC, SLC, EPF)
+                m.d.comb += [
+                    self.source.valid  .eq(1),
+                    self.source.data   .eq(header_data),
+                    self.source.ctrl   .eq(header_ctrl),
+                ]
+
+                # ... and keep driving it until it's accepted.
+                with m.If(self.source.ready):
+                    m.next = "TRANSMIT_COMMAND"
+
+
+            # TRANSMIT_COMMAND -- we're now ready to send the core of our command.
+            with m.State("TRANSMIT_HEADER"):
+
+                # Drive our command onto the bus...
+                m.d.comb += [
+
+                ]
+
+                # ... and keep driving it until it's accepted.
+                with m.If(self.source.ready):
+                    m.next = "TRANSMIT_COMMAND"
 
 
         return m

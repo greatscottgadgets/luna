@@ -168,8 +168,13 @@ class Scrambler(Elaboratable):
             lfsr.advance  .eq(sink.valid & sink.ready)
         ]
 
-        # Default to passing through all data directly...
-        m.d.comb += source.stream_eq(sink)
+        # Pass through non-scrambled signals directly.
+        m.d.comb += [
+            source.ctrl   .eq(sink.ctrl),
+            source.valid  .eq(sink.valid),
+            sink.ready    .eq(source.ready)
+        ]
+
 
         # If we have any non-control words, scramble them by overriding our data assignment above
         # with the relevant data word XOR'd with our LFSR value. Note that control words are -never-
@@ -180,6 +185,9 @@ class Scrambler(Elaboratable):
 
             with m.If(self.enable & is_data_code):
                 m.d.comb += source.data.word_select(i, 8).eq(sink.data.word_select(i, 8) ^ lfsr_word)
+            with m.Else():
+                m.d.comb += source.data.word_select(i, 8).eq(sink.data.word_select(i, 8))
+
 
         return m
 

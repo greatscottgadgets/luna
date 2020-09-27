@@ -6,13 +6,21 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ USB3 PIPE interfacing gateware. """
 
-from nmigen import *
+from nmigen                     import *
+from nmigen.lib.fifo            import AsyncFIFOBuffered
+from nmigen.hdl.ast             import Past
 
-from luna                   import top_level_cli
-from luna.gateware.platform import NullPin
+from luna                       import top_level_cli
+from luna.gateware.platform     import NullPin
+
+from ..usb.stream               import USBRawSuperSpeedStream
+from ..usb.usb3.physical.coding import COM
+
+
+
 
 class GearedPIPEInterface(Elaboratable):
-    """ Module that presents a post-gearing PIPE interface.
+    """ Module that presents a post-gearing PIPE interface, performing gearing in I/O hardware.
 
     This module presents a public interface that's identical to a standard PIPE PHY,
     with the following exceptions:
@@ -42,86 +50,121 @@ class GearedPIPEInterface(Elaboratable):
 
     # Provide standard XDR settings that can be used when requesting an interface.
     GEARING_XDR = {
-        'tx_data': 2, 'tx_datak': 2,
-        'rx_data': 2, 'rx_datak': 2, 'rx_valid': 2
+        'tx_data': 2, 'tx_datak': 2, 'tx_clk':   2,
+        'rx_data': 2, 'rx_datak': 2, 'rx_valid': 2,
     }
 
 
-    def __init__(self, *, pipe, handle_clocking=True):
+    def __init__(self, *, pipe, invert_rx_polarity_signal=False):
         self._io = pipe
-        self._handle_clocking = handle_clocking
+        self._invert_rx_polarity_signal = invert_rx_polarity_signal
 
         #
         # I/O port
         #
 
+        self.tx_clk      = Signal()
+        self.tx_data     = Signal(32)
+        self.tx_datak    = Signal(4)
+
+        self.pclk        = Signal()
+        self.rx_data     = Signal(32)
+        self.rx_datak    = Signal(4)
+        self.rx_valid    = Signal()
+
+        self.rx_polarity = Signal()
+
         # Copy each of the elements from our core PIPE PHY, so we act mostly as a passthrough.
         for name, *_ in self._io.layout:
-            setattr(self, name, getattr(self._io, name))
 
-        # Create shortcuts for defining I/O pin equivalent records.
-        # This allows us to present a consistent interface with the original I/O.
-        out_record     = lambda size : Record([('o', size)])
-        in_record      = lambda size : Record([('i', size)])
+            # If we're handling the relevant signal manually, skip it.
+            if hasattr(self, name):
+                continue
 
-        # Override the I/O we'll handle specially.
-        self.tx_clk    = out_record(1)
-        self.tx_data   = out_record(32)
-        self.tx_datak  = out_record(4)
+            # Grab the raw I/O...
+            io = getattr(self._io, name)
 
-        self.pclk      = in_record(1)
-        self.rx_data   = in_record(32)
-        self.rx_datak  = in_record(4)
-        self.rx_valid  = in_record(4)
+            # If it's a tri-state, copy it as-is.
+            if hasattr(io, 'oe'):
+                setattr(self, name, io)
+
+            # Otherwise, copy either its input...
+            elif hasattr(io,  'i'):
+                setattr(self, name, io.i)
+
+            # ... or its output.
+            elif hasattr(io,  'o'):
+                setattr(self, name, io.o)
+
+            else:
+                raise ValueError(f"Unexpected signal {name} with subordinates {io} in PIPE PHY!")
 
 
     def elaborate(self, platform):
         m = Module()
 
-        # If we're handling clocking, automatically tie pclk/tx_clk to the appropriate domains.
-        if self._handle_clocking:
-            m.d.comb += [
-                # Drive our I/O boundary clock with our PHY clock directly,
-                # and replace our geared clock with the relevant divided clock.
-                ClockSignal("ss_rx")  .eq(self._io.pclk.i),
-                self.pclk.i           .eq(ClockSignal("ss")),
 
-                # Drive our raw TX clock with our I/O clock, and drive our local copy
-                # with our geared-down clock.
-                self._io.tx_clk.o     .eq(ClockSignal("ss_tx")),
-                self.tx_clk.o         .eq(ClockSignal("ss"))
-            ]
-
-        # DDR I/O setup: we'll tie our geared I/O clocks to our raw PHY clock.
         m.d.comb += [
-            self._io.tx_data.o_clk    .eq(ClockSignal("ss_tx")),
-            self._io.tx_datak.o_clk   .eq(ClockSignal("ss_tx")),
+            # Drive our I/O boundary clock with our PHY clock directly,
+            # and replace our geared clock with the relevant divided clock.
+            ClockSignal("ss_io")     .eq(self._io.pclk.i),
+            self.pclk                .eq(ClockSignal("ss")),
 
-            self._io.rx_data.i_clk    .eq(ClockSignal("ss_rx")),
-            self._io.rx_datak.i_clk   .eq(ClockSignal("ss_rx")),
-            self._io.rx_valid.i_clk   .eq(ClockSignal("ss_rx")),
+            # Drive our transmit clock with an DDR output driven from our full-rate clock.
+            # Re-creating the clock in this I/O cell ensures that our clock output is phase-aligned
+            # with the signals we create below. [UG471: pg128, "Clock Forwarding"]
+            self._io.tx_clk.o_clk    .eq(ClockSignal("ss_io")),
+            self._io.tx_clk.o0       .eq(1),
+            self._io.tx_clk.o1       .eq(0),
         ]
 
-        # Handle our geared inputs.
+        # Set up our geared I/O clocks.
         m.d.comb += [
+            # Drive our transmit signals from our transmit-domain clocks...
+            self._io.tx_data.o_clk     .eq(ClockSignal("ss")),
+            self._io.tx_datak.o_clk    .eq(ClockSignal("ss")),
+
+            # ... and drive our receive signals from our primary/receive domain clock.
+            self._io.rx_data.i_clk     .eq(ClockSignal("ss_shifted")),
+            self._io.rx_datak.i_clk    .eq(ClockSignal("ss_shifted")),
+            self._io.rx_valid.i_clk    .eq(ClockSignal("ss_shifted")),
+        ]
+
+        #
+        # Output handling.
+        #
+        m.d.ss += [
             # We'll output tx_data bytes {0, 1} and _then_ {2, 3}.
-            self._io.tx_data.o0    .eq(self.tx_data.o[0:16]),
-            self._io.tx_data.o1    .eq(self.tx_data.o[16:32]),
-            self._io.tx_datak.o0   .eq(self.tx_datak.o[0:2]),
-            self._io.tx_datak.o1   .eq(self.tx_datak.o[2:4]),
-
-            # We'll capture rx_data bytes {0, 1} and _then_ {2, 3}.
-            self.rx_data.i[0:16]   .eq(self._io.rx_data.i0),
-            self.rx_data.i[16:32]  .eq(self._io.rx_data.i1),
-            self.rx_datak.i[0:2]  .eq(self._io.rx_datak.i0),
-            self.rx_datak.i[2:4]  .eq(self._io.rx_datak.i1),
-
-            # The PHY uses rx_valid to indicate the validity of two bytes at once.
-            # We'll expand that out to four bytes, as we'd get if we had an ungeared PHY.
-            self.rx_valid.i[0]    .eq(self._io.rx_valid.i0),
-            self.rx_valid.i[1]    .eq(self._io.rx_valid.i0),
-            self.rx_valid.i[2]    .eq(self._io.rx_valid.i1),
-            self.rx_valid.i[3]    .eq(self._io.rx_valid.i1),
+            self._io.tx_data.o0   .eq(self.tx_data [ 0:16]),
+            self._io.tx_data.o1   .eq(self.tx_data [16:32]),
+            self._io.tx_datak.o0  .eq(self.tx_datak[ 0: 2]),
+            self._io.tx_datak.o1  .eq(self.tx_datak[ 2: 4])
         ]
+
+        #
+        # Input handling.
+        #
+        m.d.ss += [
+            # We'll capture rx_data bytes {0, 1} and _then_ {2, 3}.
+            self.rx_data [ 0:16]  .eq(self._io.rx_data.i0),
+            self.rx_data [16:32]  .eq(self._io.rx_data.i1),
+            self.rx_datak[ 0: 2]  .eq(self._io.rx_datak.i0),
+            self.rx_datak[ 2: 4]  .eq(self._io.rx_datak.i1),
+
+            # RX_VALID indicates that we have symbol lock; and thus should remain
+            # high throughout our whole stream. Accordingly, we can squish both values
+            # down into a single value without losing anything, as it should remain high
+            # once our signal has been trained.
+            self.rx_valid         .eq(self._io.rx_valid.i0 & self._io.rx_valid.i1),
+        ]
+
+        # Allow us to invert the polarity of our ``rx_polarity`` signal, to account for
+        # boards that have their Rx+/- lines swapped.
+        if self._invert_rx_polarity_signal:
+            m.d.comb += self._io.rx_polarity.eq(~self.rx_polarity)
+        else:
+            m.d.comb += self._io.rx_polarity.eq(self.rx_polarity)
 
         return m
+
+

@@ -22,17 +22,15 @@ class USBSuperSpeedExample(Elaboratable):
 
     def __init__(self):
         if WITH_ILA:
-            self.serdes_rx = Signal(32)
-            self.ctrl      = Signal(4)
-            self.valid     = Signal()
+            self.ila_data             = Signal(32)
+            self.ila_ctrl             = Signal(4)
 
             self.ila = USBIntegratedLogicAnalyer(
                 bus="usb",
                 domain="ss",
                 signals=[
-                    self.serdes_rx,
-                    self.ctrl,
-                    self.valid,
+                    self.ila_data,
+                    self.ila_ctrl,
                 ],
                 sample_depth=128,
                 max_packet_size=64
@@ -55,15 +53,29 @@ class USBSuperSpeedExample(Elaboratable):
         m.submodules.phy = phy = platform.create_usb3_phy()
 
         # Create our core SuperSpeed device.
-        m.submodules.usb = USBSuperSpeedDevice(phy=phy)
+        m.submodules.usb = usb = USBSuperSpeedDevice(phy=phy, sync_frequency=50e6)
+
+
+        # Heartbeat LED.
+        counter = Signal(28)
+        m.d.ss += counter.eq(counter + 1)
+
+        m.d.comb += [
+            platform.get_led(m, 0).o.eq(usb.link_in_training),
+            platform.get_led(m, 1).o.eq(usb.link_trained),
+
+            # Heartbeat.
+            platform.get_led(m, 7).o.eq(counter[-1])
+        ]
+
+
 
         if WITH_ILA:
             m.d.comb += [
                 # ILA
-                self.serdes_rx    .eq(phy.source.data),
-                self.ctrl         .eq(phy.source.ctrl),
-                self.valid        .eq(phy.source.valid),
-                self.ila.trigger  .eq(phy.source.data.word_select(3, 8) == 0xbc)
+                self.ila_data     .eq(usb.data_tap.data),
+                self.ila_ctrl     .eq(usb.data_tap.ctrl),
+                self.ila.trigger  .eq(usb.data_tap.data[0:16] == 0x4545)
             ]
 
         # Return our elaborated module.
