@@ -25,10 +25,12 @@ class GearedPIPEInterface(Elaboratable):
     This module presents a public interface that's identical to a standard PIPE PHY,
     with the following exceptions:
 
-        - ``tx_data``   is 32 bits wide, rather than 16
-        - ``tx_datak`` is 4  bits wide, rather than  2
-        - ``rx_data``   is 32 bits wide, rather than 16
-        - ``rx_datak`` is 4  bits wide, rather than  2
+        - ``tx_data``    is 32 bits wide, rather than 16
+        - ``tx_datak``   is 4  bits wide, rather than  2
+        - ``rx_data``    is 32 bits wide, rather than 16
+        - ``rx_datak``   is 4  bits wide, rather than  2
+        - ``phy_status`` is 2 bits wide, rather than 1
+        - ``rx_status``  is now an array of two 3-bit signals
 
     This module *requires* that a half-rate / 125MHz clock that's in phase with the ``pipe_io``
     clock be provided to the ``pipe`` domain. This currently must be handled per-device, so it
@@ -52,6 +54,7 @@ class GearedPIPEInterface(Elaboratable):
     GEARING_XDR = {
         'tx_data': 2, 'tx_datak': 2, 'tx_clk':   2,
         'rx_data': 2, 'rx_datak': 2, 'rx_valid': 2,
+        'phy_status': 2, 'rx_status': 2
     }
 
 
@@ -71,6 +74,9 @@ class GearedPIPEInterface(Elaboratable):
         self.rx_data     = Signal(32)
         self.rx_datak    = Signal(4)
         self.rx_valid    = Signal()
+
+        self.phy_status  = Signal(2)
+        self.rx_status   = Array((Signal(3), Signal(3)))
 
         self.rx_polarity = Signal()
 
@@ -128,6 +134,8 @@ class GearedPIPEInterface(Elaboratable):
             self._io.rx_data.i_clk     .eq(ClockSignal("ss_shifted")),
             self._io.rx_datak.i_clk    .eq(ClockSignal("ss_shifted")),
             self._io.rx_valid.i_clk    .eq(ClockSignal("ss_shifted")),
+            self._io.phy_status.i_clk  .eq(ClockSignal("ss_shifted")),
+            self._io.rx_status.i_clk   .eq(ClockSignal("ss_shifted")),
         ]
 
         #
@@ -151,12 +159,22 @@ class GearedPIPEInterface(Elaboratable):
             self.rx_datak[ 0: 2]  .eq(self._io.rx_datak.i0),
             self.rx_datak[ 2: 4]  .eq(self._io.rx_datak.i1),
 
+            # Split our RX_STATUS to march our other geared I/O.
+            self.phy_status[0]    .eq(self._io.phy_status.i0),
+            self.phy_status[1]    .eq(self._io.phy_status.i1),
+
+            self.rx_status[0]     .eq(self._io.rx_status.i0),
+            self.rx_status[1]     .eq(self._io.rx_status.i1),
+
+
             # RX_VALID indicates that we have symbol lock; and thus should remain
             # high throughout our whole stream. Accordingly, we can squish both values
             # down into a single value without losing anything, as it should remain high
             # once our signal has been trained.
             self.rx_valid         .eq(self._io.rx_valid.i0 & self._io.rx_valid.i1),
         ]
+
+
 
         # Allow us to invert the polarity of our ``rx_polarity`` signal, to account for
         # boards that have their Rx+/- lines swapped.

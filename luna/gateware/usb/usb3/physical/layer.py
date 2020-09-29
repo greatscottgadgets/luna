@@ -15,7 +15,7 @@ from ...stream  import USBRawSuperSpeedStream
 
 from .lfps       import LFPSTransceiver
 from .scrambling import Scrambler, Descrambler
-from .power      import PHYResetController
+from .power      import PHYResetController, LinkPartnerDetector
 from .alignment  import PIPEWordAligner
 
 class USB3PhysicalLayer(Elaboratable):
@@ -42,35 +42,28 @@ class USB3PhysicalLayer(Elaboratable):
         # I/O port
         #
 
+        # Raw data streams.
+        self.sink                       = USBRawSuperSpeedStream()
+        self.source                     = USBRawSuperSpeedStream()
+
         # Physical link state.
         self.ready                      = Signal()
         self.engage_terminations        = Signal()
         self.tx_electrical_idle         = Signal()
         self.invert_rx_polarity         = Signal()
 
-        # Power control
-        self.power_state                = Signal(2)
-        self.power_transition_complete  = Signal()
-
-        # LFPS signaling
-        self.send_lfps_polling          = Signal()
-        self.lfps_polling_detected      = Signal()
-        self.lfps_cycles_sent           = Signal(16)
-
         # Scrambling control.
         self.enable_scrambling          = Signal()
 
-        # Raw data streams.
-        self.sink                       = USBRawSuperSpeedStream()
-        self.source                     = USBRawSuperSpeedStream()
-
+        # Link partner detection.
         self.perform_rx_detection       = Signal()
         self.link_partner_detected      = Signal()
+        self.no_link_partner_detected   = Signal()
 
-        # LFPS control.
+        # LFPS control / detection.
         self.send_lfps_polling          = Signal()
         self.lfps_polling_detected      = Signal()
-        self.total_lfps_sent            = Signal(16)
+        self.lfps_cycles_sent           = Signal(16)
 
 
     def elaborate(self, platform):
@@ -83,12 +76,29 @@ class USB3PhysicalLayer(Elaboratable):
         m.submodules.reset_controller = reset_controller = PHYResetController(sync_frequency=self._sync_frequency)
         m.d.comb += [
             phy.reset                       .eq(reset_controller.reset),
+            phy.phy_reset                   .eq(reset_controller.reset),
 
             reset_controller.phy_status     .eq(phy.phy_status),
             self.ready                      .eq(reset_controller.ready),
+        ]
 
-            phy.power_down                  .eq(reset_controller.power_state),
-            self.power_transition_complete  .eq(phy.phy_status)
+        #
+        # Link Partner Detection
+        #
+        m.submodules.rx_detect = rx_detect = LinkPartnerDetector(rx_status=phy.rx_status)
+        m.d.comb += [
+            rx_detect.request_detection    .eq(self.perform_rx_detection),
+            rx_detect.phy_status           .eq(phy.phy_status),
+
+            #phy.power_down                 .eq(rx_detect.power_state),
+
+            #self.link_partner_detected     .eq(rx_detect.new_result & rx_detect.partner_present),
+            #self.no_link_partner_detected  .eq(rx_detect.new_result & ~rx_detect.partner_present)
+
+            # FIXME: this is temporary; it speeds up partner detection, but isn't correct
+            # (This incorrectly attempts to do link training on USB2 hosts, too).
+            phy.power_down                  .eq(0),
+            self.link_partner_detected      .eq(phy.pwrpresent)
         ]
 
 
@@ -98,7 +108,6 @@ class USB3PhysicalLayer(Elaboratable):
         m.submodules.scrambler = scrambler = Scrambler()
         m.d.comb += [
             scrambler.enable  .eq(self.enable_scrambling),
-            scrambler.clear   .eq(~self.enable_scrambling),
 
             scrambler.sink    .stream_eq(self.sink),
         ]
@@ -150,13 +159,9 @@ class USB3PhysicalLayer(Elaboratable):
 
 
         m.d.comb += [
-
             # Pass through many of our control signals directly to the PHY.
             phy.rx_termination           .eq(self.engage_terminations),
             phy.rx_polarity              .eq(self.invert_rx_polarity),
-
-            # For now, pretend we always see a receiver.
-            self.link_partner_detected   .eq(1)
         ]
 
         #
@@ -200,28 +205,31 @@ class USB3PhysicalLayer(Elaboratable):
         ]
 
 
-        m.d.comb += [
-            # In P0, pass through TX_ELECIDLE directly, as it has its intended meaning.
-            phy.tx_elecidle              .eq(self.tx_electrical_idle),
+        with m.Switch(phy.power_down):
 
-            # In P0, the TX_DETRX_LPBK signal is used to drive an LFPS square wave onto the
-            # transmit line when we're in electrical idle; but that signal places us
-            # into loopback when it's not driven. [TUSB1310A: Table 5-3]
-            #
-            # To prevent some difficult-to-diagnose situations, we'll prevent LFPS from
-            # being driven while we're in loopback.
-            phy.tx_detrx_lpbk             .eq(lfps.send_lfps_signaling & self.tx_electrical_idle)
-        ]
+            # In PO, we'll let the LTSSM control electrical idle, and pass through our signals
+            # in a way that allows LTSSM.
+            with m.Case(0):
+                m.d.comb += [
+                    # In P0, pass through TX_ELECIDLE directly, as it has its intended meaning.
+                    phy.tx_elecidle              .eq(self.tx_electrical_idle),
 
-        #with m.Else():
-        #    m.d.comb += [
-        #        # In power states other than P0, driving TX_ELECIDLE with TX_DETRX_LPBK
-        #        # low sends LFPS signaling (logic: if it's not idle, it's sending LFPS).
-        #        phy.tx_elecidle               .eq(~lfps.send_lfps_signaling),
+                    # In P0, the TX_DETRX_LPBK signal is used to drive an LFPS square wave onto the
+                    # transmit line when we're in electrical idle; but that signal places us
+                    # into loopback when it's not driven. [TUSB1310A: Table 5-3]
+                    #
+                    # To prevent some difficult-to-diagnose situations, we'll prevent LFPS from
+                    # being driven while we're in loopback.
+                    phy.tx_detrx_lpbk             .eq(lfps.send_lfps_signaling & self.tx_electrical_idle)
+                ]
 
-        #        # TODO: support receiver detection in P2
-        #        phy.tx_detrx_lpbk             .eq(0)
-        #    ]
+            # For now, we won't support LFPS from states other than P0, as our LTSSM only
+            # performs it from P0. We'll use the PHY exclusively for receiver detection.
+            with m.Default():
+                m.d.comb += [
+                    phy.tx_elecidle               .eq(1),
+                    phy.tx_detrx_lpbk             .eq(rx_detect.detection_control)
+                ]
 
 
 

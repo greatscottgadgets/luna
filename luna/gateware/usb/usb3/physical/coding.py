@@ -95,6 +95,6 @@ def stream_word_matches_symbol(stream, word_number, *, symbol):
     return (
         stream.valid &
         (stream.data.word_select(word_number, 8) == symbol.value) &
-        (stream.ctrl[word_number])
+        (stream.ctrl[word_number] == symbol.ctrl)
     )
 

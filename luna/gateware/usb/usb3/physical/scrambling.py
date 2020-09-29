@@ -4,14 +4,21 @@
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # Copyright (c) 2020 Florent Kermarrec <florent@enjoy-digital.fr>
 #
-# Code based on ``litex`` and ``usb3_pipe``.
+# Code based on ``usb3_pipe``.
 # SPDX-License-Identifier: BSD-3-Clause
 """ Scrambling and descrambling for USB3. """
 
+import unittest
+import operator
+import functools
+
 from nmigen import *
 
-from .coding   import COM
+from .coding   import COM, stream_word_matches_symbol
 from ...stream import USBRawSuperSpeedStream
+
+from ....test.utils import LunaSSGatewareTestCase, ss_domain_test_case
+
 
 #
 # Scrambling modules.
@@ -54,71 +61,102 @@ class ScramblerLFSR(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-        new = Signal(16)
-        cur = Signal(16, reset=self._initial_value)
+        next_value       = Signal(16)
+        current_value    = Signal(16, reset=self._initial_value)
 
-        # TODO: replace me with something like the USB2 format?
-        m.d.comb += [
-            new[0]   .eq(cur[0]  ^ cur[6] ^ cur[8]  ^ cur[10]),
-            new[1]   .eq(cur[1]  ^ cur[7] ^ cur[9]  ^ cur[11]),
-            new[2]   .eq(cur[2]  ^ cur[8] ^ cur[10] ^ cur[12]),
-            new[3]   .eq(cur[3]  ^ cur[6] ^ cur[8]  ^ cur[9]  ^ cur[10] ^ cur[11] ^ cur[13]),
-            new[4]   .eq(cur[4]  ^ cur[6] ^ cur[7]  ^ cur[8]  ^ cur[9]  ^ cur[11] ^ cur[12] ^ cur[14]),
-            new[5]   .eq(cur[5]  ^ cur[6] ^ cur[7]  ^ cur[9]  ^ cur[12] ^ cur[13] ^ cur[15]),
-            new[6]   .eq(cur[0]  ^ cur[6] ^ cur[7]  ^ cur[8]  ^ cur[10] ^ cur[13] ^ cur[14]),
-            new[7]   .eq(cur[1]  ^ cur[7] ^ cur[8]  ^ cur[9]  ^ cur[11] ^ cur[14] ^ cur[15]),
-            new[8]   .eq(cur[0]  ^ cur[2] ^ cur[8]  ^ cur[9]  ^ cur[10] ^ cur[12] ^ cur[15]),
-            new[9]   .eq(cur[1]  ^ cur[3] ^ cur[9]  ^ cur[10] ^ cur[11] ^ cur[13]),
-            new[10]  .eq(cur[0] ^ cur[2] ^ cur[4]  ^ cur[10] ^ cur[11] ^ cur[12] ^ cur[14]),
-            new[11]  .eq(cur[1] ^ cur[3] ^ cur[5]  ^ cur[11] ^ cur[12] ^ cur[13] ^ cur[15]),
-            new[12]  .eq(cur[2] ^ cur[4] ^ cur[6]  ^ cur[12] ^ cur[13] ^ cur[14]),
-            new[13]  .eq(cur[3] ^ cur[5] ^ cur[7]  ^ cur[13] ^ cur[14] ^ cur[15]),
-            new[14]  .eq(cur[4] ^ cur[6] ^ cur[8]  ^ cur[14] ^ cur[15]),
-            new[15]  .eq(cur[5] ^ cur[7] ^ cur[9]  ^ cur[15]),
+        def xor_bits(*indices):
+            bits = (current_value[i] for i in indices)
+            return functools.reduce(operator.__xor__, bits)
 
-            self.value[0]   .eq(cur[15]),
-            self.value[1]   .eq(cur[14]),
-            self.value[2]   .eq(cur[13]),
-            self.value[3]   .eq(cur[12]),
-            self.value[4]   .eq(cur[11]),
-            self.value[5]   .eq(cur[10]),
-            self.value[6]   .eq(cur[9]),
-            self.value[7]   .eq(cur[8]),
-            self.value[8]   .eq(cur[7]),
-            self.value[9]   .eq(cur[6]),
-            self.value[10]  .eq(cur[5]),
-            self.value[11]  .eq(cur[4]  ^ cur[15]),
-            self.value[12]  .eq(cur[3]  ^ cur[14] ^ cur[15]),
-            self.value[13]  .eq(cur[2]  ^ cur[13] ^ cur[14] ^ cur[15]),
-            self.value[14]  .eq(cur[1]  ^ cur[12] ^ cur[13] ^ cur[14]),
-            self.value[15]  .eq(cur[0]  ^ cur[11] ^ cur[12] ^ cur[13]),
-            self.value[16]  .eq(cur[10] ^ cur[11] ^ cur[12] ^ cur[15]),
-            self.value[17]  .eq(cur[9]  ^ cur[10] ^ cur[11] ^ cur[14]),
-            self.value[18]  .eq(cur[8]  ^ cur[9]  ^ cur[10] ^ cur[13]),
-            self.value[19]  .eq(cur[7]  ^ cur[8]  ^ cur[9]  ^ cur[12]),
-            self.value[20]  .eq(cur[6]  ^ cur[7]  ^ cur[8]  ^ cur[11]),
-            self.value[21]  .eq(cur[5]  ^ cur[6]  ^ cur[7]  ^ cur[10]),
-            self.value[22]  .eq(cur[4]  ^ cur[5]  ^ cur[6]  ^ cur[9]  ^ cur[15]),
-            self.value[23]  .eq(cur[3]  ^ cur[4]  ^ cur[5]  ^ cur[8]  ^ cur[14]),
-            self.value[24]  .eq(cur[2]  ^ cur[3]  ^ cur[4]  ^ cur[7]  ^ cur[13] ^ cur[15]),
-            self.value[25]  .eq(cur[1]  ^ cur[2]  ^ cur[3]  ^ cur[6]  ^ cur[12] ^ cur[14]),
-            self.value[26]  .eq(cur[0]  ^ cur[1]  ^ cur[2]  ^ cur[5]  ^ cur[11] ^ cur[13] ^ cur[15]),
-            self.value[27]  .eq(cur[0]  ^ cur[1]  ^ cur[4]  ^ cur[10] ^ cur[12] ^ cur[14]),
-            self.value[28]  .eq(cur[0]  ^ cur[3]  ^ cur[9]  ^ cur[11] ^ cur[13]),
-            self.value[29]  .eq(cur[2]  ^ cur[8]  ^ cur[10] ^ cur[12]),
-            self.value[30]  .eq(cur[1]  ^ cur[7]  ^ cur[9]  ^ cur[11]),
-            self.value[31]  .eq(cur[0]  ^ cur[6]  ^ cur[8]  ^ cur[10]),
-        ]
+
+        # Compute the next value in our internal LFSR state...
+        m.d.comb += next_value.eq(Cat(
+            xor_bits(0, 6, 8, 10),               # 0
+            xor_bits(1, 7, 9, 11),               # 1
+            xor_bits(2, 8, 10, 12),              # 2
+            xor_bits(3, 6, 8, 9, 10, 11, 13),    # 3
+            xor_bits(4, 6, 7, 8, 9, 11, 12, 14), # 4
+            xor_bits(5, 6, 7, 9, 12, 13, 15),    # 5
+            xor_bits(0, 6, 7, 8, 10, 13, 14),    # 6
+            xor_bits(1, 7, 8, 9, 11, 14, 15),    # 7
+            xor_bits(0, 2, 8, 9, 10, 12, 15),    # 8
+            xor_bits(1, 3, 9, 10, 11, 13),       # 9
+            xor_bits(0, 2, 4, 10, 11, 12, 14),   # 10
+            xor_bits(1, 3, 5, 11, 12, 13, 15),   # 11
+            xor_bits(2, 4, 6, 12, 13, 14),       # 12
+            xor_bits(3, 5, 7, 13, 14, 15),       # 13
+            xor_bits(4, 6, 8, 14, 15),           # 14
+            xor_bits(5, 7, 9, 15)                # 15
+        ))
+
+        # Compute the LFSR's current output.
+        m.d.comb += self.value.eq(Cat(
+            current_value[15],
+            current_value[14],
+            current_value[13],
+            current_value[12],
+            current_value[11],
+            current_value[10],
+            current_value[9],
+            current_value[8],
+            current_value[7],
+            current_value[6],
+            current_value[5],
+            xor_bits(4,  15),
+            xor_bits(3,  14, 15),
+            xor_bits(2,  13, 14, 15),
+            xor_bits(1,  12, 13, 14),
+            xor_bits(0,  11, 12, 13),
+            xor_bits(10, 11, 12, 15),
+            xor_bits(9,  10, 11, 14),
+            xor_bits(8,  9 , 10, 13),
+            xor_bits(7,  8 , 9,  12),
+            xor_bits(6,  7 , 8,  11),
+            xor_bits(5,  6 , 7,  10),
+            xor_bits(4,  5 , 6,  9,  15),
+            xor_bits(3,  4 , 5,  8,  14),
+            xor_bits(2,  3 , 4,  7,  13, 15),
+            xor_bits(1,  2 , 3,  6,  12, 14),
+            xor_bits(0,  1 , 2,  5,  11, 13, 15),
+            xor_bits(0,  1 , 4,  10, 12, 14),
+            xor_bits(0,  3 , 9,  11, 13),
+            xor_bits(2,  8 , 10, 12),
+            xor_bits(1,  7 , 9,  11),
+            xor_bits(0,  6 , 8,  10)
+        ))
 
         # If we have a reset, clear our LFSR.
         with m.If(self.clear):
-            m.d.ss += cur.eq(self._initial_value)
+            m.d.ss += current_value.eq(self._initial_value)
 
         # Otherwise, advance when desired.
         with m.Elif(self.advance):
-            m.d.ss += cur.eq(new)
+            m.d.ss += current_value.eq(next_value)
 
         return m
+
+
+class ScramblerLFSRTest(LunaSSGatewareTestCase):
+    FRAGMENT_UNDER_TEST = ScramblerLFSR
+
+    @ss_domain_test_case
+    def test_lfsr_stream(self):
+        # From the table of 8-bit encoded values, [USB3.2, Appendix B.1].
+        # We can continue this as long as we want to get more thorough testing,
+        # but for now, this is probably enough.
+        scrambled_sequence = [
+            0x14c017ff, 0x8202e7b2, 0xa6286e72, 0x8dbf6dbe,   # Row 1 (0x00)
+            0xe6a740be, 0xb2e2d32c, 0x2a770207, 0xe0be34cd,   # Row 2 (0x10)
+            0xb1245da7, 0x22bda19b, 0xd31d45d4, 0xee76ead7    # Row 3 (0x20)
+        ]
+
+        yield self.dut.advance.eq(1)
+        yield
+
+        # Check that our LFSR produces each of our values in order.
+        for index, value in enumerate(scrambled_sequence):
+            self.assertEqual((yield self.dut.value), value, f"incorrect value at cycle {index}")
+            yield
 
 
 
@@ -161,11 +199,14 @@ class Scrambler(Elaboratable):
         sink   = self.sink
         source = self.source
 
+        # Detect when we're sending a comma; which should reset our scrambling LFSR.
+        comma_present = stream_word_matches_symbol(sink, 0, symbol=COM)
+
         # Create our inner LFSR, which should advance whenever our input streams do.
         m.submodules.lfsr = lfsr = ScramblerLFSR(initial_value=self._initial_value)
         m.d.comb += [
-            lfsr.clear    .eq(self.clear),
-            lfsr.advance  .eq(sink.valid & sink.ready)
+            lfsr.clear    .eq(self.clear | comma_present),
+            lfsr.advance  .eq(sink.valid & source.ready)
         ]
 
         # Pass through non-scrambled signals directly.
@@ -251,3 +292,7 @@ class Descrambler(Elaboratable):
                 m.d.comb += scrambler.clear.eq(1)
 
         return m
+
+
+if __name__ == "__main__":
+    unittest.main()

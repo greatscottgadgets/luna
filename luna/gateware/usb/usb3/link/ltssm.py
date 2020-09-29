@@ -61,8 +61,6 @@ class LTSSMController(Elaboratable):
 
         # Power states.
         self.phy_ready                 = Signal()
-        self.power_state               = Signal(2, reset=2)
-        self.power_transition_complete = Signal()
 
         # Link control signals.
         self.tx_electrical_idle        = Signal()
@@ -72,6 +70,7 @@ class LTSSMController(Elaboratable):
         # Receiver detection.
         self.perform_rx_detection      = Signal()
         self.link_partner_detected     = Signal()
+        self.no_link_partner_detected  = Signal()
 
         # LFPS detection / emission.
         self.lfps_polling_detected     = Signal()
@@ -100,13 +99,11 @@ class LTSSMController(Elaboratable):
         m = Module()
 
         #
-        #  Control Signals
+        #  Default signal values.
         #
-        m.d.comb += [
-            # Engage our receive terminations, unless the current state directs otherwise.
-            self.engage_terminations  .eq(1)
-        ]
 
+        # Engage our receive terminations, unless the current state directs otherwise.
+        m.d.comb += self.engage_terminations.eq(1)
 
 
         #
@@ -196,7 +193,6 @@ class LTSSMController(Elaboratable):
                     # ... and prevent ourselves from presenting receiver terminations until
                     # our PHY has started up; so the other side doesn't start LFPS polling, yet.
                     self.engage_terminations  .eq(0)
-
                 ]
 
 
@@ -211,9 +207,29 @@ class LTSSMController(Elaboratable):
             # detect whether we're connected to another SuperSpeed transciever via a cable, so
             # we don't waste time performing link training if our link isn't there.
             with m.State("Rx.Detect.Active"):
+                m.d.comb += [
+                    self.tx_electrical_idle    .eq(1),
+                    self.perform_rx_detection  .eq(1)
+                ]
+
+                with m.If(self.link_partner_detected):
+                    transition_to_state("Polling.LFPS")
+                with m.If(self.no_link_partner_detected):
+                    transition_to_state("Rx.Detect.Quiet")
+
+
+            # Rx.Detect.Quiet -- we've performed a link detection, but didn't detect anyone.
+            # We'll wait here until our next detection cycle, saving the power of performing
+            # continuous detections.
+            with m.State("Rx.Detect.Quiet"):
                 m.d.comb += self.tx_electrical_idle.eq(1)
 
-                transition_to_state("Polling.LFPS")
+                # TODO: count our number of failed attempts; and disable
+                # SuperSpeed after we see eight of them.
+
+                # After 12ms, try again.
+                transition_on_timeout(12e-3, to="Rx.Detect.Active")
+
 
 
             # Polling.LFPS -- now that we know there's someone listening on the other side, we'll
@@ -254,7 +270,7 @@ class LTSSMController(Elaboratable):
 
 
                 # If we haven't yet sent 16 bursts, track how many bursts we have sent.
-                with m.Elif(lfps_burst_seen):
+                with m.Elif(self.lfps_polling_detected):
                     m.d.ss += lfps_burst_seen.eq(1)
 
                     with m.If(self.lfps_cycles_sent > 12):

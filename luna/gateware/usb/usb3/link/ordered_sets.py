@@ -85,13 +85,23 @@ class TSDetector(Elaboratable):
         consecutive_set_count = Signal(range(0, self._detection_threshold + 1))
 
         # Aliases.
-        data         = ~self.sink.data if self._invert else self.sink.data
         control_bits = self.sink.ctrl
+        data = Signal.like(self.sink.data)
 
         # TODO: also check the control bits, here
         is_control_word = (control_bits == 0b1111)
         is_data_word    = (control_bits == 0b0000)
         word_starts_set = (data == self.START_OF_SET) & is_control_word
+
+        # If we're inverting, invert all of our non-control codes.
+        if self._invert:
+            with m.If(is_data_word):
+                m.d.comb += data.eq(~self.sink.data)
+            with m.Else():
+                m.d.comb += data.eq(self.sink.data)
+        else:
+            m.d.comb += data.eq(self.sink.data)
+
 
 
         with m.FSM(domain="ss"):

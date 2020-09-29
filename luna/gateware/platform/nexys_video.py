@@ -54,7 +54,7 @@ class NexysVideoClockDomainGenerator(Elaboratable):
         m.domains.ss_shifted    = ClockDomain()
 
         # Grab our main clock.
-        clk50 = platform.request(platform.default_clk)
+        clk100 = platform.request(platform.default_clk)
 
         # USB2 PLL connections.
         usb2_locked   = Signal()
@@ -75,7 +75,7 @@ class NexysVideoClockDomainGenerator(Elaboratable):
             p_CLKIN1_PERIOD        = 20.000,
             i_CLKFBIN              = usb2_feedback,
             o_CLKFBOUT             = usb2_feedback,
-            i_CLKIN1               = clk50,
+            i_CLKIN1               = clk100,
             o_CLKOUT0              = ClockSignal("usb"),
             o_CLKOUT1              = ClockSignal("usb_io"),
             o_LOCKED               = usb2_locked,
@@ -111,7 +111,7 @@ class NexysVideoClockDomainGenerator(Elaboratable):
             # CLKOUT1 = 125 MHz / 8ns (1/2 PCLK + phase delay)
             # We want to sample our input after 2ns. This is >=90 degrees of this clock.
             p_CLKOUT1_DIVIDE       = 8,
-            p_CLKOUT1_PHASE        = 270.0,
+            p_CLKOUT1_PHASE        = 180.0,
             o_CLKOUT1              = ClockSignal("ss_shifted"),
 
             # CLKOUT2 = 250 MHz (PCLK + phase delay)
@@ -134,7 +134,7 @@ class NexysVideoClockDomainGenerator(Elaboratable):
         # Connect up our clock domains.
         m.d.comb += [
             # Synthetic clock domains.
-            ClockSignal("sync")           .eq(clk50),
+            ClockSignal("sync")           .eq(clk100),
             ClockSignal("fast")           .eq(ClockSignal("ss_io")),
             ResetSignal("fast")           .eq(~usb3_locked),
 
@@ -335,7 +335,7 @@ class NexysVideoPlatform(Xilinx7SeriesPlatform, LUNAPlatform):
             Subsignal("reset",          PinsN("FMC_0:LA02_N",             dir="o" )),
             Subsignal("phy_reset",      PinsN("FMC_0:LA08_N",             dir="o" )),
             Subsignal("power_down",     Pins("FMC_0:LA07_N FMC_0:LA12_N", dir="o" )),
-            Subsignal("phy_status",     Pins("FMC_0:LA19_N",              dir="i")),
+            Subsignal("phy_status",     Pins("FMC_0:LA21_N",              dir="i")),
             Subsignal("pwrpresent",     Pins("FMC_0:LA31_N",              dir="i" )),
             Subsignal("out_enable",     Pins("FMC_0:LA04_N"  ,            dir="o" )),
 

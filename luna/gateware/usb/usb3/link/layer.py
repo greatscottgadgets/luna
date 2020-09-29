@@ -69,44 +69,45 @@ class USB3LinkLayer(Elaboratable):
         #
         m.submodules.ltssm = ltssm = LTSSMController(ss_clock_frequency=self._clock_frequency)
         m.d.comb += [
-            ltssm.phy_ready                    .eq(physical_layer.ready),
-
-            # Power control.
-            physical_layer.power_state         .eq(ltssm.power_state),
-            ltssm.power_transition_complete    .eq(physical_layer.power_transition_complete),
+            ltssm.phy_ready                      .eq(physical_layer.ready),
 
             # TODO: detect LPFS warm reset signaling
-            ltssm.in_usb_reset                 .eq(0),
+            ltssm.in_usb_reset                   .eq(0),
+
+            # Link Partner Detection
+            physical_layer.perform_rx_detection  .eq(ltssm.perform_rx_detection),
+            ltssm.link_partner_detected          .eq(physical_layer.link_partner_detected),
+            ltssm.no_link_partner_detected       .eq(physical_layer.no_link_partner_detected),
 
             # Pass down our link controls to the physical layer.
-            physical_layer.tx_electrical_idle  .eq(ltssm.tx_electrical_idle),
-            physical_layer.engage_terminations .eq(ltssm.engage_terminations),
+            physical_layer.tx_electrical_idle    .eq(ltssm.tx_electrical_idle),
+            physical_layer.engage_terminations   .eq(ltssm.engage_terminations),
 
             # LFPS control.
-            ltssm.lfps_polling_detected        .eq(physical_layer.lfps_polling_detected),
-            physical_layer.send_lfps_polling   .eq(ltssm.send_lfps_polling),
-            ltssm.lfps_cycles_sent             .eq(physical_layer.lfps_cycles_sent),
+            ltssm.lfps_polling_detected          .eq(physical_layer.lfps_polling_detected),
+            physical_layer.send_lfps_polling     .eq(ltssm.send_lfps_polling),
+            ltssm.lfps_cycles_sent               .eq(physical_layer.lfps_cycles_sent),
 
             # Training set detectors
-            ltssm.ts1_detected                 .eq(ts.ts1_detected),
-            ltssm.inverted_ts1_detected        .eq(ts.inverted_ts1_detected),
-            ltssm.ts2_detected                 .eq(ts.ts2_detected),
+            ltssm.ts1_detected                   .eq(ts.ts1_detected),
+            ltssm.inverted_ts1_detected          .eq(ts.inverted_ts1_detected),
+            ltssm.ts2_detected                   .eq(ts.ts2_detected),
 
             # Training set emitters
-            ts.send_tseq_burst                 .eq(ltssm.send_tseq_burst),
-            ts.send_ts1_burst                  .eq(ltssm.send_ts1_burst),
-            ts.send_ts2_burst                  .eq(ltssm.send_ts2_burst),
-            ltssm.ts_burst_complete            .eq(ts.burst_complete),
+            ts.send_tseq_burst                   .eq(ltssm.send_tseq_burst),
+            ts.send_ts1_burst                    .eq(ltssm.send_ts1_burst),
+            ts.send_ts2_burst                    .eq(ltssm.send_ts2_burst),
+            ltssm.ts_burst_complete              .eq(ts.burst_complete),
 
             # Scrambling control.
-            physical_layer.enable_scrambling   .eq(ltssm.enable_scrambling),
+            physical_layer.enable_scrambling     .eq(ltssm.enable_scrambling),
 
             # Idle detection.
-            ltssm.logical_idle_detected        .eq(1 | idle.idle_detected),
+            ltssm.logical_idle_detected          .eq(1 | idle.idle_detected),
 
             # Status signaling.
-            self.trained                      .eq(ltssm.link_ready),
-            self.in_training                  .eq(ltssm.send_tseq_burst | ltssm.send_ts1_burst | ltssm.send_ts2_burst)
+            self.trained                         .eq(ltssm.link_ready),
+            self.in_training                     .eq(ltssm.send_tseq_burst | ltssm.send_ts1_burst | ltssm.send_ts2_burst)
         ]
 
         #
