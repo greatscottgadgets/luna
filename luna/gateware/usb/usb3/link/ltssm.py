@@ -58,6 +58,7 @@ class LTSSMController(Elaboratable):
 
         self.link_ready                = Signal()
         self.in_usb_reset              = Signal()
+        self.entering_u0               = Signal()
 
         # Power states.
         self.phy_ready                 = Signal()
@@ -381,6 +382,7 @@ class LTSSMController(Elaboratable):
                 # detected before we move to our next state. Since Logical Idle signals are scrambled,
                 # this helps to ensure that both sides of the link have synchronized scrambler state.
                 with m.If(self.idle_handshake_complete):
+                    m.d.comb += self.entering_u0.eq(1)
                     transition_to_state("U0")
 
                 # If we don't see that logical idle within 2ms, something's gone wrong. We'll need to

@@ -12,8 +12,9 @@ from ..physical.coding import IDL
 
 from .idle         import IdleHandshakeHandler
 from .ltssm        import LTSSMController
-from .command      import LinkCommandDetector
+from .command      import LinkCommandDetector, LinkCommandGenerator
 from .ordered_sets import TSTransceiver
+from .bringup      import LinkBringupSequencer
 
 
 class USB3LinkLayer(Elaboratable):
@@ -106,12 +107,35 @@ class USB3LinkLayer(Elaboratable):
             self.trained                         .eq(ltssm.link_ready)
         ]
 
+
+
         #
         # Link command handling.
         #
-        m.submodules.lc_receiver = lc_receiver = LinkCommandDetector()
+
+        # Link Command Receiver
+        m.submodules.lc_detector = lc_detector = LinkCommandDetector()
         m.d.comb += [
-            lc_receiver.sink  .stream_eq(physical_layer.source, omit={'ready'})
+            lc_detector.sink  .stream_eq(physical_layer.source, omit={'ready'})
+        ]
+
+        # Link Command Generator
+        m.submodules.lc_generator = lc_generator = LinkCommandGenerator()
+
+
+        #
+        # Link Bringup.
+        #
+        m.submodules.bringup = bringup = LinkBringupSequencer()
+        m.d.comb += [
+            bringup.entering_u0        .eq(ltssm.entering_u0),
+
+            lc_generator.bus_idle      .eq(ltssm.link_ready),
+            lc_generator.generate      .eq(bringup.request_link_command),
+            lc_generator.command       .eq(bringup.link_command),
+            lc_generator.subtype       .eq(bringup.link_command_subtype),
+
+            bringup.link_command_done  .eq(lc_generator.done)
         ]
 
 
@@ -122,6 +146,10 @@ class USB3LinkLayer(Elaboratable):
         # If we're transmitting training sets, pass those to the physical layer.
         with m.If(ts.transmitting & ~ltssm.link_ready):
             m.d.comb += physical_layer.sink.stream_eq(ts.source, endian_swap=True)
+
+        # If we're transmitting a link command, pass that to the physical layer.
+        with m.Elif(lc_generator.source.valid):
+            m.d.comb += physical_layer.sink.stream_eq(lc_generator.source)
 
         # Otherwise, if we have valid data to transmit, pass that along.
         with m.Elif(self.sink.valid):

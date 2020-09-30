@@ -189,6 +189,7 @@ class Scrambler(Elaboratable):
         #
         self.clear  = Signal()
         self.enable = Signal()
+        self.hold   = Signal()
 
         self.sink   = USBRawSuperSpeedStream()
         self.source = USBRawSuperSpeedStream()
@@ -210,7 +211,7 @@ class Scrambler(Elaboratable):
         m.submodules.lfsr = lfsr = ScramblerLFSR(initial_value=self._initial_value)
         m.d.comb += [
             lfsr.clear    .eq(self.clear | comma_present),
-            lfsr.advance  .eq(sink.valid & source.ready)
+            lfsr.advance  .eq(sink.valid & source.ready & ~self.hold)
         ]
 
         # Pass through non-scrambled signals directly.

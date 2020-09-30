@@ -163,7 +163,9 @@ class USB3PhysicalLayer(Elaboratable):
         m.submodules.tx_ctc = tx_ctc = CTCSkipInserter()
         m.d.comb += [
             tx_ctc.sink           .stream_eq(scrambler.source),
-            tx_ctc.can_send_skip  .eq(self.can_send_skp)
+            tx_ctc.can_send_skip  .eq(self.can_send_skp),
+
+            scrambler.hold        .eq(tx_ctc.sending_skip)
         ]
 
         # Convert our Tx stream into PHY connections whenever we're not in electrical idle.

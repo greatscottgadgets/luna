@@ -342,6 +342,10 @@ class CTCSkipInserter(Elaboratable):
     can_send_skip: Signal(), input
         Controls when SKPs can be inserted. This should be asserted when we're transmitting
         logical idle.
+
+    sending_skip: Signal(), output
+        Indicates that we're currently sending only SKP characters; and thus our scrambler
+        should not advance.
     """
 
     SKIP_INTERVAL_BYTES = 704
@@ -354,6 +358,7 @@ class CTCSkipInserter(Elaboratable):
         self.source        = USBRawSuperSpeedStream()
 
         self.can_send_skip = Signal()
+        self.sending_skip  = Signal()
 
 
     def elaborate(self, platform):
@@ -404,12 +409,17 @@ class CTCSkipInserter(Elaboratable):
         # Finally, if we can send a skip this cycle and need to, replace our IDLE
         with m.If(self.can_send_skip & (skip_pending | skip_needed)):
             m.d.ss += [
-                source.valid.eq(1),
-                source.data.eq(Repl(SKP.value_const(), 4)),
-                source.ctrl.eq(Repl(SKP.ctrl_const(),  4)),
+                source.valid       .eq(1),
+                source.data        .eq(Repl(SKP.value_const(), 4)),
+                source.ctrl        .eq(Repl(SKP.ctrl_const(),  4)),
+
+                self.sending_skip  .eq(1)
             ]
         with m.Else():
-            m.d.ss += self.source.stream_eq(self.sink)
+            m.d.ss += [
+                self.source        .stream_eq(self.sink),
+                self.sending_skip  .eq(0)
+            ]
 
         return m
 

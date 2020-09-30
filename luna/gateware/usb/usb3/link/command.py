@@ -8,12 +8,21 @@
 import functools
 import operator
 
+from enum import IntEnum
+
 from nmigen         import *
 from nmigen.hdl.ast import Past
 
 from ..physical.coding import SLC, EPF, stream_matches_symbols, get_word_for_symbols
 
 from ...stream import USBRawSuperSpeedStream
+
+
+class LinkCommand(IntEnum):
+    LGOOD = 0
+    LCRD  = 1
+
+
 
 
 def _generate_crc_for_link_command(token):
@@ -119,8 +128,8 @@ class LinkCommandDetector(Elaboratable):
 
                     # The core ten bits of our link command word are guarded by a CRC-5. We'll only
                     # accept link commands whose CRC matches.
-                    # FIXME: do this
-                    crc_matches = 1
+                    expected_crc = _generate_crc_for_link_command(link_command_word[0:11])
+                    crc_matches  = (link_command_word[11:16] == expected_crc)
 
                     # If we have a word that matches -all- of these criteria, accept it as a new command.
                     with m.If(contains_only_data & redundancy_matches & crc_matches):
@@ -216,6 +225,7 @@ class LinkCommandGenerator(Elaboratable):
                     with m.Else():
                         m.next = "WAIT_FOR_BUS"
 
+
             # WAIT_FOR_BUS -- we've received a generate command, and are now
             # waiting for the bus to be idle to send it.
             with m.State("WAIT_FOR_BUS"):
@@ -240,16 +250,28 @@ class LinkCommandGenerator(Elaboratable):
 
 
             # TRANSMIT_COMMAND -- we're now ready to send the core of our command.
-            with m.State("TRANSMIT_HEADER"):
+            with m.State("TRANSMIT_COMMAND"):
+                link_command = Signal(16)
 
                 # Drive our command onto the bus...
                 m.d.comb += [
+                    # First, build our core command...
+                    link_command[ 0: 4]      .eq(latched_subtype),
+                    link_command[ 4: 7]      .eq(0),  # Reserved.
+                    link_command[ 7:11]      .eq(latched_command),
+                    link_command[11:16]      .eq(_generate_crc_for_link_command(link_command[0:11])),
 
+                    # ... and then duplicate it as a command onto the output.
+                    self.source.valid        .eq(1),
+                    self.source.data[ 0:16]  .eq(link_command),
+                    self.source.data[16:32]  .eq(link_command),
+                    self.source.ctrl         .eq(0)
                 ]
 
                 # ... and keep driving it until it's accepted.
                 with m.If(self.source.ready):
-                    m.next = "TRANSMIT_COMMAND"
+                    m.d.comb += self.done.eq(1)
+                    m.next = "IDLE"
 
 
         return m
