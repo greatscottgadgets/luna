@@ -14,7 +14,7 @@ from luna.gateware.usb.devices.ila import USBIntegratedLogicAnalyer, USBIntegrat
 
 from luna.usb3                     import USBSuperSpeedDevice
 
-WITH_ILA = False
+WITH_ILA = True
 
 class USBSuperSpeedExample(Elaboratable):
     """ Work-in-progress example/test fixture for a SuperSpeed device. """
@@ -24,6 +24,7 @@ class USBSuperSpeedExample(Elaboratable):
         if WITH_ILA:
             self.ila_data             = Signal(32)
             self.ila_ctrl             = Signal(4)
+            self.ila_valid            = Signal()
 
             self.ila = USBIntegratedLogicAnalyer(
                 bus="usb",
@@ -31,9 +32,11 @@ class USBSuperSpeedExample(Elaboratable):
                 signals=[
                     self.ila_data,
                     self.ila_ctrl,
+                    self.ila_valid,
                 ],
-                sample_depth=128,
-                max_packet_size=64
+                sample_depth=512,
+                max_packet_size=64,
+                samples_pretrigger=16
             )
 
     def emit(self):
@@ -61,8 +64,7 @@ class USBSuperSpeedExample(Elaboratable):
         m.d.ss += counter.eq(counter + 1)
 
         m.d.comb += [
-            platform.get_led(m, 0).o.eq(usb.link_in_training),
-            platform.get_led(m, 1).o.eq(usb.link_trained),
+            platform.get_led(m, 0).o.eq(usb.link_trained),
 
             # Heartbeat.
             platform.get_led(m, 7).o.eq(counter[-1])
@@ -73,9 +75,10 @@ class USBSuperSpeedExample(Elaboratable):
         if WITH_ILA:
             m.d.comb += [
                 # ILA
-                self.ila_data     .eq(usb.data_tap.data),
-                self.ila_ctrl     .eq(usb.data_tap.ctrl),
-                self.ila.trigger  .eq(usb.data_tap.data[0:16] == 0x4545)
+                self.ila_data        .eq(usb.rx_data_tap.data),
+                self.ila_ctrl        .eq(usb.rx_data_tap.ctrl),
+                self.ila_valid       .eq(usb.rx_data_tap.valid),
+                self.ila.trigger     .eq(usb.link_trained)
             ]
 
         # Return our elaborated module.

@@ -37,11 +37,6 @@ class USB3LinkLayer(Elaboratable):
         # Status signals.
         self.trained               = Signal()
 
-        # Debug / status signals.  = Signal()
-        self.in_training           = Signal()
-        self.sending_ts1s          = Signal()
-        self.sending_ts2s          = Signal()
-
 
     def elaborate(self, platform):
         m = Module()
@@ -71,8 +66,9 @@ class USB3LinkLayer(Elaboratable):
         m.d.comb += [
             ltssm.phy_ready                      .eq(physical_layer.ready),
 
-            # TODO: detect LPFS warm reset signaling
-            ltssm.in_usb_reset                   .eq(0),
+            # For now, we'll consider ourselves in USB reset iff we detect reset signaling.
+            # This should be expanded; ideally to also consider e.g. loss of VBUS on some devices.
+            #ltssm.in_usb_reset                   .eq(physical_layer.lfps_reset_detected),
 
             # Link Partner Detection
             physical_layer.perform_rx_detection  .eq(ltssm.perform_rx_detection),
@@ -103,11 +99,11 @@ class USB3LinkLayer(Elaboratable):
             physical_layer.enable_scrambling     .eq(ltssm.enable_scrambling),
 
             # Idle detection.
-            ltssm.logical_idle_detected          .eq(1 | idle.idle_detected),
+            idle.enable                          .eq(ltssm.perform_idle_handshake),
+            ltssm.idle_handshake_complete        .eq(idle.idle_handshake_complete),
 
             # Status signaling.
-            self.trained                         .eq(ltssm.link_ready),
-            self.in_training                     .eq(ltssm.send_tseq_burst | ltssm.send_ts1_burst | ltssm.send_ts2_burst)
+            self.trained                         .eq(ltssm.link_ready)
         ]
 
         #
@@ -120,7 +116,7 @@ class USB3LinkLayer(Elaboratable):
 
 
         #
-        # SerDes transmit stream selection.
+        # PHY transmit stream selection.
         #
 
         # If we're transmitting training sets, pass those to the physical layer.
@@ -131,21 +127,17 @@ class USB3LinkLayer(Elaboratable):
         with m.Elif(self.sink.valid):
             m.d.comb += physical_layer.sink.stream_eq(self.sink)
 
-        # Otherwise, always generate logical idle symbols.
+        # Otherwise, always generate logical idle signaling.
         with m.Else():
             m.d.comb += [
-                physical_layer.sink.valid.eq(1),
-                physical_layer.sink.data.eq(IDL.value),
-                physical_layer.sink.ctrl.eq(0),
+
+                # Drive our physical layer with our IDL value (0x00)...
+                physical_layer.sink.valid    .eq(1),
+                physical_layer.sink.data     .eq(IDL.value),
+                physical_layer.sink.ctrl     .eq(IDL.ctrl),
+
+                # ... and let the physical layer know it can insert CTC skips.
+                physical_layer.can_send_skp  .eq(1)
             ]
-
-        #
-        # Debugging
-        #
-        m.d.comb += [
-            self.sending_ts1s.eq(ltssm.send_ts1_burst),
-            self.sending_ts2s.eq(ltssm.send_ts2_burst)
-        ]
-
 
         return m

@@ -91,7 +91,8 @@ class LTSSMController(Elaboratable):
 
         # Late-stage link management; physical layer control.
         self.enable_scrambling         = Signal()
-        self.logical_idle_detected     = Signal()
+        self.perform_idle_handshake    = Signal()
+        self.idle_handshake_complete   = Signal()
 
 
 
@@ -362,9 +363,14 @@ class LTSSMController(Elaboratable):
             # communications. We'll perform one final sanity check, and then move to our next state.
             # [USB3.2r1: 7.5.4.10]
             with m.State("Polling.Idle"):
+                m.d.comb += [
+                    # From this state onward, we have an active link, and we can thus enable data scrambling.
+                    self.enable_scrambling       .eq(1),
 
-                # From this state onward, we have an active link, and we can thus enable data scrambling.
-                m.d.comb += self.enable_scrambling.eq(1)
+                    # Generate our IDL handshake.
+                    self.perform_idle_handshake  .eq(1)
+                ]
+
 
                 # Theoretically, in this state, we'd decide between U0, Loopback, or Hot Reset,
                 # based on the contents of the most recent TS2 we'd received.
@@ -374,7 +380,7 @@ class LTSSMController(Elaboratable):
                 # As one final sanity check, we'll require a proper period of Logical Idle to be
                 # detected before we move to our next state. Since Logical Idle signals are scrambled,
                 # this helps to ensure that both sides of the link have synchronized scrambler state.
-                with m.If(self.logical_idle_detected):
+                with m.If(self.idle_handshake_complete):
                     transition_to_state("U0")
 
                 # If we don't see that logical idle within 2ms, something's gone wrong. We'll need to

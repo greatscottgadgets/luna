@@ -39,10 +39,8 @@ class USBSuperSpeedDevice(Elaboratable):
         self.link_trained = Signal()
 
         # Temporary, debug signals.
-        self.data_tap         = USBRawSuperSpeedStream()
-        self.sending_ts1s     = Signal()
-        self.sending_ts2s     = Signal()
-        self.link_in_training = Signal()
+        self.rx_data_tap         = USBRawSuperSpeedStream()
+        self.tx_data_tap         = USBRawSuperSpeedStream()
 
 
     def elaborate(self, platform):
@@ -51,21 +49,17 @@ class USBSuperSpeedDevice(Elaboratable):
         #
         # Physical layer.
         #
-        m.submodules.physical = physical = \
-                USB3PhysicalLayer(phy=self._phy, sync_frequency=self._sync_frequency)
-        m.d.comb += [
-            self.data_tap  .stream_eq(physical.source, omit={'ready'})
-        ]
+        m.submodules.physical = physical = USB3PhysicalLayer(
+            phy            = self._phy,
+            sync_frequency = self._sync_frequency
+        )
 
         #
         # Link layer.
         #
         m.submodules.link = link = USB3LinkLayer(physical_layer=physical)
         m.d.comb += [
-            self.link_trained     .eq(link.trained),
-            self.link_in_training .eq(link.in_training),
-            self.sending_ts1s     .eq(link.sending_ts1s),
-            self.sending_ts2s     .eq(link.sending_ts2s)
+            self.link_trained     .eq(link.trained)
         ]
 
 
@@ -78,6 +72,16 @@ class USBSuperSpeedDevice(Elaboratable):
         # Application layer.
         #
         # TODO
+
+        #
+        # Debug helpers.
+        #
+
+        # Tap our transmit and receive lines, so they can be externally analyzed.
+        m.d.comb += [
+            self.rx_data_tap  .stream_eq(physical.source, omit={'ready'}),
+            self.tx_data_tap  .stream_eq(physical.sink,   omit={'ready'})
+        ]
 
 
         return m

@@ -225,10 +225,9 @@ class LFPSDetector(Elaboratable):
         Strobes high when a valid LFPS burst is detected.
 
     """
-    def __init__(self, lfps_pattern, ss_clk_frequency=125e6, fast_clk_frequency=250e6):
+    def __init__(self, lfps_pattern, ss_clk_frequency=125e6):
         self._pattern              = lfps_pattern
         self._clock_frequency      = ss_clk_frequency
-        self._fast_clock_frequency = fast_clk_frequency
 
         #
         # I/O port
@@ -245,16 +244,21 @@ class LFPSDetector(Elaboratable):
 
         # Figure out how large of a counter we're going to need...
         burst_cycles_min    = _ns_to_cycles(self._clock_frequency, self._pattern.burst.t_min)
-        repeat_cycles_min   = _ns_to_cycles(self._clock_frequency, self._pattern.repeat.t_min)
         burst_cycles_max    = _ns_to_cycles(self._clock_frequency, self._pattern.burst.t_max)
-        repeat_cycles_max   = _ns_to_cycles(self._clock_frequency, self._pattern.repeat.t_max)
-        counter_max         = max(burst_cycles_max, repeat_cycles_max)
+
+        # If we have a repeat interval, include it in our calculations.
+        if self._pattern.repeat is not None:
+            repeat_cycles_max   = _ns_to_cycles(self._clock_frequency, self._pattern.repeat.t_max)
+            repeat_cycles_min   = _ns_to_cycles(self._clock_frequency, self._pattern.repeat.t_min)
+            counter_max         = max(burst_cycles_max, repeat_cycles_max)
+        else:
+            counter_max         = burst_cycles_max
 
         # ... and create our counter.
         count = Signal(range(0, counter_max + 1))
         m.d.ss += count.eq(count + 1)
 
-        # Keep track of whether our previous iteration matched; as we're interested in detecting
+        # Keep track of whether our previous iteration matched; as we're typically in detecting
         # sequences of two correct LFPS cycles in a row.
         last_iteration_matched = Signal()
 
@@ -289,36 +293,44 @@ class LFPSDetector(Elaboratable):
                     with m.If(count < burst_cycles_min):
                         m.next = 'WAIT_FOR_NEXT_BURST'
 
-                    # If our burst ended within a reasonable span, move on to measuring the spacing between
-                    # bursts ("repeat interval").
+                    # If our burst ended within a reasonable span, we can move on.
                     with m.Else():
-                        m.next = "MEASURE_REPEAT"
 
+                        # If we don't have a repeat interval, we're done!
+                        if self._pattern.repeat is None:
+                            m.d.comb += self.detect.eq(1)
+                            m.next = "WAIT_FOR_NEXT_BURST"
 
-            # MEASURE_REPEAT -- we've just finished seeing a burst; and now we're measuring the gap between
-            # successive bursts, which the USB specification calls the "repeat interval". [USB3.2r1: Fig 6-32]
-            with m.State("MEASURE_REPEAT"):
+                        # Otherwise, we'll need to check the repeat interval, as well.
+                        else:
+                            m.next = "MEASURE_REPEAT"
 
-                # Failing case: if our counter has gone longer than our maximum burst time, this isn't
-                # a relevant burst. We'll wait for the next one.
-                with m.If(count == repeat_cycles_max):
-                    m.next = 'WAIT_FOR_NEXT_BURST'
+            if self._pattern.repeat is not None:
 
-                # Once we see another potential burst, we'll start our detection back from the top.
-                with m.If(present):
-                    m.d.ss += count.eq(1)
-                    m.next = 'MEASURE_BURST'
+                # MEASURE_REPEAT -- we've just finished seeing a burst; and now we're measuring the gap between
+                # successive bursts, which the USB specification calls the "repeat interval". [USB3.2r1: Fig 6-32]
+                with m.State("MEASURE_REPEAT"):
 
-                    # If this lasted for a reasonable repeat interval, we've seen a correct burst!
-                    with m.If(count >= repeat_cycles_min):
+                    # Failing case: if our counter has gone longer than our maximum burst time, this isn't
+                    # a relevant burst. We'll wait for the next one.
+                    with m.If(count == repeat_cycles_max):
+                        m.next = 'WAIT_FOR_NEXT_BURST'
 
-                        # Mark this as a correct iteration, and if the previous iteration was also
-                        # a correct one, indicate that we've detected our output.
-                        m.d.ss   += last_iteration_matched.eq(1)
-                        m.d.comb += self.detect.eq(last_iteration_matched)
+                    # Once we see another potential burst, we'll start our detection back from the top.
+                    with m.If(present):
+                        m.d.ss += count.eq(1)
+                        m.next = 'MEASURE_BURST'
 
-                    with m.Else():
-                        m.d.ss   += last_iteration_matched.eq(0)
+                        # If this lasted for a reasonable repeat interval, we've seen a correct burst!
+                        with m.If(count >= repeat_cycles_min):
+
+                            # Mark this as a correct iteration, and if the previous iteration was also
+                            # a correct one, indicate that we've detected our output.
+                            m.d.ss   += last_iteration_matched.eq(1)
+                            m.d.comb += self.detect.eq(last_iteration_matched)
+
+                        with m.Else():
+                            m.d.ss   += last_iteration_matched.eq(0)
 
         return m
 
@@ -352,23 +364,6 @@ class LFPSBurstGenerator(Elaboratable):
         m = Module()
 
         #
-        # LFPS square-wave generator.
-        #
-        #timer_max = ceil(self._clock_frequency/(2*self._lfps_clk_freq)) - 1
-
-        #square_wave  = Signal()
-        #period_timer = Signal(range(0, timer_max + 1))
-
-        #with m.If(period_timer == 0):
-        #    m.d.ss += [
-        #        square_wave    .eq(~square_wave),
-        #        period_timer   .eq(timer_max - 1)
-        #    ]
-        #with m.Else():
-        #    m.d.ss += period_timer.eq(period_timer - 1)
-
-
-        #
         # Burst generator.
         #
         cycles_left_in_burst = Signal.like(self.length)
@@ -396,78 +391,6 @@ class LFPSBurstGenerator(Elaboratable):
 
         return m
 
-
-#class LFPSBurstGeneratorTest(LunaSSGatewareTestCase):
-#    FRAGMENT_UNDER_TEST = LFPSBurstGenerator
-#    FRAGMENT_ARGUMENTS = dict(
-#        sys_clk_freq  = 125e6,
-#        lfps_clk_freq = _DEFAULT_LFPS_FREQ
-#    )
-#
-#    def stimulus(self):
-#        """ Test stimulus for our burst clock generator. """
-#        dut = self.dut
-#
-#        # Create eight bursts of 256 pulses.
-#        for _ in range(8):
-#            yield dut.length.eq(256)
-#            yield dut.start.eq(1)
-#            yield
-#            yield dut.start.eq(0)
-#            while not (yield dut.done):
-#                yield
-#            for __ in range(256):
-#                yield
-#
-#
-#    def setUp(self):
-#        # Hook our setup function, and add in our stimulus.
-#        super().setUp()
-#        self.sim.add_sync_process(self.stimulus, domain="ss")
-#
-#
-#    @ss_domain_test_case
-#    def test_lpfs_burst_duty_cycle(self):
-#        dut = self.dut
-#
-#        transitions  = 0
-#        ones_ticks   = 0
-#        zeroes_ticks = 0
-#        tx_gpio      = 0
-#
-#        # Wait a couple of cycles for our stimulus to set up our burst.
-#        yield from self.advance_cycles(2)
-#
-#        # Wait for a burst cycle...
-#        while not (yield dut.done):
-#
-#            # While we're bursting...
-#            if not (yield dut.tx_idle):
-#
-#                # ... measure how many clock transitions we see...
-#                if (yield dut.tx_gpio != tx_gpio):
-#                    transitions += 1
-#
-#                # ... as well as what percentage of the time the clock is 1 vs 0.
-#                if (yield dut.tx_gpio != 0):
-#                    ones_ticks   += 1
-#                else:
-#                    zeroes_ticks += 1
-#
-#                tx_gpio = (yield dut.tx_gpio)
-#            yield
-#
-#        # Figure out the total length that we've run for.
-#        total_ticks = ones_ticks + zeroes_ticks
-#
-#        # We should measure a duty cycle that's within 10% of 50%...
-#        self.assertLess(abs(ones_ticks   / (total_ticks) - 50e-2), 10e-2)
-#        self.assertLess(abs(zeroes_ticks / (total_ticks) - 50e-2), 10e-2)
-#
-#        # ... and our total length should be within 10% of nominal.
-#        expected_cycles = self.SS_CLOCK_FREQUENCY/_DEFAULT_LFPS_FREQ
-#        computed_cycles = 2*total_ticks/transitions
-#        self.assertLess(abs(expected_cycles/computed_cycles - 1.0), 10e-2)
 
 
 class LFPSGenerator(Elaboratable):
@@ -606,14 +529,15 @@ class LFPSTransceiver(Elaboratable):
         Strobe. When asserted, begins an LFPS burst.
     lfps_polling_detected: Signal(), output
         Strobes high when Polling LFPS is detected.
+    lfps_polling_detected: Signal(), output
+        Strobes high when Reset LFPS is detected.
 
     tx_count: Signal(16), output
         Indicates how many LFPS bursts we've sent since the last request.
     """
 
-    def __init__(self, ss_clk_freq=125e6, fast_clock_frequency=250e6, lfps_clk_freq=_DEFAULT_LFPS_FREQ):
+    def __init__(self, ss_clk_freq=125e6, lfps_clk_freq=_DEFAULT_LFPS_FREQ):
         self._clock_frequency      = ss_clk_freq
-        self._fast_clock_frequency = fast_clock_frequency
         self._lpfs_frequency       = lfps_clk_freq
 
         #
@@ -627,6 +551,7 @@ class LFPSTransceiver(Elaboratable):
 
         # LFPS burst reception
         self.lfps_polling_detected   = Signal()
+        self.lfps_reset_detected     = Signal()
 
         self.tx_count                = Signal(16)
 
@@ -637,12 +562,20 @@ class LFPSTransceiver(Elaboratable):
         #
         # LFPS Receiver.
         #
-        polling_checker = LFPSDetector(_PollingLFPS, self._clock_frequency, self._fast_clock_frequency)
+        polling_checker = LFPSDetector(_PollingLFPS, self._clock_frequency)
         m.submodules += polling_checker
         m.d.comb += [
             polling_checker.signaling_detected  .eq(self.lfps_signaling_detected),
             self.lfps_polling_detected          .eq(polling_checker.detect)
         ]
+
+        reset_checker = LFPSDetector(_ResetLFPS, self._clock_frequency)
+        m.submodules += reset_checker
+        m.d.comb += [
+            reset_checker.signaling_detected  .eq(self.lfps_signaling_detected),
+            self.lfps_reset_detected          .eq(reset_checker.detect)
+        ]
+
 
         #
         # LFPS Transmitter(s).

@@ -188,9 +188,13 @@ class Scrambler(Elaboratable):
         # I/O port
         #
         self.clear  = Signal()
-        self.enable = Signal(reset=1)
+        self.enable = Signal()
+
         self.sink   = USBRawSuperSpeedStream()
         self.source = USBRawSuperSpeedStream()
+
+        # Debug signaling.
+        self.lfsr_state = Signal.like(self.source.data)
 
 
     def elaborate(self, platform):
@@ -230,11 +234,17 @@ class Scrambler(Elaboratable):
                 m.d.comb += source.data.word_select(i, 8).eq(sink.data.word_select(i, 8))
 
 
+        # Connect up our debug outputs.
+        m.d.comb += [
+            self.lfsr_state.eq(lfsr.value)
+        ]
+
+
         return m
 
 
 
-class Descrambler(Elaboratable):
+class Descrambler(Scrambler):
     """ USB3-compliant data descrambler.
 
     This module descrambles the received data stream. K-codes are not affected.
@@ -246,7 +256,7 @@ class Descrambler(Elaboratable):
         When high, data scrambling is enabled. When low, data is passed through without scrambling.
     sink: USBRawSuperSpeedStream(), input stream
         The stream containing data to be descrambled.
-    sink: USBRawSuperSpeedStream(), output stream
+    source: USBRawSuperSpeedStream(), output stream
         The stream containing data the descrambled output.
 
     Parameters
@@ -257,41 +267,7 @@ class Descrambler(Elaboratable):
     """
     def __init__(self, initial_value=0xffff):
         self._initial_value = initial_value
-
-        #
-        # I/O port
-        #
-        self.enable = Signal(reset=1)
-        self.sink   = USBRawSuperSpeedStream()
-        self.source = USBRawSuperSpeedStream()
-
-
-    def elaborate(self, platform):
-        m = Module()
-
-        sink   = self.sink
-        source = self.source
-
-        # Create an internal scrambler. Because scrambling is accomplished by XOR'ing with a fixed
-        # LFSR stream; we can use the same hardware for scrambling and our core descrambling.
-        m.submodules.scrambler = scrambler = Scrambler(initial_value=self._initial_value)
-        m.d.comb += [
-            scrambler.enable  .eq(self.enable),
-
-            scrambler.sink    .stream_eq(sink),
-            source            .stream_eq(scrambler.source)
-        ]
-
-        #
-        # Automatically reset our internal scrambler when receiving COM signals.
-        #
-        for i in range(4):
-            symbol_is_com = (sink.data.word_select(i, 8) == COM.value) & sink.ctrl[i]
-
-            with m.If(sink.valid & sink.ready & symbol_is_com):
-                m.d.comb += scrambler.clear.eq(1)
-
-        return m
+        super().__init__(initial_value=initial_value)
 
 
 if __name__ == "__main__":

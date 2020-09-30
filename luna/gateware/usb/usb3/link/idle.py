@@ -18,22 +18,36 @@ class IdleHandshakeHandler(Elaboratable):
 
     Attributes
     ----------
+    enable: Signal(), input
+        Indicates that the idle handshake has started; which is used to create the
+        :attr:``idle_handshake_complete`` signal. It should be asserted once we enter
+        Polling.Idle.
+
     sink: USBRawSuperSpeedStream(), input stream
         Raw post-descrambling stream from the physical layer.
 
     idle_detected: Signal(), output
         Asserted when the last eight word-aligned symbols detected have been logical
         idle; identifying a completed idle handshake.
+    idle_handshake_complete: Signal(), output
+        Asserted when we've seen IDLE at least once, and we've been enabled for at least
+        16 cycles, as required by the USB3 Idle Handshake [USB3.2r1: 7.5.4.10].
     """
+
+    # We need to send 16B of idle during our handshake. Since we're sending 4B per cycle,
+    # that's a total of four cycles.
+    RX_CYCLES_REQUIRED = 4
 
     def __init__(self):
 
         #
         # I/O port
         #
-        self.sink          = USBRawSuperSpeedStream()
+        self.sink                    = USBRawSuperSpeedStream()
 
-        self.idle_detected = Signal()
+        self.enable                  = Signal()
+        self.idle_detected           = Signal()
+        self.idle_handshake_complete = Signal()
 
 
     def elaborate(self, platform):
@@ -53,5 +67,35 @@ class IdleHandshakeHandler(Elaboratable):
         m.d.comb += [
             self.idle_detected  .eq(last_word_was_idle & current_word_is_idle)
         ]
+
+        #
+        # Handshake condition detector.
+        #
+        seen_idle      = Signal()
+        enable_counter = Signal(range(self.RX_CYCLES_REQUIRED + 1))
+
+        with m.If(self.enable):
+
+            # Keep track of how many consecutive cycles we're enabled for; as we must
+            # send logical idle for at least 16B in order to complete the Idle handshake.
+            with m.If(enable_counter < self.RX_CYCLES_REQUIRED):
+                m.d.ss += enable_counter.eq(enable_counter + 1)
+
+            # Keep track of whether we've ever seen eight consecutive cycles of idle.
+            with m.If(self.idle_detected):
+                m.d.ss += seen_idle.eq(1)
+
+            # Our handshake is complete once we've sent logical idle for at least 16 bytes,
+            # and we've seen at least eight byte
+            send_condition_met = enable_counter == self.RX_CYCLES_REQUIRED
+            m.d.comb += self.idle_handshake_complete.eq(seen_idle & send_condition_met)
+
+
+        # When we're not idle, clear all of our state.
+        with m.Else():
+            m.d.ss += [
+                enable_counter  .eq(0),
+                seen_idle       .eq(0)
+            ]
 
         return m

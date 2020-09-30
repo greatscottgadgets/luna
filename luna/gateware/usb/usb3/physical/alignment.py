@@ -15,11 +15,11 @@ from .coding   import COM
 from ...stream import USBRawSuperSpeedStream
 
 
-class PIPEWordAligner(Elaboratable):
-    """ Receiver word alignment (TS-based variant).
+class RxWordAligner(Elaboratable):
+    """ Receiver word alignment.
 
     Uses the location of COM signals in the data stream to re-position data so that the
-    relevant commas always fall in the data's MSB (big endian).
+    relevant commas always fall in the data's LSB (little endian).
     """
 
     def __init__(self):
@@ -29,13 +29,9 @@ class PIPEWordAligner(Elaboratable):
         #
         self.align     = Signal()
 
-        # Input bus.
-        self.rx_data   = Signal(32)
-        self.rx_datak  = Signal(4)
-
-        # Output bus.
+        # Inputs and outputs.
+        self.sink      = USBRawSuperSpeedStream()
         self.source    = USBRawSuperSpeedStream()
-
 
         # Debug signals
         self.alignment_offset = Signal(range(4))
@@ -44,9 +40,13 @@ class PIPEWordAligner(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
+        # Mark ourselves as always ready for new data.
+        m.d.comb += self.sink.ready.eq(1)
+
         # Values from previous cycles.
-        previous_data = Past(self.rx_data,   domain="ss")
-        previous_ctrl = Past(self.rx_datak,  domain="ss")
+        previous_data = Past(self.sink.data,   domain="ss")
+        previous_ctrl = Past(self.sink.ctrl,   domain="ss")
+        previous_valid = Past(self.sink.valid, domain="ss")
 
         # Alignment register: stores how many words the data must be shifted by in order to
         # have correctly aligned data.
@@ -57,8 +57,8 @@ class PIPEWordAligner(Elaboratable):
         #
         # To align our data, we'll create a conglomeration of two consecutive words;
         # and then select the chunk between those words that has the alignment correct.
-        data = Cat(previous_data, self.rx_data)
-        ctrl = Cat(previous_ctrl, self.rx_datak)
+        data = Cat(previous_data, self.sink.data)
+        ctrl = Cat(previous_ctrl, self.sink.ctrl)
 
         # Create two multiplexers that allow us to select from each of our four possible alignments.
         shifted_data_slices = Array(data[8*i:] for i in range(4))
@@ -74,15 +74,17 @@ class PIPEWordAligner(Elaboratable):
         four_comma_data = Repl(COM.value_const(), 4)
         four_comma_ctrl = Repl(COM.ctrl_const(),  4)
 
-        # We'll check each possible alignment to see if it would produce a valid start-of-TS1/TS2.
-        possible_alignments = len(shifted_data_slices)
-        for i in range(possible_alignments):
-            data_matches = (shifted_data_slices[i][0:32] == four_comma_data)
-            ctrl_matches = (shifted_ctrl_slices[i][0:4]  == four_comma_ctrl)
+        # We'll check each possible alignment to see if it would produce a valid start-of-TS1/TS2;
+        # ignoring any words not marked as valid.
+        with m.If(self.sink.valid):
+            possible_alignments = len(shifted_data_slices)
+            for i in range(possible_alignments):
+                data_matches = (shifted_data_slices[i][0:32] == four_comma_data)
+                ctrl_matches = (shifted_ctrl_slices[i][0:4]  == four_comma_ctrl)
 
-            # If it would, we'll accept that as our alignment going forward.
-            with m.If(data_matches & ctrl_matches):
-                m.d.ss += shift_to_apply.eq(i)
+                # If it would, we'll accept that as our alignment going forward.
+                with m.If(data_matches & ctrl_matches):
+                    m.d.ss += shift_to_apply.eq(i)
 
 
         #
@@ -93,7 +95,7 @@ class PIPEWordAligner(Elaboratable):
         m.d.ss += [
             self.source.data   .eq(shifted_data_slices[shift_to_apply]),
             self.source.ctrl   .eq(shifted_ctrl_slices[shift_to_apply]),
-            self.source.valid  .eq(1)
+            self.source.valid  .eq(previous_valid)
         ]
 
         return m
