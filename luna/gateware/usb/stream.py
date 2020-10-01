@@ -379,6 +379,11 @@ class USBRawSuperSpeedStream(StreamInterface):
         return operations
 
 
+    def tap(self, interface, *, endian_swap=False):
+        """ Simple alias for stream_eq(), but omitting the ready signal. """
+        return self.stream_eq(interface, omit={"ready"}, endian_swap=endian_swap)
+
+
 
 if __name__ == "__main__":
     unittest.main()

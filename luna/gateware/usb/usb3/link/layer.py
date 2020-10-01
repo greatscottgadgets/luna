@@ -15,7 +15,7 @@ from .ltssm        import LTSSMController
 from .command      import LinkCommandDetector, LinkCommandGenerator
 from .ordered_sets import TSTransceiver
 from .bringup      import LinkBringupSequencer
-
+from .header       import HeaderPacketReceiver
 
 class USB3LinkLayer(Elaboratable):
     """ Abstraction encapsulating the USB3 link layer hardware.
@@ -38,6 +38,9 @@ class USB3LinkLayer(Elaboratable):
         # Status signals.
         self.trained               = Signal()
 
+        # Debug output.
+        self.debug_event           = Signal()
+
 
     def elaborate(self, platform):
         m = Module()
@@ -50,14 +53,14 @@ class USB3LinkLayer(Elaboratable):
         # Training Set Detectors/Emitters
         #
         m.submodules.ts = ts = TSTransceiver()
-        m.d.comb += ts.sink.stream_eq(physical_layer.source, omit={"ready"}, endian_swap=True),
+        m.d.comb += ts.sink.tap(physical_layer.source, endian_swap=True),
 
 
         #
         # Idle handshake / logical idle detection.
         #
         m.submodules.idle = idle = IdleHandshakeHandler()
-        m.d.comb += idle.sink.stream_eq(physical_layer.source, omit={'ready'})
+        m.d.comb += idle.sink.tap(physical_layer.source)
 
 
         #
@@ -116,7 +119,7 @@ class USB3LinkLayer(Elaboratable):
         # Link Command Receiver
         m.submodules.lc_detector = lc_detector = LinkCommandDetector()
         m.d.comb += [
-            lc_detector.sink  .stream_eq(physical_layer.source, omit={'ready'})
+            lc_detector.sink  .tap(physical_layer.source)
         ]
 
         # Link Command Generator
@@ -136,6 +139,15 @@ class USB3LinkLayer(Elaboratable):
             lc_generator.subtype       .eq(bringup.link_command_subtype),
 
             bringup.link_command_done  .eq(lc_generator.done)
+        ]
+
+        #
+        # Header Packet Rx Path
+        #
+        m.submodules.header_rx = header_rx = HeaderPacketReceiver()
+        m.d.comb += [
+            header_rx.sink    .tap(physical_layer.source),
+            self.debug_event  .eq(header_rx.new_packet)
         ]
 
 

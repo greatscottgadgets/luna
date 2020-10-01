@@ -41,6 +41,7 @@ class USBSuperSpeedDevice(Elaboratable):
         # Temporary, debug signals.
         self.rx_data_tap         = USBRawSuperSpeedStream()
         self.tx_data_tap         = USBRawSuperSpeedStream()
+        self.debug_event         = Signal()
 
 
     def elaborate(self, platform):
@@ -79,8 +80,10 @@ class USBSuperSpeedDevice(Elaboratable):
 
         # Tap our transmit and receive lines, so they can be externally analyzed.
         m.d.comb += [
-            self.rx_data_tap  .stream_eq(physical.source, omit={'ready'}),
-            self.tx_data_tap  .stream_eq(physical.sink,   omit={'ready'})
+            self.rx_data_tap  .tap(physical.source),
+            self.tx_data_tap  .tap(physical.sink),
+
+            self.debug_event  .eq(link.debug_event)
         ]
 
 

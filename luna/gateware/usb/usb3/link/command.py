@@ -13,34 +13,14 @@ from enum import IntEnum
 from nmigen         import *
 from nmigen.hdl.ast import Past
 
+from .crc              import compute_usb_crc5
 from ..physical.coding import SLC, EPF, stream_matches_symbols, get_word_for_symbols
-
-from ...stream import USBRawSuperSpeedStream
+from ...stream         import USBRawSuperSpeedStream
 
 
 class LinkCommand(IntEnum):
     LGOOD = 0
     LCRD  = 1
-
-
-
-
-def _generate_crc_for_link_command(token):
-    """ Generates a 5-bit signal equivalent to the CRC check for given 11 bits of Link Command Information. """
-
-    def xor_bits(*indices):
-        bits = (token[len(token) - 1 - i] for i in indices)
-        return functools.reduce(operator.__xor__, bits)
-
-    # Implements the CRC polynomial from the USB specification.
-    return Cat(
-            xor_bits(10, 9, 8, 5, 4, 2),
-           ~xor_bits(10, 9, 8, 7, 4, 3, 1),
-            xor_bits(10, 9, 8, 7, 6, 3, 2, 0),
-            xor_bits(10, 7, 6, 4, 1),
-            xor_bits(10, 9, 6, 5, 3, 0)
-    )
-
 
 class LinkCommandDetector(Elaboratable):
     """ USB3 Link Command Detector.
@@ -128,8 +108,7 @@ class LinkCommandDetector(Elaboratable):
 
                     # The core ten bits of our link command word are guarded by a CRC-5. We'll only
                     # accept link commands whose CRC matches.
-                    expected_crc = _generate_crc_for_link_command(link_command_word[0:11])
-                    crc_matches  = (link_command_word[11:16] == expected_crc)
+                    crc_matches  = (link_command_word[11:16] == compute_usb_crc5(link_command_word[0:11]))
 
                     # If we have a word that matches -all- of these criteria, accept it as a new command.
                     with m.If(contains_only_data & redundancy_matches & crc_matches):
@@ -141,7 +120,6 @@ class LinkCommandDetector(Elaboratable):
 
                             # ... and indicate that we've received a new command
                             self.new_command  .eq(1)
-
                         ]
 
                     # No matter the word's validity, we'll move back to waiting for a new command header;
@@ -259,7 +237,7 @@ class LinkCommandGenerator(Elaboratable):
                     link_command[ 0: 4]      .eq(latched_subtype),
                     link_command[ 4: 7]      .eq(0),  # Reserved.
                     link_command[ 7:11]      .eq(latched_command),
-                    link_command[11:16]      .eq(_generate_crc_for_link_command(link_command[0:11])),
+                    link_command[11:16]      .eq(compute_usb_crc5(link_command[0:11])),
 
                     # ... and then duplicate it as a command onto the output.
                     self.source.valid        .eq(1),

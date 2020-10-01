@@ -70,7 +70,7 @@ def get_word_for_symbols(*target_symbols):
     return target_data, target_ctrl
 
 
-def stream_matches_symbols(stream, *target_symbols):
+def stream_matches_symbols(stream, *target_symbols, include_ready=False):
     """ Returns an nMigen conditional that evaluates true when a stream contains the given four symbols.
 
     Notes:
@@ -79,9 +79,10 @@ def stream_matches_symbols(stream, *target_symbols):
     """
 
     target_data, target_ctrl = get_word_for_symbols(*target_symbols)
+    stream_ready = stream.ready if include_ready else True
 
     return (
-        stream.valid                 &
+        stream.valid & stream_ready  &
         (stream.data == target_data) &
         (stream.ctrl == target_ctrl)
     )

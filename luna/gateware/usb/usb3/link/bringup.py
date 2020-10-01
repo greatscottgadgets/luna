@@ -110,7 +110,7 @@ class LinkBringupSequencer(Elaboratable):
 
             # ISSUE_LMP -- we'll now issue our Port Capability advertisement Link Management
             # Packet (LMP), which communicates our basic link parameters.
-            with m.State("LGOOD_ADVERTISEMENT"):
+            with m.State("ISSUE_LMP"):
 
                 # TODO: implement this
                 pass
