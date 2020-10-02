@@ -143,7 +143,7 @@ class USBAnalyzerApplet(Elaboratable):
 
         m.d.comb += [
             # USB stream uplink.
-            stream_ep.stream            .connect(analyzer.stream),
+            stream_ep.stream            .stream_eq(analyzer.stream),
 
             usb.connect                 .eq(1),
 
