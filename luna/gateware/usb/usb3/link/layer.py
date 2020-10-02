@@ -12,9 +12,10 @@ from ..physical.coding import IDL
 
 from .idle         import IdleHandshakeHandler
 from .ltssm        import LTSSMController
-from .command      import LinkCommandDetector, LinkCommandGenerator
+from .header       import HeaderPacket, HeaderPacketReceiver
+from .timers       import LinkMaintenanceTimers
+from .command      import LinkCommandDetector
 from .ordered_sets import TSTransceiver
-from .header_rx    import HeaderPacketReceiver, HeaderPacket
 
 class USB3LinkLayer(Elaboratable):
     """ Abstraction encapsulating the USB3 link layer hardware.
@@ -68,15 +69,23 @@ class USB3LinkLayer(Elaboratable):
 
 
         #
+        # U0 Maintenance Timers
+        #
+        m.submodules.timers = timers = LinkMaintenanceTimers(ss_clock_frequency=self._clock_frequency)
+
+
+        #
         # Link Training and Status State Machine (LTSSM)
         #
         m.submodules.ltssm = ltssm = LTSSMController(ss_clock_frequency=self._clock_frequency)
+
         m.d.comb += [
             ltssm.phy_ready                      .eq(physical_layer.ready),
 
             # For now, we'll consider ourselves in USB reset iff we detect reset signaling.
             # This should be expanded; ideally to also consider e.g. loss of VBUS on some devices.
             #ltssm.in_usb_reset                   .eq(physical_layer.lfps_reset_detected),
+
 
             # Link Partner Detection
             physical_layer.perform_rx_detection  .eq(ltssm.perform_rx_detection),
@@ -110,19 +119,26 @@ class USB3LinkLayer(Elaboratable):
             idle.enable                          .eq(ltssm.perform_idle_handshake),
             ltssm.idle_handshake_complete        .eq(idle.idle_handshake_complete),
 
+            # Link maintainance.
+            timers.enable                        .eq(ltssm.link_ready),
+
             # Status signaling.
             self.trained                         .eq(ltssm.link_ready)
         ]
 
 
         #
-        # Link command handling.
+        # Header Packet Tx Path.
+        # Accepts header packets from the protocol layer, and transmits them.
         #
+
+        # TODO: implement this properly
 
         # Link Command Receiver
         m.submodules.lc_detector = lc_detector = LinkCommandDetector()
         m.d.comb += [
-            lc_detector.sink  .tap(physical_layer.source)
+            lc_detector.sink              .tap(physical_layer.source),
+            timers.link_command_received  .eq(lc_detector.new_command)
         ]
 
 
@@ -132,16 +148,30 @@ class USB3LinkLayer(Elaboratable):
         #
         m.submodules.header_rx = header_rx = HeaderPacketReceiver()
         m.d.comb += [
-            header_rx.sink            .tap(physical_layer.source),
-            header_rx.enable          .eq(ltssm.link_ready),
+            header_rx.sink                   .tap(physical_layer.source),
+            header_rx.enable                 .eq(ltssm.link_ready),
 
-            self.header_pending       .eq(header_rx.packet_pending),
-            self.header               .eq(header_rx.packet),
-            header_rx.consume_packet  .eq(self.consume_header),
+            # Bring our header packet interface to the physical layer.
+            self.header_pending              .eq(header_rx.packet_pending),
+            self.header                      .eq(header_rx.packet),
+            header_rx.consume_packet         .eq(self.consume_header),
 
-            # TODO: drive this from an arbiter
-            header_rx.bus_available   .eq(1)
+            # Keepalive handling.
+            timers.link_command_transmitted  .eq(header_rx.link_command_sent),
+            header_rx.keepalive_required     .eq(timers.schedule_keepalive),
+
+            # TODO: drive this from an arbiter? use ready/valid handshaking?
+            header_rx.bus_available          .eq(1)
         ]
+
+
+        #
+        # Link Recovery Control
+        #
+        m.d.comb += [
+            ltssm.trigger_link_recovery .eq(timers.transition_to_recovery | header_rx.recovery_required)
+        ]
+
 
 
         #

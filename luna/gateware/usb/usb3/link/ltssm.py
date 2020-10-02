@@ -60,6 +60,9 @@ class LTSSMController(Elaboratable):
         self.in_usb_reset              = Signal()
         self.entering_u0               = Signal()
 
+        # External event controls.
+        self.trigger_link_recovery     = Signal()
+
         # Power states.
         self.phy_ready                 = Signal()
 

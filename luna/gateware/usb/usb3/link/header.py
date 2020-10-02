@@ -285,8 +285,9 @@ class HeaderPacketReceiver(Elaboratable):
 
     SEQUENCE_NUMBER_WIDTH = 3
 
-    def __init__(self, *, buffer_count=4):
+    def __init__(self, *, buffer_count=4, downstream_facing=False):
         self._buffer_count = buffer_count
+        self._is_downstream_facing = downstream_facing
 
         #
         # I/O port
@@ -306,6 +307,9 @@ class HeaderPacketReceiver(Elaboratable):
         # Event signaling.
         self.retry_received        = Signal()
         self.recovery_required     = Signal()
+
+        self.link_command_sent     = Signal()
+        self.keepalive_required    = Signal()
 
 
     def elaborate(self, platform):
@@ -355,6 +359,11 @@ class HeaderPacketReceiver(Elaboratable):
 
         # Keep track of whether we should be sending an LBAD.
         lbad_pending = Signal()
+
+        # Keep track of whether a keepalive has been requested.
+        keepalive_pending = Signal()
+        with m.If(self.keepalive_required):
+            m.d.ss += keepalive_pending.eq(1)
 
 
         #
@@ -486,8 +495,9 @@ class HeaderPacketReceiver(Elaboratable):
         #
         m.submodules.lc_generator = lc_generator = LinkCommandGenerator()
         m.d.comb += [
-            self.source            .stream_eq(lc_generator.source),
-            lc_generator.bus_idle  .eq(self.bus_available)
+            self.source             .stream_eq(lc_generator.source),
+            self.link_command_sent  .eq(lc_generator.done),
+            lc_generator.bus_idle   .eq(self.bus_available)
         ]
 
 
@@ -499,8 +509,10 @@ class HeaderPacketReceiver(Elaboratable):
 
                 with m.If(self.enable):
 
-                    # NOTE: the order below is important; changing it will break link bringup;
-                    # as we must send an LGOOD before we send our initial credits.
+                    # NOTE: the order below is important; changing it will break things:
+                    # - ACKS must come first, as we must send an LGOOD before we send our initial credits.
+                    # - LBAD must come after ACKs and credit management, as all scheduled ACKs need to be
+                    #   sent to the other side for the LBAD to have the correct semantic meaning.
 
                     # If we have acknowledgements to send, send them.
                     with m.If(acks_to_send):
@@ -513,6 +525,10 @@ class HeaderPacketReceiver(Elaboratable):
                     # If we need to send an LBAD, do so.
                     with m.Elif(lbad_pending):
                         m.next = "SEND_LBAD"
+
+                    # If we need to send a keepalive, do so.
+                    with m.Elif(keepalive_pending):
+                        m.next = "SEND_KEEPALIVE"
 
 
             # SEND_ACKS -- a valid header packet has been received, or we're advertising
@@ -567,10 +583,29 @@ class HeaderPacketReceiver(Elaboratable):
                     lc_generator.command       .eq(LinkCommand.LBAD),
                 ]
 
-                # Once we've send the LBAD, we can mark is as no longer pending and return to our dispatch.
+                # Once we've sent the LBAD, we can mark is as no longer pending and return to our dispatch.
                 # (We can't ever have multiple LBADs queued up; as we ignore future packets after sending one.)
                 with m.If(lc_generator.done):
                     m.d.ss += lbad_pending.eq(0)
+                    m.next = "DISPATCH_COMMAND"
+
+
+            # SEND_KEEPALIVE -- our link layer timer has requested that we send a keep-alive,
+            # indicating that we're still in U0 and the link is still good. Do so.
+            with m.State("SEND_KEEPALIVE"):
+
+                # Send the correct packet type for the direction our port is facing.
+                command = LinkCommand.LDN if self._is_downstream_facing else LinkCommand.LUP
+
+                m.d.comb += [
+                    lc_generator.generate      .eq(1),
+                    lc_generator.command       .eq(command)
+                ]
+
+                # Once we've send the keepalive, we can mark is as no longer pending and return to our dispatch.
+                # (There's no sense in sending repeated keepalives; one gets the message across.)
+                with m.If(lc_generator.done):
+                    m.d.ss += keepalive_pending.eq(0)
                     m.next = "DISPATCH_COMMAND"
 
 
