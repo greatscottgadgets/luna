@@ -14,8 +14,7 @@ from .idle         import IdleHandshakeHandler
 from .ltssm        import LTSSMController
 from .command      import LinkCommandDetector, LinkCommandGenerator
 from .ordered_sets import TSTransceiver
-from .bringup      import LinkBringupSequencer
-from .header       import HeaderPacketReceiver
+from .header_rx    import HeaderPacketReceiver, HeaderPacket
 
 class USB3LinkLayer(Elaboratable):
     """ Abstraction encapsulating the USB3 link layer hardware.
@@ -37,6 +36,11 @@ class USB3LinkLayer(Elaboratable):
 
         # Status signals.
         self.trained               = Signal()
+
+        # Header packets to physical layer.
+        self.header_pending        = Signal()
+        self.header                = HeaderPacket()
+        self.consume_header        = Signal()
 
         # Debug output.
         self.debug_event           = Signal()
@@ -111,7 +115,6 @@ class USB3LinkLayer(Elaboratable):
         ]
 
 
-
         #
         # Link command handling.
         #
@@ -122,32 +125,22 @@ class USB3LinkLayer(Elaboratable):
             lc_detector.sink  .tap(physical_layer.source)
         ]
 
-        # Link Command Generator
-        m.submodules.lc_generator = lc_generator = LinkCommandGenerator()
-
 
         #
-        # Link Bringup.
-        #
-        m.submodules.bringup = bringup = LinkBringupSequencer()
-        m.d.comb += [
-            bringup.entering_u0        .eq(ltssm.entering_u0),
-
-            lc_generator.bus_idle      .eq(ltssm.link_ready),
-            lc_generator.generate      .eq(bringup.request_link_command),
-            lc_generator.command       .eq(bringup.link_command),
-            lc_generator.subtype       .eq(bringup.link_command_subtype),
-
-            bringup.link_command_done  .eq(lc_generator.done)
-        ]
-
-        #
-        # Header Packet Rx Path
+        # Header Packet Rx Path.
+        # Receives header packets and forwards them up to the protocol layer.
         #
         m.submodules.header_rx = header_rx = HeaderPacketReceiver()
         m.d.comb += [
-            header_rx.sink    .tap(physical_layer.source),
-            self.debug_event  .eq(header_rx.new_packet)
+            header_rx.sink            .tap(physical_layer.source),
+            header_rx.enable          .eq(ltssm.link_ready),
+
+            self.header_pending       .eq(header_rx.packet_pending),
+            self.header               .eq(header_rx.packet),
+            header_rx.consume_packet  .eq(self.consume_header),
+
+            # TODO: drive this from an arbiter
+            header_rx.bus_available   .eq(1)
         ]
 
 
@@ -160,8 +153,8 @@ class USB3LinkLayer(Elaboratable):
             m.d.comb += physical_layer.sink.stream_eq(ts.source, endian_swap=True)
 
         # If we're transmitting a link command, pass that to the physical layer.
-        with m.Elif(lc_generator.source.valid):
-            m.d.comb += physical_layer.sink.stream_eq(lc_generator.source)
+        with m.Elif(header_rx.source.valid):
+            m.d.comb += physical_layer.sink.stream_eq(header_rx.source)
 
         # Otherwise, if we have valid data to transmit, pass that along.
         with m.Elif(self.sink.valid):

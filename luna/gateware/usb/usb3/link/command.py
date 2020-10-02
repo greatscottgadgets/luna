@@ -19,8 +19,19 @@ from ...stream         import USBRawSuperSpeedStream
 
 
 class LinkCommand(IntEnum):
-    LGOOD = 0
-    LCRD  = 1
+    """ Constant values (including both class and type) for link commands. """
+
+    LGOOD = 0   # Header Packet ACK
+    LCRD  = 1   # Header Credit
+    LRTY  = 2   # Header Packet Retry Sequence
+    LBAD  = 3   # Header Packet NAK
+    LGO_U = 4   # Request Switching to Power State Ux
+    LAU   = 5   # Power State Acceptance
+    LXU   = 6   # Power State Rejection
+    LPMA  = 7   # Power State Acknowledgement
+    LDN   = 8   # Downstream-facing Keep-alive
+    LUP   = 11  # Upstream-facing Keep-alive
+
 
 class LinkCommandDetector(Elaboratable):
     """ USB3 Link Command Detector.

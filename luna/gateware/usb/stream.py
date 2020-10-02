@@ -380,7 +380,10 @@ class USBRawSuperSpeedStream(StreamInterface):
 
 
     def tap(self, interface, *, endian_swap=False):
-        """ Simple alias for stream_eq(), but omitting the ready signal. """
+        """ Simple extension to stream_eq() that captures a read-only view of the stream.
+
+        This connects all signals from ``interface`` to their equivalents in this stream.
+        """
         return self.stream_eq(interface, omit={"ready"}, endian_swap=endian_swap)
 
 

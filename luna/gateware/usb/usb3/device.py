@@ -15,6 +15,7 @@ from nmigen import *
 # USB3 Protocol Stack
 from .physical import USB3PhysicalLayer
 from .link     import USB3LinkLayer
+from .protocol import USB3ProtocolLayer
 
 # Temporary
 from ..stream  import USBRawSuperSpeedStream
@@ -63,11 +64,11 @@ class USBSuperSpeedDevice(Elaboratable):
             self.link_trained     .eq(link.trained)
         ]
 
-
         #
         # Protocol layer.
         #
-        # TODO
+        m.submodules.protocol = protocol = USB3ProtocolLayer(link_layer=link)
+
 
         #
         # Application layer.
