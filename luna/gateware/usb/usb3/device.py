@@ -42,6 +42,7 @@ class USBSuperSpeedDevice(Elaboratable):
         # Temporary, debug signals.
         self.rx_data_tap         = USBRawSuperSpeedStream()
         self.tx_data_tap         = USBRawSuperSpeedStream()
+        self.debug_misc          = Signal(32)
         self.debug_event         = Signal()
 
 
@@ -61,7 +62,8 @@ class USBSuperSpeedDevice(Elaboratable):
         #
         m.submodules.link = link = USB3LinkLayer(physical_layer=physical)
         m.d.comb += [
-            self.link_trained     .eq(link.trained)
+            self.link_trained     .eq(link.trained),
+            self.debug_misc       .eq(link.debug_misc)
         ]
 
         #
@@ -69,11 +71,11 @@ class USBSuperSpeedDevice(Elaboratable):
         #
         m.submodules.protocol = protocol = USB3ProtocolLayer(link_layer=link)
 
-
         #
         # Application layer.
         #
         # TODO
+
 
         #
         # Debug helpers.

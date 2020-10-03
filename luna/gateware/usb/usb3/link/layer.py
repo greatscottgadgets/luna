@@ -7,14 +7,15 @@
 
 from nmigen import *
 
-from ...stream  import USBRawSuperSpeedStream
-from ..physical.coding import IDL
+from ...stream          import USBRawSuperSpeedStream, SuperSpeedStreamArbiter
+from ..physical.coding  import IDL
 
 from .idle         import IdleHandshakeHandler
 from .ltssm        import LTSSMController
-from .header       import HeaderPacket, HeaderPacketReceiver
+from .header       import HeaderQueue
+from .header_rx    import HeaderPacketReceiver
+from .header_tx    import HeaderPacketTransmitter
 from .timers       import LinkMaintenanceTimers
-from .command      import LinkCommandDetector
 from .ordered_sets import TSTransceiver
 
 class USB3LinkLayer(Elaboratable):
@@ -32,19 +33,20 @@ class USB3LinkLayer(Elaboratable):
         #
         # I/O port
         #
+
         self.sink                  = USBRawSuperSpeedStream()
         self.source                = USBRawSuperSpeedStream()
+
+        # Header packet exchanges.
+        self.header_sink           = HeaderQueue()
+        self.header_source         = HeaderQueue()
 
         # Status signals.
         self.trained               = Signal()
 
-        # Header packets to physical layer.
-        self.header_pending        = Signal()
-        self.header                = HeaderPacket()
-        self.consume_header        = Signal()
-
         # Debug output.
         self.debug_event           = Signal()
+        self.debug_misc            = Signal(32)
 
 
     def elaborate(self, platform):
@@ -57,8 +59,15 @@ class USB3LinkLayer(Elaboratable):
         #
         # Training Set Detectors/Emitters
         #
+        training_set_source = USBRawSuperSpeedStream()
+
         m.submodules.ts = ts = TSTransceiver()
-        m.d.comb += ts.sink.tap(physical_layer.source, endian_swap=True),
+        m.d.comb += [
+            ts.sink               .tap(physical_layer.source, endian_swap=True),
+            training_set_source  .stream_eq(ts.source, endian_swap=True)
+        ]
+
+
 
 
         #
@@ -131,15 +140,20 @@ class USB3LinkLayer(Elaboratable):
         # Header Packet Tx Path.
         # Accepts header packets from the protocol layer, and transmits them.
         #
-
-        # TODO: implement this properly
-
-        # Link Command Receiver
-        m.submodules.lc_detector = lc_detector = LinkCommandDetector()
+        m.submodules.header_tx = header_tx = HeaderPacketTransmitter()
         m.d.comb += [
-            lc_detector.sink              .tap(physical_layer.source),
-            timers.link_command_received  .eq(lc_detector.new_command)
+            header_tx.sink                .tap(physical_layer.source),
+            header_tx.enable              .eq(ltssm.link_ready),
+
+            header_tx.queue               .header_eq(self.header_sink),
+
+            # Link state management handling.
+            timers.link_command_received  .eq(header_tx.link_command_received),
+
+            # Debug output.
+            self.debug_misc               .eq(header_tx.packets_to_send)
         ]
+
 
 
         #
@@ -152,16 +166,14 @@ class USB3LinkLayer(Elaboratable):
             header_rx.enable                 .eq(ltssm.link_ready),
 
             # Bring our header packet interface to the physical layer.
-            self.header_pending              .eq(header_rx.packet_pending),
-            self.header                      .eq(header_rx.packet),
-            header_rx.consume_packet         .eq(self.consume_header),
+            self.header_source               .header_eq(header_rx.queue),
 
             # Keepalive handling.
             timers.link_command_transmitted  .eq(header_rx.link_command_sent),
             header_rx.keepalive_required     .eq(timers.schedule_keepalive),
 
-            # TODO: drive this from an arbiter? use ready/valid handshaking?
-            header_rx.bus_available          .eq(1)
+            # Transmitter event path.
+            header_rx.retry_received         .eq(header_tx.retry_received)
         ]
 
 
@@ -173,34 +185,34 @@ class USB3LinkLayer(Elaboratable):
         ]
 
 
-
         #
-        # PHY transmit stream selection.
+        # Transmit stream arbiter.
         #
+        m.submodules.stream_arbiter = arbiter = SuperSpeedStreamArbiter()
 
-        # If we're transmitting training sets, pass those to the physical layer.
-        with m.If(ts.transmitting & ~ltssm.link_ready):
-            m.d.comb += physical_layer.sink.stream_eq(ts.source, endian_swap=True)
+        # Add each of our streams to our arbiter, from highest to lowest priority.
+        arbiter.add_stream(training_set_source)
+        arbiter.add_stream(header_rx.source)
+        arbiter.add_stream(header_tx.source)
+        arbiter.add_stream(self.sink)
 
-        # If we're transmitting a link command, pass that to the physical layer.
-        with m.Elif(header_rx.source.valid):
-            m.d.comb += physical_layer.sink.stream_eq(header_rx.source)
-
-        # Otherwise, if we have valid data to transmit, pass that along.
-        with m.Elif(self.sink.valid):
-            m.d.comb += physical_layer.sink.stream_eq(self.sink)
-
-        # Otherwise, always generate logical idle signaling.
-        with m.Else():
+        # If we're idle, send logical idle.
+        with m.If(arbiter.idle):
             m.d.comb += [
-
-                # Drive our physical layer with our IDL value (0x00)...
+                # Drive our idle stream with our IDL value (0x00)...
                 physical_layer.sink.valid    .eq(1),
                 physical_layer.sink.data     .eq(IDL.value),
                 physical_layer.sink.ctrl     .eq(IDL.ctrl),
 
-                # ... and let the physical layer know it can insert CTC skips.
+                # Let the physical layer know it can insert CTC skips whenever data is being accepted
+                # from our logical idle stream.
                 physical_layer.can_send_skp  .eq(1)
             ]
+
+        # Otherwise, output our stream data.
+        with m.Else():
+            m.d.comb += physical_layer.sink.stream_eq(arbiter.source)
+
+
 
         return m

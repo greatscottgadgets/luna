@@ -7,8 +7,8 @@
 
 from nmigen import *
 
-from ...stream  import USBRawSuperSpeedStream
-
+from .link_management import LinkManagementPacketHandler
+from ...stream        import USBRawSuperSpeedStream
 
 
 class USB3ProtocolLayer(Elaboratable):
@@ -23,10 +23,14 @@ class USB3ProtocolLayer(Elaboratable):
         link = self._link
 
         #
-        # Placeholder.
+        # Link Management Packet Handler
         #
+        m.submodules.lmp_handler = lmp_handler = LinkManagementPacketHandler()
+        m.d.comb += [
+            lmp_handler.link_ready    .eq(link.trained),
 
-        # For now, as a placeholder, black-hole all received header packets.
-        m.d.comb += link.consume_header.eq(1)
+            lmp_handler.header_sink   .header_eq(link.header_source),
+            link.header_sink          .header_eq(lmp_handler.header_source),
+        ]
 
         return m

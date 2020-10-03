@@ -12,8 +12,9 @@ from nmigen          import Elaboratable, Signal, Module
 from nmigen.hdl.rec  import Record, DIR_FANIN, DIR_FANOUT
 from nmigen.hdl.xfrm import DomainRenamer
 
-from ..stream       import StreamInterface
-from ..test         import LunaUSBGatewareTestCase, usb_domain_test_case
+from ..stream         import StreamInterface
+from ..stream.arbiter import StreamArbiter
+from ..test           import LunaUSBGatewareTestCase, usb_domain_test_case
 
 
 class USBInStreamInterface(StreamInterface):
@@ -386,6 +387,12 @@ class USBRawSuperSpeedStream(StreamInterface):
         """
         return self.stream_eq(interface, omit={"ready"}, endian_swap=endian_swap)
 
+
+class SuperSpeedStreamArbiter(StreamArbiter):
+    """ Convenience variant of our StreamArbiter that operates SuperSpeed streams in the ``ss`` domain. """
+
+    def __init__(self):
+        super().__init__(stream_type=USBRawSuperSpeedStream, domain="ss")
 
 
 if __name__ == "__main__":

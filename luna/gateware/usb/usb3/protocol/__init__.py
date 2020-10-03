@@ -1,4 +1,3 @@
-# nmigen: UnusedElaboratable=no
 #
 # This file is part of LUNA.
 #

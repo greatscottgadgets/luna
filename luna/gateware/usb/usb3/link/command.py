@@ -18,21 +18,6 @@ from ..physical.coding import SLC, EPF, stream_matches_symbols, get_word_for_sym
 from ...stream         import USBRawSuperSpeedStream
 
 
-class LinkCommand(IntEnum):
-    """ Constant values (including both class and type) for link commands. """
-
-    LGOOD = 0   # Header Packet ACK
-    LCRD  = 1   # Header Credit
-    LRTY  = 2   # Header Packet Retry Sequence
-    LBAD  = 3   # Header Packet NAK
-    LGO_U = 4   # Request Switching to Power State Ux
-    LAU   = 5   # Power State Acceptance
-    LXU   = 6   # Power State Rejection
-    LPMA  = 7   # Power State Acknowledgement
-    LDN   = 8   # Downstream-facing Keep-alive
-    LUP   = 11  # Upstream-facing Keep-alive
-
-
 class LinkCommandDetector(Elaboratable):
     """ USB3 Link Command Detector.
 
@@ -157,11 +142,8 @@ class LinkCommandGenerator(Elaboratable):
     subtype: Signal(4), output
         The link command's subtype.
 
-    bus_idle: Signal(), input
-        Should be held high when the USB bus is idle (and thus we're ready to send data).
     generate: Signal(), input
         Strobe; indicates that a link command should be generated.
-
     done: Signal(), output
         Indicates that the link command will be complete this cycle; and thus this unit will
         be ready to send another link command next cycle.
@@ -180,7 +162,6 @@ class LinkCommandGenerator(Elaboratable):
         self.subtype    = Signal(4)
 
         # Control inputs.
-        self.bus_idle   = Signal()
         self.generate   = Signal()
         self.done       = Signal()
 
@@ -206,20 +187,6 @@ class LinkCommandGenerator(Elaboratable):
                         latched_command  .eq(self.command),
                         latched_subtype  .eq(self.subtype)
                     ]
-
-                    # ... and start transmitting, if we can...
-                    with m.If(self.bus_idle):
-                        m.next = "TRANSMIT_HEADER"
-                    # ... otherwise, wait for the bus.
-                    with m.Else():
-                        m.next = "WAIT_FOR_BUS"
-
-
-            # WAIT_FOR_BUS -- we've received a generate command, and are now
-            # waiting for the bus to be idle to send it.
-            with m.State("WAIT_FOR_BUS"):
-
-                with m.If(self.bus_idle):
                     m.next = "TRANSMIT_HEADER"
 
             # TRANSMIT_HEADER -- we're starting our link command by transmitting a header.
