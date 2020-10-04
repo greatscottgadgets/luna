@@ -408,17 +408,16 @@ class CTCSkipInserter(Elaboratable):
 
         # Finally, if we can send a skip this cycle and need to, replace our IDLE
         with m.If(self.can_send_skip & (skip_pending | skip_needed)):
+            m.d.comb += self.sending_skip.eq(1)
             m.d.ss += [
                 source.valid       .eq(1),
                 source.data        .eq(Repl(SKP.value_const(), 4)),
                 source.ctrl        .eq(Repl(SKP.ctrl_const(),  4)),
 
-                self.sending_skip  .eq(1)
             ]
         with m.Else():
             m.d.ss += [
                 self.source        .stream_eq(self.sink),
-                self.sending_skip  .eq(0)
             ]
 
         return m

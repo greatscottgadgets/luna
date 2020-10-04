@@ -11,18 +11,19 @@ import functools
 from enum import IntEnum
 
 from nmigen             import *
+from nmigen.hdl.rec     import Layout
 
 
 class HeaderPacket(Record):
     """ Container that represents a Header Packet. """
 
-    LAYOUT = [
-        # Core data words.
-        ('dw0',             32),
-        ('dw1',             32),
-        ('dw2',             32),
+    # Create overrideable constants that allow us to specialize
+    # the data words of our headers in subclasses.
+    DW0_LAYOUT = [('dw0', 32)]
+    DW1_LAYOUT = [('dw1', 32)]
+    DW2_LAYOUT = [('dw2', 32)]
 
-        # Our final data word contains the link-layer fields.
+    LINK_LAYER_FIELDS = [
         ('crc16',           16),
         ('sequence_number',  3),
         ('dw3_reserved',     3),
@@ -36,8 +37,21 @@ class HeaderPacket(Record):
         """ Returns the selection of bits in DW0 that encode the packet type. """
         return self.dw0[0:5]
 
+
+    @classmethod
+    def get_layout(cls):
+        """ Computes the layout for the HeaderPacket (sub)class. """
+        return [
+            *cls.DW0_LAYOUT,
+            *cls.DW1_LAYOUT,
+            *cls.DW2_LAYOUT,
+            *cls.LINK_LAYER_FIELDS
+        ]
+
+
     def __init__(self):
-        super().__init__(self.LAYOUT, name="HeaderPacket")
+        super().__init__(self.get_layout(), name=self.__class__.__name__)
+
 
 
 class HeaderQueue(Record):
@@ -53,10 +67,10 @@ class HeaderQueue(Record):
         Strobed by the consumer to indicate that it has accepted the given header.
     """
 
-    def __init__(self):
+    def __init__(self, *, header_type=HeaderPacket):
         super().__init__([
             ('valid', 1),
-            ('header', HeaderPacket.LAYOUT),
+            ('header', header_type.get_layout()),
             ('ready', 1),
         ], name="HeaderQueue")
 

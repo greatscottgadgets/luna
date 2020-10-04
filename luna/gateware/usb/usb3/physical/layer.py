@@ -168,6 +168,7 @@ class USB3PhysicalLayer(Elaboratable):
             scrambler.hold        .eq(tx_ctc.sending_skip)
         ]
 
+
         # Convert our Tx stream into PHY connections whenever we're not in electrical idle.
         with m.If(~self.tx_electrical_idle):
             m.d.comb += [

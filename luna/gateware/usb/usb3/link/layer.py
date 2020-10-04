@@ -43,6 +43,7 @@ class USB3LinkLayer(Elaboratable):
 
         # Status signals.
         self.trained               = Signal()
+        self.ready                 = Signal()
 
         # Debug output.
         self.debug_event           = Signal()
@@ -149,6 +150,7 @@ class USB3LinkLayer(Elaboratable):
 
             # Link state management handling.
             timers.link_command_received  .eq(header_tx.link_command_received),
+            self.ready                    .eq(header_tx.bringup_complete),
 
             # Debug output.
             self.debug_misc               .eq(header_tx.packets_to_send)
@@ -169,7 +171,7 @@ class USB3LinkLayer(Elaboratable):
             self.header_source               .header_eq(header_rx.queue),
 
             # Keepalive handling.
-            timers.link_command_transmitted  .eq(header_rx.link_command_sent),
+            timers.link_command_transmitted  .eq(header_rx.source.valid),
             header_rx.keepalive_required     .eq(timers.schedule_keepalive),
 
             # Transmitter event path.

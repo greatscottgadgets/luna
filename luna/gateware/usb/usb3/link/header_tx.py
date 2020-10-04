@@ -154,10 +154,16 @@ class HeaderPacketTransmitter(Elaboratable):
     enable: Signal(), input
         When asserted, this unit will be enabled; and will be allowed to start transmitting.
 
+    queue: HeaderQueue(), input stream
+        Stream of header packets received received from the protocol layer to be transmitted.
+
     retry_received: Signal(), output
         Strobe; pulsed high when we receive a link retry request.
     retry_required: Signal(), output
         Strobe; pulsed high when we need to send a retry request.
+
+    recovery_required: Signal(), output
+        Strobe; pulsed when a condition that requires link recovery occurs.
     """
 
     SEQUENCE_NUMBER_WIDTH = 3
@@ -174,6 +180,7 @@ class HeaderPacketTransmitter(Elaboratable):
 
         # Simple controls.
         self.enable                = Signal()
+        self.bringup_complete      = Signal()
 
         # Protocol layer interface.
         self.queue                 = HeaderQueue()
@@ -205,6 +212,13 @@ class HeaderPacketTransmitter(Elaboratable):
             m.d.ss += credits_available.eq(credits_available + 1)
         with m.Elif(credit_consumed & ~credit_received):
             m.d.ss += credits_available.eq(credits_available - 1)
+
+
+        # Provide a flag that indicates when we're done with our full bringup.
+        with m.If(self.enable == 0):
+            m.d.ss += self.bringup_complete.eq(0)
+        with m.Elif(credits_available == self._buffer_count):
+            m.d.ss += self.bringup_complete.eq(1)
 
 
         #
@@ -324,6 +338,7 @@ class HeaderPacketTransmitter(Elaboratable):
                 # Once the packet is done...
                 with m.If(packet_tx.done):
                     m.d.comb += dequeue_send.eq(1)
+                    m.d.ss   += transmit_sequence_number.eq(transmit_sequence_number + 1)
 
                     # If this was the last packet we needed to send, resume waiting for one.
                     with m.If(packets_to_send == 1):

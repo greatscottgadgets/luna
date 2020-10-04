@@ -75,8 +75,8 @@ class LinkMaintenanceTimers(Elaboratable):
         keepalive_timeout_cycles = int(self.KEEPALIVE_TIMEOUT * self._clock_frequency)
 
         # Time how long it's been since we've sent our last link command.
-        keepalive_timer = Signal(range(keepalive_timeout_cycles + 1))
-        m.d.comb += self.schedule_keepalive.eq(keepalive_timer == keepalive_timeout_cycles)
+        keepalive_timer = Signal(range(keepalive_timeout_cycles))
+        m.d.comb += self.schedule_keepalive.eq(keepalive_timer + 1 == keepalive_timeout_cycles)
 
         with m.If(self.link_command_transmitted):
             m.d.ss += keepalive_timer.eq(0)
@@ -90,8 +90,8 @@ class LinkMaintenanceTimers(Elaboratable):
         recovery_timeout_cycles = int(self.RECOVERY_TIMEOUT * self._clock_frequency)
 
         # Time how long it's been since we've received our last link command.
-        recovery_timer = Signal(range(recovery_timeout_cycles + 1))
-        m.d.comb += self.transition_to_recovery.eq(recovery_timer == recovery_timeout_cycles)
+        recovery_timer = Signal(range(recovery_timeout_cycles))
+        m.d.comb += self.transition_to_recovery.eq(recovery_timer + 1 == recovery_timeout_cycles)
 
         with m.If(self.link_command_received):
             m.d.ss += recovery_timer.eq(0)
