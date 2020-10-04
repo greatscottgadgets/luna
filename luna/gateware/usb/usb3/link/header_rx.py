@@ -289,6 +289,9 @@ class HeaderPacketReceiver(Elaboratable):
 
         self.link_command_sent     = Signal()
         self.keepalive_required    = Signal()
+        self.bad_packet_received   = Signal()
+
+
 
 
     def elaborate(self, platform):
@@ -398,7 +401,10 @@ class HeaderPacketReceiver(Elaboratable):
 
             # If we ever get a bad header packet sequence, we're required to retrain
             # the link [USB3.2r1: 7.2.4.1.5]. Pass the event through directly.
-            self.recovery_required  .eq(rx.bad_sequence & ~ignore_packets)
+            self.recovery_required  .eq(rx.bad_sequence & ~ignore_packets),
+
+            # Notify the link layer if any bad packets are received; for diagnostics.
+            self.bad_packet_received.eq(rx.bad_packet)
         ]
 
 
@@ -424,6 +430,8 @@ class HeaderPacketReceiver(Elaboratable):
         # If we receive a bad packet, we'll need to request that the other side re-send.
         # The rules for this are summarized in [USB3.2r1: 7.2.4.1.5], and in comments below.
         with m.If(rx.bad_packet & ~ignore_packets):
+
+
             m.d.ss += [
                 # First, we'll need to schedule transmission of an LBAD, which notifies the other
                 # side that we received a bad packet; and that it'll need to transmit all unack'd

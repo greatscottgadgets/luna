@@ -68,6 +68,7 @@ class USB3PhysicalLayer(Elaboratable):
 
         # SKP insertion control.
         self.can_send_skp               = Signal()
+        self.skip_removed               = Signal()
 
 
     def elaborate(self, platform):
@@ -189,6 +190,9 @@ class USB3PhysicalLayer(Elaboratable):
             rx_ctc.sink.data   .eq(phy.rx_data),
             rx_ctc.sink.ctrl   .eq(phy.rx_datak),
             rx_ctc.sink.valid  .eq(1),
+
+            # Diagnostic output.
+            self.skip_removed  .eq(1)
         ]
 
         # Word align the data, so it's easily handleable internally.

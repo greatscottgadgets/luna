@@ -381,9 +381,10 @@ class LTSSMController(Elaboratable):
                 #
                 # For now, we don't support Loopback or Hot Reset, so we'll just always target U0.
 
-                # As one final sanity check, we'll require a proper period of Logical Idle to be
-                # detected before we move to our next state. Since Logical Idle signals are scrambled,
-                # this helps to ensure that both sides of the link have synchronized scrambler state.
+                # As one final synchronization step and sanity check, we'll require a proper period of
+                # Logical Idle to be # detected before we move to our next state. Since Logical Idle
+                # signals are scrambled, this helps to ensure that both sides of the link have
+                # synchronized scrambler state and that the other side has stopped sending TS2s.
                 with m.If(self.idle_handshake_complete):
                     m.d.comb += self.entering_u0.eq(1)
                     transition_to_state("U0")
@@ -397,14 +398,84 @@ class LTSSMController(Elaboratable):
             # performing normal USB3 operations.
             with m.State("U0"):
                 m.d.comb += [
-
                     # We're now ready for normal operation -- we'll mark our link as ready,
                     # and keep our normal scrambling enabled.
                     self.enable_scrambling  .eq(1),
                     self.link_ready         .eq(1)
                 ]
 
-                # TODO: handle the various cases for leaving U0
+                # If we've seen an event that requires link recovery, move into link recovery.
+                with m.If(self.trigger_link_recovery):
+                    transition_to_state("Recovery.Active")
+
+
+                # TODO: handle the various other cases for leaving U0
+
+
+            # Recovery.Active -- our link is no longer in a reliably usable state; we'll need
+            # to perform a re-training before we can use it fully. However, since we've already
+            # performed our initial receiver equalization, we can maintain its settings and perform
+            # only the last steps of training.
+            with m.State("Recovery.Active"):
+                handle_warm_resets()
+
+                # Clear our previous training state on entering recovery.
+                tasks_on_entry['Recovery.Active'] = [
+                    ts2_seen      .eq(0)
+                ]
+
+                # As in Polling.Active, we'll send TS1s to establish training.
+                m.d.comb += self.send_ts1_burst.eq(1)
+
+                # If we don't achieve link training within 12mS, we'll assume that we've lost our
+                # link partner. We'll assume our link is no longer up, and move to inactive.
+                # FIXME: this should move to SS.Inactive.
+                transition_on_timeout(12e-3, to="Rx.Detect.Active")
+
+                # Once we see enough TS1s from the other side; or see TS2s, we'll move into our next step.
+                with m.If(self.ts1_detected | self.ts2_detected):
+                    m.d.ss += self.invert_rx_polarity.eq(0),
+                    transition_to_state("Recovery.Configuration")
+
+
+            # Recovery.Configuration -- we're now satisfied with our link training; we'll need to communicate
+            # this to the other side, and wait for the other side to advertise the same. [USB3.2r1; 7.5.4.9]
+            with m.State("Recovery.Configuration"):
+                handle_warm_resets()
+
+                # Constantly send TS2s.
+                m.d.comb += self.send_ts2_burst.eq(1)
+
+                # If we don't achieve link training within 12mS, we'll assume that we've lost our
+                # link partner. We'll assume our link is no longer up, and move to inactive.
+                # FIXME: this should move to SS.Inactive.
+                transition_on_timeout(12e-3, to="Rx.Detect.Active")
+
+                # If we've finished sending the requisite amount of TS2s and we've seen TS2s from the
+                # other side, we know that both sides are finished with the core link training.
+                # Move on to our final
+                with m.If(self.ts_burst_complete & ts2_seen):
+                    transition_to_state("Recovery.Idle")
+
+
+            # Recovery.Idle -- we've now finished link re-training; and are waiting to see that the other
+            # side has also finished sending TS2s [USB3.2r1: 7.5.4.10].
+            with m.State("Recovery.Idle"):
+                m.d.comb += [
+                    # Restore scrambling, and repeat our idle handshake.
+                    self.enable_scrambling       .eq(1),
+                    self.perform_idle_handshake  .eq(1)
+                ]
+
+                # Once we've seen logical idle, we can enter U0 again.
+                with m.If(self.idle_handshake_complete):
+                    m.d.comb += self.entering_u0.eq(1)
+                    transition_to_state("U0")
+
+                # If we don't see that logical idle within 2ms, something's gone wrong. We'll
+                # assume we've lost our link partner, and move to SS.Inactive.
+                # FIXME: do this
+                transition_on_timeout(2e-3, to="Rx.Detect.Reset")
 
 
             # Compliance -- we've failed link training in such a way as to believe we're in the
@@ -418,6 +489,8 @@ class LTSSMController(Elaboratable):
                 # We'll throw our hands up in despair and re-try link training.
                 # Maybe this time it'll work.
                 transition_to_state("Rx.Detect.Reset")
+
+
 
 
 

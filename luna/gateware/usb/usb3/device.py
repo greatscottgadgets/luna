@@ -44,6 +44,7 @@ class USBSuperSpeedDevice(Elaboratable):
         self.tx_data_tap         = USBRawSuperSpeedStream()
         self.debug_misc          = Signal(32)
         self.debug_event         = Signal()
+        self.skip_removed        = Signal()
 
 
     def elaborate(self, platform):
@@ -63,7 +64,6 @@ class USBSuperSpeedDevice(Elaboratable):
         m.submodules.link = link = USB3LinkLayer(physical_layer=physical)
         m.d.comb += [
             self.link_trained     .eq(link.trained),
-            self.debug_misc       .eq(link.debug_misc)
         ]
 
         #
@@ -86,7 +86,9 @@ class USBSuperSpeedDevice(Elaboratable):
             self.rx_data_tap  .tap(physical.source),
             self.tx_data_tap  .tap(physical.sink),
 
-            self.debug_event  .eq(link.debug_event)
+            self.debug_misc   .eq(link.debug_misc),
+            self.debug_event  .eq(link.debug_event),
+            self.skip_removed  .eq(physical.skip_removed)
         ]
 
 

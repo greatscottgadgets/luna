@@ -70,7 +70,6 @@ class USB3LinkLayer(Elaboratable):
 
 
 
-
         #
         # Idle handshake / logical idle detection.
         #
@@ -81,7 +80,9 @@ class USB3LinkLayer(Elaboratable):
         #
         # U0 Maintenance Timers
         #
-        m.submodules.timers = timers = LinkMaintenanceTimers(ss_clock_frequency=self._clock_frequency)
+        m.submodules.timers = timers = ResetInserter(~self.trained)(
+            LinkMaintenanceTimers(ss_clock_frequency=self._clock_frequency)
+        )
 
 
         #
@@ -141,7 +142,9 @@ class USB3LinkLayer(Elaboratable):
         # Header Packet Tx Path.
         # Accepts header packets from the protocol layer, and transmits them.
         #
-        m.submodules.header_tx = header_tx = HeaderPacketTransmitter()
+        m.submodules.header_tx = header_tx = ResetInserter(~self.trained)(
+            HeaderPacketTransmitter()
+        )
         m.d.comb += [
             header_tx.sink                .tap(physical_layer.source),
             header_tx.enable              .eq(ltssm.link_ready),
@@ -152,8 +155,6 @@ class USB3LinkLayer(Elaboratable):
             timers.link_command_received  .eq(header_tx.link_command_received),
             self.ready                    .eq(header_tx.bringup_complete),
 
-            # Debug output.
-            self.debug_misc               .eq(header_tx.packets_to_send)
         ]
 
 
@@ -162,7 +163,9 @@ class USB3LinkLayer(Elaboratable):
         # Header Packet Rx Path.
         # Receives header packets and forwards them up to the protocol layer.
         #
-        m.submodules.header_rx = header_rx = HeaderPacketReceiver()
+        m.submodules.header_rx = header_rx = ResetInserter(~self.trained)(
+            HeaderPacketReceiver()
+        )
         m.d.comb += [
             header_rx.sink                   .tap(physical_layer.source),
             header_rx.enable                 .eq(ltssm.link_ready),
@@ -175,16 +178,22 @@ class USB3LinkLayer(Elaboratable):
             header_rx.keepalive_required     .eq(timers.schedule_keepalive),
 
             # Transmitter event path.
-            header_rx.retry_received         .eq(header_tx.retry_received)
+            header_rx.retry_received         .eq(header_tx.retry_received),
+
+            # Debug output.
+            self.debug_event                 .eq(header_rx.bad_packet_received),
+            self.debug_misc                  .eq(header_tx.packets_to_send)
         ]
 
 
         #
         # Link Recovery Control
         #
-        m.d.comb += [
-            ltssm.trigger_link_recovery .eq(timers.transition_to_recovery | header_rx.recovery_required)
-        ]
+        m.d.comb += ltssm.trigger_link_recovery.eq(
+            timers.transition_to_recovery |
+            header_rx.recovery_required   |
+            header_tx.recovery_required
+        )
 
 
         #
