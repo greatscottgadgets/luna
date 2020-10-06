@@ -44,8 +44,14 @@ class RxWordAligner(Elaboratable):
         m.d.comb += self.sink.ready.eq(1)
 
         # Values from previous cycles.
-        previous_data = Past(self.sink.data,   domain="ss")
-        previous_ctrl = Past(self.sink.ctrl,   domain="ss")
+        previous_data = Signal.like(self.sink.data)
+        previous_ctrl = Signal.like(self.sink.ctrl)
+        with m.If(self.sink.valid):
+            m.d.ss += [
+                previous_data  .eq(self.sink.data),
+                previous_ctrl  .eq(self.sink.ctrl),
+            ]
+
         previous_valid = Past(self.sink.valid, domain="ss")
 
         # Alignment register: stores how many words the data must be shifted by in order to
@@ -93,9 +99,11 @@ class RxWordAligner(Elaboratable):
 
         # Grab the shifted data/ctrl associated with our alignment.
         m.d.ss += [
-            self.source.data   .eq(shifted_data_slices[shift_to_apply]),
-            self.source.ctrl   .eq(shifted_ctrl_slices[shift_to_apply]),
-            self.source.valid  .eq(previous_valid)
+            self.source.data       .eq(shifted_data_slices[shift_to_apply]),
+            self.source.ctrl       .eq(shifted_ctrl_slices[shift_to_apply]),
+            self.source.valid      .eq(self.sink.valid),
+
+            self.alignment_offset  .eq(shift_to_apply),
         ]
 
         return m

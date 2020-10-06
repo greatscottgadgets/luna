@@ -50,165 +50,29 @@ TS2_SET_DATA = [
 ]
 
 
-class TSDetector(Elaboratable):
-    """ Simple Training Set detector; capable of detecting TS1/TS2 training sets. """
-
-    # Our "start of set" is four COM symbols.
-    START_OF_SET = Repl(COM.value, 4)
-
-    def __init__(self, ordered_set_id, n_ordered_sets=1, invert=False):
-        self._raw_set_id          = ordered_set_id
-        self._set_id              = Const(ordered_set_id, shape=8)
-        self._detection_threshold = n_ordered_sets
-        self._invert              = invert
-
-        #
-        # I/O port
-        #
-        self.sink     = USBRawSuperSpeedStream()
-        self.detected = Signal() # o
-        self.error    = Signal() # o
-
-        self.reset      = Signal()        # o
-        self.loopback   = Signal()        # o
-        self.scrambling = Signal(reset=1) # o
-
-
-    def elaborate(self, platform):
-        m = Module()
-        m.d.ss += self.detected.eq(0)
-
-        # Always accept data from our SerDes.
-        m.d.comb += self.sink.ready.eq(1)
-
-        # Counter that tracks how many consecutive sets we've received.
-        consecutive_set_count = Signal(range(0, self._detection_threshold + 1))
-
-        # Aliases.
-        control_bits = self.sink.ctrl
-        data = Signal.like(self.sink.data)
-
-        # TODO: also check the control bits, here
-        is_control_word = (control_bits == 0b1111)
-        is_data_word    = (control_bits == 0b0000)
-        word_starts_set = (data == self.START_OF_SET) & is_control_word
-
-        # If we're inverting, invert all of our non-control codes.
-        if self._invert:
-            with m.If(is_data_word):
-                m.d.comb += data.eq(~self.sink.data)
-            with m.Else():
-                m.d.comb += data.eq(self.sink.data)
-        else:
-            m.d.comb += data.eq(self.sink.data)
-
-
-
-        with m.FSM(domain="ss"):
-
-            # NONE_DETECTED -- we haven't seen any parts of our ordered set;
-            # we're waiting for the first one.
-            with m.State("NONE_DETECTED"):
-                m.d.ss += consecutive_set_count.eq(0)
-                m.next = "WAIT_FOR_FIRST"
-
-
-            with m.State("WAIT_FOR_FIRST"):
-
-                # Once we see the four COM symbols that start our training set,
-                # move to checking the second word.
-                with m.If(self.sink.valid):
-                    with m.If(word_starts_set):
-                        m.next = "ONE_DETECTED"
-
-
-            # ONE_DETECTED -- we're now inside a suspected training set; we'll
-            # validate the second word.
-            with m.State("ONE_DETECTED"):
-
-                with m.If(self.sink.valid):
-
-                    # The second word of our training set has a "link training" field
-                    # as its second byte; so we'll skip checking it.
-                    with m.If(data[16:] == Repl(self._set_id, 2)):
-                        m.next = "TWO_DETECTED"
-                    with m.Else():
-                        m.next = "NONE_DETECTED"
-
-                    m.next = "TWO_DETECTED"
-
-            # TWO_DETECTED -- we're now inside a suspected training set; we'll
-            # validate the third word.
-            with m.State("TWO_DETECTED"):
-
-                with m.If(self.sink.valid):
-
-                    with m.If(data == Repl(self._set_id, 4)):
-                        m.next = "THREE_DETECTED"
-                    with m.Else():
-                        m.next = "NONE_DETECTED"
-
-
-            # THREE_DETECTED -- we're now inside a suspected training set; we'll
-            # validate the third word.
-            with m.State("THREE_DETECTED"):
-                with m.If(self.sink.valid):
-                    with m.If(data == Repl(self._set_id, 4)):
-                        m.next = "SET_DETECTED"
-                    with m.Else():
-                        m.next = "NONE_DETECTED"
-
-
-            with m.State("SET_DETECTED"):
-
-                # If we've seen as many sets as we're looking to detect, reset our count,
-                # and indicate that we've completed a detection.
-                with m.If(consecutive_set_count + 1 == self._detection_threshold):
-                    m.d.ss   += [
-                        consecutive_set_count  .eq(0),
-                        self.detected          .eq(1)
-                    ]
-
-                # Otherwise, increase the number of consecutive sets seen.
-                with m.Else():
-                    m.d.ss += consecutive_set_count.eq(consecutive_set_count + 1)
-
-                with m.If(self.sink.valid):
-                    # If we're now starting a new consecutive set, move right into detecting
-                    # this new set. Otherwise, clear our detection status.
-                    with m.If(word_starts_set):
-                        m.next = "ONE_DETECTED"
-                    with m.Else():
-                        m.next = "NONE_DETECTED"
-
-                with m.Else():
-                    m.next = "WAIT_FOR_FIRST"
-
-
-        return m
-
-
 class TSBurstDetector(Elaboratable):
     """ Simple Training Set detector; capable of detecting basic training sets. """
 
     # TODO: allow masking of the second word
 
-    def __init__(self, *, set_data, first_word_ctrl, sets_in_burst=1, invert_data=False):
+    def __init__(self, *, set_data, first_word_ctrl, sets_in_burst=1, invert_data=False, include_config=True):
         self._set_data            = set_data
         self._first_word_ctrl     = first_word_ctrl
         self._detection_threshold = sets_in_burst
         self._invert_data         = invert_data
+        self._include_config      = include_config
 
         #
         # I/O port
         #
-        self.sink       = USBRawSuperSpeedStream()
-        self.detected   = Signal() # o
-        self.error      = Signal() # o
+        self.sink                 = USBRawSuperSpeedStream()
+        self.detected             = Signal() # o
+        self.error                = Signal() # o
 
-        self.reset      = Signal()        # o
-        self.loopback   = Signal()        # o
-        self.scrambling = Signal(reset=1) # o
+        if self._include_config:
+            self.hot_reset            = Signal()
+            self.loopback_requested   = Signal()
+            self.disable_scrambling   = Signal()
 
 
     def elaborate(self, platform):
@@ -235,7 +99,6 @@ class TSBurstDetector(Elaboratable):
             if self._invert_data:
                 data_matches = data_inverse
 
-
             # Once we have a valid word in our stream...
             with m.If(self.sink.valid):
 
@@ -255,12 +118,49 @@ class TSBurstDetector(Elaboratable):
                 m.d.ss += consecutive_set_count.eq(0)
                 m.next = "WAIT_FOR_FIRST"
 
-
+            # WAIT_FOR_FIRST -- we're waiting to see the first word of our sequence
             with m.State("WAIT_FOR_FIRST"):
                 advance_on_match(0, target_ctrl=self._first_word_ctrl, fail_state="WAIT_FOR_FIRST")
 
+            # 1_DETECTED -- we're parsing the first data word; which we'll do slightly differently,
+            # as it can contain a variable configuration field.
+            with m.State("1_DETECTED"):
+                # If this set includes a configuration field, then we'll want to compare
+                # our data with that set removed. Otherwise, we compare normally.
+                data_masked  = (data & 0xffff) if self._include_config else data
+                data_matches = (data_masked  == self._set_data[1])
+                data_inverse = (~data_masked == self._set_data[1])
+                ctrl_matches = (ctrl         == 0)
 
-            for i in range(1, last_state_number):
+                # If we're using the inverted set, use ``data_inverse`` instead of ``data_matches``.
+                if self._invert_data:
+                    data_matches = data_inverse
+
+                # Once we have a valid word in our stream...
+                with m.If(self.sink.valid):
+
+                    # ... advance if that word matches; or move to our "fail state" otherwise.
+                    with m.If(data_matches & ctrl_matches):
+                        m.next = f"2_DETECTED"
+
+                        # If we're including a configuration field, parse it before we continue.
+                        if self._include_config:
+                            m.d.ss += [
+                                # Bit 0 of Symbol 5 => Hot Reset
+                                self.hot_reset           .eq(data.word_select(2, 8)[0]),
+
+                                # Bit 2 of Symbol 5 => Requests Loopback Mode
+                                self.loopback_requested  .eq(data.word_select(2, 8)[2]),
+
+                                # Bit 3 of Symbol 5 = > Requests we not use scrambling.
+                                self.disable_scrambling  .eq(data.word_select(2, 8)[3]),
+                            ]
+
+                    with m.Else():
+                        m.next = "NONE_DETECTED"
+
+
+            for i in range(2, last_state_number):
                 with m.State(f"{i}_DETECTED"):
                     advance_on_match(i)
 
@@ -299,18 +199,23 @@ class TSEmitter(Elaboratable):
     on the last cycle of the generation. Training config can also be transmitted for TS1/TS2 Ordered
     Sets.
     """
-    def __init__(self, *, set_data, first_word_ctrl=0b1111, transmit_burst_length=1):
+    def __init__(self, *, set_data, first_word_ctrl=0b1111, transmit_burst_length=1, include_config=False):
         self._set_data          = set_data
         self._first_word_ctrl   = first_word_ctrl
         self._total_to_transmit = transmit_burst_length
+        self._include_config    = include_config
 
         #
         # I/O port
         #
-        self.start  = Signal() # i
-        self.done   = Signal() # o
+        self.source            = USBRawSuperSpeedStream()
 
-        self.source = USBRawSuperSpeedStream()
+        self.start             = Signal()
+        self.done              = Signal()
+
+        if self._include_config:
+            self.request_hot_reset = Signal()
+
 
 
     def elaborate(self, platform):
@@ -340,6 +245,13 @@ class TSEmitter(Elaboratable):
                         self.source.first  .eq(i == 0),
                         self.source.last   .eq(is_last_word)
                     ]
+
+                    # If this is the first data word of our Training Set, we'll optionally set
+                    # our control fields.
+                    if self._include_config and (i == 1):
+                        with m.If(self.request_hot_reset):
+                            m.d.comb += self.source.data.word_select(2, 8).eq(1)
+
 
                     with m.If(self.source.ready):
                         # If we're generating the state for the last word,
@@ -389,12 +301,18 @@ class TSTransceiver(Elaboratable):
         self.inverted_ts1_detected = Signal() # o
         self.ts2_detected          = Signal() # o
 
+        self.hot_reset_requested   = Signal()
+        self.loopback_requested    = Signal()
+        self.disable_scrambling    = Signal()
+
         # Emitters
         self.send_tseq_burst       = Signal() # i
         self.send_ts1_burst        = Signal() # i
         self.send_ts2_burst        = Signal() # i
         self.transmitting          = Signal() # o
         self.burst_complete        = Signal() # o
+
+        self.request_hot_reset     = Signal()
 
 
     def elaborate(self, platform):
@@ -411,7 +329,8 @@ class TSTransceiver(Elaboratable):
         m.submodules.tseq_detector = tseq_detector = TSBurstDetector(
             set_data        = TSEQ_SET_DATA,
             first_word_ctrl = 0b1000,
-            sets_in_burst   = 32
+            sets_in_burst   = 32,
+            include_config  = False
         )
         m.d.comb += [
             tseq_detector.sink  .stream_eq(self.sink, omit={"ready"}),
@@ -425,7 +344,7 @@ class TSTransceiver(Elaboratable):
             sets_in_burst   = 8
         )
         m.d.comb += [
-            ts1_detector.sink  .stream_eq(self.sink, omit={"ready"}),
+            ts1_detector.sink  .tap(self.sink),
             self.ts1_detected  .eq(ts1_detector.detected)
         ]
 
@@ -434,10 +353,10 @@ class TSTransceiver(Elaboratable):
             set_data        = TS1_SET_DATA,
             first_word_ctrl = 0b1111,
             sets_in_burst   = 8,
-            invert_data     = True
+            invert_data     = True,
         )
         m.d.comb += [
-            inverted_ts1_detector.sink  .stream_eq(self.sink, omit={"ready"}),
+            inverted_ts1_detector.sink  .tap(self.sink),
             self.inverted_ts1_detected  .eq(inverted_ts1_detector.detected)
         ]
 
@@ -445,11 +364,15 @@ class TSTransceiver(Elaboratable):
         m.submodules.ts2_detector = ts2_detector = TSBurstDetector(
             set_data        = TS2_SET_DATA,
             first_word_ctrl = 0b1111,
-            sets_in_burst   = 8
+            sets_in_burst   = 8,
         )
         m.d.comb += [
-            ts2_detector.sink  .stream_eq(self.sink, omit={"ready"}),
-            self.ts2_detected  .eq(ts2_detector.detected)
+            ts2_detector.sink  .tap(self.sink),
+            self.ts2_detected  .eq(ts2_detector.detected),
+
+            self.hot_reset_requested  .eq(ts2_detector.hot_reset),
+            self.loopback_requested   .eq(ts2_detector.loopback_requested),
+            self.disable_scrambling   .eq(ts2_detector.loopback_requested),
         ]
 
 
@@ -485,12 +408,14 @@ class TSTransceiver(Elaboratable):
         m.submodules.ts2_generator = ts2_generator = TSEmitter(
             set_data              = TS2_SET_DATA,
             first_word_ctrl       = 0b1111,
-            transmit_burst_length = 16
+            transmit_burst_length = 16,
+            include_config        = True,
         )
         with m.If(self.send_ts2_burst):
             m.d.comb += [
-                ts2_generator.start   .eq(1),
-                self.source           .stream_eq(ts2_generator.source)
+                ts2_generator.start              .eq(1),
+                ts2_generator.request_hot_reset  .eq(self.request_hot_reset),
+                self.source                      .stream_eq(ts2_generator.source),
             ]
 
         #

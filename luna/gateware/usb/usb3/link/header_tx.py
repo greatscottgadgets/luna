@@ -6,6 +6,7 @@
 """ Header Packet Rx-handling gateware. """
 
 from nmigen                        import *
+from nmigen.hdl.ast                import Fell
 from usb_protocol.types.superspeed import LinkCommand
 
 from .header                       import HeaderPacket, HeaderQueue
@@ -180,6 +181,7 @@ class HeaderPacketTransmitter(Elaboratable):
 
         # Simple controls.
         self.enable                = Signal()
+        self.hot_reset             = Signal()
         self.bringup_complete      = Signal()
 
         # Protocol layer interface.
@@ -425,6 +427,24 @@ class HeaderPacketTransmitter(Elaboratable):
                     # If we see an LRTY, it's an indication that our link partner is performing a
                     # retried send. This information is handled by the Reciever, so we'll forward it along.
                     m.d.comb += self.retry_received.eq(1)
+
+
+        #
+        # Reset Handling
+        #
+        with m.If(self.hot_reset | Fell(self.enable)):
+            m.d.ss += [
+                packets_to_send           .eq(0),
+                packets_awaiting_ack      .eq(0),
+                next_expected_credit      .eq(0),
+                read_pointer              .eq(0),
+                write_pointer             .eq(0),
+                ack_pointer               .eq(0),
+            ]
+
+            with m.If(self.hot_reset):
+                m.d.ss += next_expected_ack_number  .eq(0),
+
 
 
         #

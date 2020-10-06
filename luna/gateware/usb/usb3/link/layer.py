@@ -44,6 +44,7 @@ class USB3LinkLayer(Elaboratable):
         # Status signals.
         self.trained               = Signal()
         self.ready                 = Signal()
+        self.in_reset              = Signal()
 
         # Debug output.
         self.debug_event           = Signal()
@@ -64,7 +65,10 @@ class USB3LinkLayer(Elaboratable):
 
         m.submodules.ts = ts = TSTransceiver()
         m.d.comb += [
-            ts.sink               .tap(physical_layer.source, endian_swap=True),
+            # Note: we bring the physical layer's "raw" (non-descrambled) source to the TS detector,
+            # as we'll still need to detect non-scrambled TS1s and TS2s if they arrive during normal
+            # operation.
+            ts.sink              .tap(physical_layer.raw_source, endian_swap=True),
             training_set_source  .stream_eq(ts.source, endian_swap=True)
         ]
 
@@ -80,9 +84,7 @@ class USB3LinkLayer(Elaboratable):
         #
         # U0 Maintenance Timers
         #
-        m.submodules.timers = timers = ResetInserter(~self.trained)(
-            LinkMaintenanceTimers(ss_clock_frequency=self._clock_frequency)
-        )
+        m.submodules.timers = timers = LinkMaintenanceTimers(ss_clock_frequency=self._clock_frequency)
 
 
         #
@@ -116,11 +118,15 @@ class USB3LinkLayer(Elaboratable):
             ltssm.ts1_detected                   .eq(ts.ts1_detected),
             ltssm.inverted_ts1_detected          .eq(ts.inverted_ts1_detected),
             ltssm.ts2_detected                   .eq(ts.ts2_detected),
+            ltssm.hot_reset_requested            .eq(ts.hot_reset_requested),
+            ltssm.loopback_requested             .eq(ts.loopback_requested),
+            ltssm.no_scrambling_requested        .eq(ts.disable_scrambling),
 
             # Training set emitters
             ts.send_tseq_burst                   .eq(ltssm.send_tseq_burst),
             ts.send_ts1_burst                    .eq(ltssm.send_ts1_burst),
             ts.send_ts2_burst                    .eq(ltssm.send_ts2_burst),
+            ts.request_hot_reset                 .eq(ltssm.request_hot_reset),
             ltssm.ts_burst_complete              .eq(ts.burst_complete),
 
             # Scrambling control.
@@ -134,7 +140,8 @@ class USB3LinkLayer(Elaboratable):
             timers.enable                        .eq(ltssm.link_ready),
 
             # Status signaling.
-            self.trained                         .eq(ltssm.link_ready)
+            self.trained                         .eq(ltssm.link_ready),
+            self.in_reset                        .eq(ltssm.request_hot_reset)
         ]
 
 
@@ -142,12 +149,11 @@ class USB3LinkLayer(Elaboratable):
         # Header Packet Tx Path.
         # Accepts header packets from the protocol layer, and transmits them.
         #
-        m.submodules.header_tx = header_tx = ResetInserter(~self.trained)(
-            HeaderPacketTransmitter()
-        )
+        m.submodules.header_tx = header_tx = HeaderPacketTransmitter()
         m.d.comb += [
             header_tx.sink                .tap(physical_layer.source),
             header_tx.enable              .eq(ltssm.link_ready),
+            header_tx.hot_reset           .eq(self.in_reset),
 
             header_tx.queue               .header_eq(self.header_sink),
 
@@ -163,12 +169,11 @@ class USB3LinkLayer(Elaboratable):
         # Header Packet Rx Path.
         # Receives header packets and forwards them up to the protocol layer.
         #
-        m.submodules.header_rx = header_rx = ResetInserter(~self.trained)(
-            HeaderPacketReceiver()
-        )
+        m.submodules.header_rx = header_rx = HeaderPacketReceiver()
         m.d.comb += [
             header_rx.sink                   .tap(physical_layer.source),
             header_rx.enable                 .eq(ltssm.link_ready),
+            header_rx.hot_reset              .eq(self.in_reset),
 
             # Bring our header packet interface to the physical layer.
             self.header_source               .header_eq(header_rx.queue),
@@ -176,6 +181,7 @@ class USB3LinkLayer(Elaboratable):
             # Keepalive handling.
             timers.link_command_transmitted  .eq(header_rx.source.valid),
             header_rx.keepalive_required     .eq(timers.schedule_keepalive),
+            timers.packet_received           .eq(header_rx.packet_received),
 
             # Transmitter event path.
             header_rx.retry_received         .eq(header_tx.retry_received),
@@ -190,9 +196,11 @@ class USB3LinkLayer(Elaboratable):
         # Link Recovery Control
         #
         m.d.comb += ltssm.trigger_link_recovery.eq(
-            timers.transition_to_recovery |
-            header_rx.recovery_required   |
-            header_tx.recovery_required
+            timers.transition_to_recovery #|
+
+            # FIXME: properly impelement the conditions on these
+            #header_rx.recovery_required   |
+            #header_tx.recovery_required
         )
 
 

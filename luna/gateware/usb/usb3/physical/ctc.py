@@ -60,10 +60,11 @@ class CTCSkipRemover(Elaboratable):
         #
         # I/O port
         #
-        self.sink           = USBRawSuperSpeedStream()
-        self.source         = USBRawSuperSpeedStream()
+        self.sink            = USBRawSuperSpeedStream()
+        self.source          = USBRawSuperSpeedStream()
 
-        self.skip_removed   = Signal()
+        self.skip_removed    = Signal()
+        self.bytes_in_buffer = Signal(range(9))
 
 
     def elaborate(self, platform):
@@ -210,6 +211,11 @@ class CTCSkipRemover(Elaboratable):
                         source.ctrl.eq(ctrl_buffer[1 * word_position : 1 * (word_position + bytes_in_stream)]),
                     ]
 
+        #
+        # Diagnostic output.
+        #
+        m.d.comb += self.bytes_in_buffer.eq(bytes_in_buffer)
+
         return m
 
 
@@ -257,6 +263,36 @@ class CTCSkipRemoverTest(LunaSSGatewareTestCase):
         yield
         self.assertEqual((yield source.data), 0x33441122)
         self.assertEqual((yield source.ctrl), 0b11)
+
+
+    @ss_domain_test_case
+    def test_shifted_dual_skip_removal(self):
+        source = self.dut.source
+
+        # When we add data into the buffer...
+        yield from self.provide_input(0xAABBCCDD, 0b0000)
+
+        # ... we should see our line go valid only after four bytes are collected.
+        self.assertEqual((yield source.valid), 0)
+        yield from self.provide_input(0x713C3CBA, 0b0110)
+
+        # Once it does go high, it should be accompanied by valid input data.
+        self.assertEqual((yield source.valid), 1)
+        self.assertEqual((yield source.data), 0xAABBCCDD)
+        self.assertEqual((yield source.ctrl), 0)
+        yield from self.provide_input(0x113C3C44, 0b0110)
+
+        # If data with SKPs were provided, our output should be invalid, until we
+        # receive enough bytes to have four non-skip bytes.
+        self.assertEqual((yield source.valid), 0)
+
+        # Once we do, we should see a copy of our data without the SKPs included.
+        yield from self.provide_input(0x55667788, 0b0000)
+        self.assertEqual((yield source.data), 0x114471BA)
+        self.assertEqual((yield source.ctrl), 0)
+        yield
+        self.assertEqual((yield source.data), 0x55667788)
+        self.assertEqual((yield source.ctrl), 0)
 
 
     @ss_domain_test_case

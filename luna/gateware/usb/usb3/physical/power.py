@@ -204,9 +204,6 @@ class LinkPartnerDetector(Elaboratable):
                 # Ask the PHY to put us back down in P0.
                 m.d.comb += self.power_state.eq(0)
 
-                # XXX
-                m.d.comb += platform.get_led(m, 3).o.eq(1)
-
                 # Once the PHY indicates it's put us into the relevant power state, we're done.
                 # We can now broadcast our result.
                 with m.If(self.phy_status != 0):

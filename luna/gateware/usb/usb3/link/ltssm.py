@@ -87,16 +87,25 @@ class LTSSMController(Elaboratable):
         self.inverted_ts1_detected     = Signal()
         self.ts2_detected              = Signal()
 
+        self.hot_reset_requested       = Signal()
+        self.loopback_requested        = Signal()
+        self.no_scrambling_requested   = Signal()
+
         # Training set generation signals.
         self.send_tseq_burst           = Signal()
         self.send_ts1_burst            = Signal()
         self.send_ts2_burst            = Signal()
         self.ts_burst_complete         = Signal()
+        self.request_hot_reset         = Signal()
 
         # Late-stage link management; physical layer control.
         self.enable_scrambling         = Signal()
         self.perform_idle_handshake    = Signal()
         self.idle_handshake_complete   = Signal()
+
+        # Loopback & compliance.
+        self.act_as_loopback           = Signal()
+        self.emit_compliance_pattern   = Signal()
 
 
 
@@ -127,14 +136,26 @@ class LTSSMController(Elaboratable):
         #
         # Asynchronous Training Sequence & LFPS Detectors
         #
-        polling_seen  = Signal()
-        ts2_seen      = Signal()
+        polling_seen            = Signal()
+        ts2_seen                = Signal()
+        hot_reset_seen          = Signal()
+        loopback_seen           = Signal()
+        disable_scrambling_seen = Signal()
+
+        with m.If(self.lfps_polling_detected):
+            m.d.ss += polling_seen.eq(1)
 
         with m.If(self.ts2_detected):
             m.d.ss += ts2_seen.eq(1)
 
-        with m.If(self.lfps_polling_detected):
-            m.d.ss += polling_seen.eq(1)
+        with m.If(self.hot_reset_requested):
+            m.d.ss += hot_reset_seen.eq(1)
+
+        with m.If(self.loopback_requested):
+            m.d.ss += loopback_seen.eq(1)
+
+        with m.If(self.no_scrambling_requested):
+            m.d.ss += disable_scrambling_seen.eq(1)
 
 
         #
@@ -152,8 +173,11 @@ class LTSSMController(Elaboratable):
             Automatically handles any "on entry" conditions for the given state.
             """
 
-            # Clear our "time-in-state" counter.
-            m.d.ss += cycles_in_state.eq(0)
+            # Clear our "time-in-state" counter, and some of our mode flags.
+            m.d.ss += [
+                cycles_in_state         .eq(0),
+                self.request_hot_reset  .eq(0)
+            ]
 
             # If we have any additional entry conditions for the given state, apply them.
             if state in tasks_on_entry:
@@ -301,7 +325,9 @@ class LTSSMController(Elaboratable):
                 # Ensure we enter our primary training sequence with a fresh view of whether we've
                 # seen any of our training sets.
                 tasks_on_entry['Polling.RxEQ'] = [
-                    ts2_seen      .eq(0)
+                    ts2_seen                 .eq(0),
+                    hot_reset_seen           .eq(0),
+                    disable_scrambling_seen  .eq(0),
                 ]
 
                 # Continuously send TSEQs; these are used to perform receiver equalization training.
@@ -369,23 +395,25 @@ class LTSSMController(Elaboratable):
             with m.State("Polling.Idle"):
                 m.d.comb += [
                     # From this state onward, we have an active link, and we can thus enable data scrambling.
-                    self.enable_scrambling       .eq(1),
+                    self.enable_scrambling       .eq(~disable_scrambling_seen),
 
                     # Generate our IDL handshake.
                     self.perform_idle_handshake  .eq(1)
                 ]
 
+                # If a hot-reset is being requested, we'll enter Hot Reset.Active.
+                with m.If(hot_reset_seen):
+                    transition_to_state("Hot Reset.Active")
 
-                # Theoretically, in this state, we'd decide between U0, Loopback, or Hot Reset,
-                # based on the contents of the most recent TS2 we'd received.
-                #
-                # For now, we don't support Loopback or Hot Reset, so we'll just always target U0.
+                # If Loopback is being requested, we'll enter Loopback mode.
+                with m.Elif(loopback_seen):
+                    transition_to_state("Loopback")
 
-                # As one final synchronization step and sanity check, we'll require a proper period of
-                # Logical Idle to be # detected before we move to our next state. Since Logical Idle
-                # signals are scrambled, this helps to ensure that both sides of the link have
+                # Otherwise, As one final synchronization step and sanity check, we'll require a proper
+                # period of # Logical Idle to be detected before we move to our next state. Since Logical
+                # Idle signals are scrambled, this helps to ensure that both sides of the link have
                 # synchronized scrambler state and that the other side has stopped sending TS2s.
-                with m.If(self.idle_handshake_complete):
+                with m.Elif(self.idle_handshake_complete):
                     m.d.comb += self.entering_u0.eq(1)
                     transition_to_state("U0")
 
@@ -408,8 +436,65 @@ class LTSSMController(Elaboratable):
                 with m.If(self.trigger_link_recovery):
                     transition_to_state("Recovery.Active")
 
+                # If we've seen a TS1 ordered set, we know the other side has gone into recovery.
+                # We should, as well.
+                with m.If(self.ts1_detected):
+                    transition_to_state("Recovery.Active")
+
 
                 # TODO: handle the various other cases for leaving U0
+
+            # Hot Reset.Active -- during link training, we've seen a training set indicating
+            # we should perform a hot reset. We're now performing a TS2 handshake, modified so
+            # we are also sending Hot Reset.
+            with m.State("Hot Reset.Active"):
+                handle_warm_resets()
+
+                # Clear our previous training state on entering recovery.
+                tasks_on_entry['Hot Reset.Active'] = [
+                    ts2_seen                 .eq(0),
+                    self.request_hot_reset   .eq(1)
+                ]
+
+                # As in Polling.Configuration, we'll send TS2s; but we'll send them with our
+                # Hot Reset bit set.
+                m.d.comb += [
+                    self.send_ts2_burst     .eq(1),
+                ]
+
+                # If we don't achieve link training within 12mS, we'll assume that we've lost our
+                # link partner. We'll assume our link is no longer recoverable, and move to inactive.
+                transition_on_timeout(12e-3, to="SS.Inactive.Quiet")
+
+                # We need to at least one burst with the Reset bit set; and then drop out of hot reset.
+                with m.If(self.ts_burst_complete):
+                    m.d.ss += self.request_hot_reset.eq(0)
+
+                # Once we've seen TS2s in response that don't have Hot Reset asserted, we can drop out
+                # of hot reset; and pursue normal operation again.
+                with m.If(self.ts_burst_complete & ts2_seen & ~self.hot_reset_requested):
+                    transition_to_state("Hot Reset.Exit")
+
+
+            # Hot Reset.Exit -- we've now finished link training, and we're ready to move on to having
+            # an active link. We'll now perform a reduced-complexity Idle handshake.
+            with m.State("Hot Reset.Exit"):
+                m.d.comb += [
+                    # From this state onward, we have an active link, and we can thus enable data scrambling.
+                    self.enable_scrambling       .eq(~disable_scrambling_seen),
+
+                    # Generate our IDL handshake.
+                    self.perform_idle_handshake  .eq(1)
+                ]
+
+                # Once we've finished our Idle handshake, we can move on to U0.
+                with m.If(self.idle_handshake_complete):
+                    m.d.comb += self.entering_u0.eq(1)
+                    transition_to_state("U0")
+
+                # If we don't complete our Idle handshake within 2ms, something's gone wrong.
+                # We'll consider our link irrecoverable.
+                transition_on_timeout(2e-3, to="SS.Inactive.Quiet")
 
 
             # Recovery.Active -- our link is no longer in a reliably usable state; we'll need
@@ -421,16 +506,18 @@ class LTSSMController(Elaboratable):
 
                 # Clear our previous training state on entering recovery.
                 tasks_on_entry['Recovery.Active'] = [
-                    ts2_seen      .eq(0)
+                    ts2_seen                 .eq(0),
+                    hot_reset_seen           .eq(0),
+                    loopback_seen            .eq(0),
+                    disable_scrambling_seen  .eq(0),
                 ]
 
                 # As in Polling.Active, we'll send TS1s to establish training.
                 m.d.comb += self.send_ts1_burst.eq(1)
 
                 # If we don't achieve link training within 12mS, we'll assume that we've lost our
-                # link partner. We'll assume our link is no longer up, and move to inactive.
-                # FIXME: this should move to SS.Inactive.
-                transition_on_timeout(12e-3, to="Rx.Detect.Active")
+                # link partner. We'll assume our link is no longer recoverable, and move to inactive.
+                transition_on_timeout(12e-3, to="SS.Inactive.Quiet")
 
                 # Once we see enough TS1s from the other side; or see TS2s, we'll move into our next step.
                 with m.If(self.ts1_detected | self.ts2_detected):
@@ -448,8 +535,7 @@ class LTSSMController(Elaboratable):
 
                 # If we don't achieve link training within 12mS, we'll assume that we've lost our
                 # link partner. We'll assume our link is no longer up, and move to inactive.
-                # FIXME: this should move to SS.Inactive.
-                transition_on_timeout(12e-3, to="Rx.Detect.Active")
+                transition_on_timeout(12e-3, to="SS.Inactive.Quiet")
 
                 # If we've finished sending the requisite amount of TS2s and we've seen TS2s from the
                 # other side, we know that both sides are finished with the core link training.
@@ -463,19 +549,29 @@ class LTSSMController(Elaboratable):
             with m.State("Recovery.Idle"):
                 m.d.comb += [
                     # Restore scrambling, and repeat our idle handshake.
-                    self.enable_scrambling       .eq(1),
+                    self.enable_scrambling       .eq(~disable_scrambling_seen),
                     self.perform_idle_handshake  .eq(1)
                 ]
 
-                # Once we've seen logical idle, we can enter U0 again.
-                with m.If(self.idle_handshake_complete):
+                # If a hot-reset is being requested, we'll enter Hot Reset.Active.
+                with m.If(hot_reset_seen):
+                    transition_to_state("Hot Reset.Active")
+
+                # If Loopback is being requested, we'll enter Loopback mode.
+                with m.Elif(loopback_seen):
+                    transition_to_state("Loopback")
+
+                # Otherwise, As one final synchronization step and sanity check, we'll require a proper
+                # period of # Logical Idle to be detected before we move to our next state. Since Logical
+                # Idle signals are scrambled, this helps to ensure that both sides of the link have
+                # synchronized scrambler state and that the other side has stopped sending TS2s.
+                with m.Elif(self.idle_handshake_complete):
                     m.d.comb += self.entering_u0.eq(1)
                     transition_to_state("U0")
 
                 # If we don't see that logical idle within 2ms, something's gone wrong. We'll
                 # assume we've lost our link partner, and move to SS.Inactive.
-                # FIXME: do this
-                transition_on_timeout(2e-3, to="Rx.Detect.Reset")
+                transition_on_timeout(2e-3, to="SS.Inactive.Quiet")
 
 
             # Compliance -- we've failed link training in such a way as to believe we're in the
@@ -491,7 +587,64 @@ class LTSSMController(Elaboratable):
                 transition_to_state("Rx.Detect.Reset")
 
 
+            # Loopback -- during the link bringup, our link partner requested that we go into
+            # Loopback mode; so we'll begin acting as a loopback device.
+            with m.State("Loopback"):
+                m.d.comb += self.act_as_loopback.eq(1)
 
+                # FIXME: detect Loopback Exit LFPS, and exit this state.
+
+
+            # SS.Inactive.Quiet -- an non-recoverable error has occurred somewhere with the link.
+            # We'll wait for a bit here and do nothing, so we don't completely drain power.
+            with m.State("SS.Inactive.Quiet"):
+                m.d.comb += self.tx_electrical_idle.eq(1),
+                transition_on_timeout(12e-3, to="SS.Inactive.Disconnect.Detect")
+
+
+            # SS.Inactive.Disconnect.Detect  -- our best case scenario is that we become disconnected,
+            # and then are reconnected to establish a working link. We'll check for disconnection.
+            with m.State("SS.Inactive.Disconnect.Detect"):
+                m.d.comb += [
+                    self.tx_electrical_idle    .eq(1),
+                    self.perform_rx_detection  .eq(1)
+                ]
+
+                # If we detect a link partner, we're still in our non-recoverable state.
+                # We'll go back to .Quiet and wait another 12ms to check again.
+                with m.If(self.link_partner_detected):
+                    transition_to_state("SS.Inactive.Quiet")
+
+                # If we detect the absence of a link partner, we're no longer in our bad state.
+                # We'll move to Rx.Detect, and start over again.
+                with m.If(self.no_link_partner_detected):
+                    transition_to_state("Rx.Detect.Quiet")
+
+
+            # SS.Disabled.Default -- the SuperSpeed portion of our link is disabled; we'll remove
+            # our terminations and attempt to act as a valid USB2 device.
+            with m.State("SS.Disabled.Default"):
+                m.d.comb += [
+                    self.tx_electrical_idle    .eq(1),
+                    self.engage_terminations   .eq(0)
+                ]
+
+                # FIXME: exit this if VBUS becomes valid (was invalid, and become valid), or if
+                # our USB2 half sees a reset event.
+
+                # FIXME: transition to SS.Disabled.Error if we get here three times without success.
+
+
+            # SS.Disabled.Error -- the SuperSpeed portion of our link is disabled; we'll remove
+            # our terminations and sit idly until VBUS is cycled.
+            with m.State("SS.Disabled.Error"):
+                m.d.comb += [
+                    self.tx_electrical_idle    .eq(1),
+                    self.engage_terminations   .eq(0)
+                ]
+
+                # FIXME: exit this if VBUS becomes valid (was invalid, and become valid).
+                # We'll ignore any USB2 resets.
 
 
         return m

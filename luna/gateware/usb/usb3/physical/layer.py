@@ -41,9 +41,12 @@ class USB3PhysicalLayer(Elaboratable):
         # I/O port
         #
 
-        # Raw data streams.
+        # Data streams.
         self.sink                       = USBRawSuperSpeedStream()
         self.source                     = USBRawSuperSpeedStream()
+
+        # Raw source (never descrambled; for reset detection).
+        self.raw_source                 = USBRawSuperSpeedStream()
 
         # Physical link state.
         self.ready                      = Signal()
@@ -69,6 +72,10 @@ class USB3PhysicalLayer(Elaboratable):
         # SKP insertion control.
         self.can_send_skp               = Signal()
         self.skip_removed               = Signal()
+
+        # Debug signaling.
+        self.ctc_bytes_in_buffer        = Signal(range(9))
+        self.alignment_offset           = Signal(range(4))
 
 
     def elaborate(self, platform):
@@ -192,14 +199,19 @@ class USB3PhysicalLayer(Elaboratable):
             rx_ctc.sink.valid  .eq(1),
 
             # Diagnostic output.
-            self.skip_removed  .eq(1)
+            self.skip_removed         .eq(rx_ctc.skip_removed),
+            self.ctc_bytes_in_buffer  .eq(rx_ctc.bytes_in_buffer),
         ]
 
         # Word align the data, so it's easily handleable internally.
         m.submodules.aligner = aligner = RxWordAligner()
         m.d.comb += [
-            aligner.sink      .stream_eq(rx_ctc.source),
+            aligner.sink           .stream_eq(rx_ctc.source),
+            self.raw_source        .tap(aligner.source),
+
+            self.alignment_offset  .eq(aligner.alignment_offset)
         ]
+
 
         # Finally, de-scramble our data before output, if needed.
         m.submodules.descrambler = descrambler = Descrambler()

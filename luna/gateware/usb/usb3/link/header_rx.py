@@ -8,12 +8,14 @@
 import unittest
 
 from nmigen                        import *
+from nmigen.hdl.ast                import Fell
+
 from usb_protocol.types.superspeed import LinkCommand
 
 from .header                       import HeaderPacket, HeaderQueue
 from .crc                          import compute_usb_crc5, HeaderPacketCRC
 from .command                      import LinkCommandGenerator
-from ..physical.coding             import SHP, EPF, stream_matches_symbols, get_word_for_symbols
+from ..physical.coding             import SHP, EPF, stream_matches_symbols
 from ...stream                     import USBRawSuperSpeedStream
 
 from ....test.utils                import LunaSSGatewareTestCase, ss_domain_test_case
@@ -135,19 +137,19 @@ class RawHeaderPacketReceiver(Elaboratable):
             # CHECK_PACKET -- we've now received our full packet; we'll check it for validity.
             with m.State("CHECK_PACKET"):
 
+                # A minor error occurs if if one of our CRCs mismatches; in which case the link can
+                # continue after sending an LBAD link command. [USB3.2r1: 7.2.4.1.5].
+                # We'll strobe our less-severe "bad packet" indicator, but still reject the header.
+                crc5_failed  = (expected_crc5 != packet.crc5)
+                crc16_failed = (crc16.crc     != packet.crc16)
+                with m.If(crc5_failed | crc16_failed):
+                    m.d.comb += self.bad_packet.eq(1)
+
                 # Our worst-case scenario is we're receiving a packet with an unexpected sequence
                 # number; this indicates that we've lost sequence, and our device should move back to
                 # into Recovery [USB3.2r1: 7.2.4.1.5].
                 with m.If(packet.sequence_number != self.expected_sequence):
                     m.d.comb += self.bad_sequence.eq(1)
-
-                # A less-worse case is if one of our CRCs mismatches; in which case the link can
-                # continue after sending an LBAD link command. [USB3.2r1: 7.2.4.1.5].
-                # We'll strobe our less-severe "bad packet" indicator, but still reject the header.
-                crc5_failed  = (expected_crc5 != packet.crc5)
-                crc16_failed = (crc16.crc     != packet.crc16)
-                with m.Elif(crc5_failed | crc16_failed):
-                    m.d.comb += self.bad_packet.eq(1)
 
                 # If neither of the above checks failed, we now know we have a valid header packet!
                 # We'll output our packet, and then return to IDLE.
@@ -201,6 +203,31 @@ class RawHeaderPacketReceiverTest(LunaSSGatewareTestCase):
 
 
     @ss_domain_test_case
+    def test_bad_sequence_receive(self):
+        dut  = self.dut
+
+        # Expect a sequence number other than the one we'll be providing.
+        yield dut.expected_sequence.eq(3)
+
+        # Data input for an actual Link Management packet (seq #0).
+        yield from self.provide_data(
+            # data       ctrl
+            (0xF7FBFBFB, 0b1111),
+            (0x00000280, 0b0000),
+            (0x00010004, 0b0000),
+            (0x00000000, 0b0000),
+            (0x10001845, 0b0000),
+        )
+
+        # ... after a cycle to process, we should see an indication that the packet is good.
+        yield from self.advance_cycles(2)
+        self.assertEqual((yield dut.new_packet),   0)
+        self.assertEqual((yield dut.bad_packet),   0)
+        self.assertEqual((yield dut.bad_sequence), 1)
+
+
+
+    @ss_domain_test_case
     def test_bad_packet_receive(self):
         dut  = self.dut
 
@@ -223,7 +250,7 @@ class RawHeaderPacketReceiverTest(LunaSSGatewareTestCase):
 
 
     @ss_domain_test_case
-    def test_bad_sequence_receive(self):
+    def test_bad_crc_and_sequence_receive(self):
         dut  = self.dut
 
         # Completely invalid link packet, guaranteed to have a bad sequence number & CRC.
@@ -236,12 +263,12 @@ class RawHeaderPacketReceiverTest(LunaSSGatewareTestCase):
             (0xFFFFFFFF, 0b0000),
         )
 
-        # Once we've processed this, we should see that there's a bad sequence; which should
-        # trump our bad packet indicator, and prevent that from going high.
+        # Once we've processed this, we should see that there's a bad packet; but that it's
+        # corrupted enough that our sequence no longer matters.
         yield from self.advance_cycles(1)
         self.assertEqual((yield dut.new_packet),   0)
-        self.assertEqual((yield dut.bad_packet),   0)
-        self.assertEqual((yield dut.bad_sequence), 1)
+        self.assertEqual((yield dut.bad_packet),   1)
+        self.assertEqual((yield dut.bad_sequence), 0)
 
 
 class HeaderPacketReceiver(Elaboratable):
@@ -277,6 +304,7 @@ class HeaderPacketReceiver(Elaboratable):
 
         # Simple controls.
         self.enable                = Signal()
+        self.hot_reset             = Signal()
         self.bus_available         = Signal()
 
         # Header Packet Queue
@@ -289,6 +317,7 @@ class HeaderPacketReceiver(Elaboratable):
 
         self.link_command_sent     = Signal()
         self.keepalive_required    = Signal()
+        self.packet_received       = Signal()
         self.bad_packet_received   = Signal()
 
 
@@ -374,11 +403,6 @@ class HeaderPacketReceiver(Elaboratable):
         # Create buffers to receive any incoming header packets.
         buffers = Array(HeaderPacket() for _ in range(self._buffer_count))
 
-        # Conditionall advance our pointers.
-        advance_read  = Signal()
-        advance_write = Signal()
-
-
 
         #
         # Packet reception (physical layer -> link layer).
@@ -394,17 +418,20 @@ class HeaderPacketReceiver(Elaboratable):
         m.submodules.receiver = rx = RawHeaderPacketReceiver()
         m.d.comb += [
             # Our receiver passively monitors the data received for header packets.
-            rx.sink                 .tap(self.sink),
+            rx.sink                   .tap(self.sink),
 
             # Ensure it's always up to date about what sequence numbers we expect.
-            rx.expected_sequence    .eq(expected_sequence_number),
+            rx.expected_sequence      .eq(expected_sequence_number),
 
             # If we ever get a bad header packet sequence, we're required to retrain
             # the link [USB3.2r1: 7.2.4.1.5]. Pass the event through directly.
-            self.recovery_required  .eq(rx.bad_sequence & ~ignore_packets),
+            self.recovery_required    .eq(rx.bad_sequence & ~ignore_packets),
+
+            # Notify the link layer when packets are received, for keeping track of our timers.
+            self.packet_received      .eq(rx.new_packet),
 
             # Notify the link layer if any bad packets are received; for diagnostics.
-            self.bad_packet_received.eq(rx.bad_packet)
+            self.bad_packet_received  .eq(rx.bad_packet)
         ]
 
 
@@ -509,9 +536,8 @@ class HeaderPacketReceiver(Elaboratable):
                     # - LBAD must come after ACKs and credit management, as all scheduled ACKs need to be
                     #   sent to the other side for the LBAD to have the correct semantic meaning.
 
-
                     with m.If(retry_pending):
-                        m.next = "SEND_ACKS"
+                        m.next = "SEND_LRTY"
 
                     # If we have acknowledgements to send, send them.
                     with m.Elif(acks_to_send):
@@ -528,6 +554,40 @@ class HeaderPacketReceiver(Elaboratable):
                     # If we need to send a keepalive, do so.
                     with m.Elif(keepalive_pending):
                         m.next = "SEND_KEEPALIVE"
+
+
+                # Once we've become disabled, we'll want to prepare for our next enable.
+                # This means preparing for our advertisement, by:
+                with m.If(Fell(self.enable) | self.hot_reset):
+                    m.d.ss += [
+                        # -Resetting our pending ACKs to 1, so we perform an sequence number advertisement
+                        #  when we're next enabled.
+                        acks_to_send          .eq(1),
+
+                        # -Decreasing our next sequence number; so we maintain a continuity of sequence numbers
+                        #  without counting the advertising one. This doesn't seem to be be strictly necessary
+                        #  per the spec; but seem to make analyzers happier, so we'll go with it.
+                        next_header_to_ack    .eq(Mux(self.hot_reset, -1, next_header_to_ack - 1)),
+
+                        # - Clearing all of our buffers.
+                        read_pointer          .eq(0),
+                        write_pointer         .eq(0),
+                        buffers_filled        .eq(0),
+
+                        # - Preparing to re-issue all of our buffer credits.
+                        next_credit_to_issue  .eq(0),
+                        credits_to_issue      .eq(self._buffer_count),
+
+                        # - Clear our pending events.
+                        retry_pending         .eq(0),
+                        lbad_pending          .eq(0),
+                        keepalive_pending     .eq(0),
+                        ignore_packets        .eq(0)
+                    ]
+
+                    # If this is a Hot Reset, also reset our sequence number.
+                    with m.If(self.hot_reset):
+                        m.d.ss += expected_sequence_number.eq(0)
 
 
             # SEND_ACKS -- a valid header packet has been received, or we're advertising

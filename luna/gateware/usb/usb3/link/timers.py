@@ -45,6 +45,7 @@ class LinkMaintenanceTimers(Elaboratable):
     KEEPALIVE_TIMEOUT = 10e-6
     RECOVERY_TIMEOUT  = 1e-3
 
+
     def __init__(self, *, ss_clock_frequency=125e6):
         self._clock_frequency = ss_clock_frequency
 
@@ -54,6 +55,8 @@ class LinkMaintenanceTimers(Elaboratable):
         self.enable                   = Signal()
 
         self.link_command_received    = Signal()
+        self.packet_received          = Signal()
+
         self.link_command_transmitted = Signal()
 
         self.schedule_keepalive       = Signal()
@@ -82,6 +85,8 @@ class LinkMaintenanceTimers(Elaboratable):
             m.d.ss += keepalive_timer.eq(0)
         with m.Elif(self.enable):
             m.d.ss += keepalive_timer.eq(keepalive_timer + 1)
+        with m.Else():
+            m.d.ss += keepalive_timer.eq(0)
 
 
         #
@@ -93,10 +98,12 @@ class LinkMaintenanceTimers(Elaboratable):
         recovery_timer = Signal(range(recovery_timeout_cycles))
         m.d.comb += self.transition_to_recovery.eq(recovery_timer + 1 == recovery_timeout_cycles)
 
-        with m.If(self.link_command_received):
+        with m.If(self.link_command_received | self.packet_received):
             m.d.ss += recovery_timer.eq(0)
         with m.Elif(self.enable):
             m.d.ss += recovery_timer.eq(recovery_timer + 1)
+        with m.Else():
+            m.d.ss += recovery_timer.eq(0)
 
 
         return m
