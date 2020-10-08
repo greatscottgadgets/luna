@@ -1175,6 +1175,14 @@ class UTMITranslator(Elaboratable):
             for address, value in platform.ulpi_extra_registers.items():
                 self.add_extra_register(address, value)
 
+        # Some platforms may need to have a raw clock domain for their I/O; e.g. if they need
+        # to do some simple processing for their internal clock domain.
+        if self.handle_clocking and hasattr(platform, 'ulpi_raw_clock_domain'):
+            raw_clock_domain = platform.ulpi_raw_clock_domain
+        else:
+            raw_clock_domain = 'usb'
+
+
         # Add any extra registers provided by the user to our control translator.
         for address, values in self._extra_registers.items():
             control_translator.add_composite_register(m, address, values['value'], reset_value=values['default'])
@@ -1197,9 +1205,9 @@ class UTMITranslator(Elaboratable):
 
             # Just Input (TM) and Just Output (TM) clocks are simpler: we know how to drive them.
             elif hasattr(self.ulpi.clk, 'o'):
-                m.d.comb += self.ulpi.clk.eq(ClockSignal('usb'))
+                m.d.comb += self.ulpi.clk.eq(ClockSignal(raw_clock_domain))
             elif hasattr(self.ulpi.clk, 'i'):
-                m.d.comb += ClockSignal('usb').eq(self.ulpi.clk)
+                m.d.comb += ClockSignal(raw_clock_domain).eq(self.ulpi.clk)
 
             # Clocks that don't seem to be I/O pins aren't what we're expecting; fail out.
             else:
@@ -1209,7 +1217,7 @@ class UTMITranslator(Elaboratable):
 
         # Hook up our reset signal iff our ULPI bus has one.
         if hasattr(self.ulpi, 'rst'):
-            m.d.comb += self.ulpi.rst  .eq(ResetSignal("usb")),
+            m.d.comb += self.ulpi.rst  .eq(ResetSignal(raw_clock_domain)),
 
 
         # Connect our ULPI control signals to each of our subcomponents.

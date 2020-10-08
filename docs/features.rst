@@ -134,16 +134,16 @@ only performed on a collection of reference boards.
 	  - Status
 	* - *LUNA* Hardware
 	  - ECP5
-	  - ULPI x3
+	  - ULPI x3 (USB3343)
 	  - :complete:`Fully Supported`
 	* - OpenVizsla USB Analyzer
 	  - Spartan 6
-	  - ULPI
+	  - ULPI (USB3343)
 	  - :complete:`Fully Supported`
 	* - LambdaConcept ECPIX-5
 	  - ECP5
-	  - ULPI, SerDes PHY
-	  - :complete:`High-Speed Fully Supported` / :planned:`Super-Speed Planned`
+	  - ULPI (USB3300), SerDes PHY
+	  - :complete:`High-Speed Fully Supported` / :inprogress:`Super-Speed In Progress`
 	* - TinyFPGA Ex
 	  - ECP5
 	  - SerDes PHY
@@ -151,10 +151,10 @@ only performed on a collection of reference boards.
 	* - Logicbone
 	  - ECP5
 	  - SerDes PHY
-	  - :complete:`Full-Speed Fully Supported` / :planned:`Super-Speed Planned`
+	  - :complete:`Full-Speed Fully Supported` / :inprogress:`Super-Speed In Progress`
 	* - Daisho
 	  - Cyclone IV
-	  - PIPE
+	  - PIPE (TUSB1310A)
 	  - :planned:`Planned Super-Speed Device Mode`
 	* - PHYWhisperer-USB
 	  - Spartan 7
@@ -162,7 +162,7 @@ only performed on a collection of reference boards.
 	  - :planned:`Planned Device Mode Support`
 	* - LambdaConcept USB2Sniffer
 	  - Artix 7
-	  - ULPI x2
+	  - ULPI x2 (USB3300)
 	  - :complete:`Fully Supported`
 	* - OrangeCrab
 	  - ECP5
@@ -192,4 +192,8 @@ only performed on a collection of reference boards.
 	  - iCE40 LP
 	  - no hardware PHY
 	  - :complete:`Full-Speed/Device Mode Support`
+	* - Digilent Genesys2 (SS with add-on board)
+	  - Kintex 7
+	  - ULPI (TUSB1210), FMC for PIPE (TUSB1310A) add-on boards
+	  - :complete:`High-Speed Fully Supported`, / :inprogress:`SuperSpeed In Progress`
 
