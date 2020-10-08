@@ -3,23 +3,23 @@
 #
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
-
 """ Arty A7 Platform Definition
 
-This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM variable:
+The full Arty A7 does not have an explicit USB port. Instead, you'll need to connect a USB breakout.
+The Arty A7 is an -unsupported- platform! To use it, you'll need to set your LUNA_PLATFORM variable:
 
     > export LUNA_PLATFORM="luna.gateware.platform.arty_a7:ArtyA7Platform"
 """
 
 import os
+import logging
 import subprocess
 
 from nmigen import *
 from nmigen.build import *
-from nmigen.vendor.xilinx_7series import Xilinx7SeriesPlatform
 
+from nmigen_boards.arty_a7   import ArtyA7Platform as _CoreArtyA7Platform
 from nmigen_boards.resources import *
-from ..interface.serdes_phy import SerDesPHY
 
 from .core import LUNAPlatform
 
@@ -80,16 +80,10 @@ class ArtyA7ClockDomainGenerator(Elaboratable):
 
 
 
-class ArtyA7Platform(Xilinx7SeriesPlatform, LUNAPlatform):
-    """ Board description for the NeTV2. """
+class ArtyA7Platform(_CoreArtyA7Platform, LUNAPlatform):
+    """ Board description for the Arty A7. """
 
-    name        = "NeTV2"
-
-    device      = "xc7a35ti"
-    package     = "csg324"
-    speed       = "1L"
-
-    default_clk = "clk100"
+    name        = "Arty A7"
 
     # Provide the type that'll be used to create our clock domains.
     clock_domain_generator = ArtyA7ClockDomainGenerator
@@ -101,9 +95,7 @@ class ArtyA7Platform(Xilinx7SeriesPlatform, LUNAPlatform):
     # I/O resources.
     #
 
-    resources   = [
-        Resource("clk100", 0, Pins("E3"), Clock(100e6), Attrs(IOSTANDARD="LVCMOS33")),
-
+    additional_resources   = [
         DirectUSBResource("usb_pmod_a", 0, d_p="G13", d_n="B11", pullup="A11", attrs=Attrs(IOStandard="LVCMOS33")),
         DirectUSBResource("usb_pmod_b", 0, d_p="E15", d_n="E16", pullup="D15", attrs=Attrs(IOStandard="LVCMOS33")),
         DirectUSBResource("usb_pmod_c", 0, d_p="U12", d_n="V12", pullup="V10", attrs=Attrs(IOStandard="LVCMOS33")),
@@ -111,6 +103,16 @@ class ArtyA7Platform(Xilinx7SeriesPlatform, LUNAPlatform):
     ]
 
     connectors = []
+
+
+    def __init__(self, *args, **kwargs):
+        logging.warning("This platform is not officially supported, and thus not tested. Your results may vary.")
+        logging.warning("Note also that this platform does not use the Arty's main USB port!")
+        logging.warning("You'll need to connect a cable or pmod. See the platform file for more info.")
+
+        super().__init__(*args, **kwargs)
+        self.add_resources(self.additional_resources)
+
 
 
     def toolchain_prepare(self, fragment, name, **kwargs):
@@ -126,9 +128,3 @@ class ArtyA7Platform(Xilinx7SeriesPlatform, LUNAPlatform):
         }
 
         return super().toolchain_prepare(fragment, name, **overrides, **kwargs)
-
-
-    def toolchain_program(self, products, name):
-        xc3sprog = os.environ.get("XC3SPROG", "xc3sprog")
-        with products.extract("{}.bit".format(name)) as bitstream_filename:
-            subprocess.run([xc3sprog, "-c", "nexys4", bitstream_filename], check=True)
