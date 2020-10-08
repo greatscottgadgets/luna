@@ -11,7 +11,6 @@ install_requirements = [
     'nmigen_boards @ git+https://github.com/nmigen/nmigen-boards.git',
     'pyvcd',
     'usb_protocol @ git+https://github.com/usb-tools/python-usb-protocol.git',
-    'pyserial~=3.4',
     'libusb1',
 ]
 
@@ -52,7 +51,8 @@ setup(
     },
 
     extras_require = {
-        'console_tests': ["prompt_toolkit"]
+        'console_tests': ["prompt_toolkit"],
+        'serial_examples': ["pyserial~=3.4"]
     },
 
     # Metadata
