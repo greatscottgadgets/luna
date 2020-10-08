@@ -81,7 +81,7 @@ class HeaderPacketCRC(Elaboratable):
 
 
     def _generate_next_crc(self, current_crc, data_in):
-        """ Generates the next round of a bytewise USB CRC16. """
+        """ Generates the next round of a wordwise USB CRC16. """
 
         def xor_data_bits(*indices):
             bits = (data_in[len(data_in) - 1 - i] for i in indices)
@@ -146,6 +146,260 @@ class HeaderPacketCRC(Elaboratable):
             m.d.ss += crc.eq(self._generate_next_crc(crc, self.data_input))
 
         # Convert from our intermediary "running CRC" format into the current CRC-16...
+        m.d.comb += self.crc.eq(~crc[::-1])
+
+        return m
+
+
+
+class DataPacketPayloadCRC(Elaboratable):
+    """ Gateware that computes a running CRC-32 for a data packet payload.
+
+    This CRC is more complicated than others, as Data Packet Payloads are not
+    required to end on a word boundary. Accordingly, we'll need to handle cases
+    where we have an incomplete word of 1, 2, or 3 bytes.
+
+    Attributes
+    ----------
+    clear: Signal(), input
+        Strobe; clears the CRC, restoring it to its Initial Value.
+
+    data_input: Signal(32), input
+        Data word to add to our running CRC.
+
+    advance_word: Signal(), input
+        When asserted, the current data word will be added to our CRC.
+    advance_3B: Signal(), input
+        When asserted, the last three bytes of the current data word will be added to our CRC.
+    advance_2B: Signal(), input
+        When asserted, the last two bytes of the current data word will be added to our CRC.
+    advance_1B: Signal(), input
+        When asserted, the last byte of the current data word will be added to our CRC.
+
+    crc: Signal(32), output
+        The current CRC value.
+
+
+    Parameters
+    ----------
+    initial_value: int, Const
+            The initial value of the CRC shift register; the USB default is used if not provided.
+    """
+
+    def __init__(self, initial_value=0xFFFFFFFF):
+        self._initial_value = initial_value
+
+        #
+        # I/O port
+        #
+        self.clear        = Signal()
+
+        self.data_input   = Signal(32)
+        self.advance_word = Signal()
+        self.advance_3B   = Signal()
+        self.advance_2B   = Signal()
+        self.advance_1B   = Signal()
+
+        self.crc         = Signal(32)
+
+
+    def _generate_next_full_crc(self, current_crc, data_in):
+        """ Generates the next round of our CRC; given a full input word . """
+
+        # Helper functions that help us more clearly match the expanded polynomial form.
+        d = lambda i : data_in[len(data_in) - i - 1]
+        q = lambda i : current_crc[i]
+
+        # These lines are extremely long, but there doesn't seem any advantage in clarity to splitting them.
+        return Cat(
+            q(0) ^ q(6) ^ q(9) ^ q(10) ^ q(12) ^ q(16) ^ q(24) ^ q(25) ^ q(26) ^ q(28) ^ q(29) ^ q(30) ^ q(31) ^ d(0) ^ d(6) ^ d(9) ^ d(10) ^ d(12) ^ d(16) ^ d(24) ^ d(25) ^ d(26) ^ d(28) ^ d(29) ^ d(30) ^ d(31),
+            q(0) ^ q(1) ^ q(6) ^ q(7) ^ q(9) ^ q(11) ^ q(12) ^ q(13) ^ q(16) ^ q(17) ^ q(24) ^ q(27) ^ q(28) ^ d(0) ^ d(1) ^ d(6) ^ d(7) ^ d(9) ^ d(11) ^ d(12) ^ d(13) ^ d(16) ^ d(17) ^ d(24) ^ d(27) ^ d(28),
+            q(0) ^ q(1) ^ q(2) ^ q(6) ^ q(7) ^ q(8) ^ q(9) ^ q(13) ^ q(14) ^ q(16) ^ q(17) ^ q(18) ^ q(24) ^ q(26) ^ q(30) ^ q(31) ^ d(0) ^ d(1) ^ d(2) ^ d(6) ^ d(7) ^ d(8) ^ d(9) ^ d(13) ^ d(14) ^ d(16) ^ d(17) ^ d(18) ^ d(24) ^ d(26) ^ d(30) ^ d(31),
+            q(1) ^ q(2) ^ q(3) ^ q(7) ^ q(8) ^ q(9) ^ q(10) ^ q(14) ^ q(15) ^ q(17) ^ q(18) ^ q(19) ^ q(25) ^ q(27) ^ q(31) ^ d(1) ^ d(2) ^ d(3) ^ d(7) ^ d(8) ^ d(9) ^ d(10) ^ d(14) ^ d(15) ^ d(17) ^ d(18) ^ d(19) ^ d(25) ^ d(27) ^ d(31),
+            q(0) ^ q(2) ^ q(3) ^ q(4) ^ q(6) ^ q(8) ^ q(11) ^ q(12) ^ q(15) ^ q(18) ^ q(19) ^ q(20) ^ q(24) ^ q(25) ^ q(29) ^ q(30) ^ q(31) ^ d(0) ^ d(2) ^ d(3) ^ d(4) ^ d(6) ^ d(8) ^ d(11) ^ d(12) ^ d(15) ^ d(18) ^ d(19) ^ d(20) ^ d(24) ^ d(25) ^ d(29) ^ d(30) ^ d(31),
+            q(0) ^ q(1) ^ q(3) ^ q(4) ^ q(5) ^ q(6) ^ q(7) ^ q(10) ^ q(13) ^ q(19) ^ q(20) ^ q(21) ^ q(24) ^ q(28) ^ q(29) ^ d(0) ^ d(1) ^ d(3) ^ d(4) ^ d(5) ^ d(6) ^ d(7) ^ d(10) ^ d(13) ^ d(19) ^ d(20) ^ d(21) ^ d(24) ^ d(28) ^ d(29),
+            q(1) ^ q(2) ^ q(4) ^ q(5) ^ q(6) ^ q(7) ^ q(8) ^ q(11) ^ q(14) ^ q(20) ^ q(21) ^ q(22) ^ q(25) ^ q(29) ^ q(30) ^ d(1) ^ d(2) ^ d(4) ^ d(5) ^ d(6) ^ d(7) ^ d(8) ^ d(11) ^ d(14) ^ d(20) ^ d(21) ^ d(22) ^ d(25) ^ d(29) ^ d(30),
+            q(0) ^ q(2) ^ q(3) ^ q(5) ^ q(7) ^ q(8) ^ q(10) ^ q(15) ^ q(16) ^ q(21) ^ q(22) ^ q(23) ^ q(24) ^ q(25) ^ q(28) ^ q(29) ^ d(0) ^ d(2) ^ d(3) ^ d(5) ^ d(7) ^ d(8) ^ d(10) ^ d(15) ^ d(16) ^ d(21) ^ d(22) ^ d(23) ^ d(24) ^ d(25) ^ d(28) ^ d(29),
+            q(0) ^ q(1) ^ q(3) ^ q(4) ^ q(8) ^ q(10) ^ q(11) ^ q(12) ^ q(17) ^ q(22) ^ q(23) ^ q(28) ^ q(31) ^ d(0) ^ d(1) ^ d(3) ^ d(4) ^ d(8) ^ d(10) ^ d(11) ^ d(12) ^ d(17) ^ d(22) ^ d(23) ^ d(28) ^ d(31),
+            q(1) ^ q(2) ^ q(4) ^ q(5) ^ q(9) ^ q(11) ^ q(12) ^ q(13) ^ q(18) ^ q(23) ^ q(24) ^ q(29) ^ d(1) ^ d(2) ^ d(4) ^ d(5) ^ d(9) ^ d(11) ^ d(12) ^ d(13) ^ d(18) ^ d(23) ^ d(24) ^ d(29),
+            q(0) ^ q(2) ^ q(3) ^ q(5) ^ q(9) ^ q(13) ^ q(14) ^ q(16) ^ q(19) ^ q(26) ^ q(28) ^ q(29) ^ q(31) ^ d(0) ^ d(2) ^ d(3) ^ d(5) ^ d(9) ^ d(13) ^ d(14) ^ d(16) ^ d(19) ^ d(26) ^ d(28) ^ d(29) ^ d(31),
+            q(0) ^ q(1) ^ q(3) ^ q(4) ^ q(9) ^ q(12) ^ q(14) ^ q(15) ^ q(16) ^ q(17) ^ q(20) ^ q(24) ^ q(25) ^ q(26) ^ q(27) ^ q(28) ^ q(31) ^ d(0) ^ d(1) ^ d(3) ^ d(4) ^ d(9) ^ d(12) ^ d(14) ^ d(15) ^ d(16) ^ d(17) ^ d(20) ^ d(24) ^ d(25) ^ d(26) ^ d(27) ^ d(28) ^ d(31),
+            q(0) ^ q(1) ^ q(2) ^ q(4) ^ q(5) ^ q(6) ^ q(9) ^ q(12) ^ q(13) ^ q(15) ^ q(17) ^ q(18) ^ q(21) ^ q(24) ^ q(27) ^ q(30) ^ q(31) ^ d(0) ^ d(1) ^ d(2) ^ d(4) ^ d(5) ^ d(6) ^ d(9) ^ d(12) ^ d(13) ^ d(15) ^ d(17) ^ d(18) ^ d(21) ^ d(24) ^ d(27) ^ d(30) ^ d(31),
+            q(1) ^ q(2) ^ q(3) ^ q(5) ^ q(6) ^ q(7) ^ q(10) ^ q(13) ^ q(14) ^ q(16) ^ q(18) ^ q(19) ^ q(22) ^ q(25) ^ q(28) ^ q(31) ^ d(1) ^ d(2) ^ d(3) ^ d(5) ^ d(6) ^ d(7) ^ d(10) ^ d(13) ^ d(14) ^ d(16) ^ d(18) ^ d(19) ^ d(22) ^ d(25) ^ d(28) ^ d(31),
+            q(2) ^ q(3) ^ q(4) ^ q(6) ^ q(7) ^ q(8) ^ q(11) ^ q(14) ^ q(15) ^ q(17) ^ q(19) ^ q(20) ^ q(23) ^ q(26) ^ q(29) ^ d(2) ^ d(3) ^ d(4) ^ d(6) ^ d(7) ^ d(8) ^ d(11) ^ d(14) ^ d(15) ^ d(17) ^ d(19) ^ d(20) ^ d(23) ^ d(26) ^ d(29),
+            q(3) ^ q(4) ^ q(5) ^ q(7) ^ q(8) ^ q(9) ^ q(12) ^ q(15) ^ q(16) ^ q(18) ^ q(20) ^ q(21) ^ q(24) ^ q(27) ^ q(30) ^ d(3) ^ d(4) ^ d(5) ^ d(7) ^ d(8) ^ d(9) ^ d(12) ^ d(15) ^ d(16) ^ d(18) ^ d(20) ^ d(21) ^ d(24) ^ d(27) ^ d(30),
+            q(0) ^ q(4) ^ q(5) ^ q(8) ^ q(12) ^ q(13) ^ q(17) ^ q(19) ^ q(21) ^ q(22) ^ q(24) ^ q(26) ^ q(29) ^ q(30) ^ d(0) ^ d(4) ^ d(5) ^ d(8) ^ d(12) ^ d(13) ^ d(17) ^ d(19) ^ d(21) ^ d(22) ^ d(24) ^ d(26) ^ d(29) ^ d(30),
+            q(1) ^ q(5) ^ q(6) ^ q(9) ^ q(13) ^ q(14) ^ q(18) ^ q(20) ^ q(22) ^ q(23) ^ q(25) ^ q(27) ^ q(30) ^ q(31) ^ d(1) ^ d(5) ^ d(6) ^ d(9) ^ d(13) ^ d(14) ^ d(18) ^ d(20) ^ d(22) ^ d(23) ^ d(25) ^ d(27) ^ d(30) ^ d(31),
+            q(2) ^ q(6) ^ q(7) ^ q(10) ^ q(14) ^ q(15) ^ q(19) ^ q(21) ^ q(23) ^ q(24) ^ q(26) ^ q(28) ^ q(31) ^ d(2) ^ d(6) ^ d(7) ^ d(10) ^ d(14) ^ d(15) ^ d(19) ^ d(21) ^ d(23) ^ d(24) ^ d(26) ^ d(28) ^ d(31),
+            q(3) ^ q(7) ^ q(8) ^ q(11) ^ q(15) ^ q(16) ^ q(20) ^ q(22) ^ q(24) ^ q(25) ^ q(27) ^ q(29) ^ d(3) ^ d(7) ^ d(8) ^ d(11) ^ d(15) ^ d(16) ^ d(20) ^ d(22) ^ d(24) ^ d(25) ^ d(27) ^ d(29),
+            q(4) ^ q(8) ^ q(9) ^ q(12) ^ q(16) ^ q(17) ^ q(21) ^ q(23) ^ q(25) ^ q(26) ^ q(28) ^ q(30) ^ d(4) ^ d(8) ^ d(9) ^ d(12) ^ d(16) ^ d(17) ^ d(21) ^ d(23) ^ d(25) ^ d(26) ^ d(28) ^ d(30),
+            q(5) ^ q(9) ^ q(10) ^ q(13) ^ q(17) ^ q(18) ^ q(22) ^ q(24) ^ q(26) ^ q(27) ^ q(29) ^ q(31) ^ d(5) ^ d(9) ^ d(10) ^ d(13) ^ d(17) ^ d(18) ^ d(22) ^ d(24) ^ d(26) ^ d(27) ^ d(29) ^ d(31),
+            q(0) ^ q(9) ^ q(11) ^ q(12) ^ q(14) ^ q(16) ^ q(18) ^ q(19) ^ q(23) ^ q(24) ^ q(26) ^ q(27) ^ q(29) ^ q(31) ^ d(0) ^ d(9) ^ d(11) ^ d(12) ^ d(14) ^ d(16) ^ d(18) ^ d(19) ^ d(23) ^ d(24) ^ d(26) ^ d(27) ^ d(29) ^ d(31),
+            q(0) ^ q(1) ^ q(6) ^ q(9) ^ q(13) ^ q(15) ^ q(16) ^ q(17) ^ q(19) ^ q(20) ^ q(26) ^ q(27) ^ q(29) ^ q(31) ^ d(0) ^ d(1) ^ d(6) ^ d(9) ^ d(13) ^ d(15) ^ d(16) ^ d(17) ^ d(19) ^ d(20) ^ d(26) ^ d(27) ^ d(29) ^ d(31),
+            q(1) ^ q(2) ^ q(7) ^ q(10) ^ q(14) ^ q(16) ^ q(17) ^ q(18) ^ q(20) ^ q(21) ^ q(27) ^ q(28) ^ q(30) ^ d(1) ^ d(2) ^ d(7) ^ d(10) ^ d(14) ^ d(16) ^ d(17) ^ d(18) ^ d(20) ^ d(21) ^ d(27) ^ d(28) ^ d(30),
+            q(2) ^ q(3) ^ q(8) ^ q(11) ^ q(15) ^ q(17) ^ q(18) ^ q(19) ^ q(21) ^ q(22) ^ q(28) ^ q(29) ^ q(31) ^ d(2) ^ d(3) ^ d(8) ^ d(11) ^ d(15) ^ d(17) ^ d(18) ^ d(19) ^ d(21) ^ d(22) ^ d(28) ^ d(29) ^ d(31),
+            q(0) ^ q(3) ^ q(4) ^ q(6) ^ q(10) ^ q(18) ^ q(19) ^ q(20) ^ q(22) ^ q(23) ^ q(24) ^ q(25) ^ q(26) ^ q(28) ^ q(31) ^ d(0) ^ d(3) ^ d(4) ^ d(6) ^ d(10) ^ d(18) ^ d(19) ^ d(20) ^ d(22) ^ d(23) ^ d(24) ^ d(25) ^ d(26) ^ d(28) ^ d(31),
+            q(1) ^ q(4) ^ q(5) ^ q(7) ^ q(11) ^ q(19) ^ q(20) ^ q(21) ^ q(23) ^ q(24) ^ q(25) ^ q(26) ^ q(27) ^ q(29) ^ d(1) ^ d(4) ^ d(5) ^ d(7) ^ d(11) ^ d(19) ^ d(20) ^ d(21) ^ d(23) ^ d(24) ^ d(25) ^ d(26) ^ d(27) ^ d(29),
+            q(2) ^ q(5) ^ q(6) ^ q(8) ^ q(12) ^ q(20) ^ q(21) ^ q(22) ^ q(24) ^ q(25) ^ q(26) ^ q(27) ^ q(28) ^ q(30) ^ d(2) ^ d(5) ^ d(6) ^ d(8) ^ d(12) ^ d(20) ^ d(21) ^ d(22) ^ d(24) ^ d(25) ^ d(26) ^ d(27) ^ d(28) ^ d(30),
+            q(3) ^ q(6) ^ q(7) ^ q(9) ^ q(13) ^ q(21) ^ q(22) ^ q(23) ^ q(25) ^ q(26) ^ q(27) ^ q(28) ^ q(29) ^ q(31) ^ d(3) ^ d(6) ^ d(7) ^ d(9) ^ d(13) ^ d(21) ^ d(22) ^ d(23) ^ d(25) ^ d(26) ^ d(27) ^ d(28) ^ d(29) ^ d(31),
+            q(4) ^ q(7) ^ q(8) ^ q(10) ^ q(14) ^ q(22) ^ q(23) ^ q(24) ^ q(26) ^ q(27) ^ q(28) ^ q(29) ^ q(30) ^ d(4) ^ d(7) ^ d(8) ^ d(10) ^ d(14) ^ d(22) ^ d(23) ^ d(24) ^ d(26) ^ d(27) ^ d(28) ^ d(29) ^ d(30),
+            q(5) ^ q(8) ^ q(9) ^ q(11) ^ q(15) ^ q(23) ^ q(24) ^ q(25) ^ q(27) ^ q(28) ^ q(29) ^ q(30) ^ q(31) ^ d(5) ^ d(8) ^ d(9) ^ d(11) ^ d(15) ^ d(23) ^ d(24) ^ d(25) ^ d(27) ^ d(28) ^ d(29) ^ d(30) ^ d(31),
+        )
+
+
+    def _generate_next_3B_crc(self, current_crc, data_in):
+        """ Generates the next round of our CRC; given a 3B trailing input word . """
+
+        # Helper functions that help us more clearly match the expanded polynomial form.
+        d = lambda i : data_in[len(data_in) - i - 1]
+        q = lambda i : current_crc[i]
+
+        # These lines are extremely long, but there doesn't seem any advantage in clarity to splitting them.
+        return Cat(
+            q(8) ^ q(14) ^ q(17) ^ q(18) ^ q(20) ^ q(24) ^ d(0) ^ d(6) ^ d(9) ^ d(10) ^ d(12) ^ d(16),
+            q(8) ^ q(9) ^ q(14) ^ q(15) ^ q(17) ^ q(19) ^ q(20) ^ q(21) ^ q(24) ^ q(25) ^ d(0) ^ d(1) ^ d(6) ^ d(7) ^ d(9) ^ d(11) ^ d(12) ^ d(13) ^ d(16) ^ d(17),
+            q(8) ^ q(9) ^ q(10) ^ q(14) ^ q(15) ^ q(16) ^ q(17) ^ q(21) ^ q(22) ^ q(24) ^ q(25) ^ q(26) ^ d(0) ^ d(1) ^ d(2) ^ d(6) ^ d(7) ^ d(8) ^ d(9) ^ d(13) ^ d(14) ^ d(16) ^ d(17) ^ d(18),
+            q(9) ^ q(10) ^ q(11) ^ q(15) ^ q(16) ^ q(17) ^ q(18) ^ q(22) ^ q(23) ^ q(25) ^ q(26) ^ q(27) ^ d(1) ^ d(2) ^ d(3) ^ d(7) ^ d(8) ^ d(9) ^ d(10) ^ d(14) ^ d(15) ^ d(17) ^ d(18) ^ d(19),
+            q(8) ^ q(10) ^ q(11) ^ q(12) ^ q(14) ^ q(16) ^ q(19) ^ q(20) ^ q(23) ^ q(26) ^ q(27) ^ q(28) ^ d(0) ^ d(2) ^ d(3) ^ d(4) ^ d(6) ^ d(8) ^ d(11) ^ d(12) ^ d(15) ^ d(18) ^ d(19) ^ d(20),
+            q(8) ^ q(9) ^ q(11) ^ q(12) ^ q(13) ^ q(14) ^ q(15) ^ q(18) ^ q(21) ^ q(27) ^ q(28) ^ q(29) ^ d(0) ^ d(1) ^ d(3) ^ d(4) ^ d(5) ^ d(6) ^ d(7) ^ d(10) ^ d(13) ^ d(19) ^ d(20) ^ d(21),
+            q(9) ^ q(10) ^ q(12) ^ q(13) ^ q(14) ^ q(15) ^ q(16) ^ q(19) ^ q(22) ^ q(28) ^ q(29) ^ q(30) ^ d(1) ^ d(2) ^ d(4) ^ d(5) ^ d(6) ^ d(7) ^ d(8) ^ d(11) ^ d(14) ^ d(20) ^ d(21) ^ d(22),
+            q(8) ^ q(10) ^ q(11) ^ q(13) ^ q(15) ^ q(16) ^ q(18) ^ q(23) ^ q(24) ^ q(29) ^ q(30) ^ q(31) ^ d(0) ^ d(2) ^ d(3) ^ d(5) ^ d(7) ^ d(8) ^ d(10) ^ d(15) ^ d(16) ^ d(21) ^ d(22) ^ d(23),
+            q(8) ^ q(9) ^ q(11) ^ q(12) ^ q(16) ^ q(18) ^ q(19) ^ q(20) ^ q(25) ^ q(30) ^ q(31) ^ d(0) ^ d(1) ^ d(3) ^ d(4) ^ d(8) ^ d(10) ^ d(11) ^ d(12) ^ d(17) ^ d(22) ^ d(23),
+            q(9) ^ q(10) ^ q(12) ^ q(13) ^ q(17) ^ q(19) ^ q(20) ^ q(21) ^ q(26) ^ q(31) ^ d(1) ^ d(2) ^ d(4) ^ d(5) ^ d(9) ^ d(11) ^ d(12) ^ d(13) ^ d(18) ^ d(23),
+            q(8) ^ q(10) ^ q(11) ^ q(13) ^ q(17) ^ q(21) ^ q(22) ^ q(24) ^ q(27) ^ d(0) ^ d(2) ^ d(3) ^ d(5) ^ d(9) ^ d(13) ^ d(14) ^ d(16) ^ d(19),
+            q(8) ^ q(9) ^ q(11) ^ q(12) ^ q(17) ^ q(20) ^ q(22) ^ q(23) ^ q(24) ^ q(25) ^ q(28) ^ d(0) ^ d(1) ^ d(3) ^ d(4) ^ d(9) ^ d(12) ^ d(14) ^ d(15) ^ d(16) ^ d(17) ^ d(20),
+            q(8) ^ q(9) ^ q(10) ^ q(12) ^ q(13) ^ q(14) ^ q(17) ^ q(20) ^ q(21) ^ q(23) ^ q(25) ^ q(26) ^ q(29) ^ d(0) ^ d(1) ^ d(2) ^ d(4) ^ d(5) ^ d(6) ^ d(9) ^ d(12) ^ d(13) ^ d(15) ^ d(17) ^ d(18) ^ d(21),
+            q(9) ^ q(10) ^ q(11) ^ q(13) ^ q(14) ^ q(15) ^ q(18) ^ q(21) ^ q(22) ^ q(24) ^ q(26) ^ q(27) ^ q(30) ^ d(1) ^ d(2) ^ d(3) ^ d(5) ^ d(6) ^ d(7) ^ d(10) ^ d(13) ^ d(14) ^ d(16) ^ d(18) ^ d(19) ^ d(22),
+            q(10) ^ q(11) ^ q(12) ^ q(14) ^ q(15) ^ q(16) ^ q(19) ^ q(22) ^ q(23) ^ q(25) ^ q(27) ^ q(28) ^ q(31) ^ d(2) ^ d(3) ^ d(4) ^ d(6) ^ d(7) ^ d(8) ^ d(11) ^ d(14) ^ d(15) ^ d(17) ^ d(19) ^ d(20) ^ d(23),
+            q(11) ^ q(12) ^ q(13) ^ q(15) ^ q(16) ^ q(17) ^ q(20) ^ q(23) ^ q(24) ^ q(26) ^ q(28) ^ q(29) ^ d(3) ^ d(4) ^ d(5) ^ d(7) ^ d(8) ^ d(9) ^ d(12) ^ d(15) ^ d(16) ^ d(18) ^ d(20) ^ d(21),
+            q(8) ^ q(12) ^ q(13) ^ q(16) ^ q(20) ^ q(21) ^ q(25) ^ q(27) ^ q(29) ^ q(30) ^ d(0) ^ d(4) ^ d(5) ^ d(8) ^ d(12) ^ d(13) ^ d(17) ^ d(19) ^ d(21) ^ d(22),
+            q(9) ^ q(13) ^ q(14) ^ q(17) ^ q(21) ^ q(22) ^ q(26) ^ q(28) ^ q(30) ^ q(31) ^ d(1) ^ d(5) ^ d(6) ^ d(9) ^ d(13) ^ d(14) ^ d(18) ^ d(20) ^ d(22) ^ d(23),
+            q(10) ^ q(14) ^ q(15) ^ q(18) ^ q(22) ^ q(23) ^ q(27) ^ q(29) ^ q(31) ^ d(2) ^ d(6) ^ d(7) ^ d(10) ^ d(14) ^ d(15) ^ d(19) ^ d(21) ^ d(23),
+            q(11) ^ q(15) ^ q(16) ^ q(19) ^ q(23) ^ q(24) ^ q(28) ^ q(30) ^ d(3) ^ d(7) ^ d(8) ^ d(11) ^ d(15) ^ d(16) ^ d(20) ^ d(22),
+            q(12) ^ q(16) ^ q(17) ^ q(20) ^ q(24) ^ q(25) ^ q(29) ^ q(31) ^ d(4) ^ d(8) ^ d(9) ^ d(12) ^ d(16) ^ d(17) ^ d(21) ^ d(23),
+            q(13) ^ q(17) ^ q(18) ^ q(21) ^ q(25) ^ q(26) ^ q(30) ^ d(5) ^ d(9) ^ d(10) ^ d(13) ^ d(17) ^ d(18) ^ d(22),
+            q(8) ^ q(17) ^ q(19) ^ q(20) ^ q(22) ^ q(24) ^ q(26) ^ q(27) ^ q(31) ^ d(0) ^ d(9) ^ d(11) ^ d(12) ^ d(14) ^ d(16) ^ d(18) ^ d(19) ^ d(23),
+            q(8) ^ q(9) ^ q(14) ^ q(17) ^ q(21) ^ q(23) ^ q(24) ^ q(25) ^ q(27) ^ q(28) ^ d(0) ^ d(1) ^ d(6) ^ d(9) ^ d(13) ^ d(15) ^ d(16) ^ d(17) ^ d(19) ^ d(20),
+            q(0) ^ q(9) ^ q(10) ^ q(15) ^ q(18) ^ q(22) ^ q(24) ^ q(25) ^ q(26) ^ q(28) ^ q(29) ^ d(1) ^ d(2) ^ d(7) ^ d(10) ^ d(14) ^ d(16) ^ d(17) ^ d(18) ^ d(20) ^ d(21),
+            q(1) ^ q(10) ^ q(11) ^ q(16) ^ q(19) ^ q(23) ^ q(25) ^ q(26) ^ q(27) ^ q(29) ^ q(30) ^ d(2) ^ d(3) ^ d(8) ^ d(11) ^ d(15) ^ d(17) ^ d(18) ^ d(19) ^ d(21) ^ d(22),
+            q(2) ^ q(8) ^ q(11) ^ q(12) ^ q(14) ^ q(18) ^ q(26) ^ q(27) ^ q(28) ^ q(30) ^ q(31) ^ d(0) ^ d(3) ^ d(4) ^ d(6) ^ d(10) ^ d(18) ^ d(19) ^ d(20) ^ d(22) ^ d(23),
+            q(3) ^ q(9) ^ q(12) ^ q(13) ^ q(15) ^ q(19) ^ q(27) ^ q(28) ^ q(29) ^ q(31) ^ d(1) ^ d(4) ^ d(5) ^ d(7) ^ d(11) ^ d(19) ^ d(20) ^ d(21) ^ d(23),
+            q(4) ^ q(10) ^ q(13) ^ q(14) ^ q(16) ^ q(20) ^ q(28) ^ q(29) ^ q(30) ^ d(2) ^ d(5) ^ d(6) ^ d(8) ^ d(12) ^ d(20) ^ d(21) ^ d(22),
+            q(5) ^ q(11) ^ q(14) ^ q(15) ^ q(17) ^ q(21) ^ q(29) ^ q(30) ^ q(31) ^ d(3) ^ d(6) ^ d(7) ^ d(9) ^ d(13) ^ d(21) ^ d(22) ^ d(23),
+            q(6) ^ q(12) ^ q(15) ^ q(16) ^ q(18) ^ q(22) ^ q(30) ^ q(31) ^ d(4) ^ d(7) ^ d(8) ^ d(10) ^ d(14) ^ d(22) ^ d(23),
+            q(7) ^ q(13) ^ q(16) ^ q(17) ^ q(19) ^ q(23) ^ q(31) ^ d(5) ^ d(8) ^ d(9) ^ d(11) ^ d(15) ^ d(23),
+        )
+
+
+    def _generate_next_2B_crc(self, current_crc, data_in):
+        """ Generates the next round of our CRC; given a 2B trailing input word . """
+
+        # Helper functions that help us more clearly match the expanded polynomial form.
+        d = lambda i : data_in[len(data_in) - i - 1]
+        q = lambda i : current_crc[i]
+
+        # These lines are extremely long, but there doesn't seem any advantage in clarity to splitting them.
+        return Cat(
+            q(16) ^ q(22) ^ q(25) ^ q(26) ^ q(28) ^ d(0) ^ d(6) ^ d(9) ^ d(10) ^ d(12),
+            q(16) ^ q(17) ^ q(22) ^ q(23) ^ q(25) ^ q(27) ^ q(28) ^ q(29) ^ d(0) ^ d(1) ^ d(6) ^ d(7) ^ d(9) ^ d(11) ^ d(12) ^ d(13),
+            q(16) ^ q(17) ^ q(18) ^ q(22) ^ q(23) ^ q(24) ^ q(25) ^ q(29) ^ q(30) ^ d(0) ^ d(1) ^ d(2) ^ d(6) ^ d(7) ^ d(8) ^ d(9) ^ d(13) ^ d(14),
+            q(17) ^ q(18) ^ q(19) ^ q(23) ^ q(24) ^ q(25) ^ q(26) ^ q(30) ^ q(31) ^ d(1) ^ d(2) ^ d(3) ^ d(7) ^ d(8) ^ d(9) ^ d(10) ^ d(14) ^ d(15),
+            q(16) ^ q(18) ^ q(19) ^ q(20) ^ q(22) ^ q(24) ^ q(27) ^ q(28) ^ q(31) ^ d(0) ^ d(2) ^ d(3) ^ d(4) ^ d(6) ^ d(8) ^ d(11) ^ d(12) ^ d(15),
+            q(16) ^ q(17) ^ q(19) ^ q(20) ^ q(21) ^ q(22) ^ q(23) ^ q(26) ^ q(29) ^ d(0) ^ d(1) ^ d(3) ^ d(4) ^ d(5) ^ d(6) ^ d(7) ^ d(10) ^ d(13),
+            q(17) ^ q(18) ^ q(20) ^ q(21) ^ q(22) ^ q(23) ^ q(24) ^ q(27) ^ q(30) ^ d(1) ^ d(2) ^ d(4) ^ d(5) ^ d(6) ^ d(7) ^ d(8) ^ d(11) ^ d(14),
+            q(16) ^ q(18) ^ q(19) ^ q(21) ^ q(23) ^ q(24) ^ q(26) ^ q(31) ^ d(0) ^ d(2) ^ d(3) ^ d(5) ^ d(7) ^ d(8) ^ d(10) ^ d(15),
+            q(16) ^ q(17) ^ q(19) ^ q(20) ^ q(24) ^ q(26) ^ q(27) ^ q(28) ^ d(0) ^ d(1) ^ d(3) ^ d(4) ^ d(8) ^ d(10) ^ d(11) ^ d(12),
+            q(17) ^ q(18) ^ q(20) ^ q(21) ^ q(25) ^ q(27) ^ q(28) ^ q(29) ^ d(1) ^ d(2) ^ d(4) ^ d(5) ^ d(9) ^ d(11) ^ d(12) ^ d(13),
+            q(16) ^ q(18) ^ q(19) ^ q(21) ^ q(25) ^ q(29) ^ q(30) ^ d(0) ^ d(2) ^ d(3) ^ d(5) ^ d(9) ^ d(13) ^ d(14),
+            q(16) ^ q(17) ^ q(19) ^ q(20) ^ q(25) ^ q(28) ^ q(30) ^ q(31) ^ d(0) ^ d(1) ^ d(3) ^ d(4) ^ d(9) ^ d(12) ^ d(14) ^ d(15),
+            q(16) ^ q(17) ^ q(18) ^ q(20) ^ q(21) ^ q(22) ^ q(25) ^ q(28) ^ q(29) ^ q(31) ^ d(0) ^ d(1) ^ d(2) ^ d(4) ^ d(5) ^ d(6) ^ d(9) ^ d(12) ^ d(13) ^ d(15),
+            q(17) ^ q(18) ^ q(19) ^ q(21) ^ q(22) ^ q(23) ^ q(26) ^ q(29) ^ q(30) ^ d(1) ^ d(2) ^ d(3) ^ d(5) ^ d(6) ^ d(7) ^ d(10) ^ d(13) ^ d(14),
+            q(18) ^ q(19) ^ q(20) ^ q(22) ^ q(23) ^ q(24) ^ q(27) ^ q(30) ^ q(31) ^ d(2) ^ d(3) ^ d(4) ^ d(6) ^ d(7) ^ d(8) ^ d(11) ^ d(14) ^ d(15),
+            q(19) ^ q(20) ^ q(21) ^ q(23) ^ q(24) ^ q(25) ^ q(28) ^ q(31) ^ d(3) ^ d(4) ^ d(5) ^ d(7) ^ d(8) ^ d(9) ^ d(12) ^ d(15),
+            q(0) ^ q(16) ^ q(20) ^ q(21) ^ q(24) ^ q(28) ^ q(29) ^ d(0) ^ d(4) ^ d(5) ^ d(8) ^ d(12) ^ d(13),
+            q(1) ^ q(17) ^ q(21) ^ q(22) ^ q(25) ^ q(29) ^ q(30) ^ d(1) ^ d(5) ^ d(6) ^ d(9) ^ d(13) ^ d(14),
+            q(2) ^ q(18) ^ q(22) ^ q(23) ^ q(26) ^ q(30) ^ q(31) ^ d(2) ^ d(6) ^ d(7) ^ d(10) ^ d(14) ^ d(15),
+            q(3) ^ q(19) ^ q(23) ^ q(24) ^ q(27) ^ q(31) ^ d(3) ^ d(7) ^ d(8) ^ d(11) ^ d(15),
+            q(4) ^ q(20) ^ q(24) ^ q(25) ^ q(28) ^ d(4) ^ d(8) ^ d(9) ^ d(12),
+            q(5) ^ q(21) ^ q(25) ^ q(26) ^ q(29) ^ d(5) ^ d(9) ^ d(10) ^ d(13),
+            q(6) ^ q(16) ^ q(25) ^ q(27) ^ q(28) ^ q(30) ^ d(0) ^ d(9) ^ d(11) ^ d(12) ^ d(14),
+            q(7) ^ q(16) ^ q(17) ^ q(22) ^ q(25) ^ q(29) ^ q(31) ^ d(0) ^ d(1) ^ d(6) ^ d(9) ^ d(13) ^ d(15),
+            q(8) ^ q(17) ^ q(18) ^ q(23) ^ q(26) ^ q(30) ^ d(1) ^ d(2) ^ d(7) ^ d(10) ^ d(14),
+            q(9) ^ q(18) ^ q(19) ^ q(24) ^ q(27) ^ q(31) ^ d(2) ^ d(3) ^ d(8) ^ d(11) ^ d(15),
+            q(10) ^ q(16) ^ q(19) ^ q(20) ^ q(22) ^ q(26) ^ d(0) ^ d(3) ^ d(4) ^ d(6) ^ d(10),
+            q(11) ^ q(17) ^ q(20) ^ q(21) ^ q(23) ^ q(27) ^ d(1) ^ d(4) ^ d(5) ^ d(7) ^ d(11),
+            q(12) ^ q(18) ^ q(21) ^ q(22) ^ q(24) ^ q(28) ^ d(2) ^ d(5) ^ d(6) ^ d(8) ^ d(12),
+            q(13) ^ q(19) ^ q(22) ^ q(23) ^ q(25) ^ q(29) ^ d(3) ^ d(6) ^ d(7) ^ d(9) ^ d(13),
+            q(14) ^ q(20) ^ q(23) ^ q(24) ^ q(26) ^ q(30) ^ d(4) ^ d(7) ^ d(8) ^ d(10) ^ d(14),
+            q(15) ^ q(21) ^ q(24) ^ q(25) ^ q(27) ^ q(31) ^ d(5) ^ d(8) ^ d(9) ^ d(11) ^ d(15),
+        )
+
+
+    def _generate_next_1B_crc(self, current_crc, data_in):
+        """ Generates the next round of our CRC; given a 2B trailing input word . """
+
+        # Helper functions that help us more clearly match the expanded polynomial form.
+        d = lambda i : data_in[len(data_in) - i - 1]
+        q = lambda i : current_crc[i]
+
+        return Cat(
+            q(24) ^ q(30) ^ d(0) ^ d(6),
+            q(24) ^ q(25) ^ q(30) ^ q(31) ^ d(0) ^ d(1) ^ d(6) ^ d(7),
+            q(24) ^ q(25) ^ q(26) ^ q(30) ^ q(31) ^ d(0) ^ d(1) ^ d(2) ^ d(6) ^ d(7),
+            q(25) ^ q(26) ^ q(27) ^ q(31) ^ d(1) ^ d(2) ^ d(3) ^ d(7),
+            q(24) ^ q(26) ^ q(27) ^ q(28) ^ q(30) ^ d(0) ^ d(2) ^ d(3) ^ d(4) ^ d(6),
+            q(24) ^ q(25) ^ q(27) ^ q(28) ^ q(29) ^ q(30) ^ q(31) ^ d(0) ^ d(1) ^ d(3) ^ d(4) ^ d(5) ^ d(6) ^ d(7),
+            q(25) ^ q(26) ^ q(28) ^ q(29) ^ q(30) ^ q(31) ^ d(1) ^ d(2) ^ d(4) ^ d(5) ^ d(6) ^ d(7),
+            q(24) ^ q(26) ^ q(27) ^ q(29) ^ q(31) ^ d(0) ^ d(2) ^ d(3) ^ d(5) ^ d(7),
+            q(0) ^ q(24) ^ q(25) ^ q(27) ^ q(28) ^ d(0) ^ d(1) ^ d(3) ^ d(4),
+            q(1) ^ q(25) ^ q(26) ^ q(28) ^ q(29) ^ d(1) ^ d(2) ^ d(4) ^ d(5),
+            q(2) ^ q(24) ^ q(26) ^ q(27) ^ q(29) ^ d(0) ^ d(2) ^ d(3) ^ d(5),
+            q(3) ^ q(24) ^ q(25) ^ q(27) ^ q(28) ^ d(0) ^ d(1) ^ d(3) ^ d(4),
+            q(4) ^ q(24) ^ q(25) ^ q(26) ^ q(28) ^ q(29) ^ q(30) ^ d(0) ^ d(1) ^ d(2) ^ d(4) ^ d(5) ^ d(6),
+            q(5) ^ q(25) ^ q(26) ^ q(27) ^ q(29) ^ q(30) ^ q(31) ^ d(1) ^ d(2) ^ d(3) ^ d(5) ^ d(6) ^ d(7),
+            q(6) ^ q(26) ^ q(27) ^ q(28) ^ q(30) ^ q(31) ^ d(2) ^ d(3) ^ d(4) ^ d(6) ^ d(7),
+            q(7) ^ q(27) ^ q(28) ^ q(29) ^ q(31) ^ d(3) ^ d(4) ^ d(5) ^ d(7),
+            q(8) ^ q(24) ^ q(28) ^ q(29) ^ d(0) ^ d(4) ^ d(5),
+            q(9) ^ q(25) ^ q(29) ^ q(30) ^ d(1) ^ d(5) ^ d(6),
+            q(10) ^ q(26) ^ q(30) ^ q(31) ^ d(2) ^ d(6) ^ d(7),
+            q(11) ^ q(27) ^ q(31) ^ d(3) ^ d(7),
+            q(12) ^ q(28) ^ d(4),
+            q(13) ^ q(29) ^ d(5),
+            q(14) ^ q(24) ^ d(0),
+            q(15) ^ q(24) ^ q(25) ^ q(30) ^ d(0) ^ d(1) ^ d(6),
+            q(16) ^ q(25) ^ q(26) ^ q(31) ^ d(1) ^ d(2) ^ d(7),
+            q(17) ^ q(26) ^ q(27) ^ d(2) ^ d(3),
+            q(18) ^ q(24) ^ q(27) ^ q(28) ^ q(30) ^ d(0) ^ d(3) ^ d(4) ^ d(6),
+            q(19) ^ q(25) ^ q(28) ^ q(29) ^ q(31) ^ d(1) ^ d(4) ^ d(5) ^ d(7),
+            q(20) ^ q(26) ^ q(29) ^ q(30) ^ d(2) ^ d(5) ^ d(6),
+            q(21) ^ q(27) ^ q(30) ^ q(31) ^ d(3) ^ d(6) ^ d(7),
+            q(22) ^ q(28) ^ q(31) ^ d(4) ^ d(7),
+            q(23) ^ q(29) ^ d(5),
+        )
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Register that contains the running CRCs.
+        crc = Signal(32, reset=self._initial_value)
+
+        # If we're clearing our CRC in progress, move our holding register back to
+        # our initial value.
+        with m.If(self.clear):
+            m.d.ss += crc.eq(self._initial_value)
+
+        # Otherwise, update the CRC whenever we have new data.
+        with m.Elif(self.advance_word):
+            m.d.ss += crc.eq(self._generate_next_full_crc(crc, self.data_input))
+        with m.Elif(self.advance_3B):
+            m.d.ss += crc.eq(self._generate_next_3B_crc(crc, self.data_input[8:32]))
+        with m.Elif(self.advance_2B):
+            m.d.ss += crc.eq(self._generate_next_2B_crc(crc, self.data_input[16:32]))
+        with m.Elif(self.advance_1B):
+            m.d.ss += crc.eq(self._generate_next_1B_crc(crc, self.data_input[24:32]))
+
+        # Convert from our intermediary "running CRC" format into the current CRC-32...
         m.d.comb += self.crc.eq(~crc[::-1])
 
         return m

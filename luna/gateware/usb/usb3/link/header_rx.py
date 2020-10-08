@@ -23,7 +23,7 @@ from ....test.utils                import LunaSSGatewareTestCase, ss_domain_test
 
 
 class RawHeaderPacketReceiver(Elaboratable):
-    """ Class that monitors the USB bus for Header Packets, and receives them.
+    """ Class that monitors the USB bus for Header Packet, and receives them.
 
     This class performs the validations required at the link layer of the USB specification;
     which include checking the CRC-5 and CRC-16 embedded within the header packet.
@@ -148,7 +148,7 @@ class RawHeaderPacketReceiver(Elaboratable):
                 # Our worst-case scenario is we're receiving a packet with an unexpected sequence
                 # number; this indicates that we've lost sequence, and our device should move back to
                 # into Recovery [USB3.2r1: 7.2.4.1.5].
-                with m.If(packet.sequence_number != self.expected_sequence):
+                with m.Elif(packet.sequence_number != self.expected_sequence):
                     m.d.comb += self.bad_sequence.eq(1)
 
                 # If neither of the above checks failed, we now know we have a valid header packet!
@@ -220,7 +220,7 @@ class RawHeaderPacketReceiverTest(LunaSSGatewareTestCase):
         )
 
         # ... after a cycle to process, we should see an indication that the packet is good.
-        yield from self.advance_cycles(2)
+        yield from self.advance_cycles(1)
         self.assertEqual((yield dut.new_packet),   0)
         self.assertEqual((yield dut.bad_packet),   0)
         self.assertEqual((yield dut.bad_sequence), 1)
