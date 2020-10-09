@@ -235,7 +235,7 @@ class HeaderPacketTransmitter(Elaboratable):
         enqueue_send         = Signal()
         dequeue_send         = Signal()
 
-        # Unretired packet count.
+        # Un-retired packet count.
         packets_awaiting_ack = Signal()
 
         # If we need to retry sending our packets, we'll need to reset our pending packet count.
@@ -287,7 +287,6 @@ class HeaderPacketTransmitter(Elaboratable):
 
         # If we have link credits available, we're able to accept data from the protocol layer.
         m.d.comb += self.queue.ready.eq(credits_available != 0)
-
 
         # If the protocol layer is handing us a packet...
         with m.If(self.queue.valid & self.queue.ready):
@@ -440,10 +439,14 @@ class HeaderPacketTransmitter(Elaboratable):
                 read_pointer              .eq(0),
                 write_pointer             .eq(0),
                 ack_pointer               .eq(0),
+                credits_available         .eq(0),
             ]
 
             with m.If(self.hot_reset):
-                m.d.ss += next_expected_ack_number  .eq(0),
+                m.d.ss += [
+                    next_expected_ack_number  .eq(0),
+                    transmit_sequence_number  .eq(0)
+                ]
 
 
 

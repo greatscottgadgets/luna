@@ -3,8 +3,7 @@
 #
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
-""" USB3 Link-Layer modules """
+""" USB3 Application-Layer modules. """
 
-from .layer import USB3LinkLayer
 
-__all__ = ['USB3LinkLayer']
+from .control import USB3ControlEndpoint

@@ -13,12 +13,13 @@ import logging
 from nmigen import *
 
 # USB3 Protocol Stack
-from .physical import USB3PhysicalLayer
-from .link     import USB3LinkLayer
-from .protocol import USB3ProtocolLayer
+from .physical  import USB3PhysicalLayer
+from .link      import USB3LinkLayer
+from .protocol  import USB3ProtocolLayer
+from .endpoints import USB3ControlEndpoint
 
 # Temporary
-from ..stream  import USBRawSuperSpeedStream
+from ..stream  import USBRawSuperSpeedStream, SuperSpeedStreamInterface
 
 
 class USBSuperSpeedDevice(Elaboratable):
@@ -43,6 +44,9 @@ class USBSuperSpeedDevice(Elaboratable):
         # Temporary, debug signals.
         self.rx_data_tap         = USBRawSuperSpeedStream()
         self.tx_data_tap         = USBRawSuperSpeedStream()
+
+        self.ep_rx_stream        = SuperSpeedStreamInterface()
+        self.is_setup            = Signal()
 
 
     def elaborate(self, platform):
@@ -70,10 +74,24 @@ class USBSuperSpeedDevice(Elaboratable):
         #
         m.submodules.protocol = protocol = USB3ProtocolLayer(link_layer=link)
 
+
         #
         # Application layer.
         #
-        # TODO
+
+        # TODO: build a collection of endpoint interfaces, and arbitrate between them
+        # FIXME: remove this scaffolding, and replace it with a real interface.
+        m.submodules.control_ep = control_ep = USB3ControlEndpoint()
+        m.d.comb += [
+            control_ep.interface.rx                     .tap(protocol.endpoint_interface.rx),
+            control_ep.interface.rx_header              .eq(protocol.endpoint_interface.rx_header),
+            control_ep.interface.rx_complete            .eq(protocol.endpoint_interface.rx_complete),
+            control_ep.interface.rx_invalid             .eq(protocol.endpoint_interface.rx_invalid),
+
+            protocol.endpoint_interface.handshakes_out  .connect(control_ep.interface.handshakes_out),
+            protocol.endpoint_interface.handshakes_in   .connect(control_ep.interface.handshakes_in)
+        ]
+
 
 
         #
@@ -82,8 +100,11 @@ class USBSuperSpeedDevice(Elaboratable):
 
         # Tap our transmit and receive lines, so they can be externally analyzed.
         m.d.comb += [
-            self.rx_data_tap  .tap(physical.source),
-            self.tx_data_tap  .tap(physical.sink),
+            self.rx_data_tap   .tap(physical.source),
+            self.tx_data_tap   .tap(physical.sink),
+
+            self.ep_rx_stream  .tap(protocol.endpoint_interface.rx),
+            self.is_setup      .eq(protocol.endpoint_interface.rx_header.setup)
         ]
 
 

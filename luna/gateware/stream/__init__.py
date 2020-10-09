@@ -41,7 +41,7 @@ class StreamInterface(Record):
         Similar to a record's layout field; but cannot be nested.
     """
 
-    def __init__(self, payload_width=8, extra_fields=None):
+    def __init__(self, payload_width=8, valid_width=1, extra_fields=None):
         """
         Parameter:
             payload_width -- The width of the payload packets.
@@ -56,7 +56,7 @@ class StreamInterface(Record):
 
         # ... and create our basic stream.
         super().__init__([
-            ('valid',    1),
+            ('valid',    valid_width),
             ('ready',    1),
 
             ('first',    1),
@@ -99,6 +99,15 @@ class StreamInterface(Record):
         This will either solve a common footgun or introduce a new one. We'll see and adapt accordingly.
         """
         return interface.attach(self, omit=omit)
+
+
+    def tap(self, interface, **kwargs):
+        """ Simple extension to stream_eq() that captures a read-only view of the stream.
+
+        This connects all signals from ``interface`` to their equivalents in this stream.
+        """
+        return self.stream_eq(interface, omit={"ready"}, **kwargs)
+
 
 
     def __getattr__(self, name):

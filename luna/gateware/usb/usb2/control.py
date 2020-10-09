@@ -3,7 +3,6 @@
 #
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
-
 """ Low-level USB transciever gateware -- control transfer components. """
 
 import unittest

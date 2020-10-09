@@ -13,6 +13,8 @@ from enum import IntEnum
 from nmigen             import *
 from nmigen.hdl.rec     import Layout
 
+from ....stream.arbiter import StreamArbiter
+
 
 class HeaderPacket(Record):
     """ Container that represents a Header Packet. """
@@ -95,7 +97,7 @@ class HeaderQueue(Record):
 
 
 
-class HeaderQueueMultiplexer(Elaboratable):
+class HeaderQueueArbiter(StreamArbiter):
     """ Gateware that accepts a collection of header queues, and merges them into a single queue.
 
     Add produces using ``add_producer``.
@@ -107,33 +109,12 @@ class HeaderQueueMultiplexer(Elaboratable):
     """
 
     def __init__(self):
-        self._producers = []
-
-        #
-        # I/O port
-        #
-        self.source = HeaderQueue()
+        super().__init__(stream_type=HeaderQueue, domain="ss")
 
 
     def add_producer(self, interface: HeaderQueue):
         """ Adds a HeaderQueue interface that will add packets into this mux. """
-        self._producers.append(interface)
-
-
-    def elaborate(self, platform):
-        m = Module()
-
-        # Iterate over each of our producers...
-        for producer in reversed(self._producers):
-
-            # ... and if the given producer is valid, give it control over our source.
-            # This builds an implicit priority encoder, with the last producer (the first added
-            # producer) winning control over :attr:``source``.
-            with m.If(producer.valid):
-                m.d.comb += self.source.header_eq(producer)
-
-
-        return m
+        self.add_stream(interface)
 
 
 

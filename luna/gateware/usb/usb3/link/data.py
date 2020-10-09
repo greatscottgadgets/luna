@@ -5,21 +5,23 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Data Packet Payload (DPP) management gateware. """
 
+import unittest
+
 from nmigen import *
+from usb_protocol.types.superspeed import HeaderPacketType
 
-
-from .crc    import HeaderPacketCRC, DataPacketPayloadCRC, compute_usb_crc5
-from .header import HeaderPacket
+from .crc              import HeaderPacketCRC, DataPacketPayloadCRC, compute_usb_crc5
+from .header           import HeaderPacket
 
 from ..physical.coding import SHP, SDP, EPF, stream_matches_symbols
-
-from ...stream import USBRawSuperSpeedStream, StreamInterface
+from ...stream         import USBRawSuperSpeedStream, SuperSpeedStreamInterface
+from ....test.utils    import LunaSSGatewareTestCase, ss_domain_test_case
 
 
 class DataHeaderPacket(HeaderPacket):
     DW0_LAYOUT = [
         ('type',                5),
-        ('route_string',       23),
+        ('route_string',       20),
         ('device_address',      7),
     ]
     DW1_LAYOUT = [
@@ -36,7 +38,7 @@ class DataHeaderPacket(HeaderPacket):
         ('stream_id',          16),
         ('reserved_2',         11),
         ('packet_pending',      1),
-        ('packet_pending',      4),
+        ('reserved_3',          4),
     ]
 
 
@@ -65,6 +67,8 @@ class DataPacketReceiver(Elaboratable):
     header: HeaderPacket(), output
         The header packet accompanying the current data packet. Valid once a packet begins
         to be received.
+    new_header: Signal(), output
+        Strobe; indicates that :attr:``header`` has been updated.
     source: StreamInterface(), output stream
         A stream carrying the data received. Note that the data is not fully validated until
         the packet has been fully received; so this cannot be assumed
@@ -86,7 +90,8 @@ class DataPacketReceiver(Elaboratable):
 
         # Header and data output.
         self.header            = DataHeaderPacket()
-        self.source            = StreamInterface(valid_width=4)
+        self.new_header        = Signal()
+        self.source            = SuperSpeedStreamInterface()
 
         # State indications.
         self.packet_good       = Signal()
@@ -149,6 +154,13 @@ class DataPacketReceiver(Elaboratable):
                         m.d.ss += header[f'dw{n}'].eq(sink.data)
                         m.next = f"RECEIVE_DW{n+1}"
 
+                        # Extra check for our first packet; we'll make sure this of -data- type;
+                        # and bail out, otherwise.
+                        if n == 0:
+                            with m.If(sink.data[0:5] != HeaderPacketType.DATA):
+                                m.next = "WAIT_FOR_HPSTART"
+
+
             # RECEIVE_DW3 -- we'll receive and parse our final data word, which contains the fields
             # relevant to the link layer.
             with m.State("RECEIVE_DW3"):
@@ -184,9 +196,10 @@ class DataPacketReceiver(Elaboratable):
                     m.d.ss += [
                         # Update the header associated with the active packet.
                         self.header           .eq(header),
+                        self.new_header       .eq(1),
 
                         # Read the data length from our header, in preparation to receive it.
-                        data_bytes_remaining  .eq(header.dw2[16:]),
+                        data_bytes_remaining  .eq(header.dw1[16:]),
 
                         # Mark the next packet as the first packet in our stream.
                         source.first          .eq(1)
@@ -223,12 +236,13 @@ class DataPacketReceiver(Elaboratable):
                 ]
 
                 with m.If(sink.valid):
+                    # Once we've moved on, this is no longer our first word.
+                    m.d.ss += source.first.eq(0)
 
                     # If we see unexpected control codes in our data packet, bail out.
                     with m.If(sink.ctrl & source.valid):
                         m.d.comb += self.packet_bad.eq(1)
                         m.next = "WAIT_FOR_HPSTART"
-
 
                     # If we have another word to receive after this, decrement our count,
                     # and continue.
@@ -239,17 +253,63 @@ class DataPacketReceiver(Elaboratable):
                         m.next = "CHECK_CRC32"
 
 
-            # CHECK_CRC32 -- we've received a packet;
+            # CHECK_CRC32 -- we've received the end of our packet; and we're ready to decide if the
+            # packet is good or not. We'll check its CRC, and strobe either packet_good or packet_bad.
             with m.State("CHECK_CRC32"):
 
-                # FIXME: implement this: note that we might have to deal with unaligned CRCs.
-                crc_valid = True
+                # FIXME: deal with unaligned CRCs?
+                crc_valid = (sink.data == crc32.crc)
                 with m.If(crc_valid):
                     m.d.comb += self.packet_good.eq(1)
                 with m.Else():
-                    m.d.comb += self.packet_good.eq(1)
+                    m.d.comb += self.packet_bad.eq(1)
 
                 m.next = "WAIT_FOR_HPSTART"
 
 
         return m
+
+
+
+class DataPacketReceiverTest(LunaSSGatewareTestCase):
+    FRAGMENT_UNDER_TEST = DataPacketReceiver
+
+    def initialize_signals(self):
+        yield self.dut.sink.valid.eq(1)
+
+    def provide_data(self, *tuples):
+        """ Provides the receiver with a sequence of (data, ctrl) values. """
+
+        # Provide each word of our data to our receiver...
+        for data, ctrl in tuples:
+            yield self.dut.sink.data.eq(data)
+            yield self.dut.sink.ctrl.eq(ctrl)
+            yield
+
+
+    @ss_domain_test_case
+    def test_aligned_packet_receive(self):
+
+        # Provide a packet pair to the device.
+        # (This data is from an actual recorded data packet.)
+        yield from self.provide_data(
+            # Header packet.
+            # data       ctrl
+            (0xF7FBFBFB, 0b1111),
+            (0x00000008, 0b0000),
+            (0x00088000, 0b0000),
+            (0x08000000, 0b0000),
+            (0xA8023E0F, 0b0000),
+
+            # Payload packet.
+            (0xF75C5C5C, 0b1111),
+            (0x001E0500, 0b0000),
+            (0x00000000, 0b0000),
+            (0x0EC69325, 0b0000),
+        )
+
+        self.assertEqual((yield self.dut.packet_good), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

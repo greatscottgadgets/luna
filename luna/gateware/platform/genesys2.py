@@ -147,6 +147,13 @@ class Genesys2ClockDomainGenerator(Elaboratable):
             ResetSignal("ss_io_shifted")  .eq(~usb3_locked),
         ]
 
+        # Convenience function: if we know we're going to be doing something low-power,
+        # we can silence the FPGA fan. This is Mostly Harmless, since we have an internal
+        # overtemperature shut-down anyway.
+        if os.getenv('LUNA_SILENCE_FAN'):
+            m.d.comb += platform.request("fan").pwm.o.eq(0)
+
+
         return m
 
 

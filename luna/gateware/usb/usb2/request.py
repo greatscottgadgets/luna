@@ -18,41 +18,11 @@ from .packet             import USBTokenDetector, USBDataPacketDeserializer, USB
 from .packet             import DataCRCInterface, USBInterpacketTimer, TokenDetectorInterface
 from .packet             import InterpacketTimerInterface, HandshakeExchangeInterface
 from ..stream            import USBInStreamInterface, USBOutStreamInterface
+from ..request           import SetupPacket
 from ...utils.bus        import OneHotMultiplexer
 
 from ...test             import usb_domain_test_case
 
-
-class SetupPacket(Record):
-    """ Record capturing the content of a setup packet.
-
-    Components (O = output from setup parser; read-only input to others):
-        O: new_packet    -- Strobe; indicates that a new setup packet has been received,
-                            and thus this data has been updated.
-
-        O: is_in_request -- High if the current request is an 'in' request.
-        O: type[2]       -- Request type for the current request.
-        O: recipient[5]  -- Recipient of the relevant request.
-
-        O: request[8]    -- Request number.
-        O: value[16]     -- Value argument for the setup request.
-        O: index[16]     -- Index argument for the setup request.
-        O: length[16]    -- Length of the relevant setup request.
-    """
-
-    def __init__(self):
-        super().__init__([
-            ('received',       1, DIR_FANOUT),
-
-            ('is_in_request',  1, DIR_FANOUT),
-            ('type',           2, DIR_FANOUT),
-            ('recipient',      5, DIR_FANOUT),
-
-            ('request',        8, DIR_FANOUT),
-            ('value',         16, DIR_FANOUT),
-            ('index',         16, DIR_FANOUT),
-            ('length',        16, DIR_FANOUT),
-        ])
 
 
 class RequestHandlerInterface:

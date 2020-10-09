@@ -50,7 +50,18 @@ class PortConfigurationResponseHeaderPacket(HeaderPacket):
 
 
 class LinkManagementPacketHandler(Elaboratable):
-    """ Gateware that handles Link Management Packets. """
+    """ Gateware that handles Link Management Packets.
+
+    Attributes
+    -----------
+    header_sink: HeaderQueue(), input stream
+        Stream that brings up header packets for handling.
+    header_source: HeaderQueue(), output stream
+        Stream that accepts header packets for generation.
+
+    link_ready: Signal(), input
+        Should be asserted once our link is ready; used to trigger advertising.
+    """
 
     # Link speed constants.
     LINK_SPEED_5GBPS = 1

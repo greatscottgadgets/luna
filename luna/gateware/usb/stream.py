@@ -51,7 +51,7 @@ class USBOutStreamInterface(Record):
 
     This is a heavily simplified version of our StreamInterface, which omits the 'first',
     'last', and 'ready' signals. Instead, the streamer indicates when data is valid using
-    the 'next' signal; and the receiver must keep times.
+    the 'next' signal; and the receiver must keep time.
 
     This is selected so the relevant interface can easily be translated to the UTMI receive
     signals, with the following mappings:
@@ -380,19 +380,21 @@ class USBRawSuperSpeedStream(StreamInterface):
         return operations
 
 
-    def tap(self, interface, *, endian_swap=False):
-        """ Simple extension to stream_eq() that captures a read-only view of the stream.
-
-        This connects all signals from ``interface`` to their equivalents in this stream.
-        """
-        return self.stream_eq(interface, omit={"ready"}, endian_swap=endian_swap)
-
 
 class SuperSpeedStreamArbiter(StreamArbiter):
     """ Convenience variant of our StreamArbiter that operates SuperSpeed streams in the ``ss`` domain. """
 
     def __init__(self):
         super().__init__(stream_type=USBRawSuperSpeedStream, domain="ss")
+
+
+class SuperSpeedStreamInterface(StreamInterface):
+    """ Convenience variant of our StreamInterface sized to work with SuperSpeed streams. """
+
+    def __init__(self):
+        super().__init__(payload_width=32, valid_width=4)
+
+
 
 
 if __name__ == "__main__":

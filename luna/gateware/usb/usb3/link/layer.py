@@ -7,7 +7,7 @@
 
 from nmigen import *
 
-from ...stream          import USBRawSuperSpeedStream, SuperSpeedStreamArbiter
+from ...stream          import USBRawSuperSpeedStream, SuperSpeedStreamArbiter, SuperSpeedStreamInterface
 from ..physical.coding  import IDL
 
 from .idle         import IdleHandshakeHandler
@@ -17,6 +17,8 @@ from .header_rx    import HeaderPacketReceiver
 from .header_tx    import HeaderPacketTransmitter
 from .timers       import LinkMaintenanceTimers
 from .ordered_sets import TSTransceiver
+from .data         import DataPacketReceiver, DataHeaderPacket
+
 
 class USB3LinkLayer(Elaboratable):
     """ Abstraction encapsulating the USB3 link layer hardware.
@@ -34,21 +36,21 @@ class USB3LinkLayer(Elaboratable):
         # I/O port
         #
 
-        self.sink                  = USBRawSuperSpeedStream()
-        self.source                = USBRawSuperSpeedStream()
-
         # Header packet exchanges.
         self.header_sink           = HeaderQueue()
         self.header_source         = HeaderQueue()
+
+        # Data packet exchange interface.
+        self.data_sink             = SuperSpeedStreamInterface()
+        self.data_source           = SuperSpeedStreamInterface()
+        self.data_header_from_host = DataHeaderPacket()
+        self.data_source_complete  = Signal()
+        self.data_source_invalid   = Signal()
 
         # Status signals.
         self.trained               = Signal()
         self.ready                 = Signal()
         self.in_reset              = Signal()
-
-        # Debug output.
-        self.debug_event           = Signal()
-        self.debug_misc            = Signal(32)
 
 
     def elaborate(self, platform):
@@ -185,10 +187,6 @@ class USB3LinkLayer(Elaboratable):
 
             # Transmitter event path.
             header_rx.retry_received         .eq(header_tx.retry_received),
-
-            # Debug output.
-            self.debug_event                 .eq(header_rx.bad_packet_received),
-            self.debug_misc                  .eq(header_tx.packets_to_send)
         ]
 
 
@@ -203,6 +201,20 @@ class USB3LinkLayer(Elaboratable):
             #header_tx.recovery_required
         )
 
+        #
+        # Data packet handlers.
+        #
+        m.submodules.data_rx = data_rx = DataPacketReceiver()
+        m.d.comb += [
+            data_rx.sink                .tap(physical_layer.source),
+
+            # Data interface to Protocol layer.
+            self.data_source            .stream_eq(data_rx.source),
+            self.data_header_from_host  .eq(data_rx.header),
+            self.data_source_complete   .eq(data_rx.packet_good),
+            self.data_source_invalid    .eq(data_rx.packet_bad),
+        ]
+
 
         #
         # Transmit stream arbiter.
@@ -213,7 +225,6 @@ class USB3LinkLayer(Elaboratable):
         arbiter.add_stream(training_set_source)
         arbiter.add_stream(header_rx.source)
         arbiter.add_stream(header_tx.source)
-        arbiter.add_stream(self.sink)
 
         # If we're idle, send logical idle.
         with m.If(arbiter.idle):
