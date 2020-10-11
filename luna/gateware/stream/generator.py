@@ -263,7 +263,7 @@ class ConstantStreamGenerator(Elaboratable):
 
                             # Generate a case for every possibly number of bytes left over...
                             with m.Switch(bytes_left_over):
-                                for i in range(bytes_per_word):
+                                for i in range(1, bytes_per_word + 1):
 
                                     # ... with the appropriate amount of valid bits.
                                     with m.Case(i):

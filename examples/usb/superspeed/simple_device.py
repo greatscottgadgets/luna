@@ -4,12 +4,11 @@
 #
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
-""" Incomplete example for working the SerDes-based a PIPE PHY. """
 
 from nmigen import *
 from nmigen.hdl.ast import Fell
 
-from usb_protocol.emitters         import DeviceDescriptorCollection
+from usb_protocol.emitters         import SuperSpeedDeviceDescriptorCollection
 
 from luna                          import top_level_cli
 from luna.gateware.platform        import NullPin
@@ -17,16 +16,15 @@ from luna.gateware.usb.devices.ila import USBIntegratedLogicAnalyer, USBIntegrat
 
 from luna.usb3                     import USBSuperSpeedDevice
 
-WITH_ILA = True
 
 class USBSuperSpeedExample(Elaboratable):
-    """ Work-in-progress example/test fixture for a SuperSpeed device. """
+    """ Simple example of a USB SuperSpeed device using the LUNA framework. """
 
 
     def create_descriptors(self):
         """ Create the descriptors we want to use for our device. """
 
-        descriptors = DeviceDescriptorCollection()
+        descriptors = SuperSpeedDeviceDescriptorCollection()
 
         #
         # We'll add the major components of the descriptors we we want.
@@ -53,46 +51,24 @@ class USBSuperSpeedExample(Elaboratable):
 
         # ... and a description of the USB configuration we'll provide.
         with descriptors.ConfigurationDescriptor() as c:
+            c.bMaxPower        = 50
 
             with c.InterfaceDescriptor() as i:
                 i.bInterfaceNumber = 0
 
-                with i.EndpointDescriptor() as e:
+                with i.EndpointDescriptor(add_default_superspeed=True) as e:
                     e.bEndpointAddress = 0x01
-                    e.wMaxPacketSize   = 64
+                    e.wMaxPacketSize   = 512
 
-                with i.EndpointDescriptor() as e:
+                with i.EndpointDescriptor(add_default_superspeed=True) as e:
                     e.bEndpointAddress = 0x81
-                    e.wMaxPacketSize   = 64
+                    e.wMaxPacketSize   = 512
 
         return descriptors
 
 
-    def __init__(self):
-        if WITH_ILA:
-            self.endpoint_data        = Signal(32)
-            self.source_data          = Signal(32)
-
-            self.ila = USBIntegratedLogicAnalyer(
-                bus="usb",
-                domain="ss",
-                signals=[
-                    self.source_data,
-                    self.endpoint_data
-                ],
-                sample_depth=256,
-                max_packet_size=64,
-                samples_pretrigger=6
-            )
-
-    def emit(self):
-        frontend = USBIntegratedLogicAnalyzerFrontend(ila=self.ila)
-        frontend.emit_vcd("/tmp/output.vcd")
-
     def elaborate(self, platform):
         m = Module()
-        if WITH_ILA:
-            m.submodules.ila = self.ila
 
         # Generate our domain clocks/resets.
         m.submodules.car = platform.clock_domain_generator()
@@ -109,31 +85,9 @@ class USBSuperSpeedExample(Elaboratable):
         usb.add_standard_control_endpoint(descriptors)
 
 
-        # Heartbeat LED.
-        counter = Signal(28)
-        m.d.ss += counter.eq(counter + 1)
-
-        m.d.comb += [
-            platform.get_led(m, 0).o.eq(usb.link_trained),
-
-            # Heartbeat.
-            platform.get_led(m, 7).o.eq(counter[-1]),
-        ]
-
-
-        if WITH_ILA:
-            m.d.comb += [
-                # ILA
-                self.source_data     .eq(usb.tx_data_tap.data),
-                self.endpoint_data   .eq(usb.ep_tx_stream.data),
-                self.ila.trigger     .eq(usb.ep_tx_stream.first),
-            ]
-
         # Return our elaborated module.
         return m
 
 
 if __name__ == "__main__":
-    ex = top_level_cli(USBSuperSpeedExample)
-    if WITH_ILA:
-        ex.emit()
+    top_level_cli(USBSuperSpeedExample)

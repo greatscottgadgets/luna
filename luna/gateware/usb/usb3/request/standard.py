@@ -7,7 +7,7 @@
 
 import unittest
 
-from nmigen                   import Module, Elaboratable, Cat
+from nmigen                   import *
 from usb_protocol.types       import USBStandardRequests, USBRequestType
 from usb_protocol.emitters    import DeviceDescriptorCollection
 
@@ -62,7 +62,46 @@ class StandardRequestHandler(Elaboratable):
             m.next = 'IDLE'
 
 
+    def handle_simple_data_request(self, m, tx_stream, data, *, valid_mask=0b0001):
+        """ Fills in a given current state with a request that returns a given short piece of data.
 
+        For e.g. GET_CONFIGURATION and GET_STATUS requests. The relevant data must fit within a word.
+
+        Parameters
+        ----------
+        tx_stream: StreamInterface
+            The transmit stream to drive.
+        data: nMigen value, or equivalent, up to 32b
+            The data to be transmitted.
+        valid_mask: nMigen value, or equivalent, up to 4b
+            The valid mask for the data to be transmitted. Should be 0b0001, 0b0011, 0b0111, or 0b1111.
+        """
+
+        sending = Signal()
+
+        # Provide our output stream with our simple word.
+        m.d.comb += [
+            tx_stream.valid  .eq(sending),
+
+            tx_stream.first  .eq(1),
+            tx_stream.last   .eq(1),
+
+            tx_stream.data   .eq(data),
+            tx_stream.valid  .eq(valid_mask)
+        ]
+
+        # When data is requested, start sending.
+        with m.If(self.interface.data_requested):
+            m.d.ss += sending.eq(1)
+
+        # Once our transmitter has accepted data, stop sending.
+        with m.If(tx_stream.ready):
+            m.d.ss += sending.eq(0)
+
+        # ACK our status stage, when appropriate.
+        with m.If(self.interface.status_requested):
+            m.d.comb += self.interface.handshakes_out.send_ack.eq(1)
+            m.next = 'IDLE'
 
 
     def elaborate(self, platform):
@@ -88,10 +127,6 @@ class StandardRequestHandler(Elaboratable):
             get_descriptor_handler.length .eq(setup.length),
         ]
 
-        ## Handler for various small-constant-response requests (GET_CONFIGURATION, GET_STATUS).
-        #m.submodules.transmitter = transmitter = \
-        #    StreamSerializer(data_length=2, domain="usb", stream_type=USBInStreamInterface, max_length_width=2)
-
 
         ##
         ## Handlers.
@@ -108,26 +143,28 @@ class StandardRequestHandler(Elaboratable):
                         # Select which standard packet we're going to handler.
                         with m.Switch(setup.request):
 
-                            #with m.Case(USBStandardRequests.GET_STATUS):
-                            #    m.next = 'GET_STATUS'
+                            with m.Case(USBStandardRequests.GET_STATUS):
+                                m.next = 'GET_STATUS'
                             with m.Case(USBStandardRequests.SET_ADDRESS):
                                 m.next = 'SET_ADDRESS'
                             with m.Case(USBStandardRequests.SET_CONFIGURATION):
                                 m.next = 'SET_CONFIGURATION'
                             with m.Case(USBStandardRequests.GET_DESCRIPTOR):
                                 m.next = 'GET_DESCRIPTOR'
-                            #with m.Case(USBStandardRequests.GET_CONFIGURATION):
-                            #    m.next = 'GET_CONFIGURATION'
+                            with m.Case(USBStandardRequests.GET_CONFIGURATION):
+                                m.next = 'GET_CONFIGURATION'
+                            with m.Case(USBStandardRequests.SET_ISOCH_DELAY):
+                                m.next = 'SET_ISOCH_DELAY'
                             with m.Case():
                                 m.next = 'UNHANDLED'
 
 
                 # GET_STATUS -- Fetch the device's status.
                 # For now, we'll always return '0'.
-                #with m.State('GET_STATUS'):
-                #    # TODO: handle reporting endpoint stall status
-                #    # TODO: copy the remote wakeup and bus-powered attributes from bmAttributes of the relevant descriptor?
-                #    self.handle_simple_data_request(m, transmitter, 0, length=2)
+                with m.State('GET_STATUS'):
+                    # TODO: handle reporting endpoint stall status
+                    # TODO: copy the remote wakeup and bus-powered attributes from bmAttributes of the relevant descriptor?
+                    self.handle_simple_data_request(m, interface.tx, 0, valid_mask=0b0011)
 
 
                 # SET_ADDRESS -- The host is trying to assign us an address.
@@ -160,10 +197,20 @@ class StandardRequestHandler(Elaboratable):
                         m.next = 'IDLE'
 
 
-                ## GET_CONFIGURATION -- The host is asking for the active configuration number.
-                #with m.State('GET_CONFIGURATION'):
-                #    self.handle_simple_data_request(m, transmitter, interface.active_config)
+                # GET_CONFIGURATION -- The host is asking for the active configuration number.
+                with m.State('GET_CONFIGURATION'):
+                    self.handle_simple_data_request(m, interface.tx, interface.active_config)
 
+
+                # SET_ISOCH_DELAY -- The host is trying to inform us of our isochronous delay.
+                with m.State('SET_ISOCH_DELAY'):
+                    # TODO: store this data aside once we support ISOCH
+                    #self.handle_register_write_request(m, interface.new_config, interface.config_changed)
+
+                    # ACK our status stage, when appropriate.
+                    with m.If(self.interface.status_requested):
+                        m.d.comb += self.interface.handshakes_out.send_ack.eq(1)
+                        m.next = 'IDLE'
 
                 # UNHANDLED -- we've received a request we're not prepared to handle
                 with m.State('UNHANDLED'):
