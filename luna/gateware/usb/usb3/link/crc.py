@@ -182,6 +182,13 @@ class DataPacketPayloadCRC(Elaboratable):
     crc: Signal(32), output
         The current CRC value.
 
+    next_crc_3B: Signal(32), output
+        The CRC value for the next cycle, assuming we advance 3B.
+    next_crc_2B: Signal(32), output
+        The CRC value for the next cycle, assuming we advance 2B.
+    next_crc_1B: Signal(32), output
+        The CRC value for the next cycle, assuming we advance 1B.
+
 
     Parameters
     ----------
@@ -204,6 +211,9 @@ class DataPacketPayloadCRC(Elaboratable):
         self.advance_1B   = Signal()
 
         self.crc         = Signal(32)
+        self.next_crc_3B = Signal(32)
+        self.next_crc_2B = Signal(32)
+        self.next_crc_1B = Signal(32)
 
 
     def _generate_next_full_crc(self, current_crc, data_in):
@@ -385,7 +395,19 @@ class DataPacketPayloadCRC(Elaboratable):
         m = Module()
 
         # Register that contains the running CRCs.
-        crc = Signal(32, reset=self._initial_value)
+        crc         = Signal(32, reset=self._initial_value)
+
+        # Internal signals representing our next internal state given various input sizes.
+        next_crc_3B = Signal.like(crc)
+        next_crc_2B = Signal.like(crc)
+        next_crc_1B = Signal.like(crc)
+
+        # Compute each of our theoretical partial "next-CRC" values.
+        m.d.comb += [
+            next_crc_3B.eq(self._generate_next_3B_crc(crc, self.data_input[0:24])),
+            next_crc_2B.eq(self._generate_next_2B_crc(crc, self.data_input[0:16])),
+            next_crc_1B.eq(self._generate_next_1B_crc(crc, self.data_input[0:8])),
+        ]
 
         # If we're clearing our CRC in progress, move our holding register back to
         # our initial value.
@@ -394,16 +416,22 @@ class DataPacketPayloadCRC(Elaboratable):
 
         # Otherwise, update the CRC whenever we have new data.
         with m.Elif(self.advance_word):
-            m.d.ss += crc.eq(self._generate_next_full_crc(crc, self.data_input))
+            m.d.ss   += crc.eq(self._generate_next_full_crc(crc, self.data_input))
         with m.Elif(self.advance_3B):
-            m.d.ss += crc.eq(self._generate_next_3B_crc(crc, self.data_input[8:32]))
+            m.d.ss   += crc.eq(next_crc_3B)
         with m.Elif(self.advance_2B):
-            m.d.ss += crc.eq(self._generate_next_2B_crc(crc, self.data_input[16:32]))
+            m.d.ss   += crc.eq(next_crc_2B)
         with m.Elif(self.advance_1B):
-            m.d.ss += crc.eq(self._generate_next_1B_crc(crc, self.data_input[24:32]))
+            m.d.ss   += crc.eq(next_crc_1B)
 
-        # Convert from our intermediary "running CRC" format into the current CRC-32...
-        m.d.comb += self.crc.eq(~crc[::-1])
+
+        # Convert from our intermediary "running CRC" format into the correct CRC32 outputs.
+        m.d.comb += [
+            self.crc          .eq(~crc[::-1]),
+            self.next_crc_3B  .eq(~next_crc_3B[::-1]),
+            self.next_crc_2B  .eq(~next_crc_2B[::-1]),
+            self.next_crc_1B  .eq(~next_crc_1B[::-1])
+        ]
 
         return m
 
@@ -412,18 +440,46 @@ class DataPacketPayloadCRCTest(LunaSSGatewareTestCase):
     FRAGMENT_UNDER_TEST = DataPacketPayloadCRC
 
     @ss_domain_test_case
-    def test_crc_progression(self):
+    def test_aligned_crc(self):
         dut = self.dut
 
-        yield dut.advance_word.eq(1)
+        #yield dut.advance_word.eq(1)
 
-        yield dut.data_input.eq(0x02000112)
+        for i in (0x02000112, 0x40000000):
+            yield dut.data_input.eq(i)
+            yield from self.pulse(dut.advance_word, step_after=False)
+
+        self.assertEqual((yield dut.crc), 0x34984B13)
+
+
+    @ss_domain_test_case
+    def test_unaligned_crc(self):
+        dut = self.dut
+
+
+        # Aligned section of a real USB data capture, from a USB flash drive.
+        aligned_section =[
+            0x03000112,
+            0x09000000,
+            0x520013FE,
+            0x02010100,
+        ]
+
+        # Present the aligned section...
+        for i in aligned_section:
+            yield dut.data_input.eq(i)
+            yield from self.pulse(dut.advance_word, step_after=False)
+
+        # ... and then our unaligned data.
+        yield dut.data_input.eq(0x0000_0103)
         yield
 
-        yield dut.data_input.eq(0x40000000)
-        yield
+        # Our next-CRC should indicate the correct value...
+        self.assertEqual((yield dut.next_crc_2B), 0x540aa487)
 
-        yield
+        # ...and after advancing, we should see the same value on our CRC output.
+        yield from self.pulse(dut.advance_2B)
+        self.assertEqual((yield dut.crc), 0x540aa487)
 
 
 if __name__ == "__main__":

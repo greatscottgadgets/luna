@@ -36,13 +36,16 @@ class NamedSymbol:
         self.description = description
         self.ctrl        = 0 if is_data else 1
 
-    def value_const(self):
+    def value_const(self, *, repeat=1):
         """ Returns this symbol's data value as an nMigen const. """
-        return Const(self.value, 8)
+        value = Const(self.value, 8)
+        return Repl(value, repeat)
 
-    def ctrl_const(self):
+
+    def ctrl_const(self, *, repeat=1):
         """ Returns this symbol's ctrl value as an nMigen const. """
-        return Const(self.ctrl, 1)
+        ctrl =  Const(self.ctrl, 1)
+        return Repl(ctrl, repeat)
 
 
 SKP =  NamedSymbol("SKP", K(28, 1), "Skip")                              # 3c

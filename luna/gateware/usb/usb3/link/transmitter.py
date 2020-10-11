@@ -70,6 +70,12 @@ class RawPacketTransmitter(Elaboratable):
         # Latched data.
         header    = HeaderPacket()
 
+        # Offset for our CRC and end-of-packet framing.
+        # Unlike most other USB3 packets; Data Packet Payloads' payloads can end on a non-word boundary;
+        # which means the CRC and end-of-packet framing that follow will need to be offset. We'll store that
+        # offset here.
+        crc_alignment = Signal(range(len(self.data_sink.valid)))
+
         #
         # CRC Generators
         #
@@ -190,28 +196,84 @@ class RawPacketTransmitter(Elaboratable):
                     source.valid        .eq(1),
 
                     # Advance our CRC according to how many bytes are currently valid.
-                    crc32.advance_word   .eq(source.ready),
-                    #crc32.advance_word  .eq((data_sink.valid == 0b1111) & source.ready),
-                    #crc32.advance_3B    .eq((data_sink.valid == 0b0111) & source.ready),
-                    #crc32.advance_2B    .eq((data_sink.valid == 0b0011) & source.ready),
-                    #crc32.advance_1B    .eq((data_sink.valid == 0b0001) & source.ready),
+                    crc32.advance_word  .eq((data_sink.valid == 0b1111) & source.ready),
+                    crc32.advance_3B    .eq((data_sink.valid == 0b0111) & source.ready),
+                    crc32.advance_2B    .eq((data_sink.valid == 0b0011) & source.ready),
+                    crc32.advance_1B    .eq((data_sink.valid == 0b0001) & source.ready),
 
                     # Pass through our ready signal.
                     data_sink.ready    .eq(source.ready),
                 ]
 
-                # Once we no longer have valid data, we'll need to suffix our CRC.
-                with m.If(data_sink.last & source.ready):
-                    # FIXME: handle unaligned CRC?
-                    m.next = "SEND_CRC"
+                # Since our payloads don't always end on a word boundary, it's possible we may
+                # need to start the CRC in the middle of our last word. We'll handle those cases here.
+                with m.If(data_sink.last):
+                    with m.Switch(data_sink.valid):
+
+                        # 3 valid bytes, 1 byte of CRC
+                        with m.Case (0b0111):
+                            m.d.comb += source.data[24:32].eq(crc32.next_crc_3B[0:8])
+                            m.d.ss   += crc_alignment.eq(3)
+
+                        # 2 valid bytes, 2 bytes of CRC
+                        with m.Case (0b0011):
+                            m.d.comb += source.data[16:32].eq(crc32.next_crc_2B[0:16])
+                            m.d.ss   += crc_alignment.eq(2)
+
+                        # 1 valid byte, 3 bytes of CRC
+                        with m.Case (0b0001):
+                            m.d.comb += source.data[8:32].eq(crc32.next_crc_1B[0:24])
+                            m.d.ss   += crc_alignment.eq(1)
+
+                        # If our packet wound up being word aligned; we don't need to modify
+                        # our transmission, here; but we do need to note our CRC alignment.
+                        with m.Default():
+                            m.d.ss   += crc_alignment.eq(0)
+
+
+                    # Once our last data word is accepted, move to sending the (remainder) of the CRC.
+                    with m.If(source.ready):
+                        m.next = "SEND_CRC"
 
 
             # SEND_CRC -- send the CRC (or what remains of it)
             with m.State("SEND_CRC"):
-                m.d.comb += [
-                    source.data         .eq(crc32.crc),
-                    source.valid        .eq(1)
-                ]
+                m.d.comb += source.valid.eq(1)
+
+                # We'll need to send however much of the CRC is left; which will depend on the
+                # CRC's alignment within our word.
+                with m.Switch(crc_alignment):
+
+                    # If our data packet was word aligned, we've sent no CRC bytes.
+                    # Send our full word.
+                    with m.Case(0):
+                        m.d.comb += [
+                            source.data  .eq(crc32.crc),
+                            source.ctrl  .eq(0)
+                        ]
+
+                    # If we had three valid bytes of data last time, we've sent one byte of CRC.
+                    # Send the other three, followed by one END framing word.
+                    with m.Case(3):
+                        m.d.comb += [
+                            source.data  .eq(Cat(crc32.crc[8:32], END.value_const())),
+                            source.ctrl  .eq(0b1000),
+                        ]
+
+                    # Same, but for 2B valid and 2B CRC
+                    with m.Case(2):
+                        m.d.comb += [
+                            source.data  .eq(Cat(crc32.crc[16:32], END.value_const(repeat=2))),
+                            source.ctrl  .eq(0b1100),
+                        ]
+
+                    # Same, but for 1B valid and 3B CRC
+                    with m.Case(1):
+                        m.d.comb += [
+                            source.data  .eq(Cat(crc32.crc[24:32], END.value_const(repeat=3))),
+                            source.ctrl  .eq(0b1110),
+                        ]
+
 
                 # Once our CRC is accepted, finish our payload.
                 with m.If(source.ready):
@@ -220,12 +282,45 @@ class RawPacketTransmitter(Elaboratable):
 
             # FINISH_DPP -- send our end-of-payload framing.
             with m.State("FINISH_DPP"):
+                m.d.comb += source.valid.eq(1)
+
+                # Get our data and ctrl constants for our framing.
                 framing_data, framing_ctrl = get_word_for_symbols(END, END, END, EPF)
-                m.d.comb += [
-                    source.data         .eq(framing_data),
-                    source.ctrl         .eq(framing_ctrl),
-                    source.valid        .eq(1),
-                ]
+
+                # We'll need to send however much of the framing is left; which will depend on the
+                # where our CRC ended.
+                with m.Switch(crc_alignment):
+
+                    # If our data packet was word aligned, we've sent no CRC bytes.
+                    # Send our full word.
+                    with m.Case(0):
+                        m.d.comb += [
+                            source.data         .eq(framing_data),
+                            source.ctrl         .eq(framing_ctrl),
+                        ]
+
+                    # If we had three valid bytes of data last time, we've sent one byte of framing.
+                    # Send the other three, followed by zeroes (logical IDL).
+                    with m.Case(3):
+                        m.d.comb += [
+                            source.data         .eq(framing_data[8:]),
+                            source.ctrl         .eq(framing_ctrl[1:]),
+                        ]
+
+                    # Same, but 2B frame and 2B IDL.
+                    with m.Case(2):
+                        m.d.comb += [
+                            source.data         .eq(framing_data[16:]),
+                            source.ctrl         .eq(framing_ctrl[ 2:]),
+                        ]
+
+                    # Same, but 1B frame and 3B IDL.
+                    with m.Case(1):
+                        m.d.comb += [
+                            source.data         .eq(framing_data[24:]),
+                            source.ctrl         .eq(framing_ctrl[ 3:]),
+                        ]
+
 
                 # Once our CRC is accepted, finish our payload.
                 with m.If(source.ready):
