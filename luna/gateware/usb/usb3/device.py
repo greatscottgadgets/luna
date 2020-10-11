@@ -12,14 +12,16 @@ import logging
 
 from nmigen import *
 
+from usb_protocol.emitters import DeviceDescriptorCollection
+
 # USB3 Protocol Stack
-from .physical  import USB3PhysicalLayer
-from .link      import USB3LinkLayer
-from .protocol  import USB3ProtocolLayer
-from .endpoints import USB3ControlEndpoint
+from .physical             import USB3PhysicalLayer
+from .link                 import USB3LinkLayer
+from .protocol             import USB3ProtocolLayer
+from .endpoints            import USB3ControlEndpoint
 
 # Temporary
-from ..stream  import USBRawSuperSpeedStream, SuperSpeedStreamInterface
+from ..stream              import USBRawSuperSpeedStream, SuperSpeedStreamInterface
 
 
 class USBSuperSpeedDevice(Elaboratable):
@@ -33,6 +35,9 @@ class USBSuperSpeedDevice(Elaboratable):
         logging.warning("USB3 device support is not at all complete!")
         logging.warning("Do not expect -anything- to work!")
 
+        # TODO: replace this with a real endpoint collection
+        self._control_endpoint = None
+
         #
         # I/O port
         #
@@ -45,12 +50,42 @@ class USBSuperSpeedDevice(Elaboratable):
         self.rx_data_tap         = USBRawSuperSpeedStream()
         self.tx_data_tap         = USBRawSuperSpeedStream()
 
-        self.ep_rx_stream        = SuperSpeedStreamInterface()
-        self.is_setup            = Signal()
+        self.ep_tx_stream        = SuperSpeedStreamInterface()
+        self.ep_tx_length        = Signal(range(1024 + 1))
+
+
+
+    def add_standard_control_endpoint(self, descriptors: DeviceDescriptorCollection):
+        """ Adds a control endpoint with standard request handlers to the device.
+
+        Parameters
+        ----------
+        descriptors: DeviceDescriptorCollection
+            The descriptors to use for this device.
+
+        Return value
+        ------------
+        The endpoint object created.
+        """
+
+        # TODO: build a collection of endpoint interfaces, and arbitrate between them
+        # FIXME: remove this scaffolding, and replace it with a real interface.
+        self._control_endpoint = USB3ControlEndpoint(descriptors=descriptors)
 
 
     def elaborate(self, platform):
         m = Module()
+
+        #
+        # Global device state.
+        #
+
+        # Stores the device's current address. Used to identify which packets are for us.
+        address       = Signal(7, reset=0)
+
+        # Stores the device's current configuration. Defaults to unconfigured.
+        configuration = Signal(8, reset=0)
+
 
         #
         # Physical layer.
@@ -66,31 +101,55 @@ class USBSuperSpeedDevice(Elaboratable):
         m.submodules.link = link = USB3LinkLayer(physical_layer=physical)
         m.d.comb += [
             self.link_trained     .eq(link.trained),
-            self.link_in_reset    .eq(link.in_reset)
+            self.link_in_reset    .eq(link.in_reset),
+
+            link.current_address  .eq(address)
         ]
 
         #
         # Protocol layer.
         #
         m.submodules.protocol = protocol = USB3ProtocolLayer(link_layer=link)
+        m.d.comb += [
+            protocol.current_address        .eq(address),
+            protocol.current_configuration  .eq(configuration)
+        ]
 
 
         #
         # Application layer.
         #
 
+
+
         # TODO: build a collection of endpoint interfaces, and arbitrate between them
         # FIXME: remove this scaffolding, and replace it with a real interface.
-        m.submodules.control_ep = control_ep = USB3ControlEndpoint()
+        m.submodules.control_ep = control_ep = self._control_endpoint
         m.d.comb += [
-            control_ep.interface.rx                     .tap(protocol.endpoint_interface.rx),
-            control_ep.interface.rx_header              .eq(protocol.endpoint_interface.rx_header),
-            control_ep.interface.rx_complete            .eq(protocol.endpoint_interface.rx_complete),
-            control_ep.interface.rx_invalid             .eq(protocol.endpoint_interface.rx_invalid),
 
-            protocol.endpoint_interface.handshakes_out  .connect(control_ep.interface.handshakes_out),
-            protocol.endpoint_interface.handshakes_in   .connect(control_ep.interface.handshakes_in)
+            # Receive interface.
+            control_ep.interface.rx                         .tap(protocol.endpoint_interface.rx),
+            control_ep.interface.rx_header                  .eq(protocol.endpoint_interface.rx_header),
+            control_ep.interface.rx_complete                .eq(protocol.endpoint_interface.rx_complete),
+            control_ep.interface.rx_invalid                 .eq(protocol.endpoint_interface.rx_invalid),
+
+            # Transmit interface.
+            protocol.endpoint_interface.tx                  .stream_eq(control_ep.interface.tx),
+            protocol.endpoint_interface.tx_length           .eq(control_ep.interface.tx_length),
+            protocol.endpoint_interface.tx_endpoint_number  .eq(control_ep.interface.tx_endpoint_number),
+            protocol.endpoint_interface.tx_sequence_number  .eq(control_ep.interface.tx_sequence_number),
+
+            # Handshake interface.
+            protocol.endpoint_interface.handshakes_out      .connect(control_ep.interface.handshakes_out),
+            protocol.endpoint_interface.handshakes_in       .connect(control_ep.interface.handshakes_in)
         ]
+
+
+        # If an endpoint wants to update our address or configuration, accept the update.
+        with m.If(control_ep.interface.address_changed):
+            m.d.ss += address.eq(control_ep.interface.new_address)
+        with m.If(control_ep.interface.config_changed):
+            m.d.ss += configuration.eq(control_ep.interface.new_config)
 
 
 
@@ -103,8 +162,8 @@ class USBSuperSpeedDevice(Elaboratable):
             self.rx_data_tap   .tap(physical.source),
             self.tx_data_tap   .tap(physical.sink),
 
-            self.ep_rx_stream  .tap(protocol.endpoint_interface.rx),
-            self.is_setup      .eq(protocol.endpoint_interface.rx_header.setup)
+            self.ep_tx_stream  .tap(protocol.endpoint_interface.tx),
+            self.ep_tx_length  .eq(protocol.endpoint_interface.tx_length)
         ]
 
 

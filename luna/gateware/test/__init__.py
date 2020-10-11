@@ -7,6 +7,8 @@
 from .utils import \
     LunaGatewareTestCase, \
     LunaUSBGatewareTestCase, \
+    LunaSSGatewareTestCase, \
     sync_test_case, \
     usb_domain_test_case, \
-    fast_domain_test_case
+    fast_domain_test_case, \
+    ss_domain_test_case

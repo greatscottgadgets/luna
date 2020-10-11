@@ -3,7 +3,6 @@
 #
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
-
 """ Utilities for building USB descriptors into gateware. """
 
 from nmigen                            import Signal, Module, Elaboratable

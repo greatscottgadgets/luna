@@ -48,6 +48,7 @@ class HandshakeGeneratorInterface(Record):
 
             # Commands.
             ('send_ack',        1, DIR_FANIN),
+            ('send_stall',      1, DIR_FANIN),
 
             # Status.
             ('ready',           1, DIR_FANOUT),
@@ -81,12 +82,17 @@ class HandshakeReceiverInterface(Record):
         super().__init__([
 
             # Parameters.
-            ('endpoint_number', 7, DIR_FANOUT),
-            ('retry_required',  1, DIR_FANOUT),
-            ('next_sequence',   5, DIR_FANOUT),
+            ('endpoint_number',   7, DIR_FANOUT),
+            ('retry_required',    1, DIR_FANOUT),
+            ('next_sequence',     5, DIR_FANOUT),
+            ('direction',         1, DIR_FANOUT),
+            ('host_error',        1, DIR_FANOUT),
+            ('packets_pending',   1, DIR_FANOUT),
+            ('number_of_packets', 5, DIR_FANOUT),
 
             # Commands.
-            ('status_received', 1, DIR_FANOUT),
+            ('status_received',   1, DIR_FANOUT),
+            ('ack_received',      1, DIR_FANOUT),
         ])
 
 
@@ -124,6 +130,23 @@ class ACKHeaderPacket(TransactionHeaderPacket):
     ]
 
 
+class STALLHeaderPacket(TransactionHeaderPacket):
+    DW1_LAYOUT = [
+        ('subtype',             4),
+        ('reserved_0',          3),
+        ('direction',           1),
+        ('endpoint_number',     4),
+        ('reserved_1',         20),
+    ]
+    DW2_LAYOUT = [
+        ('reserved_2',         27),
+        ('packets_pending',     1), # Host only.
+        ('reserved_3',          4),
+    ]
+
+
+
+
 class StatusHeaderPacket(TransactionHeaderPacket):
     DW1_LAYOUT = [
         ('subtype',             4),
@@ -144,6 +167,9 @@ class TransactionPacketGenerator(Elaboratable):
         The stream that carries any generated header packet requests.
     interface: HandshakeGeneratorInterface(), to/from endpoint
         The control interface for our packet; meant to be carried to various endpoints.
+
+    address: Signal(7), input
+        The address associated with the device; used to fill in header packet fields.
     """
 
     def __init__(self):
@@ -153,6 +179,8 @@ class TransactionPacketGenerator(Elaboratable):
         #
         self.header_source   = HeaderQueue()
         self.interface       = HandshakeGeneratorInterface()
+
+        self.address         = Signal(7)
 
 
 
@@ -166,6 +194,7 @@ class TransactionPacketGenerator(Elaboratable):
         endpoint_number = Signal.like(interface.endpoint_number)
         data_error      = Signal.like(interface.retry_required)
         next_sequence   = Signal.like(interface.next_sequence)
+        device_address  = Signal.like(self.address)
 
 
         def send_packet(response_type, **fields):
@@ -174,15 +203,22 @@ class TransactionPacketGenerator(Elaboratable):
             # Create a response packet, and mark ourselves as sending it.
             response = response_type()
             m.d.comb += [
-                header_source.valid    .eq(1),
-                header_source.header   .eq(response),
+                header_source.valid       .eq(1),
+                header_source.header      .eq(response),
 
-                response.type          .eq(HeaderPacketType.TRANSACTION)
+                response.type             .eq(HeaderPacketType.TRANSACTION),
+                response.device_address   .eq(device_address),
+                response.endpoint_number  .eq(endpoint_number)
             ]
 
             # Next, fill in each of the fields:
             for field, value in fields.items():
                 m.d.comb += response[field].eq(value)
+
+            with m.If(header_source.ready):
+                m.d.comb += interface.done.eq(1)
+                m.next = "DISPATCH_REQUESTS"
+
 
 
         with m.FSM(domain="ss"):
@@ -196,18 +232,20 @@ class TransactionPacketGenerator(Elaboratable):
                 m.d.ss += [
                     endpoint_number  .eq(interface.endpoint_number),
                     data_error       .eq(interface.retry_required),
-                    next_sequence    .eq(interface.next_sequence)
+                    next_sequence    .eq(interface.next_sequence),
+                    device_address   .eq(self.address)
                 ]
 
                 with m.If(interface.send_ack):
                     m.next = "SEND_ACK"
+                with m.If(interface.send_stall):
+                    m.next = "SEND_STALL"
 
             # SEND_ACK -- actively send an ACK packet to our link partner; and wait for that to complete.
             with m.State("SEND_ACK"):
                 send_packet(ACKHeaderPacket,
                     subtype           = TransactionPacketSubtype.ACK,
                     direction         = USBDirection.OUT,
-                    endpoint_number   = endpoint_number,
                     retry             = data_error,
                     data_sequence     = next_sequence,
 
@@ -215,9 +253,14 @@ class TransactionPacketGenerator(Elaboratable):
                     number_of_packets = 1,
                 )
 
-                with m.If(header_source.ready):
-                    m.d.comb += interface.done.eq(1)
-                    m.next = "DISPATCH_REQUESTS"
+            # SEND_STALL -- actively send a STALL packet to our link partner; and wait for that to complete.
+            with m.State("SEND_STALL"):
+                send_packet(ACKHeaderPacket,
+                    subtype           = TransactionPacketSubtype.STALL,
+                    direction         = USBDirection.OUT,
+                    number_of_packets = 1,
+                )
+
 
         return m
 
@@ -241,6 +284,8 @@ class TransactionPacketReceiver(Elaboratable):
         #
         self.header_sink     = HeaderQueue()
         self.interface       = HandshakeReceiverInterface()
+
+        self.address         = Signal(7)
 
 
     def elaborate(self, platform):
@@ -281,6 +326,28 @@ class TransactionPacketReceiver(Elaboratable):
                     ]
 
 
+                #
+                # ACK packets -- packets that convey transaction status; they both serve as IN
+                # tokens and carry any (negative or positive) acknowledgements.
+                #
+                with m.Case(TransactionPacketSubtype.ACK):
 
+                    # Handle our packet as a status packet...
+                    ack_packet = ACKHeaderPacket()
+                    m.d.comb += ack_packet.eq(header_sink.header)
+
+                    m.d.comb += [
+                        # ... fill the fields out in our interface...
+                        interface.endpoint_number    .eq(ack_packet.endpoint_number),
+                        interface.retry_required     .eq(ack_packet.retry),
+                        interface.next_sequence      .eq(ack_packet.data_sequence),
+                        interface.packets_pending    .eq(ack_packet.packets_pending),
+                        interface.direction          .eq(ack_packet.direction),
+                        interface.host_error         .eq(ack_packet.host_error),
+                        interface.number_of_packets  .eq(ack_packet.number_of_packets),
+
+                        # ... and report the event.
+                        interface.ack_received       .eq(1)
+                    ]
 
         return m

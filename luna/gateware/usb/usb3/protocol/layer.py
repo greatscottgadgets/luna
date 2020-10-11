@@ -27,10 +27,14 @@ class USB3ProtocolLayer(Elaboratable):
         #
 
         # Interface to our various endpoints.
-        self.endpoint_interface = SuperSpeedEndpointInterface()
+        self.endpoint_interface    = SuperSpeedEndpointInterface()
+
+        # Device state inputs.
+        self.current_address       = Signal(7)
+        self.current_configuration = Signal(7)
 
         # Current timestamp.
-        self.bus_interval       = Signal(14)
+        self.bus_interval          = Signal(14)
 
 
     def elaborate(self, platform):
@@ -87,6 +91,9 @@ class USB3ProtocolLayer(Elaboratable):
         # Generator
         m.submodules.tp_generator = tp_generator = TransactionPacketGenerator()
         hp_mux.add_producer(tp_generator.header_source)
+        m.d.comb += [
+            tp_generator.address.eq(self.current_address)
+        ]
 
         # Receiver
         m.submodules.tp_receiver = tp_receiver = TransactionPacketReceiver()
@@ -99,12 +106,17 @@ class USB3ProtocolLayer(Elaboratable):
         #
         endpoint_interface = self.endpoint_interface
         m.d.comb += [
-
             # Rx interface.
             endpoint_interface.rx           .tap(link.data_source),
             endpoint_interface.rx_header    .eq(link.data_header_from_host),
             endpoint_interface.rx_complete  .eq(link.data_source_complete),
             endpoint_interface.rx_invalid   .eq(link.data_source_invalid),
+
+            # Tx interface.
+            link.data_sink                  .stream_eq(endpoint_interface.tx),
+            link.data_sink_length           .eq(endpoint_interface.tx_length),
+            link.data_sink_endpoint_number  .eq(endpoint_interface.tx_endpoint_number),
+            link.data_sink_sequence_number  .eq(endpoint_interface.tx_sequence_number),
 
             # Handshake exchange interface.
             tp_generator.interface          .connect(endpoint_interface.handshakes_out),

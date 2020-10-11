@@ -8,10 +8,12 @@
 import unittest
 
 from nmigen import *
+
+from usb_protocol.types import USBDirection
 from usb_protocol.types.superspeed import HeaderPacketType
 
 from .crc              import HeaderPacketCRC, DataPacketPayloadCRC, compute_usb_crc5
-from .header           import HeaderPacket
+from .header           import HeaderPacket, HeaderQueue
 
 from ..physical.coding import SHP, SDP, EPF, stream_matches_symbols
 from ...stream         import USBRawSuperSpeedStream, SuperSpeedStreamInterface
@@ -309,6 +311,113 @@ class DataPacketReceiverTest(LunaSSGatewareTestCase):
         )
 
         self.assertEqual((yield self.dut.packet_good), 1)
+
+
+
+class DataPacketTransmitter(Elaboratable):
+    """ Gateware that generates a Data Packet Header, and orchestrates sending it and a payload.
+
+    The actual sending is handled by our transmitter gateware.
+
+    Attributes
+    ----------
+    data_sink: SuperSpeedStreamInterface(), input stream
+        The data stream to be send as a data packet. The length of this stream should match thee
+        length parameter.
+
+    sequence_number: Signal(5), input
+        The sequence number associated with the relevant data packet. Latched in once :attr:``data_sink`` goes valid.
+    endpoint_number: Signal(4), input
+        The endpoint number associated with the relevant data stream. Latched in once :attr:``data_sink`` goes valid.
+    data_length: Signal(range(1024 + 1))
+        The length of the data packet to be sent; in bytes. Latched in once :attr:``data_sink`` goes valid.
+    """
+
+    MAX_PACKET_SIZE = 1024
+
+    def __init__(self):
+
+        #
+        # I/O port
+        #
+
+        # Input stream.
+        self.data_sink       = SuperSpeedStreamInterface()
+
+        # Data parameters.
+        self.sequence_number = Signal(5)
+        self.endpoint_number = Signal(4)
+        self.data_length     = Signal(range(self.MAX_PACKET_SIZE + 1))
+        self.address         = Signal(7)
+
+        # Output streams.
+        self.header_source   = HeaderQueue()
+        self.data_source     = SuperSpeedStreamInterface()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Shortcuts.
+        header_source = self.header_source
+        data_sink     = self.data_sink
+        data_source   = self.data_source
+
+        # Latched resources.
+        sequence_number = Signal.like(self.sequence_number)
+        endpoint_number = Signal.like(self.endpoint_number)
+        data_length     = Signal.like(self.data_length)
+
+        with m.FSM(domain="ss"):
+
+            # WAIT_FOR_DATA -- we're idly waiting for our input data stream to become valid.
+            with m.State("WAIT_FOR_DATA"):
+
+                # Constantly latch in our data parameters until we get a new data packet.
+                m.d.ss += [
+                    sequence_number  .eq(self.sequence_number),
+                    endpoint_number  .eq(self.endpoint_number),
+                    data_length      .eq(self.data_length)
+                ]
+
+                # Once our data goes valid, begin sending our data.
+                with m.If(data_sink.valid.any()):
+                    m.next = "SEND_HEADER"
+
+
+            # SEND_HEADER -- we're sending the header associated with our data packet.
+            with m.State("SEND_HEADER"):
+                header = DataHeaderPacket()
+                m.d.comb += [
+                    header_source.header    .eq(header),
+                    header_source.valid     .eq(1),
+
+                    # We're sending a data packet from up to the host.
+                    header.type             .eq(HeaderPacketType.DATA),
+                    header.direction        .eq(USBDirection.IN),
+                    header.device_address   .eq(self.address),
+
+                    # Fill in our input parameters...
+                    header.data_sequence    .eq(sequence_number),
+                    header.data_length      .eq(data_length),
+                    header.endpoint_number  .eq(endpoint_number)
+                ]
+
+                # Once our header is accepted, move on to passing through our payload.
+                with m.If(header_source.ready):
+                    m.next = "SEND_PAYLOAD"
+
+
+            # SEND_PAYLOAD -- we're now passing our payload data to our transmitter; which will
+            # drive ready when it's time to accept data.
+            with m.State("SEND_PAYLOAD"):
+                m.d.comb += data_source.stream_eq(data_sink)
+
+                # Once our packet is complete, we'll go back to idle.
+                with m.If(~data_sink.valid):
+                    m.next = "WAIT_FOR_DATA"
+
+        return m
 
 
 if __name__ == "__main__":

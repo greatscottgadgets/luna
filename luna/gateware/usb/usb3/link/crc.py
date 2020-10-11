@@ -5,11 +5,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ CRC computation gateware for USB3. """
 
+
+import unittest
+import operator
+import functools
+
 from nmigen import *
 
-import functools
-import operator
-
+from ....test import LunaSSGatewareTestCase, ss_domain_test_case
 
 
 def compute_usb_crc5(protected_bits):
@@ -403,3 +406,25 @@ class DataPacketPayloadCRC(Elaboratable):
         m.d.comb += self.crc.eq(~crc[::-1])
 
         return m
+
+
+class DataPacketPayloadCRCTest(LunaSSGatewareTestCase):
+    FRAGMENT_UNDER_TEST = DataPacketPayloadCRC
+
+    @ss_domain_test_case
+    def test_crc_progression(self):
+        dut = self.dut
+
+        yield dut.advance_word.eq(1)
+
+        yield dut.data_input.eq(0x02000112)
+        yield
+
+        yield dut.data_input.eq(0x40000000)
+        yield
+
+        yield
+
+
+if __name__ == "__main__":
+    unittest.main()

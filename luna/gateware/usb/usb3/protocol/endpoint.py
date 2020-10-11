@@ -64,6 +64,8 @@ class SuperSpeedEndpointInterface:
         # Data packet transmission.
         self.tx                    = SuperSpeedStreamInterface()
         self.tx_length             = Signal(range(1024 + 1))
+        self.tx_endpoint_number    = Signal(4)
+        self.tx_sequence_number    = Signal(5)
 
         # Handshaking / transcation packet exchange.
         self.handshakes_out        = HandshakeGeneratorInterface()

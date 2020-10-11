@@ -3,23 +3,25 @@
 #
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
-""" Header Packet Rx-handling gateware. """
+""" Packet transmission handling gateware. """
 
 from nmigen                        import *
 from nmigen.hdl.ast                import Fell
-from usb_protocol.types.superspeed import LinkCommand
+from usb_protocol.types.superspeed import LinkCommand, HeaderPacketType
 
 from .header                       import HeaderPacket, HeaderQueue
-from .crc                          import compute_usb_crc5, HeaderPacketCRC
+from .crc                          import compute_usb_crc5, HeaderPacketCRC, DataPacketPayloadCRC
 from .command                      import LinkCommandDetector
-from ..physical.coding             import SHP, EPF, get_word_for_symbols
-from ...stream                     import USBRawSuperSpeedStream
+from ..physical.coding             import SHP, SDP, EPF, END, get_word_for_symbols
+from ...stream                     import USBRawSuperSpeedStream, SuperSpeedStreamInterface
 
-class RawHeaderPacketTransmitter(Elaboratable):
-    """ Class that generates and sends
 
-    This class performs the validations required at the link layer of the USB specification;
-    which include checking the CRC-5 and CRC-16 embedded within the header packet.
+class RawPacketTransmitter(Elaboratable):
+    """ Class that generates and sends header packets; with an optional payload attached.
+
+    This class generates the checks required at the link layer of the USB specification;
+    which include checking the CRC-5 and CRC-16 embedded within the header packet, and
+    the CRC-32 embedded within any associated payloads.
 
 
     Attributes
@@ -27,15 +29,20 @@ class RawHeaderPacketTransmitter(Elaboratable):
     source: USBRawSuperSpeedStream(), output stream
         Stream that carries the generated packets.
 
-    packet: HeaderPacket(), input
+    header: HeaderPacket(), input
         The header packet to be sent. The CRC fields do not need to be valid, and will
-        be ignored and replaced with a computed CRC>
+        be ignored and replaced with a computed CRC. If the header packet is of type data,
+        :attr:``data_sink`` will be allowed to provide a follow-up Data Packet Payload.
+    data_sink: SuperSpeedStreamInterface(), input stream
+        If the provided :attr:``header`` is a Data Header, and :attr:``data_sink`` is valid
+        when the packet's transmission is sent, this data stream will be used to provide a
+        follow-up Data Packet Payload.
 
     generate: Signal(), input
-        Strobe; indicates that a link command should be generated.
+        Strobe; indicates that a packet should be generated.
     done: Signal(), output
-        Indicates that the link command will be complete this cycle; and thus this unit will
-        be ready to send another link command next cycle.
+        Indicates that the packet will be complete this cycle; and thus this unit will
+        be ready to send another packet next cycle.
     """
 
     def __init__(self):
@@ -43,25 +50,38 @@ class RawHeaderPacketTransmitter(Elaboratable):
         #
         # I/O port.
         #
-        self.source   = USBRawSuperSpeedStream()
+        self.source    = USBRawSuperSpeedStream()
 
-        self.packet   = HeaderPacket()
+        # Packet data in.
+        self.header    = HeaderPacket()
+        self.data_sink = SuperSpeedStreamInterface()
 
-        self.generate = Signal()
-        self.done     = Signal()
+        self.generate  = Signal()
+        self.done      = Signal()
 
 
     def elaborate(self, platform):
         m = Module()
 
-        source = self.source
-        packet = HeaderPacket()
+        # Shorthands.
+        source    = self.source
+        data_sink = self.data_sink
+
+        # Latched data.
+        header    = HeaderPacket()
 
         #
-        # CRC-16 Generator
+        # CRC Generators
         #
+
+        # CRC-16, for header packets
         m.submodules.crc16 = crc16 = HeaderPacketCRC()
-        m.d.comb += crc16.data_input.eq(source.data),
+        m.d.comb += crc16.data_input.eq(source.data)
+
+        # CRC-32, for payload packets
+        m.submodules.crc32 = crc32 = DataPacketPayloadCRC()
+        m.d.comb += crc32.data_input.eq(self.data_sink.data)
+
 
         #
         # Packet transmitter.
@@ -75,7 +95,7 @@ class RawHeaderPacketTransmitter(Elaboratable):
 
                 # Once we have a request, latch in our data, and start sending.
                 with m.If(self.generate):
-                    m.d.ss += packet.eq(self.packet)
+                    m.d.ss += header.eq(self.header)
                     m.next = "SEND_HPSTART"
 
 
@@ -97,7 +117,7 @@ class RawHeaderPacketTransmitter(Elaboratable):
 
             # SEND_DWn -- send along the three first data words unalatered, as we don't
             # need to fill in any CRC details, here.
-            data_words = [packet.dw0, packet.dw1, packet.dw2]
+            data_words = [header.dw0, header.dw1, header.dw2]
             for n in range(3):
                 with m.State(f"SEND_DW{n}"):
 
@@ -115,31 +135,108 @@ class RawHeaderPacketTransmitter(Elaboratable):
 
 
             # Compose our final data word from our individual fields, filling
-            with m.State(f"SEND_DW3"):
+            with m.State("SEND_DW3"):
 
                 # Compose our data word
                 m.d.comb += [
                     source.valid        .eq(1),
                     source.data[ 0:16]  .eq(crc16.crc),
-                    source.data[16:19]  .eq(packet.sequence_number),
-                    source.data[19:22]  .eq(packet.dw3_reserved),
-                    source.data[22:25]  .eq(packet.hub_depth),
-                    source.data[25]     .eq(packet.deferred),
-                    source.data[26]     .eq(packet.delayed),
+                    source.data[16:19]  .eq(header.sequence_number),
+                    source.data[19:22]  .eq(header.dw3_reserved),
+                    source.data[22:25]  .eq(header.hub_depth),
+                    source.data[25]     .eq(header.deferred),
+                    source.data[26]     .eq(header.delayed),
                     source.data[27:32]  .eq(compute_usb_crc5(source.data[16:27])),
                     source.ctrl         .eq(0)
                 ]
 
-                # Once this final word is accepted, we're done!
+                # Once our final header packet word has been sent; decide what to do next.
+                with m.If(source.ready):
+
+                    # If we just sent a data packet header, and we have a valid data-stream,
+                    # follow on immediately with a Data Packet Payload.
+                    was_data_header = (header.dw0[0:4] == HeaderPacketType.DATA)
+                    with m.If(was_data_header & self.data_sink.valid):
+                        m.next = "START_DPP"
+
+                    # Otherwise, we're done!
+                    with m.Else():
+                        m.d.comb += self.done.eq(1)
+                        m.next = f"IDLE"
+
+
+            # START_DPP -- we'll start our data packet payload with our framing.
+            with m.State("START_DPP"):
+                m.d.comb += crc32.clear.eq(1)
+
+                # Add our start framing.
+                header_data, header_ctrl = get_word_for_symbols(SDP, SDP, SDP, EPF)
+                m.d.comb += [
+                    source.valid  .eq(1),
+                    source.data   .eq(header_data),
+                    source.ctrl   .eq(header_ctrl),
+                ]
+
+                # Once we're done with that, we'll start the actual payload transmission.
+                with m.If(source.ready):
+                    m.next = "SEND_PAYLOAD"
+
+
+            # SEND_PAYLOAD -- pass through our data stream
+            with m.State("SEND_PAYLOAD"):
+                m.d.comb += [
+                    # Pass through most our data directly..
+                    source.data         .eq(data_sink.data),
+                    source.valid        .eq(1),
+
+                    # Advance our CRC according to how many bytes are currently valid.
+                    crc32.advance_word   .eq(source.ready),
+                    #crc32.advance_word  .eq((data_sink.valid == 0b1111) & source.ready),
+                    #crc32.advance_3B    .eq((data_sink.valid == 0b0111) & source.ready),
+                    #crc32.advance_2B    .eq((data_sink.valid == 0b0011) & source.ready),
+                    #crc32.advance_1B    .eq((data_sink.valid == 0b0001) & source.ready),
+
+                    # Pass through our ready signal.
+                    data_sink.ready    .eq(source.ready),
+                ]
+
+                # Once we no longer have valid data, we'll need to suffix our CRC.
+                with m.If(data_sink.last & source.ready):
+                    # FIXME: handle unaligned CRC?
+                    m.next = "SEND_CRC"
+
+
+            # SEND_CRC -- send the CRC (or what remains of it)
+            with m.State("SEND_CRC"):
+                m.d.comb += [
+                    source.data         .eq(crc32.crc),
+                    source.valid        .eq(1)
+                ]
+
+                # Once our CRC is accepted, finish our payload.
+                with m.If(source.ready):
+                    m.next = "FINISH_DPP"
+
+
+            # FINISH_DPP -- send our end-of-payload framing.
+            with m.State("FINISH_DPP"):
+                framing_data, framing_ctrl = get_word_for_symbols(END, END, END, EPF)
+                m.d.comb += [
+                    source.data         .eq(framing_data),
+                    source.ctrl         .eq(framing_ctrl),
+                    source.valid        .eq(1),
+                ]
+
+                # Once our CRC is accepted, finish our payload.
                 with m.If(source.ready):
                     m.d.comb += self.done.eq(1)
-                    m.next = f"IDLE"
+                    m.next = "IDLE"
 
         return m
 
 
 
-class HeaderPacketTransmitter(Elaboratable):
+class PacketTransmitter(Elaboratable):
     """ Transmitter-side Header Packet logic.
 
     This module handles all header-packet-transmission related logic for the link layer; including
@@ -186,6 +283,7 @@ class HeaderPacketTransmitter(Elaboratable):
 
         # Protocol layer interface.
         self.queue                 = HeaderQueue()
+        self.data_sink             = SuperSpeedStreamInterface()
 
         # Event interface.
         self.link_command_received = Signal()
@@ -307,8 +405,11 @@ class HeaderPacketTransmitter(Elaboratable):
         #
         # Packet delivery (link layer -> physical layer)
         #
-        m.submodules.packet_tx = packet_tx = RawHeaderPacketTransmitter()
-        m.d.comb += self.source.stream_eq(packet_tx.source)
+        m.submodules.packet_tx = packet_tx = RawPacketTransmitter()
+        m.d.comb += [
+            self.source          .stream_eq(packet_tx.source),
+            packet_tx.data_sink  .stream_eq(self.data_sink)
+        ]
 
         # Keep track of the next sequence number we'll need to send...
         transmit_sequence_number = Signal(self.SEQUENCE_NUMBER_WIDTH)
@@ -324,8 +425,8 @@ class HeaderPacketTransmitter(Elaboratable):
                     m.d.ss += [
                         # Grab the packet from our read queue, and pass it to the transmitter;
                         # but override its sequence number field with our current sequence number.
-                        packet_tx.packet                  .eq(buffers[read_pointer]),
-                        packet_tx.packet.sequence_number  .eq(transmit_sequence_number),
+                        packet_tx.header                  .eq(buffers[read_pointer]),
+                        packet_tx.header.sequence_number  .eq(transmit_sequence_number),
                     ]
 
                     # Move on to sending our packet.

@@ -12,12 +12,12 @@ from ..physical.coding  import IDL
 
 from .idle         import IdleHandshakeHandler
 from .ltssm        import LTSSMController
-from .header       import HeaderQueue
-from .header_rx    import HeaderPacketReceiver
-from .header_tx    import HeaderPacketTransmitter
+from .header       import HeaderQueue, HeaderQueueArbiter
+from .receiver     import HeaderPacketReceiver
+from .transmitter  import PacketTransmitter
 from .timers       import LinkMaintenanceTimers
 from .ordered_sets import TSTransceiver
-from .data         import DataPacketReceiver, DataHeaderPacket
+from .data         import DataPacketReceiver, DataPacketTransmitter, DataHeaderPacket
 
 
 class USB3LinkLayer(Elaboratable):
@@ -37,20 +37,27 @@ class USB3LinkLayer(Elaboratable):
         #
 
         # Header packet exchanges.
-        self.header_sink           = HeaderQueue()
-        self.header_source         = HeaderQueue()
+        self.header_sink               = HeaderQueue()
+        self.header_source             = HeaderQueue()
 
         # Data packet exchange interface.
-        self.data_sink             = SuperSpeedStreamInterface()
-        self.data_source           = SuperSpeedStreamInterface()
-        self.data_header_from_host = DataHeaderPacket()
-        self.data_source_complete  = Signal()
-        self.data_source_invalid   = Signal()
+        self.data_source               = SuperSpeedStreamInterface()
+        self.data_header_from_host     = DataHeaderPacket()
+        self.data_source_complete      = Signal()
+        self.data_source_invalid       = Signal()
+
+        self.data_sink                 = SuperSpeedStreamInterface()
+        self.data_sink_sequence_number = Signal(5)
+        self.data_sink_endpoint_number = Signal(4)
+        self.data_sink_length          = Signal(range(1024 + 1))
+
+        # Device state for header packets
+        self.current_address           = Signal(7)
 
         # Status signals.
-        self.trained               = Signal()
-        self.ready                 = Signal()
-        self.in_reset              = Signal()
+        self.trained                   = Signal()
+        self.ready                     = Signal()
+        self.in_reset                  = Signal()
 
 
     def elaborate(self, platform):
@@ -148,21 +155,26 @@ class USB3LinkLayer(Elaboratable):
 
 
         #
-        # Header Packet Tx Path.
-        # Accepts header packets from the protocol layer, and transmits them.
+        # Packet transmission path.
+        # Accepts packets from the protocol and link layers, and transmits them.
         #
-        m.submodules.header_tx = header_tx = HeaderPacketTransmitter()
-        m.d.comb += [
-            header_tx.sink                .tap(physical_layer.source),
-            header_tx.enable              .eq(ltssm.link_ready),
-            header_tx.hot_reset           .eq(self.in_reset),
 
-            header_tx.queue               .header_eq(self.header_sink),
+        # Transmit header multiplexer.
+        m.submodules.hp_mux = hp_mux = HeaderQueueArbiter()
+        hp_mux.add_producer(self.header_sink)
+
+        # Core transmitter.
+        m.submodules.transmitter = transmitter = PacketTransmitter()
+        m.d.comb += [
+            transmitter.sink                .tap(physical_layer.source),
+            transmitter.enable              .eq(ltssm.link_ready),
+            transmitter.hot_reset           .eq(self.in_reset),
+
+            transmitter.queue               .header_eq(hp_mux.source),
 
             # Link state management handling.
-            timers.link_command_received  .eq(header_tx.link_command_received),
-            self.ready                    .eq(header_tx.bringup_complete),
-
+            timers.link_command_received  .eq(transmitter.link_command_received),
+            self.ready                    .eq(transmitter.bringup_complete),
         ]
 
 
@@ -186,7 +198,7 @@ class USB3LinkLayer(Elaboratable):
             timers.packet_received           .eq(header_rx.packet_received),
 
             # Transmitter event path.
-            header_rx.retry_received         .eq(header_tx.retry_received),
+            header_rx.retry_received         .eq(transmitter.retry_received),
         ]
 
 
@@ -204,6 +216,8 @@ class USB3LinkLayer(Elaboratable):
         #
         # Data packet handlers.
         #
+
+        # Receiver.
         m.submodules.data_rx = data_rx = DataPacketReceiver()
         m.d.comb += [
             data_rx.sink                .tap(physical_layer.source),
@@ -215,6 +229,23 @@ class USB3LinkLayer(Elaboratable):
             self.data_source_invalid    .eq(data_rx.packet_bad),
         ]
 
+        # Transmitter.
+        m.submodules.data_tx = data_tx = DataPacketTransmitter()
+        hp_mux.add_producer(data_tx.header_source)
+
+        m.d.comb += [
+            transmitter.data_sink    .stream_eq(data_tx.data_source),
+
+            # Device state information.
+            data_tx.address             .eq(self.current_address),
+
+            # Data interface from Protocol layer.
+            data_tx.data_sink        .stream_eq(self.data_sink),
+            data_tx.sequence_number  .eq(self.data_sink_sequence_number),
+            data_tx.endpoint_number  .eq(self.data_sink_endpoint_number),
+            data_tx.data_length      .eq(self.data_sink_length)
+        ]
+
 
         #
         # Transmit stream arbiter.
@@ -224,7 +255,7 @@ class USB3LinkLayer(Elaboratable):
         # Add each of our streams to our arbiter, from highest to lowest priority.
         arbiter.add_stream(training_set_source)
         arbiter.add_stream(header_rx.source)
-        arbiter.add_stream(header_tx.source)
+        arbiter.add_stream(transmitter.source)
 
         # If we're idle, send logical idle.
         with m.If(arbiter.idle):
