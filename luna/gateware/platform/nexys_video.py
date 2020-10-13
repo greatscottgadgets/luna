@@ -116,7 +116,7 @@ class NexysVideoClockDomainGenerator(Elaboratable):
 
             # CLKOUT2 = 250 MHz (PCLK + phase delay)
             p_CLKOUT2_DIVIDE       = 4,
-            p_CLKOUT2_PHASE        = 90.0,
+            p_CLKOUT2_PHASE        = 00.0,
             o_CLKOUT2              = ClockSignal("ss_io_shifted"),
 
             # CLKOUT3 = 200 MHz (for our the chip's I/O delay equalization)

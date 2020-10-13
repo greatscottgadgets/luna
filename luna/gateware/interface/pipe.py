@@ -119,7 +119,7 @@ class GearedPIPEInterface(Elaboratable):
             # Drive our transmit clock with an DDR output driven from our full-rate clock.
             # Re-creating the clock in this I/O cell ensures that our clock output is phase-aligned
             # with the signals we create below. [UG471: pg128, "Clock Forwarding"]
-            self._io.tx_clk.o_clk    .eq(ClockSignal("ss_io")),
+            self._io.tx_clk.o_clk    .eq(ClockSignal("ss_io_shifted")),
             self._io.tx_clk.o0       .eq(1),
             self._io.tx_clk.o1       .eq(0),
         ]
