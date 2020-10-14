@@ -97,8 +97,6 @@ class SuperSpeedSetupDecoder(Elaboratable):
         # Keep our "received" flag low unless explicitly driven.
         m.d.ss += self.packet.received.eq(0)
 
-        led = platform.request("led", 2)
-
         with m.FSM(domain="ss"):
 
             # WAIT_FOR_FIRST -- we're waiting for the first word of a setup packet;
@@ -115,7 +113,6 @@ class SuperSpeedSetupDecoder(Elaboratable):
             # PARSE_SECOND -- handle the second and last packet, which contains the remainder of
             # our setup data.
             with m.State("PARSE_SECOND"):
-                m.d.ss += led.eq(1)
 
                 with m.If(self.sink.valid.all()):
 

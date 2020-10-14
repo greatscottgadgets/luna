@@ -56,7 +56,7 @@ class PHYResetController(Elaboratable):
         # This is larger than any requirement, in order to work with a broad swathe of PHYs,
         # in case a PHY other than the TUSB1310A ever makes it to the market.
         cycles_in_reset = int(5e-6 * 50e6)
-        cycles_left_in_reset = Signal(range(cycles_in_reset), reset=cycles_in_reset - 1)
+        cycles_spent_in_reset = Signal(range(cycles_in_reset + 1))
 
         # Create versions of our phy_status signals that are observable:
         # 1) as an asynchronous inputs for startup pulses
@@ -69,6 +69,7 @@ class PHYResetController(Elaboratable):
 
         with m.FSM():
 
+
             # STARTUP_RESET -- post configuration, we'll reset the PIPE PHY.
             # This is distinct from the PHY's built-in power-on-reset, as we run this
             # on every FPGA configuration.
@@ -78,8 +79,8 @@ class PHYResetController(Elaboratable):
                 ]
 
                 # Once we've extended past a reset time, we can move on.
-                m.d.sync += cycles_left_in_reset.eq(cycles_left_in_reset - 1)
-                with m.If(cycles_left_in_reset == 0):
+                m.d.sync += cycles_spent_in_reset.eq(cycles_spent_in_reset + 1)
+                with m.If(cycles_spent_in_reset == cycles_in_reset):
                     m.next = "DETECT_PHY_STARTUP"
 
 

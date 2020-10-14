@@ -27,9 +27,10 @@ from ..stream              import USBRawSuperSpeedStream, SuperSpeedStreamInterf
 class USBSuperSpeedDevice(Elaboratable):
     """ Core gateware common to all LUNA USB3 devices. """
 
-    def __init__(self, *, phy, sync_frequency):
+    def __init__(self, *, phy, sync_frequency=None):
         self._phy = phy
         self._sync_frequency = sync_frequency
+
 
         # TODO: remove when complete
         logging.warning("USB3 device support is not at all complete!")
@@ -76,6 +77,12 @@ class USBSuperSpeedDevice(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
+        # Figure out the frequency of our ``sync`` domain, for e.g. PHY bringup timing.
+        # We'll default to the platform's default frequency if none was provided.
+        sync_frequency = self._sync_frequency
+        if sync_frequency is None:
+            sync_frequency = platform.default_clk_frequency
+
         #
         # Global device state.
         #
@@ -92,7 +99,7 @@ class USBSuperSpeedDevice(Elaboratable):
         #
         m.submodules.physical = physical = USB3PhysicalLayer(
             phy            = self._phy,
-            sync_frequency = self._sync_frequency
+            sync_frequency = sync_frequency
         )
 
         #

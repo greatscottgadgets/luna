@@ -160,11 +160,13 @@ class Genesys2ClockDomainGenerator(Elaboratable):
 class Genesys2HTGSuperspeedPHY(GearedPIPEInterface):
     """ Interface for the TUSB1310A, mounted on the HTG-FMC-USB3.0 board. """
 
+    SYNC_FREQUENCY = 200e6
+
     def __init__(self, platform, with_usb2=False, index=1):
         logging.info("Using the HiTechGlobal HTG-FMC-USB3.0 PHY board, connected via FMC.")
 
         self._with_usb2 = with_usb2
-        self._index     = 1
+        self._index     = index
 
         # Grab the geared I/O for our PIPE PHY...
         phy_connection = platform.request('hitech_fmc_pipe', 1, xdr=GearedPIPEInterface.GEARING_XDR)

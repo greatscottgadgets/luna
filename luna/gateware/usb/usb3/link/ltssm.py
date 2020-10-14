@@ -46,10 +46,18 @@ class LTSSMController(Elaboratable):
         Asserted when the physical layer should be performing scrambling.
 
 
+    Parameters
+    ----------
+    ss_clock_frequency: float
+        The frequency of the SS clock domain; used for computing timeouts.
+    loosen_requirements: bool
+        If True, the requirements will be relaxed from the USB3 specification; in order
+        to make things work a little more easily on a variety of PHYs and setups.
     """
 
-    def __init__(self, ss_clock_frequency):
+    def __init__(self, ss_clock_frequency=125e6, *, loosen_requirements=True):
         self._clock_frequency = ss_clock_frequency
+        self._loosen_requirements = loosen_requirements
 
         #
         # I/O port.
@@ -141,6 +149,7 @@ class LTSSMController(Elaboratable):
         hot_reset_seen          = Signal()
         loopback_seen           = Signal()
         disable_scrambling_seen = Signal()
+        burst_minimum_met       = Signal()
 
         with m.If(self.lfps_polling_detected):
             m.d.ss += polling_seen.eq(1)
@@ -156,6 +165,9 @@ class LTSSMController(Elaboratable):
 
         with m.If(self.no_scrambling_requested):
             m.d.ss += disable_scrambling_seen.eq(1)
+
+        with m.If(self.ts_burst_complete):
+            m.d.ss += burst_minimum_met.eq(1)
 
 
         #
@@ -267,6 +279,10 @@ class LTSSMController(Elaboratable):
             with m.State("Polling.LFPS"):
                 m.d.comb += self.tx_electrical_idle.eq(1)
 
+                # XXX
+                led = platform.request("led", 7)
+                m.d.comb += led.eq(1)
+
                 # We'll track if we've seen LFPS bursts during this state;
                 # and keep a moving target of how many LFPS bursts we need to see.
                 lfps_burst_seen   = Signal()
@@ -284,6 +300,11 @@ class LTSSMController(Elaboratable):
                 # - Have sent at least 16 bursts.
                 # - Have transmitted at least four bursts since we first saw a burst.
                 with m.If(self.lfps_cycles_sent >= target_lfps_count):
+
+                    # If we see a TS1, and we're not in strict mode, move forward without
+                    # necessarily seeing a LFPS burst ourselves.
+                    with m.If(self._loosen_requirements & self.ts1_detected):
+                            transition_to_state("Polling.RxEQ")
 
                     # If this is the first burst we've seen, move our target forward;
                     # so we can meet our second condition.
@@ -344,6 +365,11 @@ class LTSSMController(Elaboratable):
             with m.State("Polling.Active"):
                 handle_warm_resets()
 
+                # Mark ourselves as having not sent a full burst yet when entering this state.
+                tasks_on_entry['Polling.Active'] = [
+                    burst_minimum_met.eq(0)
+                ]
+
                 # Constantly send TS1s; which indicate that we're in link training, but haven't yet
                 # seen enough TS1s to move forward with training.
                 m.d.comb += self.send_ts1_burst.eq(1)
@@ -352,21 +378,25 @@ class LTSSMController(Elaboratable):
                 # link partner. We'll start our process again from the beginning.
                 transition_on_timeout(12e-3, to="Rx.Detect.Active")
 
-                # Once our ordered set module reports a long enough burst of seen training sets
-                # we're satisfied with our link training. However, we don't want to stop sending
-                # training data until we're sure our link partner has completed training; so we'll
-                # move to Polling.Configuration to await completion of the other side.
-                with m.If(self.ts1_detected | self.ts2_detected):
-                    m.d.ss += self.invert_rx_polarity.eq(0),
-                    transition_to_state("Polling.Configuration")
+                # Once we've sent enough TS1s to meet our specification-mandated minimum (and to make
+                # sure the other side has a chance to see them), we can consider moving on.
+                with m.If(burst_minimum_met):
+
+                    # Once our ordered set module reports a long enough burst of seen training sets
+                    # we're satisfied with our link training. However, we don't want to stop sending
+                    # training data until we're sure our link partner has completed training; so we'll
+                    # move to Polling.Configuration to await completion of the other side.
+                    with m.If(self.ts1_detected | self.ts2_detected):
+                        m.d.ss += self.invert_rx_polarity.eq(0),
+                        transition_to_state("Polling.Configuration")
 
 
-                # If we see a long enough burst of -inverted- training sets, we're also satisfied
-                # with our link training; but we know that the receive differential pair is inverted.
-                # We'll continue, but ask our physical layer to invert our received data.
-                with m.If(self.inverted_ts1_detected):
-                    m.d.ss += self.invert_rx_polarity.eq(1),
-                    transition_to_state("Polling.Configuration")
+                    # If we see a long enough burst of -inverted- training sets, we're also satisfied
+                    # with our link training; but we know that the receive differential pair is inverted.
+                    # We'll continue, but ask our physical layer to invert our received data.
+                    with m.If(self.inverted_ts1_detected):
+                        m.d.ss += self.invert_rx_polarity.eq(1),
+                        transition_to_state("Polling.Configuration")
 
 
             # Polling.Configuration -- we're now satisfied with our link training; we'll need to communicate
