@@ -101,12 +101,18 @@ class StreamInterface(Record):
         return interface.attach(self, omit=omit)
 
 
-    def tap(self, interface, **kwargs):
+    def tap(self, interface, *, tap_ready=False, **kwargs):
         """ Simple extension to stream_eq() that captures a read-only view of the stream.
 
         This connects all signals from ``interface`` to their equivalents in this stream.
         """
-        return self.stream_eq(interface, omit={"ready"}, **kwargs)
+        core = self.stream_eq(interface, omit={"ready"}, **kwargs)
+
+        if tap_ready:
+            core.append(self.ready.eq(interface.ready))
+
+        return core
+
 
 
 

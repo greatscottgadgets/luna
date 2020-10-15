@@ -51,7 +51,7 @@ class LTSSMController(Elaboratable):
     ss_clock_frequency: float
         The frequency of the SS clock domain; used for computing timeouts.
     loosen_requirements: bool
-        If True, the requirements will be relaxed from the USB3 specification; in order
+        If True, the requirements will be relaxed from the USB3 specification, in order
         to make things work a little more easily on a variety of PHYs and setups.
     """
 
@@ -278,10 +278,6 @@ class LTSSMController(Elaboratable):
             # establish initial DC characteristics. [USB 3.2r1: 7.5.4.3]
             with m.State("Polling.LFPS"):
                 m.d.comb += self.tx_electrical_idle.eq(1)
-
-                # XXX
-                led = platform.request("led", 7)
-                m.d.comb += led.eq(1)
 
                 # We'll track if we've seen LFPS bursts during this state;
                 # and keep a moving target of how many LFPS bursts we need to see.

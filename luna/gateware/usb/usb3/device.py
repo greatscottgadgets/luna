@@ -169,7 +169,7 @@ class USBSuperSpeedDevice(Elaboratable):
             self.rx_data_tap   .tap(physical.source),
             self.tx_data_tap   .tap(physical.sink),
 
-            self.ep_tx_stream  .tap(protocol.endpoint_interface.tx),
+            self.ep_tx_stream  .tap(protocol.endpoint_interface.tx, tap_ready=True),
             self.ep_tx_length  .eq(protocol.endpoint_interface.tx_length)
         ]
 

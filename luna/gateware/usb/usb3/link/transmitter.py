@@ -16,6 +16,7 @@ from ..physical.coding             import SHP, SDP, EPF, END, get_word_for_symbo
 from ...stream                     import USBRawSuperSpeedStream, SuperSpeedStreamInterface
 
 
+
 class RawPacketTransmitter(Elaboratable):
     """ Class that generates and sends header packets; with an optional payload attached.
 
@@ -106,7 +107,6 @@ class RawPacketTransmitter(Elaboratable):
         # Store whether our packet is a ZLP.
         packet_is_zlp = Signal()
 
-
         with m.FSM(domain="ss"):
 
             # IDLE -- wait for a generate command
@@ -180,9 +180,8 @@ class RawPacketTransmitter(Elaboratable):
                     # If we just sent a data packet header, and we have a valid data-stream,
                     # or if we're sending a ZLP, follow on immediately with a Data Packet Payload.
                     was_data_header = (header.dw0[ 0: 4] == HeaderPacketType.DATA)
-                    is_zlp          = (header.dw1[16:32] == 0)
-                    with m.If(was_data_header & (self.data_sink.valid | is_zlp)):
-                        m.d.ss += packet_is_zlp.eq(is_zlp)
+                    with m.If(was_data_header):
+                        m.d.ss += packet_is_zlp.eq(self.data_sink.valid == 0)
                         m.next = "START_DPP"
 
                     # Otherwise, we're done!

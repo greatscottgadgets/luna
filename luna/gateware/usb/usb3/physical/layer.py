@@ -15,7 +15,7 @@ from .lfps       import LFPSTransceiver
 from .scrambling import Scrambler, Descrambler
 from .power      import PHYResetController, LinkPartnerDetector
 from .ctc        import CTCSkipInserter, CTCSkipRemover
-from .alignment  import RxWordAligner
+from .alignment  import RxWordAligner, RxPacketAligner
 
 class USB3PhysicalLayer(Elaboratable):
     """ Abstraction encapsulating the USB3 physical layer hardware.
@@ -107,17 +107,14 @@ class USB3PhysicalLayer(Elaboratable):
                 logging.debug(f"Ignoring PHY signal {name}, as it's not present on this PHY.")
 
 
-        # For now, always keep our PHY out of any resets it has...
-        set_phy_strap_if_present('reset',         0)
-        set_phy_strap_if_present('phy_reset',     0)
-
-        # ... and always drive our PHY's outputs.
+        # For now, always drive our PHY's outputs.
+        # Theroetically, this could only be driven post-powerup, but this is good for now.
         set_phy_strap_if_present('out_enable',    1)
 
         # Use default/normal signal thresholds.
         set_phy_strap_if_present('tx_swing',      0)
         set_phy_strap_if_present('tx_margin',     0)
-        set_phy_strap_if_present('tx_deemph',     0b10)
+        set_phy_strap_if_present('tx_deemph',     0b01)
 
         # Use USB3.0 5Gbps signaling.
         set_phy_strap_if_present('rate',          1)
@@ -213,13 +210,19 @@ class USB3PhysicalLayer(Elaboratable):
         ]
 
 
-        # Finally, de-scramble our data before output, if needed.
+        # De-scramble our data before output, if needed.
         m.submodules.descrambler = descrambler = Descrambler()
         m.d.comb += [
             descrambler.enable  .eq(self.enable_scrambling),
-
             descrambler.sink    .stream_eq(aligner.source),
-            self.source         .stream_eq(descrambler.source),
+        ]
+
+        # Finally, as a requirement of strict compliance, we'll ensure we can handle packets
+        # that arrive even without correct alignment.
+        m.submodules.realigner = realigner = RxPacketAligner()
+        m.d.comb += [
+            realigner.sink      .stream_eq(descrambler.source),
+            self.source         .stream_eq(realigner.source),
         ]
 
 

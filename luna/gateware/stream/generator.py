@@ -496,6 +496,35 @@ class ConstantStreamGeneratorWideTest(LunaSSGatewareTestCase):
         self.assertEqual((yield dut.stream.last),    1)
 
 
+    @ss_domain_test_case
+    def test_very_short_max_length(self):
+        dut = self.dut
+
+        # Apply a maximum length of six bytes.
+        yield dut.max_length.eq(2)
+
+        # Once we pulse start, we should see the transmission start,
+        # and we should see our first word of data.
+        yield from self.pulse(dut.start)
+        self.assertEqual((yield dut.stream.valid),   0b0011)
+        self.assertEqual((yield dut.stream.payload), int.from_bytes(b"HELL", byteorder="little"))
+        self.assertEqual((yield dut.stream.first),   1)
+        self.assertEqual((yield dut.stream.last),    1)
+
+        # Our data should remain there until it's accepted.
+        yield dut.stream.ready.eq(1)
+        yield
+        self.assertEqual((yield dut.stream.valid),   0b0011)
+        self.assertEqual((yield dut.stream.payload), int.from_bytes(b"HELL", byteorder="little"))
+        self.assertEqual((yield dut.stream.first),   1)
+        self.assertEqual((yield dut.stream.last),    1)
+
+        # After acceptance, valid should drop back to false.
+        yield
+        self.assertEqual((yield dut.stream.valid),   0b0000)
+
+
+
 class StreamSerializer(Elaboratable):
     """ Gateware that serializes a short Array input onto a stream.
 

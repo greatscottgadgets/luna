@@ -8,6 +8,7 @@
 import unittest
 
 from nmigen                   import *
+
 from usb_protocol.types       import USBStandardRequests, USBRequestType
 from usb_protocol.emitters    import DeviceDescriptorCollection
 
@@ -62,7 +63,7 @@ class StandardRequestHandler(Elaboratable):
             m.next = 'IDLE'
 
 
-    def handle_simple_data_request(self, m, tx_stream, data, *, valid_mask=0b0001):
+    def handle_simple_data_request(self, m, data, *, length=1):
         """ Fills in a given current state with a request that returns a given short piece of data.
 
         For e.g. GET_CONFIGURATION and GET_STATUS requests. The relevant data must fit within a word.
@@ -77,31 +78,35 @@ class StandardRequestHandler(Elaboratable):
             The valid mask for the data to be transmitted. Should be 0b0001, 0b0011, 0b0111, or 0b1111.
         """
 
-        sending = Signal()
+        # Create a simple mapping of our valid bits to lengths.
+        # Slightly clearer than the arithmetic version. :)
+        valid_bits_for_length = [0b0000, 0b0001, 0b0011, 0b0111, 0b1111]
 
         # Provide our output stream with our simple word.
+        tx_valid = Signal(4)
         m.d.comb += [
-            tx_stream.valid  .eq(sending),
+            self.interface.tx.valid   .eq(tx_valid),
 
-            tx_stream.first  .eq(1),
-            tx_stream.last   .eq(1),
+            self.interface.tx.first   .eq(1),
+            self.interface.tx.last    .eq(1),
 
-            tx_stream.data   .eq(data),
-            tx_stream.valid  .eq(valid_mask)
+            self.interface.tx.data    .eq(data),
+            self.interface.tx_length  .eq(length)
         ]
 
         # When data is requested, start sending.
         with m.If(self.interface.data_requested):
-            m.d.ss += sending.eq(1)
+            m.d.ss += tx_valid.eq(valid_bits_for_length[length])
 
         # Once our transmitter has accepted data, stop sending.
-        with m.If(tx_stream.ready):
-            m.d.ss += sending.eq(0)
+        with m.If(self.interface.tx.ready):
+            m.d.ss += tx_valid.eq(0)
 
         # ACK our status stage, when appropriate.
         with m.If(self.interface.status_requested):
             m.d.comb += self.interface.handshakes_out.send_ack.eq(1)
             m.next = 'IDLE'
+
 
 
     def elaborate(self, platform):
@@ -164,7 +169,7 @@ class StandardRequestHandler(Elaboratable):
                 with m.State('GET_STATUS'):
                     # TODO: handle reporting endpoint stall status
                     # TODO: copy the remote wakeup and bus-powered attributes from bmAttributes of the relevant descriptor?
-                    self.handle_simple_data_request(m, interface.tx, 0, valid_mask=0b0011)
+                    self.handle_simple_data_request(m, 0, length=2)
 
 
                 # SET_ADDRESS -- The host is trying to assign us an address.
@@ -199,7 +204,7 @@ class StandardRequestHandler(Elaboratable):
 
                 # GET_CONFIGURATION -- The host is asking for the active configuration number.
                 with m.State('GET_CONFIGURATION'):
-                    self.handle_simple_data_request(m, interface.tx, interface.active_config)
+                    self.handle_simple_data_request(m, interface.active_config)
 
 
                 # SET_ISOCH_DELAY -- The host is trying to inform us of our isochronous delay.

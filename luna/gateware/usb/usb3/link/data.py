@@ -368,6 +368,14 @@ class DataPacketTransmitter(Elaboratable):
         endpoint_number = Signal.like(self.endpoint_number)
         data_length     = Signal.like(self.data_length)
 
+
+        # For now, we'll pass our data stream through unmodified.
+        #
+        # We'll keep this architecture; as later code is likely to want to more actively
+        # control when data is passed through to the transmitter.
+        m.d.comb += data_source.stream_eq(data_sink)
+
+
         with m.FSM(domain="ss"):
 
             # WAIT_FOR_DATA -- we're idly waiting for our input data stream to become valid.
@@ -400,7 +408,7 @@ class DataPacketTransmitter(Elaboratable):
                     # Fill in our input parameters...
                     header.data_sequence    .eq(sequence_number),
                     header.data_length      .eq(data_length),
-                    header.endpoint_number  .eq(endpoint_number)
+                    header.endpoint_number  .eq(endpoint_number),
                 ]
 
                 # Once our header is accepted, move on to passing through our payload.
@@ -411,10 +419,9 @@ class DataPacketTransmitter(Elaboratable):
             # SEND_PAYLOAD -- we're now passing our payload data to our transmitter; which will
             # drive ready when it's time to accept data.
             with m.State("SEND_PAYLOAD"):
-                m.d.comb += data_source.stream_eq(data_sink)
 
                 # Once our packet is complete, we'll go back to idle.
-                with m.If(~data_sink.valid):
+                with m.If(~data_sink.valid.any()):
                     m.next = "WAIT_FOR_DATA"
 
         return m

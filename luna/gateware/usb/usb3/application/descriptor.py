@@ -86,7 +86,7 @@ class GetDescriptorHandler(Elaboratable):
 
             # Create the generator...
             generator = ConstantStreamGenerator(raw_descriptor,
-                domain=self._domain, stream_type=SuperSpeedStreamInterface, max_length_width=16)
+                domain=self._domain, stream_type=self._stream_type, max_length_width=16)
             descriptor_generators[(type_number, index)] = generator
 
             # ... and attach it to this module.

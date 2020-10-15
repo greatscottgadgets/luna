@@ -237,7 +237,7 @@ class USB3LinkLayer(Elaboratable):
             transmitter.data_sink    .stream_eq(data_tx.data_source),
 
             # Device state information.
-            data_tx.address             .eq(self.current_address),
+            data_tx.address          .eq(self.current_address),
 
             # Data interface from Protocol layer.
             data_tx.data_sink        .stream_eq(self.data_sink),

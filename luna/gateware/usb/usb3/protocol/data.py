@@ -3,7 +3,12 @@
 #
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
-""" Data Packet handling gateware. """
+""" Data header handling gateware.
+
+This file currently contains very little logic; the actual transmission framing is handled at
+the link layer; and the generation of our packets is handled by our endpoint.
+
+"""
 
 from nmigen import *
 from usb_protocol.types.superspeed import HeaderPacketType
