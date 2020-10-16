@@ -78,7 +78,7 @@ class USBSuperSpeedExample(Elaboratable):
         m.submodules.phy = phy = platform.create_usb3_phy()
 
         # Create our core SuperSpeed device.
-        m.submodules.usb = usb = USBSuperSpeedDevice(phy=phy, sync_frequency=50e6)
+        m.submodules.usb = usb = USBSuperSpeedDevice(phy=phy)
 
         # Add our standard control endpoint to the device.
         descriptors = self.create_descriptors()

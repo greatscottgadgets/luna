@@ -30,11 +30,9 @@ import unittest
 from math import ceil
 
 from nmigen         import *
-from nmigen.lib.cdc import FFSynchronizer
-from nmigen.hdl.ast import Rose, Past
 
 from ....test.utils  import LunaSSGatewareTestCase, ss_domain_test_case
-from ....utils.cdc   import synchronize
+from ....utils       import synchronize, rising_edge_detected
 
 __all__ = ['LFPSTransceiver']
 
@@ -273,7 +271,7 @@ class LFPSDetector(Elaboratable):
                 m.d.ss += last_iteration_matched.eq(0)
 
                 # If we've just seen the start of a burst, start measuring it.
-                with m.If(Rose(present)):
+                with m.If(rising_edge_detected(m, present, domain="ss")):
                     m.d.ss += count.eq(1),
                     m.next = "MEASURE_BURST"
 

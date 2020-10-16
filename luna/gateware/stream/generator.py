@@ -156,7 +156,7 @@ class ConstantStreamGenerator(Elaboratable):
         data_length = len(data_initializer)
 
         rom = Memory(width=self._data_width, depth=data_length, init=data_initializer)
-        m.submodules.rom_read_port = rom_read_port = rom.read_port()
+        m.submodules.rom_read_port = rom_read_port = rom.read_port(transparent=False)
 
         # Register that stores our current position in the stream.
         position_in_stream = Signal(range(0, data_length))

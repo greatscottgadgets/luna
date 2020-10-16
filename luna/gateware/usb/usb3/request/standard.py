@@ -16,7 +16,7 @@ from ..application.request    import SuperSpeedRequestHandlerInterface
 from ..application.descriptor import GetDescriptorHandler
 
 from ...stream                import SuperSpeedStreamInterface
-from ....stream.generator     import StreamSerializer
+from ....utils                import falling_edge_detected
 
 
 class StandardRequestHandler(Elaboratable):
@@ -160,6 +160,8 @@ class StandardRequestHandler(Elaboratable):
                                 m.next = 'GET_CONFIGURATION'
                             with m.Case(USBStandardRequests.SET_ISOCH_DELAY):
                                 m.next = 'SET_ISOCH_DELAY'
+                            with m.Case(USBStandardRequests.SET_SEL):
+                                m.next = 'SET_SEL'
                             with m.Case():
                                 m.next = 'UNHANDLED'
 
@@ -217,12 +219,29 @@ class StandardRequestHandler(Elaboratable):
                         m.d.comb += self.interface.handshakes_out.send_ack.eq(1)
                         m.next = 'IDLE'
 
+
+                # SET_SEL -- set our System Exit Latencies
+                with m.State('SET_SEL'):
+                    # TODO: use the actual latencies once we support USB3 power states
+
+                    # ACK the data that's coming in, once we get it; but ignore it for now
+                    data_received = falling_edge_detected(m, interface.rx.valid, domain="ss")
+                    with m.If(data_received):
+                        m.d.comb += self.interface.handshakes_out.send_ack.eq(1)
+
+
+                    # ACK our status stage, when appropriate.
+                    with m.If(self.interface.status_requested):
+                        m.d.comb += self.interface.handshakes_out.send_ack.eq(1)
+                        m.next = 'IDLE'
+
+
                 # UNHANDLED -- we've received a request we're not prepared to handle
                 with m.State('UNHANDLED'):
 
-                    # When we next have an opportunity to stall, do so,
-                    # and then return to idle.
-                    with m.If(interface.data_requested | interface.status_requested):
+                    # When we next have an opportunity to stall, do so, and then return to idle.
+                    data_received = falling_edge_detected(m, interface.rx.valid, domain="ss")
+                    with m.If(interface.data_requested | interface.status_requested | data_received):
                         m.d.comb += handshake_generator.send_stall.eq(1)
                         m.next = 'IDLE'
 
