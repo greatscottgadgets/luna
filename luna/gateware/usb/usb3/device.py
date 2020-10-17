@@ -145,6 +145,7 @@ class USBSuperSpeedDevice(Elaboratable):
             protocol.endpoint_interface.tx_length           .eq(control_ep.interface.tx_length),
             protocol.endpoint_interface.tx_endpoint_number  .eq(control_ep.interface.tx_endpoint_number),
             protocol.endpoint_interface.tx_sequence_number  .eq(control_ep.interface.tx_sequence_number),
+            protocol.endpoint_interface.tx_direction        .eq(control_ep.interface.tx_direction),
 
             # Handshake interface.
             protocol.endpoint_interface.handshakes_out      .connect(control_ep.interface.handshakes_out),

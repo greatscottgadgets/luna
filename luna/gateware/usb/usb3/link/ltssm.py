@@ -217,6 +217,51 @@ class LTSSMController(Elaboratable):
             with m.If(self.in_usb_reset):
                 transition_to_state("Rx.Detect.Reset")
 
+        #
+        # FSM state variables.
+        #
+
+        # We'll track if we've seen LFPS bursts during this state;
+        # and keep a moving target of how many LFPS bursts we need to see.
+        lfps_burst_seen   = Signal()
+        target_lfps_count = Signal(16)
+
+
+        #
+        # FSM entry tasks.
+        #
+
+        tasks_on_entry['Polling.LFPS'] = [
+            lfps_burst_seen    .eq(0),
+            target_lfps_count  .eq(16)
+        ]
+
+
+        # Clear our previous training state on entering recovery.
+        tasks_on_entry['Recovery.Active'] = [
+            ts2_seen                 .eq(0),
+            hot_reset_seen           .eq(0),
+            loopback_seen            .eq(0),
+            disable_scrambling_seen  .eq(0),
+            burst_minimum_met        .eq(0)
+        ]
+
+        # Ensure we enter our primary training sequence with a fresh view of whether we've
+        # seen any of our training sets.
+        tasks_on_entry['Polling.RxEQ'] = [
+            ts2_seen                 .eq(0),
+            hot_reset_seen           .eq(0),
+            disable_scrambling_seen  .eq(0),
+        ]
+
+
+        # Clear our previous training state on entering recovery.
+        tasks_on_entry['Hot Reset.Active'] = [
+            ts2_seen                 .eq(0),
+            self.request_hot_reset   .eq(1)
+        ]
+
+
 
         #
         # Main Link Training and Status State Machine
@@ -279,15 +324,6 @@ class LTSSMController(Elaboratable):
             with m.State("Polling.LFPS"):
                 m.d.comb += self.tx_electrical_idle.eq(1)
 
-                # We'll track if we've seen LFPS bursts during this state;
-                # and keep a moving target of how many LFPS bursts we need to see.
-                lfps_burst_seen   = Signal()
-                target_lfps_count = Signal(16)
-
-                tasks_on_entry['Polling.LFPS'] = [
-                    lfps_burst_seen    .eq(0),
-                    target_lfps_count  .eq(16)
-                ]
 
                 # Continuously send our LFPS polling.
                 m.d.comb += self.send_lfps_polling.eq(1)
@@ -339,14 +375,6 @@ class LTSSMController(Elaboratable):
             with m.State("Polling.RxEQ"):
                 handle_warm_resets()
 
-                # Ensure we enter our primary training sequence with a fresh view of whether we've
-                # seen any of our training sets.
-                tasks_on_entry['Polling.RxEQ'] = [
-                    ts2_seen                 .eq(0),
-                    hot_reset_seen           .eq(0),
-                    disable_scrambling_seen  .eq(0),
-                ]
-
                 # Continuously send TSEQs; these are used to perform receiver equalization training.
                 m.d.comb += self.send_tseq_burst.eq(1)
 
@@ -361,11 +389,6 @@ class LTSSMController(Elaboratable):
             with m.State("Polling.Active"):
                 handle_warm_resets()
 
-                # Mark ourselves as having not sent a full burst yet when entering this state.
-                tasks_on_entry['Polling.Active'] = [
-                    burst_minimum_met.eq(0)
-                ]
-
                 # Constantly send TS1s; which indicate that we're in link training, but haven't yet
                 # seen enough TS1s to move forward with training.
                 m.d.comb += self.send_ts1_burst.eq(1)
@@ -374,8 +397,15 @@ class LTSSMController(Elaboratable):
                 # link partner. We'll start our process again from the beginning.
                 transition_on_timeout(12e-3, to="Rx.Detect.Active")
 
-                # Once we've sent enough TS1s to meet our specification-mandated minimum (and to make
-                # sure the other side has a chance to see them), we can consider moving on.
+                #
+                # The specification allows us to move on to Polling.Configuration as soon as we
+                # see a sufficient burst of TS1s, as theoretically a link partner should be able to
+                # able to accept TS2s without seeing TS1s [USB3.2r1: 7.5.4.8]; however, experientially
+                # many link partners get upset if they don't see at least -some- TS1s.
+                #
+                # Sending at least 16 total TS1s seems to work around this problem, while still allowing
+                # us to move on to sending TS2s in a timely manner.
+                #
                 with m.If(burst_minimum_met):
 
                     # Once our ordered set module reports a long enough burst of seen training sets
@@ -412,6 +442,21 @@ class LTSSMController(Elaboratable):
                 # other side, we know that both sides are finished with the core link training.
                 # Move on to our final
                 with m.If(self.ts_burst_complete & ts2_seen):
+                    transition_to_state("Polling.Configuration.Exit")
+
+
+            # Polling.Configuration.Exit [synthetic state; not from the specification] -- once we're
+            # satisfied with our TS1/TS2 exchange, we're required to send at least 16 more TS2s, to ensure
+            # that the other side sees enough TS2s to know that we're both done. In this state, we'll send
+            # a burst of TS2s.
+            with m.State("Polling.Configuration.Exit"):
+                handle_warm_resets()
+
+                # Continue to send TS2s...
+                m.d.comb += self.send_ts2_burst.eq(1)
+
+                # ... until we've sent a full burst of 16; at which point we can advance.
+                with m.If(self.ts_burst_complete):
                     transition_to_state("Polling.Idle")
 
 
@@ -476,12 +521,6 @@ class LTSSMController(Elaboratable):
             with m.State("Hot Reset.Active"):
                 handle_warm_resets()
 
-                # Clear our previous training state on entering recovery.
-                tasks_on_entry['Hot Reset.Active'] = [
-                    ts2_seen                 .eq(0),
-                    self.request_hot_reset   .eq(1)
-                ]
-
                 # As in Polling.Configuration, we'll send TS2s; but we'll send them with our
                 # Hot Reset bit set.
                 m.d.comb += [
@@ -530,13 +569,6 @@ class LTSSMController(Elaboratable):
             with m.State("Recovery.Active"):
                 handle_warm_resets()
 
-                # Clear our previous training state on entering recovery.
-                tasks_on_entry['Recovery.Active'] = [
-                    ts2_seen                 .eq(0),
-                    hot_reset_seen           .eq(0),
-                    loopback_seen            .eq(0),
-                    disable_scrambling_seen  .eq(0),
-                ]
 
                 # As in Polling.Active, we'll send TS1s to establish training.
                 m.d.comb += self.send_ts1_burst.eq(1)
@@ -545,10 +577,21 @@ class LTSSMController(Elaboratable):
                 # link partner. We'll assume our link is no longer recoverable, and move to inactive.
                 transition_on_timeout(12e-3, to="SS.Inactive.Quiet")
 
-                # Once we see enough TS1s from the other side; or see TS2s, we'll move into our next step.
-                with m.If(self.ts1_detected | self.ts2_detected):
-                    m.d.ss += self.invert_rx_polarity.eq(0),
-                    transition_to_state("Recovery.Configuration")
+                #
+                # The specification allows us to move on to Polling.Configuration as soon as we
+                # see a sufficient burst of TS1s, as theoretically a link partner should be able to
+                # able to accept TS2s without seeing TS1s [USB3.2r1: 7.5.10.3]; however, experientially
+                # many link partners get upset if they don't see at least -some- TS1s.
+                #
+                # Sending at least 16 total TS1s seems to work around this problem, while still allowing
+                # us to move on to sending TS2s in a timely manner.
+                #
+                with m.If(burst_minimum_met):
+
+                    # Once we see enough TS1s from the other side; or see TS2s, we'll move into our next step.
+                    with m.If(self.ts1_detected | self.ts2_detected):
+                        m.d.ss += self.invert_rx_polarity.eq(0),
+                        transition_to_state("Recovery.Configuration")
 
 
             # Recovery.Configuration -- we're now satisfied with our link training; we'll need to communicate
@@ -567,6 +610,21 @@ class LTSSMController(Elaboratable):
                 # other side, we know that both sides are finished with the core link training.
                 # Move on to our final
                 with m.If(self.ts_burst_complete & ts2_seen):
+                    transition_to_state("Recovery.Configuration.Exit")
+
+
+            # Recovery.Configuration.Exit [synthetic state; not from the specification] -- once we're
+            # satisfied with our TS1/TS2 exchange, we're required to send at least 16 more TS2s, to ensure
+            # that the other side sees enough TS2s to know that we're both done. In this state, we'll send
+            # a burst of TS2s.
+            with m.State("Recovery.Configuration.Exit"):
+                handle_warm_resets()
+
+                # Continue to send TS2s...
+                m.d.comb += self.send_ts2_burst.eq(1)
+
+                # ... until we've sent a full burst of 16; at which point we can advance.
+                with m.If(self.ts_burst_complete):
                     transition_to_state("Recovery.Idle")
 
 
@@ -588,7 +646,7 @@ class LTSSMController(Elaboratable):
                     transition_to_state("Loopback")
 
                 # Otherwise, As one final synchronization step and sanity check, we'll require a proper
-                # period of # Logical Idle to be detected before we move to our next state. Since Logical
+                # period of Logical Idle to be detected before we move to our next state. Since Logical
                 # Idle signals are scrambled, this helps to ensure that both sides of the link have
                 # synchronized scrambler state and that the other side has stopped sending TS2s.
                 with m.Elif(self.idle_handshake_complete):

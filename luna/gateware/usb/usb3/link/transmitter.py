@@ -678,7 +678,7 @@ class PacketTransmitter(Elaboratable):
                 with m.Case(LinkCommand.LRTY):
 
                     # If we see an LRTY, it's an indication that our link partner is performing a
-                    # retried send. This information is handled by the Reciever, so we'll forward it along.
+                    # retried send. This information is handled by the Receiver, so we'll forward it along.
                     m.d.comb += self.retry_received.eq(1)
 
 

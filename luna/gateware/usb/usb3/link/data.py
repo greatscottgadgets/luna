@@ -331,6 +331,12 @@ class DataPacketTransmitter(Elaboratable):
         The endpoint number associated with the relevant data stream. Latched in once :attr:``data_sink`` goes valid.
     data_length: Signal(range(1024 + 1))
         The length of the data packet to be sent; in bytes. Latched in once :attr:``data_sink`` goes valid.
+    direction: Signal(), input
+        The direction to indicate in the data header packet. Typically Direction.IN; but will be Direction.OUT
+        when data is sent to the host as part of a control transfer.
+
+    address: Signal(7), input
+        The current address of the USB device.
     """
 
     MAX_PACKET_SIZE = 1024
@@ -349,6 +355,7 @@ class DataPacketTransmitter(Elaboratable):
         self.endpoint_number = Signal(4)
         self.data_length     = Signal(range(self.MAX_PACKET_SIZE + 1))
         self.address         = Signal(7)
+        self.direction       = Signal()
 
         # Output streams.
         self.header_source   = HeaderQueue()
@@ -367,6 +374,7 @@ class DataPacketTransmitter(Elaboratable):
         sequence_number = Signal.like(self.sequence_number)
         endpoint_number = Signal.like(self.endpoint_number)
         data_length     = Signal.like(self.data_length)
+        direction       = Signal.like(self.direction)
 
 
         # For now, we'll pass our data stream through unmodified.
@@ -385,7 +393,8 @@ class DataPacketTransmitter(Elaboratable):
                 m.d.ss += [
                     sequence_number  .eq(self.sequence_number),
                     endpoint_number  .eq(self.endpoint_number),
-                    data_length      .eq(self.data_length)
+                    data_length      .eq(self.data_length),
+                    direction        .eq(self.direction)
                 ]
 
                 # Once our data goes valid, begin sending our data.
@@ -402,7 +411,7 @@ class DataPacketTransmitter(Elaboratable):
 
                     # We're sending a data packet from up to the host.
                     header.type             .eq(HeaderPacketType.DATA),
-                    header.direction        .eq(USBDirection.IN),
+                    header.direction        .eq(direction),
                     header.device_address   .eq(self.address),
 
                     # Fill in our input parameters...

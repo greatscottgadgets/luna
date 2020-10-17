@@ -51,9 +51,15 @@ TS2_SET_DATA = [
 
 
 class TSBurstDetector(Elaboratable):
-    """ Simple Training Set detector; capable of detecting basic training sets. """
+    """ Simple Training Set detector; capable of detecting basic training sets.
 
-    # TODO: allow masking of the second word
+    Parameters
+    ----------
+    sink: USBRawSuperSpeedStream(), input stream
+        The sink to monitor for ordered sets; should be fed pre-descrambler data.
+    detected: Signal(), output
+        Strobe; pulses high when a burst of ordered sets has been received.
+    """
 
     def __init__(self, *, set_data, first_word_ctrl, sets_in_burst=1, invert_data=False, include_config=True):
         self._set_data            = set_data
@@ -66,8 +72,7 @@ class TSBurstDetector(Elaboratable):
         # I/O port
         #
         self.sink                 = USBRawSuperSpeedStream()
-        self.detected             = Signal() # o
-        self.error                = Signal() # o
+        self.detected             = Signal()
 
         if self._include_config:
             self.hot_reset            = Signal()

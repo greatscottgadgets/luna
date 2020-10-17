@@ -567,7 +567,7 @@ class HeaderPacketReceiver(Elaboratable):
                         # -Decreasing our next sequence number; so we maintain a continuity of sequence numbers
                         #  without counting the advertising one. This doesn't seem to be be strictly necessary
                         #  per the spec; but seem to make analyzers happier, so we'll go with it.
-                        next_header_to_ack    .eq(Mux(self.hot_reset, -1, next_header_to_ack - 1)),
+                        next_header_to_ack    .eq(next_header_to_ack - 1),
 
                         # - Clearing all of our buffers.
                         read_pointer          .eq(0),
@@ -585,9 +585,12 @@ class HeaderPacketReceiver(Elaboratable):
                         ignore_packets        .eq(0)
                     ]
 
-                    # If this is a Hot Reset, also reset our sequence number.
+                    # If this is a Hot Reset, also reset our sequences.
                     with m.If(self.hot_reset):
-                        m.d.ss += expected_sequence_number.eq(0)
+                        m.d.ss += [
+                            expected_sequence_number  .eq(0),
+                            next_header_to_ack        .eq(-1)
+                        ]
 
 
             # SEND_ACKS -- a valid header packet has been received, or we're advertising

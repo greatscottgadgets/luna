@@ -117,6 +117,7 @@ class USB3ProtocolLayer(Elaboratable):
             link.data_sink_length           .eq(endpoint_interface.tx_length),
             link.data_sink_endpoint_number  .eq(endpoint_interface.tx_endpoint_number),
             link.data_sink_sequence_number  .eq(endpoint_interface.tx_sequence_number),
+            link.data_sink_direction        .eq(endpoint_interface.tx_direction),
 
             # Handshake exchange interface.
             tp_generator.interface          .connect(endpoint_interface.handshakes_out),

@@ -9,7 +9,7 @@ from nmigen import *
 
 from ..protocol.endpoint      import SuperSpeedEndpointInterface
 from usb_protocol.emitters    import DeviceDescriptorCollection
-from usb_protocol.types       import USBRequestType
+from usb_protocol.types       import USBRequestType, USBDirection
 
 from ..application.request    import SuperSpeedRequestHandlerInterface, SuperSpeedSetupDecoder
 from ..request.standard       import StandardRequestHandler
@@ -97,11 +97,13 @@ class USB3ControlEndpoint(Elaboratable):
             # Receive.
             request_interface.rx          .tap(interface.rx),
 
-            # Transmit.
+            # Transmit. Note that our transmit direction is always set to OUT; even though we're
+            # sending data to the host, per [USB3.2r1: 8.12.2].
             interface.tx                  .stream_eq(request_interface.tx),
             interface.tx_length           .eq(request_interface.tx_length),
             interface.tx_sequence_number  .eq(0),
             interface.tx_endpoint_number  .eq(self._endpoint_number),
+            interface.tx_direction        .eq(USBDirection.OUT),
 
             # Status.
             interface.handshakes_in       .connect(request_interface.handshakes_in),
@@ -138,9 +140,7 @@ class USB3ControlEndpoint(Elaboratable):
         with m.If(setup_decoder.packet.received):
             m.d.comb += [
                 handshakes_out.endpoint_number  .eq(self._endpoint_number),
-
                 handshakes_out.retry_required   .eq(0),
-
                 handshakes_out.send_ack         .eq(1)
             ]
 

@@ -50,6 +50,7 @@ class USB3LinkLayer(Elaboratable):
         self.data_sink_sequence_number = Signal(5)
         self.data_sink_endpoint_number = Signal(4)
         self.data_sink_length          = Signal(range(1024 + 1))
+        self.data_sink_direction       = Signal()
 
         # Device state for header packets
         self.current_address           = Signal(7)
@@ -243,7 +244,8 @@ class USB3LinkLayer(Elaboratable):
             data_tx.data_sink        .stream_eq(self.data_sink),
             data_tx.sequence_number  .eq(self.data_sink_sequence_number),
             data_tx.endpoint_number  .eq(self.data_sink_endpoint_number),
-            data_tx.data_length      .eq(self.data_sink_length)
+            data_tx.data_length      .eq(self.data_sink_length),
+            data_tx.direction        .eq(self.data_sink_direction)
         ]
 
 
