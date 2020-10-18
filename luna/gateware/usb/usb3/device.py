@@ -78,8 +78,8 @@ class USBSuperSpeedDevice(Elaboratable):
 
         # TODO: split out our standard request handlers
 
-        control_endpoint = USB3ControlEndpoint(descriptors=descriptors)
-        #control_endpoint.add_standard_request_handlers(descriptors)
+        control_endpoint = USB3ControlEndpoint()
+        control_endpoint.add_standard_request_handlers(descriptors)
         self.add_endpoint(control_endpoint)
 
         return control_endpoint

@@ -12,6 +12,7 @@ from usb_protocol.emitters    import DeviceDescriptorCollection
 from usb_protocol.types       import USBRequestType, USBDirection
 
 from ..application.request    import SuperSpeedRequestHandlerInterface, SuperSpeedSetupDecoder
+from ..application.request    import SuperSpeedRequestHandlerMultiplexer
 from ..request.standard       import StandardRequestHandler
 
 
@@ -36,9 +37,8 @@ class USB3ControlEndpoint(Elaboratable):
             be) zero.
     """
 
-    def __init__(self, *, endpoint_number=0, descriptors=None):
+    def __init__(self, *, endpoint_number=0):
         self._endpoint_number = endpoint_number
-        self._descriptors     = descriptors
 
         # List of the modules that will handle control requests.
         self._request_handlers = []
@@ -58,6 +58,18 @@ class USB3ControlEndpoint(Elaboratable):
         """
         self._request_handlers.append(request_handler)
 
+
+    def add_standard_request_handlers(self, descriptors: DeviceDescriptorCollection):
+        """ Adds a handlers for the standard USB requests.
+
+        This will handle all Standard-type requests; so any additional request handlers
+        must not handle Standard requests.
+
+        Parameters:
+
+        """
+        handler = StandardRequestHandler(descriptors)
+        self._request_handlers.append(handler)
 
 
     def elaborate(self, platform):
@@ -86,12 +98,24 @@ class USB3ControlEndpoint(Elaboratable):
         # Request handler interfacing.
         #
 
-        # TODO: move this to a helper function
-        m.submodules.handlers = request_handlers = StandardRequestHandler(self._descriptors)
+        # Multiplex the output of each of our request handlers.
+        m.submodules.request_mux = request_mux = SuperSpeedRequestHandlerMultiplexer()
+        request_interface = request_mux.shared
 
-        # TODO: add in a request handler multiplexer, so we can support multiple request handlers
-        request_interface = request_handlers.interface
+        # Add each of our handlers to the endpoint; and add it to our mux.
+        for handler in self._request_handlers:
 
+            # Create a display name for the handler...
+            name = handler.__class__.__name__
+            if hasattr(m.submodules, name):
+                name = f"{name}_{id(handler)}"
+
+            # ... and add it.
+            m.submodules[name] = handler
+            request_mux.add_interface(handler.interface)
+
+
+        # Hook them all up.
         m.d.comb += [
 
             # Receive.

@@ -12,6 +12,7 @@ from ...stream              import SuperSpeedStreamInterface
 from ..protocol.transaction import HandshakeGeneratorInterface, HandshakeReceiverInterface
 from ..protocol.data        import DataHeaderPacket
 
+from ....utils              import falling_edge_detected
 
 class SuperSpeedRequestHandlerInterface:
     """ Interface representing a connection between a control endpoint and a request handler.
@@ -36,6 +37,7 @@ class SuperSpeedRequestHandlerInterface:
         # Transmitter interface.
         self.tx                    = SuperSpeedStreamInterface()
         self.tx_length             = Signal(range(self.MAX_PACKET_LENGTH + 1))
+        self.tx_sequence_number    = Signal(5)
 
         # Handshake interface.
         self.handshakes_out        = HandshakeGeneratorInterface()
@@ -154,3 +156,192 @@ class SuperSpeedSetupDecoder(Elaboratable):
                     m.next = "WAIT_FOR_FIRST"
 
         return m
+
+
+
+class SuperSpeedRequestHandlerMultiplexer(Elaboratable):
+    """ Multiplexes multiple RequestHandlers down to a single interface.
+
+    Interfaces are added using .add_interface().
+
+    Attributes
+    ----------
+    shared: SuperSpeedRequestHandlerInterface()
+        The post-multiplexer RequestHandler interface.
+    """
+
+    def __init__(self):
+
+        #
+        # I/O port
+        #
+        self.shared = SuperSpeedRequestHandlerInterface()
+
+        #
+        # Internals
+        #
+        self._interfaces = []
+
+
+    def add_interface(self, interface: SuperSpeedRequestHandlerInterface):
+        """ Adds a RequestHandlerInterface to the multiplexer.
+
+        Arbitration is not performed; it's expected only one handler will be
+        driving requests at a time.
+        """
+        self._interfaces.append(interface)
+
+
+    def _multiplex_signals(self, m, *, when, multiplex, sub_bus=None):
+        """ Helper that creates a simple priority-encoder multiplexer.
+
+        Parmeters:
+            when      -- The name of the interface signal that indicates that the `multiplex` signals
+                         should be selected for output. If this signals should be multiplex, it
+                         should be included in `multiplex`.
+            multiplex -- The names of the interface signals to be multiplexed.
+        """
+
+        def get_signal(interface, name):
+            """ Fetches an interface signal by name / sub_bus. """
+
+            if sub_bus:
+                bus = getattr(interface, sub_bus)
+                return getattr(bus, name)
+            else:
+                return  getattr(interface, name)
+
+
+        # We're building an if-elif tree; so we should start with an If entry.
+        conditional = m.If
+
+        for interface in self._interfaces:
+            condition = get_signal(interface, when)
+
+            with conditional(condition):
+
+                # Connect up each of our signals.
+                for signal_name in multiplex:
+
+                    # Get the actual signals for our input and output...
+                    driving_signal = get_signal(interface,   signal_name)
+                    target_signal  = get_signal(self.shared, signal_name)
+
+                    # ... and connect them.
+                    m.d.comb += target_signal   .eq(driving_signal)
+
+            # After the first element, all other entries should be created with Elif.
+            conditional = m.Elif
+
+
+
+    def elaborate(self, platform):
+        m = Module()
+        shared = self.shared
+
+
+        #
+        # Pass through signals being routed -to- our pre-mux interfaces.
+        #
+        for interface in self._interfaces:
+            m.d.comb += [
+
+                # State inputs.
+                shared.setup                     .connect(interface.setup),
+                interface.active_config          .eq(shared.active_config),
+
+                # Event inputs.
+                interface.data_requested         .eq(shared.data_requested),
+                interface.status_requested       .eq(shared.status_requested),
+
+                # Receiver inputs.
+                shared.rx                        .connect(interface.rx),
+                shared.handshakes_in             .connect(interface.handshakes_in),
+            ]
+
+        #
+        # Multiplex the signals being routed -from- our pre-mux interface.
+        #
+        self._multiplex_signals(m,
+            when='address_changed',
+            multiplex=['address_changed', 'new_address']
+        )
+
+        self._multiplex_signals(m,
+            when='config_changed',
+            multiplex=['config_changed', 'new_config']
+        )
+
+        #
+        # Multiplex each of our transmit interfaces.
+        #
+        for interface in self._interfaces:
+
+            # If the transmit interface is valid, connect it up to our endpoint.
+            # The latest assignment will win; so we can treat these all as a parallel 'if's
+            # and still get an appropriate priority encoder.
+            with m.If(interface.tx.valid.any()):
+                m.d.comb += [
+                    shared.tx                  .stream_eq(interface.tx),
+                    shared.tx_sequence_number  .eq(interface.tx_sequence_number),
+                    shared.tx_length           .eq(interface.tx_length)
+                ]
+
+
+        #
+        # Multiplex each of our handshake-out interfaces.
+        #
+        for interface in self._interfaces:
+            any_generate_signal_asserted = (
+                interface.handshakes_out.send_ack   |
+                interface.handshakes_out.send_stall
+            )
+
+            # If the given interface is trying to send an handshake, connect it up
+            # to our shared interface.
+            with m.If(any_generate_signal_asserted):
+                m.d.comb += shared.handshakes_out.connect(interface.handshakes_out)
+
+
+        return m
+
+
+class StallOnlyRequestHandler(Elaboratable):
+    """ Simple gateware request handler that only conditionally stalls requests.
+
+    I/O port:
+        *: interface -- The RequestHandlerInterface used to handle requests.
+                        See its record definition for signal definitions.
+    """
+
+    def __init__(self, stall_condition):
+        """
+        Parameters:
+            stall_condition -- A function that accepts a SetupRequest packet, and returns
+                               an nMigen conditional indicating whether we should stall.
+        """
+
+        self.condition = stall_condition
+
+        #
+        # I/O port
+        #
+        self.interface = SuperSpeedRequestHandlerInterface()
+
+
+    def elaborate(self, platform):
+        m = Module()
+        interface = self.interface
+
+        # If we have the opportunity to stall ...
+        data_received = falling_edge_detected(m, interface.rx.valid, domain="ss")
+        with m.If(interface.data_requested | interface.status_requested | data_received):
+
+            # ... and our stall condition is met ...
+            with m.If(self.condition(self.interface.setup)):
+
+                # ... do so.
+                m.d.comb += self.interface.handshakes_out.stall.eq(1)
+
+        return m
+
