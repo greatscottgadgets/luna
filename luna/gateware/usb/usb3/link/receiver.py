@@ -304,7 +304,7 @@ class HeaderPacketReceiver(Elaboratable):
 
         # Simple controls.
         self.enable                = Signal()
-        self.hot_reset             = Signal()
+        self.usb_reset             = Signal()
         self.bus_available         = Signal()
 
         # Header Packet Queue
@@ -558,7 +558,7 @@ class HeaderPacketReceiver(Elaboratable):
 
                 # Once we've become disabled, we'll want to prepare for our next enable.
                 # This means preparing for our advertisement, by:
-                with m.If(Fell(self.enable) | self.hot_reset):
+                with m.If(Fell(self.enable) | self.usb_reset):
                     m.d.ss += [
                         # -Resetting our pending ACKs to 1, so we perform an sequence number advertisement
                         #  when we're next enabled.
@@ -585,8 +585,8 @@ class HeaderPacketReceiver(Elaboratable):
                         ignore_packets        .eq(0)
                     ]
 
-                    # If this is a Hot Reset, also reset our sequences.
-                    with m.If(self.hot_reset):
+                    # If this is a USB Reset, also reset our sequences.
+                    with m.If(self.usb_reset):
                         m.d.ss += [
                             expected_sequence_number  .eq(0),
                             next_header_to_ack        .eq(-1)

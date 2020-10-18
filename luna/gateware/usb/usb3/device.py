@@ -19,6 +19,7 @@ from .physical             import USB3PhysicalLayer
 from .link                 import USB3LinkLayer
 from .protocol             import USB3ProtocolLayer
 from .endpoints            import USB3ControlEndpoint
+from .protocol.endpoint    import SuperSpeedEndpointMultiplexer
 
 # Temporary
 from ..stream              import USBRawSuperSpeedStream, SuperSpeedStreamInterface
@@ -31,13 +32,8 @@ class USBSuperSpeedDevice(Elaboratable):
         self._phy = phy
         self._sync_frequency = sync_frequency
 
-
-        # TODO: remove when complete
-        logging.warning("USB3 device support is not at all complete!")
-        logging.warning("Do not expect -anything- to work!")
-
-        # TODO: replace this with a real endpoint collection
-        self._control_endpoint = None
+        # Create a collection of endpoints for this device.
+        self._endpoints = []
 
         #
         # I/O port
@@ -55,6 +51,17 @@ class USBSuperSpeedDevice(Elaboratable):
         self.ep_tx_length        = Signal(range(1024 + 1))
 
 
+    def add_endpoint(self, endpoint):
+        """ Adds an endpoint interface to the device.
+
+        Parameters
+        ----------
+        endpoint: Elaborateable
+            The endpoint interface to be added. Can be any piece of gateware with a
+            :class:`EndpointInterface` attribute called ``interface``.
+        """
+        self._endpoints.append(endpoint)
+
 
     def add_standard_control_endpoint(self, descriptors: DeviceDescriptorCollection):
         """ Adds a control endpoint with standard request handlers to the device.
@@ -69,9 +76,14 @@ class USBSuperSpeedDevice(Elaboratable):
         The endpoint object created.
         """
 
-        # TODO: build a collection of endpoint interfaces, and arbitrate between them
-        # FIXME: remove this scaffolding, and replace it with a real interface.
-        self._control_endpoint = USB3ControlEndpoint(descriptors=descriptors)
+        # TODO: split out our standard request handlers
+
+        control_endpoint = USB3ControlEndpoint(descriptors=descriptors)
+        #control_endpoint.add_standard_request_handlers(descriptors)
+        self.add_endpoint(control_endpoint)
+
+        return control_endpoint
+
 
 
     def elaborate(self, platform):
@@ -127,38 +139,60 @@ class USBSuperSpeedDevice(Elaboratable):
         # Application layer.
         #
 
+        # Create our endpoint multiplexer...
+        m.submodules.endpoint_mux = endpoint_mux = SuperSpeedEndpointMultiplexer()
+        endpoint_collection = endpoint_mux.shared
 
-
-        # TODO: build a collection of endpoint interfaces, and arbitrate between them
-        # FIXME: remove this scaffolding, and replace it with a real interface.
-        m.submodules.control_ep = control_ep = self._control_endpoint
         m.d.comb += [
-
             # Receive interface.
-            control_ep.interface.rx                         .tap(protocol.endpoint_interface.rx),
-            control_ep.interface.rx_header                  .eq(protocol.endpoint_interface.rx_header),
-            control_ep.interface.rx_complete                .eq(protocol.endpoint_interface.rx_complete),
-            control_ep.interface.rx_invalid                 .eq(protocol.endpoint_interface.rx_invalid),
+            endpoint_collection.rx                          .tap(protocol.endpoint_interface.rx),
+            endpoint_collection.rx_header                   .eq(protocol.endpoint_interface.rx_header),
+            endpoint_collection.rx_complete                 .eq(protocol.endpoint_interface.rx_complete),
+            endpoint_collection.rx_invalid                  .eq(protocol.endpoint_interface.rx_invalid),
 
             # Transmit interface.
-            protocol.endpoint_interface.tx                  .stream_eq(control_ep.interface.tx),
-            protocol.endpoint_interface.tx_length           .eq(control_ep.interface.tx_length),
-            protocol.endpoint_interface.tx_endpoint_number  .eq(control_ep.interface.tx_endpoint_number),
-            protocol.endpoint_interface.tx_sequence_number  .eq(control_ep.interface.tx_sequence_number),
-            protocol.endpoint_interface.tx_direction        .eq(control_ep.interface.tx_direction),
+            protocol.endpoint_interface.tx                  .stream_eq(endpoint_collection.tx),
+            protocol.endpoint_interface.tx_length           .eq(endpoint_collection.tx_length),
+            protocol.endpoint_interface.tx_endpoint_number  .eq(endpoint_collection.tx_endpoint_number),
+            protocol.endpoint_interface.tx_sequence_number  .eq(endpoint_collection.tx_sequence_number),
+            protocol.endpoint_interface.tx_direction        .eq(endpoint_collection.tx_direction),
 
             # Handshake interface.
-            protocol.endpoint_interface.handshakes_out      .connect(control_ep.interface.handshakes_out),
-            protocol.endpoint_interface.handshakes_in       .connect(control_ep.interface.handshakes_in)
+            protocol.endpoint_interface.handshakes_out      .connect(endpoint_collection.handshakes_out),
+            protocol.endpoint_interface.handshakes_in       .connect(endpoint_collection.handshakes_in)
         ]
 
 
         # If an endpoint wants to update our address or configuration, accept the update.
-        with m.If(control_ep.interface.address_changed):
-            m.d.ss += address.eq(control_ep.interface.new_address)
-        with m.If(control_ep.interface.config_changed):
-            m.d.ss += configuration.eq(control_ep.interface.new_config)
+        with m.If(endpoint_collection.address_changed):
+            m.d.ss += address.eq(endpoint_collection.new_address)
+        with m.If(endpoint_collection.config_changed):
+            m.d.ss += configuration.eq(endpoint_collection.new_config)
 
+
+        # Finally, add each of our endpoints to this module and our multiplexer.
+        for endpoint in self._endpoints:
+
+            # Create a display name for the endpoint...
+            name = endpoint.__class__.__name__
+            if hasattr(m.submodules, name):
+                name = f"{name}_{id(endpoint)}"
+
+            # ... and add it, both as a submodule and to our multiplexer.
+            endpoint_mux.add_interface(endpoint.interface)
+            m.submodules[name] = endpoint
+
+
+        #
+        # Reset handling.
+        #
+
+        # Restore ourselves to our unconfigured state when a reset occurs.
+        with m.If(link.in_reset):
+            m.d.ss += [
+                address        .eq(0),
+                configuration  .eq(0)
+            ]
 
 
         #

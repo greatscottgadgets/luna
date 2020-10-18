@@ -107,8 +107,7 @@ class USB3LinkLayer(Elaboratable):
 
             # For now, we'll consider ourselves in USB reset iff we detect reset signaling.
             # This should be expanded; ideally to also consider e.g. loss of VBUS on some devices.
-            #ltssm.in_usb_reset                   .eq(physical_layer.lfps_reset_detected),
-
+            ltssm.in_usb_reset                   .eq(physical_layer.lfps_reset_detected),
 
             # Link Partner Detection
             physical_layer.perform_rx_detection  .eq(ltssm.perform_rx_detection),
@@ -151,7 +150,7 @@ class USB3LinkLayer(Elaboratable):
 
             # Status signaling.
             self.trained                         .eq(ltssm.link_ready),
-            self.in_reset                        .eq(ltssm.request_hot_reset)
+            self.in_reset                        .eq(ltssm.request_hot_reset | physical_layer.lfps_reset_detected)
         ]
 
 
@@ -169,7 +168,7 @@ class USB3LinkLayer(Elaboratable):
         m.d.comb += [
             transmitter.sink                .tap(physical_layer.source),
             transmitter.enable              .eq(ltssm.link_ready),
-            transmitter.hot_reset           .eq(self.in_reset),
+            transmitter.usb_reset           .eq(self.in_reset),
 
             transmitter.queue               .header_eq(hp_mux.source),
 
@@ -188,7 +187,7 @@ class USB3LinkLayer(Elaboratable):
         m.d.comb += [
             header_rx.sink                   .tap(physical_layer.source),
             header_rx.enable                 .eq(ltssm.link_ready),
-            header_rx.hot_reset              .eq(self.in_reset),
+            header_rx.usb_reset              .eq(self.in_reset),
 
             # Bring our header packet interface to the physical layer.
             self.header_source               .header_eq(header_rx.queue),

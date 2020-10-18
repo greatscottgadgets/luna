@@ -5,13 +5,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Endpoint abstractions for USB3. """
 
+import operator
+import functools
+
 from nmigen import *
 
 from .transaction import HandshakeGeneratorInterface, HandshakeReceiverInterface
 
-from ..link.data  import DataHeaderPacket
-from ...stream    import SuperSpeedStreamInterface
-
+from ..link.data   import DataHeaderPacket
+from ....utils.bus import OneHotMultiplexer
+from ...stream     import SuperSpeedStreamInterface
 
 class SuperSpeedEndpointInterface:
     """ Interface that connects a USB3 endpoint module to a USB device.
@@ -72,7 +75,6 @@ class SuperSpeedEndpointInterface:
         self.handshakes_out        = HandshakeGeneratorInterface()
         self.handshakes_in         = HandshakeReceiverInterface()
 
-
         # Typically only used for control endpoints.
         self.active_address        = Signal(7)
         self.address_changed       = Signal()
@@ -81,3 +83,146 @@ class SuperSpeedEndpointInterface:
         self.active_config         = Signal(8)
         self.config_changed        = Signal()
         self.new_config            = Signal(8)
+
+
+
+class SuperSpeedEndpointMultiplexer(Elaboratable):
+    """ Multiplexes access to the resources shared between multiple endpoint interfaces.
+
+    Interfaces are added using :attr:`add_interface`.
+
+    Attributes
+    ----------
+
+    shared: SuperSpeedEndpointInterface
+        The post-multiplexer endpoint interface.
+    """
+
+    def __init__(self):
+
+        #
+        # I/O port
+        #
+        self.shared = SuperSpeedEndpointInterface()
+
+        #
+        # Internals
+        #
+        self._interfaces = []
+
+
+    def add_interface(self, interface: SuperSpeedEndpointInterface):
+        """ Adds a EndpointInterface to the multiplexer.
+
+        Arbitration is not performed; it's expected only one endpoint will be
+        driving the transmit lines at a time.
+        """
+        self._interfaces.append(interface)
+
+
+    def _multiplex_signals(self, m, *, when, multiplex):
+        """ Helper that creates a simple priority-encoder multiplexer.
+
+        Parmeters
+        ---------
+        when: str
+            The name of the interface signal that indicates that the `multiplex` signals should be
+            selected for output. If this signals should be multiplexed, it should be included in `multiplex`.
+        multiplex: iterable(str)
+            The names of the interface signals to be multiplexed.
+        """
+
+        # We're building an if-elif tree; so we should start with an If entry.
+        conditional = m.If
+
+        for interface in self._interfaces:
+            condition = getattr(interface, when)
+
+            with conditional(condition):
+
+                # Connect up each of our signals.
+                for signal_name in multiplex:
+
+                    # Get the actual signals for our input and output...
+                    driving_signal = getattr(interface,   signal_name)
+                    target_signal  = getattr(self.shared, signal_name)
+
+                    # ... and connect them.
+                    m.d.comb += target_signal   .eq(driving_signal)
+
+            # After the first element, all other entries should be created with Elif.
+            conditional = m.Elif
+
+
+
+    def elaborate(self, platform):
+        m = Module()
+        shared = self.shared
+
+        #
+        # Pass through signals being routed -to- our pre-mux interfaces.
+        #
+        for interface in self._interfaces:
+            m.d.comb += [
+
+                # Rx interface.
+                shared.rx                        .connect(interface.rx),
+                interface.rx_header              .eq(shared.rx_header),
+                interface.rx_complete            .eq(shared.rx_complete),
+                interface.rx_invalid             .eq(shared.rx_invalid),
+
+                # Handshake exchange.
+                shared.handshakes_in             .connect(interface.handshakes_in),
+
+                # State signals.
+                interface.active_config          .eq(shared.active_config),
+                interface.active_address         .eq(shared.active_address)
+            ]
+
+        #
+        # Multiplex each of our transmit interfaces.
+        #
+        for interface in self._interfaces:
+
+            # If the transmit interface is valid, connect it up to our endpoint.
+            # The latest assignment will win; so we can treat these all as a parallel 'if's
+            # and still get an appropriate priority encoder.
+            with m.If(interface.tx.valid.any()):
+                m.d.comb += [
+                    shared.tx                  .stream_eq(interface.tx),
+                    shared.tx_direction        .eq(interface.tx_direction),
+                    shared.tx_endpoint_number  .eq(interface.tx_endpoint_number),
+                    shared.tx_sequence_number  .eq(interface.tx_sequence_number),
+                    shared.tx_length           .eq(interface.tx_length)
+                ]
+
+
+        #
+        # Multiplex each of our handshake-out interfaces.
+        #
+        for interface in self._interfaces:
+            any_generate_signal_asserted = (
+                interface.handshakes_out.send_ack   |
+                interface.handshakes_out.send_stall
+            )
+
+            # If the given interface is trying to send an handshake, connect it up
+            # to our shared interface.
+            with m.If(any_generate_signal_asserted):
+                m.d.comb += shared.handshakes_out.connect(interface.handshakes_out)
+
+
+        #
+        # Multiplex the signals being routed -from- our pre-mux interface.
+        #
+        self._multiplex_signals(m,
+            when='address_changed',
+            multiplex=['address_changed', 'new_address']
+        )
+        self._multiplex_signals(m,
+            when='config_changed',
+            multiplex=['config_changed', 'new_config']
+        )
+
+
+        return m

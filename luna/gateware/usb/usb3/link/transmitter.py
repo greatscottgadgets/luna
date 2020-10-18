@@ -431,7 +431,7 @@ class PacketTransmitter(Elaboratable):
 
         # Simple controls.
         self.enable                = Signal()
-        self.hot_reset             = Signal()
+        self.usb_reset             = Signal()
         self.bringup_complete      = Signal()
 
         # Protocol layer interface.
@@ -685,7 +685,7 @@ class PacketTransmitter(Elaboratable):
         #
         # Reset Handling
         #
-        with m.If(self.hot_reset | Fell(self.enable)):
+        with m.If(self.usb_reset | Fell(self.enable)):
             m.d.ss += [
                 packets_to_send           .eq(0),
                 packets_awaiting_ack      .eq(0),
@@ -696,7 +696,7 @@ class PacketTransmitter(Elaboratable):
                 credits_available         .eq(0),
             ]
 
-            with m.If(self.hot_reset):
+            with m.If(self.usb_reset):
                 m.d.ss += [
                     next_expected_ack_number  .eq(0),
                     transmit_sequence_number  .eq(0)

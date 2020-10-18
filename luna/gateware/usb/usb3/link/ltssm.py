@@ -496,6 +496,8 @@ class LTSSMController(Elaboratable):
             # U0 -- our primary active USB state, in which we've completed link bringup and now are
             # performing normal USB3 operations.
             with m.State("U0"):
+                handle_warm_resets()
+
                 m.d.comb += [
                     # We're now ready for normal operation -- we'll mark our link as ready,
                     # and keep our normal scrambling enabled.
