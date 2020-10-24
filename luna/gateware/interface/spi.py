@@ -42,7 +42,7 @@ class SPIDeviceInterface(Elaboratable):
         Parameters:
             word_size      -- The size of each transmitted word, in bits.
             clock_polarity -- The SPI-standard clock polarity. 0 for idle low, 1 for idle high.
-            clock_phase    -- The SPI-standard clock phase. 1 to capture on the leading edge, or 0 for on the trailing
+            clock_phase    -- The SPI-standard clock phase. 1 to capture on the leading edge, or 0 for on the trailing.
             msb_first      -- If true, or not provided, data will be transmitted MSB first (standard).
             cs_idles_high  -- If provided, data will be captured when CS goes _low_, rather than high.
         """
@@ -463,8 +463,8 @@ class SPIRegisterInterface(Elaboratable):
         O: sdo           -- SPI data out
         I: cs            -- chip select, active high (as we assume your I/O will use PinsN)
 
-        O: idle          -- true iff the register interface is currently doing nothing
-        O: stalled       -- true iff the register interface cannot accept data until this transaction ends
+        O: idle          -- true if the register interface is currently doing nothing
+        O: stalled       -- true if the register interface cannot accept data until this transaction ends
 
     Other I/O ports are added dynamically with add_register().
     """
