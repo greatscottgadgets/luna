@@ -72,12 +72,19 @@ class LEDRequestHandler(SuperSpeedRequestHandler):
                         ]
 
 
-                with m.Case():
+                with m.Default():
 
                     #
                     # Stall unhandled requests.
                     #
-                    with m.If(interface.status_requested | interface.data_requested):
+                    have_opportunity_to_stall = (
+                        interface.rx_complete        |
+                        interface.rx_invalid         |
+                        interface.status_requested   |
+                        interface.data_requested
+                    )
+
+                    with m.If(have_opportunity_to_stall):
                         m.d.comb += interface.handshakes_out.send_stall.eq(1)
 
                 return m

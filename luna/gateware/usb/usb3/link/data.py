@@ -117,6 +117,14 @@ class DataPacketReceiver(Elaboratable):
         # Store how much data is remaining in the given packet.
         data_bytes_remaining = Signal(range(self.MAX_PACKET_SIZE + 1))
 
+        # Store the most recently received word; which we'll use in case we have an packet which
+        # is not evenly divisible into words (e.g. a 3-byte data packet). In these cases, we'll need
+        # this previous word for CRC validation, since the final CRC will be partially contained in the
+        # last data word.
+        previous_word  = Signal.like(self.sink.data)
+        previous_valid = Signal.like(self.sink.ctrl)
+
+
         #
         # CRC Generators
         #
@@ -125,7 +133,6 @@ class DataPacketReceiver(Elaboratable):
 
         m.submodules.crc32 = crc32 = DataPacketPayloadCRC()
         m.d.comb += crc32.data_input.eq(sink.data),
-
 
         #
         # Receiver Sequencing
@@ -242,9 +249,20 @@ class DataPacketReceiver(Elaboratable):
                     m.d.ss += source.first.eq(0)
 
                     # If we see unexpected control codes in our data packet, bail out.
-                    with m.If(sink.ctrl & source.valid):
+                    # Note that we'll only check for validity in positions we consider to have
+                    # valid data; as we always expect our data packet payload to be followed by
+                    # and "end of packet" set of control codes.
+                    with m.If((sink.ctrl & source.valid) != 0):
                         m.d.comb += self.packet_bad.eq(1)
                         m.next = "WAIT_FOR_HPSTART"
+
+                    # Capture the current word and valid value, so we can refer to them in
+                    # future states. This is necessary for CRC validation when we have a data payload
+                    # that's not evenly divisible into words; see the instantiation of ``previous_word``.
+                    m.d.ss += [
+                        previous_word   .eq(source.data),
+                        previous_valid  .eq(source.valid)
+                    ]
 
                     # If we have another word to receive after this, decrement our count,
                     # and continue.
@@ -258,15 +276,40 @@ class DataPacketReceiver(Elaboratable):
             # CHECK_CRC32 -- we've received the end of our packet; and we're ready to decide if the
             # packet is good or not. We'll check its CRC, and strobe either packet_good or packet_bad.
             with m.State("CHECK_CRC32"):
+                data_to_check = Signal.like(sink.data)
 
-                # FIXME: deal with unaligned CRCs?
-                crc_valid = (sink.data == crc32.crc)
-                with m.If(crc_valid):
+                # Depending on how many bytes were present in our data packet, our CRC may be partially
+                # contained in the previous word. For example, if we have a 3-byte or 7-byte data packet,
+                # one word of the CRC will be contained in the previous data word, and three in our current one.
+                with m.Switch(previous_valid):
+
+                    # If our data packet was word aligned, all of our CRC bytes are currently present.
+                    # We'll use our current word directly.
+                    with m.Case(0b1111):
+                        m.d.comb += data_to_check.eq(sink.data)
+
+                    # If we had three valid bytes of data last time, one byte of our CRC was in the previous
+                    # word. We'll grab it, and stick it onto the three bytes we're seeing.
+                    with m.Case(0b0111):
+                        m.d.comb += data_to_check.eq(Cat(previous_word[24:32], sink.data[0:24]))
+
+                    # Same, but for 2B in the previous word and 2B in the current.
+                    with m.Case(0b0011):
+                        m.d.comb += data_to_check.eq(Cat(previous_word[16:32], sink.data[0:16]))
+
+                    # Same, but for 3B in the previous word and 1B in the current.
+                    with m.Case(0b0001):
+                        m.d.comb += data_to_check.eq(Cat(previous_word[8:32], sink.data[0:8]))
+
+                # Check our CRC based on the word we've extracted, and strobe either ``packet_good``
+                # or ``packet_bad``, depending on its validity.
+                with m.If(data_to_check == crc32.crc):
                     m.d.comb += self.packet_good.eq(1)
                 with m.Else():
                     m.d.comb += self.packet_bad.eq(1)
 
-                m.next = "WAIT_FOR_HPSTART"
+                # Finally, wait for our next packet.
+                    m.next = "WAIT_FOR_HPSTART"
 
 
         return m
@@ -287,6 +330,53 @@ class DataPacketReceiverTest(LunaSSGatewareTestCase):
             yield self.dut.sink.data.eq(data)
             yield self.dut.sink.ctrl.eq(ctrl)
             yield
+
+
+    @ss_domain_test_case
+    def test_unaligned_1B_packet_receive(self):
+
+        # Provide a packet pair to the device.
+        # (This data is from an actual recorded data packet.)
+        yield from self.provide_data(
+            # Header packet.
+            # data       ctrl
+            (0xF7FBFBFB, 0b1111),
+            (0x32000008, 0b0000),
+            (0x00010000, 0b0000),
+            (0x08000000, 0b0000),
+            (0xE801A822, 0b0000),
+
+            # Payload packet.
+            (0xF75C5C5C, 0b1111),
+            (0x000000FF, 0b0000),
+            (0xFDFDFDFF, 0b1110),
+        )
+
+        self.assertEqual((yield self.dut.packet_good), 1)
+
+
+    @ss_domain_test_case
+    def test_unaligned_2B_packet_receive(self):
+
+        # Provide a packet pair to the device.
+        # (This data is from an actual recorded data packet.)
+        yield from self.provide_data(
+            # Header packet.
+            # data       ctrl
+            (0xF7FBFBFB, 0b1111),
+            (0x34000008, 0b0000),
+            (0x00020000, 0b0000),
+            (0x08000000, 0b0000),
+            (0xD005A242, 0b0000),
+
+            # Payload packet.
+            (0xF75C5C5C, 0b1111),
+            (0x2C98BBAA, 0b0000),
+            (0xFDFD4982, 0b1110),
+        )
+
+        self.assertEqual((yield self.dut.packet_good), 1)
+
 
 
     @ss_domain_test_case
