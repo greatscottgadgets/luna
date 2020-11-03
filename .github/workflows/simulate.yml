@@ -1,4 +1,4 @@
-name: run simulation tests
+name: Testbench Simulations
 
 on: [push]
 
