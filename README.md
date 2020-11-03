@@ -1,5 +1,5 @@
 
-# LUNA: a USB multitool & nMigen library ![Simulation Status](https://github.com/greatscottgadgets/luna/workflows/Testbench%20Simulations/badge.svg) [![Documentation Status](https://readthedocs.org/projects/luna/badge/?version=latest)](https://luna.readthedocs.io/en/latest/?badge=latest)
+# LUNA: a USB multitool & nMigen library ![Simulation Status](https://github.com/greatscottgadgets/luna/workflows/Simulations/badge.svg) [![Documentation Status](https://readthedocs.org/projects/luna/badge/?version=latest)](https://luna.readthedocs.io/en/latest/?badge=latest)
 
 ![LUNA r0.2 side view](docs/images/board_readme_side.jpg)
 
