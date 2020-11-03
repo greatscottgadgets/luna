@@ -199,6 +199,10 @@ class USB3LinkLayer(Elaboratable):
 
             # Transmitter event path.
             header_rx.retry_received         .eq(transmitter.retry_received),
+
+            # For now, we'll reject all forms of power management by sending a REJECT
+            # whenever we receive an LGO (Link Go-to) request.
+            header_rx.reject_power_state     .eq(transmitter.lgo_received),
         ]
 
 

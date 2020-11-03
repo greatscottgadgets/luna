@@ -19,6 +19,7 @@ import logging
 
 from nmigen import *
 from nmigen.build import *
+from nmigen.vendor.xilinx_7series import Xilinx7SeriesPlatform
 
 from nmigen_boards.genesys2 import Genesys2Platform as _CoreGenesys2Platform
 from nmigen_boards.resources import *
@@ -597,6 +598,27 @@ class Genesys2Platform(_CoreGenesys2Platform, LUNAPlatform):
         })
 
     ]
+
+
+    def toolchain_prepare(self, fragment, name, **kwargs):
+        overrides = {
+            "script_after_read": "auto_detect_xpm",
+            "script_before_bitstream":
+            "set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]",
+            "add_constraints": """
+            set_property BITSTREAM.CONFIG.CONFIGRATE 50 [current_design]
+            set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
+            set_property BITSTREAM.CONFIG.SPI_32BIT_ADDR YES [current_design]
+            set_property BITSTREAM.CONFIG.SPI_FALL_EDGE YES [current_design]
+            set_property CFGBVS VCCO [current_design]
+            set_property CONFIG_VOLTAGE 3.3 [current_design]
+
+            # Allow the USB2 PLL to exist even if ``usb_io`` isn't driven.
+            # This saves us having to customize our logic if the USB2 domains aren't used.
+            set_property SEVERITY {Warning} [get_drc_checks REQP-161]
+            """}
+        return Xilinx7SeriesPlatform.toolchain_prepare(self, fragment, name, **overrides, **kwargs)
+
 
 
     def __init__(self, JP6="1V8"):

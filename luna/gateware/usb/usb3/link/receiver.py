@@ -45,6 +45,7 @@ class RawHeaderPacketReceiver(Elaboratable):
 
     expected_sequence: Signal(3), input
         Indicates the next expected sequence number; used to validate the received packet.
+
     """
 
     def __init__(self):
@@ -288,6 +289,35 @@ class HeaderPacketReceiver(Elaboratable):
         When asserted, this unit will be enabled; and will be allowed to start
         transmitting link commands. Asserting this signal after a reset will perform
         a header sequence and link credit advertisement.
+    usb_reset: Signal(), input
+        Strobe; can be asserted to indicate that a USB reset has occurred, and sequencing
+        should be restarted.
+
+    queue: HeaderQueue(), output stream
+        Stream carrying any header packets to be transmitted.
+
+    retry_received: Signal(), input
+        Strobe; should be asserted when the transmitter has seen a RETRY handshake.
+    retry_required: Signal(), output
+        Strobe; pulsed to indicate that we should send a RETRY handshake.
+
+    link_command_sent: Signal(), output
+        Strobe; pulses each time a link command is completed.
+    keepalive_required: Signal(), input
+        Strobe; when asserted; a keepalive packet will be generated.
+    packet_received: Signal(), output
+        Strobe; pulsed when an event occurs that should reset the USB3 "packet received" timers.
+        This does *not* indicate valid data is present on the output :attr:``queue``; this has its
+        own valid signal.
+    bad_packet_received: Signal(), output
+        Strobe; pulsed when a receive error occurs. For error counting at the link level.
+
+    accept_power_state: Signal(), input
+        Strobe; when pulsed, a LAU (Link-state acceptance) will be generated.
+    reject_power_state: Signal(), input
+        Strobe; when pulsed, a LXU (Link-state rejection) will be generated.
+    acknowledge_power_state: Signal(), input
+        Strobe; when pulsed, a LPMA (Link-state acknowledgement) will be generated.
     """
 
     SEQUENCE_NUMBER_WIDTH = 3
@@ -299,28 +329,29 @@ class HeaderPacketReceiver(Elaboratable):
         #
         # I/O port
         #
-        self.sink                  = USBRawSuperSpeedStream()
-        self.source                = USBRawSuperSpeedStream()
+        self.sink                    = USBRawSuperSpeedStream()
+        self.source                  = USBRawSuperSpeedStream()
 
         # Simple controls.
-        self.enable                = Signal()
-        self.usb_reset             = Signal()
-        self.bus_available         = Signal()
+        self.enable                  = Signal()
+        self.usb_reset               = Signal()
 
         # Header Packet Queue
-        self.queue                 = HeaderQueue()
+        self.queue                   = HeaderQueue()
 
         # Event signaling.
-        self.retry_received        = Signal()
-        self.retry_required        = Signal()
-        self.recovery_required     = Signal()
+        self.retry_received          = Signal()
+        self.retry_required          = Signal()
+        self.recovery_required       = Signal()
 
-        self.link_command_sent     = Signal()
-        self.keepalive_required    = Signal()
-        self.packet_received       = Signal()
-        self.bad_packet_received   = Signal()
+        self.link_command_sent       = Signal()
+        self.keepalive_required      = Signal()
+        self.packet_received         = Signal()
+        self.bad_packet_received     = Signal()
 
-
+        self.accept_power_state      = Signal()
+        self.reject_power_state      = Signal()
+        self.acknowledge_power_state = Signal()
 
 
     def elaborate(self, platform):
@@ -380,6 +411,18 @@ class HeaderPacketReceiver(Elaboratable):
         keepalive_pending = Signal()
         with m.If(self.keepalive_required):
             m.d.ss += keepalive_pending.eq(1)
+
+        # Keep track of whether we're expected to send an power state response.
+        lau_pending  = Signal()
+        lxu_pending  = Signal()
+        lpma_pending = Signal()
+
+        with m.If(self.accept_power_state):
+            m.d.ss += lau_pending.eq(1)
+        with m.If(self.reject_power_state):
+            m.d.ss += lxu_pending.eq(1)
+        with m.If(self.acknowledge_power_state):
+            m.d.ss += lpma_pending.eq(1)
 
 
         #
@@ -551,9 +594,14 @@ class HeaderPacketReceiver(Elaboratable):
                     with m.Elif(lbad_pending):
                         m.next = "SEND_LBAD"
 
+                    # If we need to send a link power-state command, do so.
+                    with m.Elif(lxu_pending):
+                        m.next = "SEND_LXU"
+
                     # If we need to send a keepalive, do so.
                     with m.Elif(keepalive_pending):
                         m.next = "SEND_KEEPALIVE"
+
 
 
                 # Once we've become disabled, we'll want to prepare for our next enable.
@@ -660,8 +708,6 @@ class HeaderPacketReceiver(Elaboratable):
                     lc_generator.command       .eq(LinkCommand.LRTY)
                 ]
 
-                # Once we've send the keepalive, we can mark is as no longer pending and return to our dispatch.
-                # (There's no sense in sending repeated keepalives; one gets the message across.)
                 with m.If(lc_generator.done):
                     m.d.ss += retry_pending.eq(0)
                     m.next = "DISPATCH_COMMAND"
@@ -686,6 +732,18 @@ class HeaderPacketReceiver(Elaboratable):
                     m.d.ss += keepalive_pending.eq(0)
                     m.next = "DISPATCH_COMMAND"
 
+
+            # SEND_LXU -- we're being instructed to reject a requested power-state transfer.
+            # We'll send an LXU packet to inform the other side of the rejection.
+            with m.State("SEND_LXU"):
+                m.d.comb += [
+                    lc_generator.generate      .eq(1),
+                    lc_generator.command       .eq(LinkCommand.LXU)
+                ]
+
+                with m.If(lc_generator.done):
+                    m.d.ss += lxu_pending.eq(0)
+                    m.next = "DISPATCH_COMMAND"
 
         return m
 

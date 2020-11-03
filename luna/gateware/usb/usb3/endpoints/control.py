@@ -7,12 +7,12 @@
 
 from nmigen import *
 
-from ..protocol.endpoint      import SuperSpeedEndpointInterface
 from usb_protocol.emitters    import DeviceDescriptorCollection
 from usb_protocol.types       import USBRequestType, USBDirection
 
+from ..protocol.endpoint      import SuperSpeedEndpointInterface
 from ..application.request    import SuperSpeedRequestHandlerInterface, SuperSpeedSetupDecoder
-from ..application.request    import SuperSpeedRequestHandlerMultiplexer
+from ..application.request    import SuperSpeedRequestHandlerMultiplexer, StallOnlyRequestHandler
 from ..request.standard       import StandardRequestHandler
 
 
@@ -82,6 +82,22 @@ class USB3ControlEndpoint(Elaboratable):
 
 
         #
+        # Convenience feature:
+        #
+        # If we have -only- a standard request handler, automatically add a handler that will
+        # stall all other requests.
+        #
+        single_handler = (len(self._request_handlers) == 1)
+        if (single_handler and isinstance(self._request_handlers[0], StandardRequestHandler)):
+
+            # Add a handler that will stall any non-standard request.
+            stall_condition = lambda setup : setup.type != USBRequestType.STANDARD
+            self.add_request_handler(StallOnlyRequestHandler(stall_condition))
+
+
+
+
+        #
         # Setup packet decoder.
         #
         m.submodules.setup_decoder = setup_decoder = SuperSpeedSetupDecoder()
@@ -115,30 +131,37 @@ class USB3ControlEndpoint(Elaboratable):
             request_mux.add_interface(handler.interface)
 
 
-        # Hook them all up.
-        m.d.comb += [
+        # To simplify the request-handler interface, we'll only pass through our Rx stream
+        # when the most recently header packet targets our endpoint number.
+        with m.If(interface.rx_header.endpoint_number == self._endpoint_number):
+            m.d.comb += [
+                request_interface.rx           .tap(interface.rx),
+                request_interface.rx_complete  .eq(interface.rx_complete),
+                request_interface.rx_invalid   .eq(interface.rx_invalid),
+            ]
 
-            # Receive.
-            request_interface.rx          .tap(interface.rx),
+        # The remainder of our signals are always hooked up.
+        m.d.comb += [
+            request_interface.rx_header    .eq(interface.rx_header),
 
             # Transmit. Note that our transmit direction is always set to OUT; even though we're
             # sending data to the host, per [USB3.2r1: 8.12.2].
-            interface.tx                  .stream_eq(request_interface.tx),
-            interface.tx_length           .eq(request_interface.tx_length),
-            interface.tx_sequence_number  .eq(0),
-            interface.tx_endpoint_number  .eq(self._endpoint_number),
-            interface.tx_direction        .eq(USBDirection.OUT),
+            interface.tx                   .stream_eq(request_interface.tx),
+            interface.tx_length            .eq(request_interface.tx_length),
+            interface.tx_sequence_number   .eq(0),
+            interface.tx_endpoint_number   .eq(self._endpoint_number),
+            interface.tx_direction         .eq(USBDirection.OUT),
 
             # Status.
-            interface.handshakes_in       .connect(request_interface.handshakes_in),
-            interface.handshakes_out      .connect(request_interface.handshakes_out),
+            interface.handshakes_in        .connect(request_interface.handshakes_in),
+            interface.handshakes_out       .connect(request_interface.handshakes_out),
 
             # Address / config management.
-            interface.address_changed     .eq(request_interface.address_changed),
-            interface.new_address         .eq(request_interface.new_address),
+            interface.address_changed      .eq(request_interface.address_changed),
+            interface.new_address          .eq(request_interface.new_address),
 
-            interface.config_changed      .eq(request_interface.config_changed),
-            interface.new_config          .eq(request_interface.new_config),
+            interface.config_changed       .eq(request_interface.config_changed),
+            interface.new_config           .eq(request_interface.new_config),
 
         ]
 
@@ -146,28 +169,25 @@ class USB3ControlEndpoint(Elaboratable):
         # Data sequence handling.
         #
 
-        # As we handle our requests, we're required to set: [USB3.2r1: 8.12.2]
-        # - Sequence Number to 1 in the SETUP stage, indicating that we can accept a data stage if one follows.
-        # - Sequence Number to 1 in the ACK stage.
-        # - NumP to 1, indicating that we're accepting the control transaction now
-        #   (If we set NumP to 0; this "pauses" the transaction until we send ERDY.)
-        m.d.comb += handshakes_out.next_sequence.eq(1),
-
         #
         # SETUP stage handling.
         #
 
         # Our setup stage is easy: we just pass through our setup packet through to the request handlers...
-        m.d.comb += request_interface.setup  .eq(setup_decoder.packet)
+        m.d.comb += request_interface.setup.eq(setup_decoder.packet)
 
         # ... and then ACK any SETUP packet that comes through, as we're required to [USB3.2r1: 8.12.2].
+        # Note that our SETUP sequence number needs to be `1`.
         with m.If(setup_decoder.packet.received):
             m.d.comb += [
-                handshakes_out.endpoint_number  .eq(self._endpoint_number),
                 handshakes_out.retry_required   .eq(0),
-                handshakes_out.send_ack         .eq(1)
+                handshakes_out.next_sequence    .eq(1),
+                handshakes_out.send_ack         .eq(1),
             ]
 
+
+        # Always set the endpoint number in our handshakes.
+        m.d.comb += handshakes_out.endpoint_number  .eq(self._endpoint_number),
 
         #
         # DATA stage handling.

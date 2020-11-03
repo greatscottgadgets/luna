@@ -413,6 +413,12 @@ class PacketTransmitter(Elaboratable):
     retry_required: Signal(), output
         Strobe; pulsed high when we need to send a retry request.
 
+    lgo_received: Signal(), output
+        Strobe; indicates that we've received a request to move to a new power state.
+    lgo_target; Signal(2), output
+        Indicates the power-state associated with a given LGO event; valid when :attr:``lgo_received``
+        is asserted.
+
     recovery_required: Signal(), output
         Strobe; pulsed when a condition that requires link recovery occurs.
     """
@@ -443,6 +449,9 @@ class PacketTransmitter(Elaboratable):
         self.retry_received        = Signal()
         self.retry_required        = Signal()
         self.recovery_required     = Signal()
+
+        self.lgo_received          = Signal()
+        self.lgo_target            = Signal(2)
 
         # Debug information.
         self.credits_available     = Signal(range(self._buffer_count + 1))
@@ -681,6 +690,17 @@ class PacketTransmitter(Elaboratable):
                     # retried send. This information is handled by the Receiver, so we'll forward it along.
                     m.d.comb += self.retry_received.eq(1)
 
+
+                #
+                # Link Power State transition request.
+                #
+                with m.Case(LinkCommand.LGO_U):
+
+                    # We don't handle LGO requests locally; so instead, we'll pass this back to the link layer.
+                    m.d.comb += [
+                        self.lgo_received  .eq(1),
+                        self.lgo_target    .eq(lc_detector.subtype)
+                    ]
 
         #
         # Reset Handling

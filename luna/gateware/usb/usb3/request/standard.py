@@ -117,6 +117,10 @@ class StandardRequestHandler(Elaboratable):
         setup               = interface.setup
         handshake_generator = interface.handshakes_out
 
+        # For all of our handshakes, set our next-sequence-number to one; as we never receive
+        # packets, and ACKs should be seq=1.
+        m.d.comb += handshake_generator.next_sequence.eq(1)
+
 
         #
         # Submodules

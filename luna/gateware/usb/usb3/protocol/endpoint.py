@@ -166,7 +166,7 @@ class SuperSpeedEndpointMultiplexer(Elaboratable):
             m.d.comb += [
 
                 # Rx interface.
-                shared.rx                        .connect(interface.rx),
+                interface.rx                     .tap(shared.rx),
                 interface.rx_header              .eq(shared.rx_header),
                 interface.rx_complete            .eq(shared.rx_complete),
                 interface.rx_invalid             .eq(shared.rx_invalid),

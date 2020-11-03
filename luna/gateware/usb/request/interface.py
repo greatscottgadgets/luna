@@ -29,9 +29,9 @@ class SetupPacket(Record):
     def __init__(self):
         super().__init__([
             # Byte 1
-            ('is_in_request',  1, DIR_FANOUT),
-            ('type',           2, DIR_FANOUT),
             ('recipient',      5, DIR_FANOUT),
+            ('type',           2, DIR_FANOUT),
+            ('is_in_request',  1, DIR_FANOUT),
 
             # Byte 2
             ('request',        8, DIR_FANOUT),

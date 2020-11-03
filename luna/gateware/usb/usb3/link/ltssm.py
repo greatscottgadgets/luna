@@ -363,8 +363,8 @@ class LTSSMController(Elaboratable):
                 # If we've never seen polling, we'll exit to Compliance once this passes. [USB 3.2r1: 7.5.4.3]
                 with m.If(~polling_seen):
                     transition_on_timeout(360e-3, to="Compliance")
-                #with m.Else():
-                #    transition_on_timeout(360e-4, "SS.Disabled")
+                with m.Else():
+                    transition_on_timeout(360e-3, to="SS.Disabled.Default")
 
 
 
