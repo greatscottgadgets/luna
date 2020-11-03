@@ -1,4 +1,4 @@
-name: Simulations
+name: simulations
 
 on: [push]
 
