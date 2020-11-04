@@ -665,10 +665,10 @@ class PacketTransmitter(Elaboratable):
                         # Next time, we'll expect the next credit in the sequence.
                         m.d.ss += next_expected_ack_number.eq(next_expected_ack_number + 1)
 
-                    # Otherwise, we've lost synchronization. We'll need to trigger link recovery.
-                    with m.Else():
+                    # Otherwise, if we're expecting a packet, we've lost synchronization.
+                    # We'll need to trigger link recovery.
+                    with m.Elif(packets_awaiting_ack != 0):
                         m.d.comb += self.recovery_required.eq(1)
-
 
                 #
                 # Packet Negative Acknowledgement

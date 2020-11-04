@@ -210,11 +210,9 @@ class USB3LinkLayer(Elaboratable):
         # Link Recovery Control
         #
         m.d.comb += ltssm.trigger_link_recovery.eq(
-            timers.transition_to_recovery #|
-
-            # FIXME: properly impelement the conditions on these
-            #header_rx.recovery_required   |
-            #header_tx.recovery_required
+            timers.transition_to_recovery |
+            header_rx.recovery_required   |
+            transmitter.recovery_required
         )
 
         #
