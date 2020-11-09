@@ -257,14 +257,14 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
 
         m.d.comb += [
             ulpi_reg_window.ulpi_data_in  .eq(target_ulpi.data.i),
-            ulpi_reg_window.ulpi_dir      .eq(target_ulpi.dir),
-            ulpi_reg_window.ulpi_next     .eq(target_ulpi.nxt),
+            ulpi_reg_window.ulpi_dir      .eq(target_ulpi.dir.i),
+            ulpi_reg_window.ulpi_next     .eq(target_ulpi.nxt.i),
 
             target_ulpi.clk      .eq(ClockSignal("usb")),
             target_ulpi.rst      .eq(ResetSignal("usb")),
             target_ulpi.stp      .eq(ulpi_reg_window.ulpi_stop),
             target_ulpi.data.o   .eq(ulpi_reg_window.ulpi_data_out),
-            target_ulpi.data.oe  .eq(~target_ulpi.dir)
+            target_ulpi.data.oe  .eq(~target_ulpi.dir.i)
         ]
 
         register_address_change  = Signal()
