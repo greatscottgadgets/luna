@@ -79,6 +79,7 @@ class LinkManagementPacketHandler(Elaboratable):
         self.header_source = HeaderQueue()
 
         # Status / control.
+        self.usb_reset     = Signal()
         self.link_ready    = Signal()
 
 
@@ -116,6 +117,12 @@ class LinkManagementPacketHandler(Elaboratable):
                 m.d.comb += response[field].eq(value)
 
 
+        def handle_resets():
+            """ Helper that brings down the link on USB reset. """
+            with m.If(self.usb_reset):
+                m.next = "LINK_DOWN"
+
+
         with m.FSM(domain="ss"):
 
             # LINK_DOWN -- our link is not yet ready to exchange packets; we'll wait until
@@ -125,11 +132,15 @@ class LinkManagementPacketHandler(Elaboratable):
                 # Once our link is ready, we're ready to start link bringup.
                 with m.If(self.link_ready):
                     m.next = "SEND_CAPABILITIES"
+                with m.Else():
+                    m.d.ss += pending_configuration_result.eq(0)
 
 
             # SEND_CAPABILITIES -- our link has come up; and we're now ready to advertise our link
             # capabilities to the other side of our link [USB3.2r1: 8.4.5].
             with m.State("SEND_CAPABILITIES"):
+                handle_resets()
+
                 send_packet_response(PortCapabilityHeaderPacket,
                     subtype           = LinkManagementPacketSubtype.PORT_CAPABILITY,
                     link_speed        = self.LINK_SPEED_5GBPS,
@@ -148,6 +159,7 @@ class LinkManagementPacketHandler(Elaboratable):
 
             # DISPATCH_COMMANDS -- we'll wait for a command to be queued, and then send it.
             with m.State("DISPATCH_COMMANDS"):
+                handle_resets()
 
                 # If we have a pending configuration result, send it!
                 with m.If(pending_configuration_result):
@@ -157,6 +169,8 @@ class LinkManagementPacketHandler(Elaboratable):
             # SEND_CONFIGURATION_RESPONSE -- we're sending a Port Configuration Response,
             # typically as a result of receiving a Port Configuration Request packet.
             with m.State("SEND_PORT_CONFIGURATION_RESPONSE"):
+                handle_resets()
+
                 send_packet_response(PortConfigurationResponseHeaderPacket,
                     subtype       = LinkManagementPacketSubtype.PORT_CONFIGURATION_RESPONSE,
                     response_code = pending_configuration_result

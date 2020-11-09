@@ -63,6 +63,7 @@ class USB3ProtocolLayer(Elaboratable):
         hp_mux.add_producer(lmp_handler.header_source)
 
         m.d.comb += [
+            lmp_handler.usb_reset     .eq(link.in_reset),
             lmp_handler.link_ready    .eq(link.ready),
         ]
 

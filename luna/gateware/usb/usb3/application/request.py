@@ -436,7 +436,7 @@ class StallOnlyRequestHandler(Elaboratable):
             with m.If(self.condition(self.interface.setup)):
 
                 # ... do so.
-                m.d.comb += self.interface.handshakes_out.stall.eq(1)
+                m.d.comb += self.interface.handshakes_out.send_stall.eq(1)
 
         return m
 

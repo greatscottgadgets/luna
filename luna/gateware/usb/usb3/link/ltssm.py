@@ -217,6 +217,7 @@ class LTSSMController(Elaboratable):
             with m.If(self.in_usb_reset):
                 transition_to_state("Rx.Detect.Reset")
 
+
         #
         # FSM state variables.
         #
@@ -234,6 +235,15 @@ class LTSSMController(Elaboratable):
         tasks_on_entry['Polling.LFPS'] = [
             lfps_burst_seen    .eq(0),
             target_lfps_count  .eq(16)
+        ]
+
+        # Ensure we enter Polling.Active with fresh device state.
+        tasks_on_entry['Polling.Active'] = [
+            ts2_seen                 .eq(0),
+            hot_reset_seen           .eq(0),
+            loopback_seen            .eq(0),
+            disable_scrambling_seen  .eq(0),
+            burst_minimum_met        .eq(0)
         ]
 
 
@@ -315,7 +325,6 @@ class LTSSMController(Elaboratable):
 
                 # After 12ms, try again.
                 transition_on_timeout(12e-3, to="Rx.Detect.Active")
-
 
 
             # Polling.LFPS -- now that we know there's someone listening on the other side, we'll
@@ -464,6 +473,8 @@ class LTSSMController(Elaboratable):
             # communications. We'll perform one final sanity check, and then move to our next state.
             # [USB3.2r1: 7.5.4.10]
             with m.State("Polling.Idle"):
+                handle_warm_resets()
+
                 m.d.comb += [
                     # From this state onward, we have an active link, and we can thus enable data scrambling.
                     self.enable_scrambling       .eq(~disable_scrambling_seen),
@@ -546,6 +557,8 @@ class LTSSMController(Elaboratable):
             # Hot Reset.Exit -- we've now finished link training, and we're ready to move on to having
             # an active link. We'll now perform a reduced-complexity Idle handshake.
             with m.State("Hot Reset.Exit"):
+                handle_warm_resets()
+
                 m.d.comb += [
                     # From this state onward, we have an active link, and we can thus enable data scrambling.
                     self.enable_scrambling       .eq(~disable_scrambling_seen),
@@ -570,7 +583,6 @@ class LTSSMController(Elaboratable):
             # only the last steps of training.
             with m.State("Recovery.Active"):
                 handle_warm_resets()
-
 
                 # As in Polling.Active, we'll send TS1s to establish training.
                 m.d.comb += self.send_ts1_burst.eq(1)
@@ -633,6 +645,8 @@ class LTSSMController(Elaboratable):
             # Recovery.Idle -- we've now finished link re-training; and are waiting to see that the other
             # side has also finished sending TS2s [USB3.2r1: 7.5.4.10].
             with m.State("Recovery.Idle"):
+                handle_warm_resets()
+
                 m.d.comb += [
                     # Restore scrambling, and repeat our idle handshake.
                     self.enable_scrambling       .eq(~disable_scrambling_seen),
@@ -663,6 +677,7 @@ class LTSSMController(Elaboratable):
             # Compliance -- we've failed link training in such a way as to believe we're in the
             # middle of a compliance test / validation (lucky us!).
             with m.State("Compliance"):
+                handle_warm_resets()
 
                 # We don't currently handle Compliance properly. In this case, this message refers
                 # to the Compliance state, but this also makes us non-compliant, so this statement
@@ -676,6 +691,7 @@ class LTSSMController(Elaboratable):
             # Loopback -- during the link bringup, our link partner requested that we go into
             # Loopback mode; so we'll begin acting as a loopback device.
             with m.State("Loopback"):
+                handle_warm_resets()
                 m.d.comb += self.act_as_loopback.eq(1)
 
                 # FIXME: detect Loopback Exit LFPS, and exit this state.
@@ -684,6 +700,8 @@ class LTSSMController(Elaboratable):
             # SS.Inactive.Quiet -- an non-recoverable error has occurred somewhere with the link.
             # We'll wait for a bit here and do nothing, so we don't completely drain power.
             with m.State("SS.Inactive.Quiet"):
+                handle_warm_resets()
+
                 m.d.comb += self.tx_electrical_idle.eq(1),
                 transition_on_timeout(12e-3, to="SS.Inactive.Disconnect.Detect")
 
@@ -691,6 +709,8 @@ class LTSSMController(Elaboratable):
             # SS.Inactive.Disconnect.Detect  -- our best case scenario is that we become disconnected,
             # and then are reconnected to establish a working link. We'll check for disconnection.
             with m.State("SS.Inactive.Disconnect.Detect"):
+                handle_warm_resets()
+
                 m.d.comb += [
                     self.tx_electrical_idle    .eq(1),
                     self.perform_rx_detection  .eq(1)
@@ -710,13 +730,12 @@ class LTSSMController(Elaboratable):
             # SS.Disabled.Default -- the SuperSpeed portion of our link is disabled; we'll remove
             # our terminations and attempt to act as a valid USB2 device.
             with m.State("SS.Disabled.Default"):
+                handle_warm_resets()
+
                 m.d.comb += [
                     self.tx_electrical_idle    .eq(1),
                     self.engage_terminations   .eq(0)
                 ]
-
-                # FIXME: exit this if VBUS becomes valid (was invalid, and become valid), or if
-                # our USB2 half sees a reset event.
 
                 # FIXME: transition to SS.Disabled.Error if we get here three times without success.
 
@@ -724,13 +743,11 @@ class LTSSMController(Elaboratable):
             # SS.Disabled.Error -- the SuperSpeed portion of our link is disabled; we'll remove
             # our terminations and sit idly until VBUS is cycled.
             with m.State("SS.Disabled.Error"):
+                handle_warm_resets()
+
                 m.d.comb += [
                     self.tx_electrical_idle    .eq(1),
                     self.engage_terminations   .eq(0)
                 ]
-
-                # FIXME: exit this if VBUS becomes valid (was invalid, and become valid).
-                # We'll ignore any USB2 resets.
-
 
         return m

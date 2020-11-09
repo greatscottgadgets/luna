@@ -107,7 +107,7 @@ class USB3LinkLayer(Elaboratable):
 
             # For now, we'll consider ourselves in USB reset iff we detect reset signaling.
             # This should be expanded; ideally to also consider e.g. loss of VBUS on some devices.
-            ltssm.in_usb_reset                   .eq(physical_layer.lfps_reset_detected),
+            ltssm.in_usb_reset                   .eq(physical_layer.lfps_reset_detected | ~physical_layer.vbus_present),
 
             # Link Partner Detection
             physical_layer.perform_rx_detection  .eq(ltssm.perform_rx_detection),
@@ -150,7 +150,7 @@ class USB3LinkLayer(Elaboratable):
 
             # Status signaling.
             self.trained                         .eq(ltssm.link_ready),
-            self.in_reset                        .eq(ltssm.request_hot_reset | physical_layer.lfps_reset_detected)
+            self.in_reset                        .eq(ltssm.request_hot_reset | ltssm.in_usb_reset),
         ]
 
 
