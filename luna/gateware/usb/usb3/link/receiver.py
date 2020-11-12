@@ -551,13 +551,6 @@ class HeaderPacketReceiver(Elaboratable):
 
 
         #
-        # Automatic credit expiration.
-        #
-
-        # FIXME: implement this!
-
-
-        #
         # Link command generation.
         #
         m.submodules.lc_generator = lc_generator = LinkCommandGenerator()
