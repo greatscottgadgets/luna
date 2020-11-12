@@ -1175,6 +1175,11 @@ class UTMITranslator(Elaboratable):
             for address, value in platform.ulpi_extra_registers.items():
                 self.add_extra_register(address, value)
 
+        # Allow the platform to control ulpi clock handling; e.g. ULPI input clock operation on
+        # Spartan 6 plaforms needs double data rate buffer for the clock output from the link to the phy.
+        if hasattr(platform, 'ulpi_handle_clocking'):
+            self.handle_clocking = platform.ulpi_handle_clocking
+
         # Some platforms may need to have a raw clock domain for their I/O; e.g. if they need
         # to do some simple processing for their internal clock domain.
         if self.handle_clocking and hasattr(platform, 'ulpi_raw_clock_domain'):
