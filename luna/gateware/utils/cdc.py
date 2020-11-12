@@ -57,7 +57,7 @@ def synchronize(m, signal, *, output=None, o_domain='sync', stages=2):
                     o_domain=o_domain, stages=stages)
             continue
 
-        # Skip any output elements, as they're alread
+        # Skip any output elements, as they're already
         # in our clock domain, and we don't want to drive them.
         if (direction == DIR_FANOUT) or (hasattr(signal[name], 'o') and ~hasattr(signal[name], 'i')):
             m.d.comb += signal[name].eq(output[name])

@@ -425,6 +425,8 @@ class PacketTransmitter(Elaboratable):
 
     SEQUENCE_NUMBER_WIDTH = 3
 
+    CREDIT_TIMEOUT = 5e-3
+
     def __init__(self, *, buffer_count=4, ss_clock_frequency=125e6):
         self._buffer_count    = buffer_count
         self._clock_frequency = ss_clock_frequency
@@ -609,12 +611,6 @@ class PacketTransmitter(Elaboratable):
                         m.next = "DISPATCH_PACKET"
 
 
-        #
-        # Header Packet Timer
-        #
-        # FIXME: implement this
-
-
 
         #
         # Link Command Handling
@@ -701,6 +697,36 @@ class PacketTransmitter(Elaboratable):
                         self.lgo_received  .eq(1),
                         self.lgo_target    .eq(lc_detector.subtype)
                     ]
+
+
+        #
+        # Header Packet Timer
+        #
+
+        # To ensure that a header packet buffer is never held by the receiver for too long
+        # the USB3 specification requires us to automatically enter recover if a credit is.
+        # outstanding for more than 5ms [USB3.2r1: 7.2.4.1.13]. We'll create a timer that can
+        # count to this timeout.
+        credit_timeout_cycles = int((self.CREDIT_TIMEOUT * self._clock_frequency + 1))
+        pending_hp_timer = Signal(range(credit_timeout_cycles + 1))
+
+        # Each time we receive a link credit and retire its packet, we'll re-start our timer.
+        with m.If(retire_packet):
+            m.d.ss += pending_hp_timer.eq(0)
+
+        # If we don't have any outstanding packets, we'll clear our timer.
+        with m.Elif((packets_awaiting_ack == 0) | ~self.enable):
+            m.d.ss += pending_hp_timer.eq(0)
+
+        # Otherwise, we'll count how many cycles we've had a credit outstanding for.
+        with m.Else():
+            m.d.ss += pending_hp_timer.eq(pending_hp_timer + 1)
+
+
+        # If we ever reach our timeout, we'll need to trigger recovery.
+        with m.If(pending_hp_timer == credit_timeout_cycles):
+            m.d.comb += self.recovery_required.eq(1)
+
 
         #
         # Reset Handling
