@@ -32,14 +32,14 @@ class NumatoOpsisClockDomainGenerator(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-        m.domains.sync = ClockDomain()
-        m.domains.feedback_out = ClockDomain()
-        m.domains.feedback = ClockDomain()
-        m.domains.usb_pll_local  = ClockDomain()
-        m.domains.usb_pll_local_shifted  = ClockDomain()
-        m.domains.usb  = ClockDomain()
-        m.domains.usb_shifted  = ClockDomain()
-        m.domains.fast = ClockDomain()
+        m.domains.sync                  = ClockDomain()
+        m.domains.feedback_out          = ClockDomain()
+        m.domains.feedback              = ClockDomain()
+        m.domains.usb_pll_local         = ClockDomain()
+        m.domains.usb_pll_local_shifted = ClockDomain()
+        m.domains.usb                   = ClockDomain()
+        m.domains.usb_shifted           = ClockDomain()
+        m.domains.fast                  = ClockDomain()
 
         forward_ulpi_clk = platform.request("forward_ulpi_clk", 0, dir='o', xdr=2)
 
@@ -51,20 +51,20 @@ class NumatoOpsisClockDomainGenerator(Elaboratable):
         # ToDo: measure real timing with oscilloscope
         m.submodules.usb2_pll = Instance("PLL_BASE",
             # generic
-            p_BANDWIDTH              = "OPTIMIZED",
-            p_CLK_FEEDBACK           = "CLKFBOUT",
-            p_COMPENSATION           = "SYSTEM_SYNCHRONOUS",
-            p_DIVCLK_DIVIDE          = 5,
-            p_CLKFBOUT_MULT          = 24,
-            p_CLKFBOUT_PHASE         = 0.000,
-            p_CLKOUT0_DIVIDE         = 8,
-            p_CLKOUT0_PHASE          = 0.000,
-            p_CLKOUT0_DUTY_CYCLE     = 0.500,
-            p_CLKOUT1_DIVIDE         = 8,
-            p_CLKOUT1_PHASE          = 101.000,
-            p_CLKOUT1_DUTY_CYCLE     = 0.500,
-            p_CLKIN_PERIOD           = 10.000,
-            p_REF_JITTER             = 0.010,
+            p_BANDWIDTH             = "OPTIMIZED",
+            p_CLK_FEEDBACK          = "CLKFBOUT",
+            p_COMPENSATION          = "SYSTEM_SYNCHRONOUS",
+            p_DIVCLK_DIVIDE         = 5,
+            p_CLKFBOUT_MULT         = 24,
+            p_CLKFBOUT_PHASE        = 0.000,
+            p_CLKOUT0_DIVIDE        = 8,
+            p_CLKOUT0_PHASE         = 0.000,
+            p_CLKOUT0_DUTY_CYCLE    = 0.500,
+            p_CLKOUT1_DIVIDE        = 8,
+            p_CLKOUT1_PHASE         = 101.000,
+            p_CLKOUT1_DUTY_CYCLE    = 0.500,
+            p_CLKIN_PERIOD          = 10.000,
+            p_REF_JITTER            = 0.010,
             # ports
             o_CLKFBOUT              = ClockSignal("feedback_out"),
             o_CLKOUT0               = ClockSignal("usb_pll_local"),
@@ -79,17 +79,17 @@ class NumatoOpsisClockDomainGenerator(Elaboratable):
             i_CLKIN                 = ClockSignal("fast"),
         )
 
-        m.submodules.feedback_bufg =  Instance("BUFG",
+        m.submodules.feedback_bufg = Instance("BUFG",
             i_I = ClockSignal("feedback_out"),
             o_O = ClockSignal("feedback")
         )
 
-        m.submodules.usb_bufg =  Instance("BUFG",
+        m.submodules.usb_bufg = Instance("BUFG",
             i_I = ClockSignal("usb_pll_local"),
             o_O = ClockSignal("usb")
         )
 
-        m.submodules.usb_shifted_bufg =  Instance("BUFG",
+        m.submodules.usb_shifted_bufg = Instance("BUFG",
             i_I = ClockSignal("usb_pll_local_shifted"),
             o_O = ClockSignal("usb_shifted")
         )
@@ -98,17 +98,17 @@ class NumatoOpsisClockDomainGenerator(Elaboratable):
         #debug_clk = platform.request("debug_header", 2, dir='o', xdr=2)
 
         m.d.comb += [
-            #debug_clk.o_clk.eq(ClockSignal("usb")),
-            #debug_clk.o0.eq(0),
-            #debug_clk.o1.eq(1),
-            forward_ulpi_clk.o_clk.eq(ClockSignal("usb_shifted")),
-            forward_ulpi_clk.o0.eq(0),
-            forward_ulpi_clk.o1.eq(1),
-            ClockSignal("sync")  .eq(ClockSignal("usb")),
-            ClockSignal("fast")  .eq(platform.request("clk_100MHz")),
-            ResetSignal("usb")   .eq(~usb2_locked),
-            ResetSignal("sync")  .eq(~usb2_locked),
-            ResetSignal("fast")  .eq(~usb2_locked)
+            #debug_clk.o_clk       .eq(ClockSignal("usb")),
+            #debug_clk.o0          .eq(0),
+            #debug_clk.o1          .eq(1),
+            forward_ulpi_clk.o_clk .eq(ClockSignal("usb_shifted")),
+            forward_ulpi_clk.o0    .eq(0),
+            forward_ulpi_clk.o1    .eq(1),
+            ClockSignal("sync")    .eq(ClockSignal("usb")),
+            ClockSignal("fast")    .eq(platform.request("clk_100MHz")),
+            ResetSignal("usb")     .eq(~usb2_locked),
+            ResetSignal("sync")    .eq(~usb2_locked),
+            ResetSignal("fast")    .eq(~usb2_locked)
         ]
 
         return m
