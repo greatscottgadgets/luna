@@ -8,7 +8,7 @@
 
 This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM variable:
 
-    > export LUNA_PLATFORM="luna.gateware.platform.numato_opsis:NumatoOpsisPlatform
+    > export LUNA_PLATFORM="luna.gateware.platform.numato_opsis:NumatoOpsisPlatform"
 """
 
 from nmigen import *
