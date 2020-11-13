@@ -95,7 +95,7 @@ class NumatoOpsisClockDomainGenerator(Elaboratable):
         )
 
         # bring up ULPI clock
-        #debug_clk = platform.request("debug_header", 2, dir='o', xdr=2)
+        #debug_clk = platform.request("user_io", 2, dir='o', xdr=2)
 
         m.d.comb += [
             #debug_clk.o_clk       .eq(ClockSignal("usb")),
@@ -154,12 +154,12 @@ class NumatoOpsisPlatform(XilinxSpartan6Platform, LUNAPlatform):
         ),
 
         Resource("forward_ulpi_clk", 0, Pins("Y13", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
-        Resource("debug_header", 0, Pins("P28_0:SD_DAT1", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
-        Resource("debug_header", 1, Pins("P28_0:SD_DAT0", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
-        Resource("debug_header", 2, Pins("P28_0:SD_CLK", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
-        Resource("debug_header", 3, Pins("P28_0:SD_CMD", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
-        Resource("debug_header", 4, Pins("P28_0:SD_DAT3", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
-        Resource("debug_header", 5, Pins("P28_0:SD_DAT2", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
+        Resource("user_io", 0, Pins("P28_0:SD_DAT1", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
+        Resource("user_io", 1, Pins("P28_0:SD_DAT0", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
+        Resource("user_io", 2, Pins("P28_0:SD_CLK", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
+        Resource("user_io", 3, Pins("P28_0:SD_CMD", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
+        Resource("user_io", 4, Pins("P28_0:SD_DAT3", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
+        Resource("user_io", 5, Pins("P28_0:SD_DAT2", dir="o"), Attrs(IOSTANDARD="LVCMOS33", SLEW="FAST")),
 
     ]
 
