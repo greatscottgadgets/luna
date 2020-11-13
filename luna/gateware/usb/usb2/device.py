@@ -93,7 +93,7 @@ class USBDevice(Elaboratable):
 
     """
 
-    def __init__(self, *, bus, handle_clocking=True):
+    def __init__(self, *, bus, handle_clocking=None):
         """
         Parameters:
         """

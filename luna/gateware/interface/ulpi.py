@@ -1079,7 +1079,7 @@ class UTMITranslator(Elaboratable):
         return properties
 
 
-    def __init__(self, *, ulpi, use_platform_registers=True, handle_clocking=True):
+    def __init__(self, *, ulpi, use_platform_registers=True, handle_clocking=None):
         """ Params:
 
             ulpi                   -- The ULPI bus to communicate with.
@@ -1177,8 +1177,11 @@ class UTMITranslator(Elaboratable):
 
         # Allow the platform to control ulpi clock handling; e.g. ULPI input clock operation on
         # Spartan 6 plaforms needs double data rate buffer for the clock output from the link to the phy.
-        if hasattr(platform, 'ulpi_handle_clocking'):
+        if self.handle_clocking is None:
+          if hasattr(platform, 'ulpi_handle_clocking'):
             self.handle_clocking = platform.ulpi_handle_clocking
+          else:
+            self.handle_clocking = True
 
         # Some platforms may need to have a raw clock domain for their I/O; e.g. if they need
         # to do some simple processing for their internal clock domain.
