@@ -589,6 +589,7 @@ Wire Wire Line
 Connection ~ 5900 5450
 Wire Wire Line
 	5900 5450 6400 5450
+NoConn ~ 2600 5450
 Wire Bus Line
 	4550 2350 4550 6450
 $EndSCHEMATC

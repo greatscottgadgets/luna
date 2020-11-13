@@ -298,6 +298,7 @@ Entry Wire Line
 	3750 5550 3850 5650
 Entry Wire Line
 	3750 5650 3850 5750
+NoConn ~ 2700 4250
 Wire Bus Line
 	7200 4450 7200 6050
 Wire Bus Line

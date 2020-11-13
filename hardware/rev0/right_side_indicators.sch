@@ -121,4 +121,8 @@ Wire Wire Line
 NoConn ~ 3150 5500
 Wire Wire Line
 	3150 4600 3950 4600
+NoConn ~ 3150 3600
+NoConn ~ 3150 4200
+NoConn ~ 3150 3700
+NoConn ~ 3150 4300
 $EndSCHEMATC

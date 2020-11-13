@@ -559,6 +559,8 @@ F 3 "" H 4750 3350 50  0001 C CNN
 	1    4750 3350
 	0    1    1    0   
 $EndComp
+NoConn ~ 2700 2000
+NoConn ~ 2700 2100
 Wire Bus Line
 	4450 1650 4450 5800
 $EndSCHEMATC
