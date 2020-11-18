@@ -3,7 +3,7 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 4 9
+Sheet 3 9
 Title "LUNA: Sideband USB PHY"
 Date "2020-05-20"
 Rev "r0"
@@ -357,7 +357,6 @@ NoConn ~ 2500 4000
 NoConn ~ 2500 4100
 NoConn ~ 2500 4300
 NoConn ~ 2500 4400
-NoConn ~ 2500 4800
 NoConn ~ 2500 5000
 NoConn ~ 2500 5100
 NoConn ~ 2500 5250
@@ -544,6 +543,10 @@ Wire Wire Line
 Wire Wire Line
 	4900 4850 4900 4950
 NoConn ~ 2500 2450
+Text HLabel 2600 4800 2    50   Output ~ 0
+~FPGA_SELF_PROGRAM
+Wire Wire Line
+	2600 4800 2500 4800
 Wire Bus Line
 	4200 2350 4200 5450
 $EndSCHEMATC

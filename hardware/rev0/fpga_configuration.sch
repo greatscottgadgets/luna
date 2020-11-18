@@ -3,7 +3,7 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 3 9
+Sheet 9 9
 Title "LUNA: Configuration / Dev / Debug Section"
 Date "2020-05-20"
 Rev "r0"
@@ -278,7 +278,7 @@ F 3 "" H 8400 5150 50  0001 C CNN
 $EndComp
 Wire Wire Line
 	8400 5150 8600 5150
-Text Notes 8000 5150 2    44   ~ 0
+Text Notes 7200 5150 0    44   ~ 0
 By default, select MSPI \nmode, so the ECP5 will \nself-configure from flash.
 Wire Wire Line
 	9450 4750 6950 4750
@@ -342,14 +342,8 @@ Text Label 9000 5050 0    50   ~ 0
 FPGA_CFG1
 Text Label 9000 5150 0    50   ~ 0
 FPGA_CFG2
-Wire Wire Line
-	9450 5400 7750 5400
 Text Label 8900 5400 0    50   ~ 0
 FPGA_DONE
-Wire Wire Line
-	9450 5500 8250 5500
-Wire Wire Line
-	9450 5600 8750 5600
 Text Label 8900 5500 0    50   ~ 0
 ~FPGA_INIT
 Text Label 8900 5600 0    50   ~ 0
@@ -448,60 +442,60 @@ NoConn ~ 9450 3900
 $Comp
 L Connector:Conn_ARM_JTAG_SWD_10 J5
 U 1 1 5DC7E70D
-P 5000 6400
-F 0 "J5" H 4700 7100 50  0000 R CNN
-F 1 "Conn_FPGA_JTAG_10" H 4700 7000 50  0000 R CNN
-F 2 "luna:SWD_CONNECTOR_LARGE_BOX" H 5000 6400 50  0001 C CNN
-F 3 "http://infocenter.arm.com/help/topic/com.arm.doc.ddi0314h/DDI0314H_coresight_components_trm.pdf" V 4650 5150 50  0001 C CNN
-F 4 "CONN HEADER VERT 10POS 1.27MM" H 5000 6400 50  0001 C CNN "Description"
-F 5 "Samtec" H 5000 6400 50  0001 C CNN "Manufacturer"
-F 6 "FTSH-105-01-F-D-K" H 5000 6400 50  0001 C CNN "Part Number"
-	1    5000 6400
+P 4500 6400
+F 0 "J5" H 4200 7100 50  0000 R CNN
+F 1 "Conn_FPGA_JTAG_10" H 4200 7000 50  0000 R CNN
+F 2 "luna:SWD_CONNECTOR_LARGE_BOX" H 4500 6400 50  0001 C CNN
+F 3 "http://infocenter.arm.com/help/topic/com.arm.doc.ddi0314h/DDI0314H_coresight_components_trm.pdf" V 4150 5150 50  0001 C CNN
+F 4 "CONN HEADER VERT 10POS 1.27MM" H 4500 6400 50  0001 C CNN "Description"
+F 5 "Samtec" H 4500 6400 50  0001 C CNN "Manufacturer"
+F 6 "FTSH-105-01-F-D-K" H 4500 6400 50  0001 C CNN "Part Number"
+	1    4500 6400
 	-1   0    0    -1  
 $EndComp
 Wire Wire Line
-	4500 6300 3900 6300
+	4000 6300 3400 6300
 Wire Wire Line
-	4500 6400 3900 6400
+	4000 6400 3400 6400
 Wire Wire Line
-	4500 6500 3900 6500
+	4000 6500 3400 6500
 Wire Wire Line
-	4500 6600 3900 6600
-Text Label 3900 6300 0    50   ~ 0
+	4000 6600 3400 6600
+Text Label 3400 6300 0    50   ~ 0
 FPGA_TCK
-Text Label 3900 6400 0    50   ~ 0
+Text Label 3400 6400 0    50   ~ 0
 FPGA_TMS
-Text Label 3900 6500 0    50   ~ 0
+Text Label 3400 6500 0    50   ~ 0
 FPGA_TDO
-Text Label 3900 6600 0    50   ~ 0
+Text Label 3400 6600 0    50   ~ 0
 FPGA_TDI
 Wire Wire Line
-	5000 7000 5000 7100
+	4500 7000 4500 7100
 Wire Wire Line
-	5000 7100 5050 7100
+	4500 7100 4550 7100
 Wire Wire Line
-	5100 7100 5100 7000
+	4600 7100 4600 7000
 Wire Wire Line
-	5050 7100 5050 7200
+	4550 7100 4550 7200
 Wire Wire Line
-	5050 7200 5000 7200
-Connection ~ 5050 7100
+	4550 7200 4500 7200
+Connection ~ 4550 7100
 Wire Wire Line
-	5050 7100 5100 7100
+	4550 7100 4600 7100
 $Comp
 L power:GND #PWR043
 U 1 1 5DCBE012
-P 5000 7200
-F 0 "#PWR043" H 5000 6950 50  0001 C CNN
-F 1 "GND" V 5004 7072 50  0000 R CNN
-F 2 "" H 5000 7200 50  0001 C CNN
-F 3 "" H 5000 7200 50  0001 C CNN
-	1    5000 7200
+P 4500 7200
+F 0 "#PWR043" H 4500 6950 50  0001 C CNN
+F 1 "GND" V 4504 7072 50  0000 R CNN
+F 2 "" H 4500 7200 50  0001 C CNN
+F 3 "" H 4500 7200 50  0001 C CNN
+	1    4500 7200
 	0    1    1    0   
 $EndComp
-NoConn ~ 4500 6100
+NoConn ~ 4000 6100
 Wire Wire Line
-	5000 5700 5000 5800
+	4500 5700 4500 5800
 Wire Wire Line
 	5650 4200 9450 4200
 $Comp
@@ -872,12 +866,12 @@ Connection ~ 1350 2550
 $Comp
 L power:+3V3 #PWR0124
 U 1 1 5FF9BDE5
-P 5000 5700
-F 0 "#PWR0124" H 5000 5550 50  0001 C CNN
-F 1 "+3V3" H 5014 5873 50  0000 C CNN
-F 2 "" H 5000 5700 50  0001 C CNN
-F 3 "" H 5000 5700 50  0001 C CNN
-	1    5000 5700
+P 4500 5700
+F 0 "#PWR0124" H 4500 5550 50  0001 C CNN
+F 1 "+3V3" H 4514 5873 50  0000 C CNN
+F 2 "" H 4500 5700 50  0001 C CNN
+F 3 "" H 4500 5700 50  0001 C CNN
+	1    4500 5700
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -916,6 +910,31 @@ Wire Wire Line
 Wire Wire Line
 	5950 1450 6950 1450
 Connection ~ 6950 1450
+Text Notes 4600 2650 0    50   ~ 0
+rail monitors\nfor test
+Wire Wire Line
+	2000 1100 2800 1100
+$Comp
+L power:+3V3 #PWR045
+U 1 1 5DD07968
+P 2800 950
+F 0 "#PWR045" H 2800 800 50  0001 C CNN
+F 1 "+3V3" H 2815 1123 50  0000 C CNN
+F 2 "" H 2800 950 50  0001 C CNN
+F 3 "" H 2800 950 50  0001 C CNN
+	1    2800 950 
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2800 1100 2800 950 
+Wire Wire Line
+	9450 5400 7750 5400
+Wire Wire Line
+	9450 5500 8250 5500
+Wire Wire Line
+	9450 5600 8750 5600
+Wire Wire Line
+	8750 5600 8750 5700
 $Comp
 L Connector:TestPoint TP?
 U 1 1 6003B95B
@@ -942,6 +961,8 @@ F 3 "~" H 8450 5700 50  0001 C CNN
 	1    8250 5700
 	-1   0    0    1   
 $EndComp
+Wire Wire Line
+	8250 5500 8250 5700
 $Comp
 L Connector:TestPoint TP?
 U 1 1 60089159
@@ -956,36 +977,62 @@ F 3 "~" H 7950 5700 50  0001 C CNN
 	-1   0    0    1   
 $EndComp
 Wire Wire Line
-	8750 5600 8750 5700
-Wire Wire Line
-	8250 5500 8250 5700
-Wire Wire Line
 	7750 5400 7750 5700
-Text Notes 4600 2650 0    50   ~ 0
-rail monitors\nfor test
-Wire Wire Line
-	2000 1100 2800 1100
 $Comp
-L power:+3V3 #PWR045
-U 1 1 5DD07968
-P 2800 950
-F 0 "#PWR045" H 2800 800 50  0001 C CNN
-F 1 "+3V3" H 2815 1123 50  0000 C CNN
-F 2 "" H 2800 950 50  0001 C CNN
-F 3 "" H 2800 950 50  0001 C CNN
-	1    2800 950 
+L power:+3V3 #PWR02
+U 1 1 5FC94008
+P 6950 5100
+F 0 "#PWR02" H 6950 4950 50  0001 C CNN
+F 1 "+3V3" H 6964 5273 50  0000 C CNN
+F 2 "" H 6950 5100 50  0001 C CNN
+F 3 "" H 6950 5100 50  0001 C CNN
+	1    6950 5100
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	2800 1100 2800 950 
-Text Notes -1250 2800 0    50   ~ 0
-remove
-Text HLabel -1000 3400 2    50   Output ~ 0
-DEBUG_SPI_CS
-Text HLabel -1000 3300 2    50   Input ~ 0
-DEBUG_SPI_UC_IN
-Text HLabel -1000 3200 2    50   Output ~ 0
-DEBUG_SPI_CLK
-Text HLabel -1000 3100 2    50   Output ~ 0
-DEBUG_SPI_UC_OUT
+	8750 5600 6950 5600
+Wire Wire Line
+	6950 5600 6950 5500
+Connection ~ 8750 5600
+Wire Wire Line
+	6950 5100 6950 5200
+Wire Wire Line
+	6450 5600 6550 5600
+Wire Wire Line
+	6850 5600 6950 5600
+Connection ~ 6950 5600
+$Comp
+L Device:R R?
+U 1 1 5FD294F6
+P 6950 5350
+AR Path="/5FD294F6" Ref="R?"  Part="1" 
+AR Path="/5DCAA6D2/5FD294F6" Ref="R6"  Part="1" 
+F 0 "R6" V 7050 5350 50  0000 C CNN
+F 1 "10K" V 6950 5350 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 6880 5350 50  0001 C CNN
+F 3 "~" H 6950 5350 50  0001 C CNN
+F 4 "GENERIC-RES-0402-10K" H 6950 5350 50  0001 C CNN "Part Number"
+F 5 "DNP" V 6850 5350 50  0000 C CNN "Note"
+	1    6950 5350
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R R?
+U 1 1 5FD39CA8
+P 6700 5600
+AR Path="/5FD39CA8" Ref="R?"  Part="1" 
+AR Path="/5DCAA6D2/5FD39CA8" Ref="R5"  Part="1" 
+F 0 "R5" V 6800 5600 50  0000 C CNN
+F 1 "2.2K" V 6700 5600 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 6630 5600 50  0001 C CNN
+F 3 "~" H 6700 5600 50  0001 C CNN
+F 4 "GENERIC-RES-0402-2.2K" H 6700 5600 50  0001 C CNN "Part Number"
+F 5 "DNP" V 6600 5600 50  0000 C CNN "Note"
+	1    6700 5600
+	0    1    1    0   
+$EndComp
+Text Notes 5900 5450 0    44   ~ 0
+Populate R5 and R6 to\nallow FPGA to trigger its\nown programming\n(not required unless U6\nis unpopulated).
+Text HLabel 6450 5600 0    50   Input ~ 0
+~FPGA_SELF_PROGRAM
 $EndSCHEMATC
