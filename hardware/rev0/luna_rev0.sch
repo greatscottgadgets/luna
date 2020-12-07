@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 9
 Title "LUNA USB Multitool"
-Date "2020-05-21"
+Date "2020-12-07"
 Rev "r0"
 Comp "Copyright 2019-2020 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -227,20 +227,6 @@ Wire Wire Line
 	8950 2900 9000 2900
 Wire Wire Line
 	8950 2850 8950 2900
-$Comp
-L Connector:USB_A J3
-U 1 1 5DD6DEF2
-P 8950 2450
-F 0 "J3" H 8721 2439 50  0000 R CNN
-F 1 "USB_A" H 8721 2349 50  0000 R CNN
-F 2 "luna:CONN-Amphenol-UE27AC54100" H 9100 2400 50  0001 C CNN
-F 3 " ~" H 9100 2400 50  0001 C CNN
-F 4 "CONN RCPT USB2.0 TYPEA 4POS R/A" H 8950 2450 50  0001 C CNN "Description"
-F 5 "Amphenol ICC" H 8950 2450 50  0001 C CNN "Manufacturer"
-F 6 "UE27AC54100" H 8950 2450 50  0001 C CNN "Part Number"
-	1    8950 2450
-	-1   0    0    -1  
-$EndComp
 Wire Wire Line
 	4000 3500 3600 3500
 $Sheet
@@ -1319,4 +1305,29 @@ Wire Wire Line
 	3100 6100 4000 6100
 Text Label 3950 6800 2    50   ~ 0
 ~FPGA_SELF_PROGRAM
+$Comp
+L Graphic:Logo_Open_Hardware_Large #LOGO1
+U 1 1 5FCC45F6
+P 10450 3850
+F 0 "#LOGO1" H 10450 4350 50  0001 C CNN
+F 1 "Logo_Open_Hardware_Large" H 10450 3450 50  0001 C CNN
+F 2 "" H 10450 3850 50  0001 C CNN
+F 3 "~" H 10450 3850 50  0001 C CNN
+	1    10450 3850
+	1    0    0    -1  
+$EndComp
+$Comp
+L Connector:USB_A J3
+U 1 1 5DD6DEF2
+P 8950 2450
+F 0 "J3" H 8721 2439 50  0000 R CNN
+F 1 "USB_A" H 8721 2349 50  0000 R CNN
+F 2 "luna:USB_A_Kycon_KUSBXHT-SB-AS1N-B30-NF_Horizontal" H 9100 2400 50  0001 C CNN
+F 3 " ~" H 9100 2400 50  0001 C CNN
+F 4 "USB A TYPE RECEPTACLE, SHORT BODY" H 8950 2450 50  0001 C CNN "Description"
+F 5 "Jing Extension of the Electronic Co." H 8950 2450 50  0001 C CNN "Manufacturer"
+F 6 "C42504" H 8950 2450 50  0001 C CNN "Part Number"
+	1    8950 2450
+	-1   0    0    -1  
+$EndComp
 $EndSCHEMATC
