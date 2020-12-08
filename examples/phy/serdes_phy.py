@@ -10,7 +10,7 @@ from nmigen import *
 
 from luna                          import top_level_cli
 from luna.gateware.platform        import NullPin
-from luna.gateware.usb.devices.ila import USBIntegratedLogicAnalyer, USBIntegratedLogicAnalyzerFrontend
+from luna.gateware.usb.devices.ila import USBIntegratedLogicAnalyzer, USBIntegratedLogicAnalyzerFrontend
 
 from luna.gateware.interface.serdes_phy.backends.ecp5 import LunaECP5SerDes
 from luna.gateware.interface.serdes_phy.phy           import SerDesPHY
@@ -27,7 +27,7 @@ class PIPEPhyExample(Elaboratable):
             self.valid     = Signal()
             self.rx_gpio   = Signal()
 
-            self.ila = USBIntegratedLogicAnalyer(
+            self.ila = USBIntegratedLogicAnalyzer(
                 bus="usb",
                 domain="ss",
                 signals=[
