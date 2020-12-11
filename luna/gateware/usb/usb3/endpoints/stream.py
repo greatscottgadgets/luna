@@ -139,32 +139,11 @@ class SuperSpeedStreamInEndpoint(Elaboratable):
         read_stream_ended = buffer_stream_ended[read_buffer_number]
 
         # Keep track of our current send position; which determines where we are in the packet.
-        send_position = Signal(range(0, self._max_packet_size + 1))
+        send_position  = Signal(range(0, self._max_packet_size + 1))
 
         # Shortcut names.
         in_stream  = self.stream
         out_stream = self.interface.tx
-
-
-        # Use our memory's two ports to capture data from our transfer stream; and two emit packets
-        # into our packet stream. Since we'll never receive to anywhere else, or transmit to anywhere else,
-        # we can just unconditionally connect these.
-        m.d.comb += [
-
-            # We'll only ever -write- data from our input stream...
-            buffer_write_ports[0].data   .eq(in_stream.payload),
-            buffer_write_ports[0].addr   .eq(write_fill_count),
-            buffer_write_ports[1].data   .eq(in_stream.payload),
-            buffer_write_ports[1].addr   .eq(write_fill_count),
-
-            # ... and we'll only ever -send- data from the Read buffer.
-            buffer_read.addr             .eq(send_position),
-            out_stream.payload           .eq(buffer_read.data),
-
-            # We're ready to receive data iff we have space in the buffer we're currently filling.
-            in_stream.ready              .eq((write_fill_count <= self._max_packet_size) & ~write_stream_ended),
-            buffer_write.en              .eq(in_stream.valid.any() & in_stream.ready)
-        ]
 
         # Increment our fill count whenever we accept new data;
         # based on the number of valid bits we have.
@@ -178,6 +157,27 @@ class SuperSpeedStreamInEndpoint(Elaboratable):
                     m.d.ss += write_fill_count.eq(write_fill_count + 3)
                 with m.Case(0b1111):
                     m.d.ss += write_fill_count.eq(write_fill_count + 4)
+
+
+        # Use our memory's two ports to capture data from our transfer stream; and two emit packets
+        # into our packet stream. Since we'll never receive to anywhere else, or transmit to anywhere else,
+        # we can just unconditionally connect these.
+        m.d.comb += [
+
+            # We'll only ever -write- data from our input stream...
+            buffer_write_ports[0].data   .eq(in_stream.payload),
+            buffer_write_ports[0].addr   .eq(write_fill_count >> 2),
+            buffer_write_ports[1].data   .eq(in_stream.payload),
+            buffer_write_ports[1].addr   .eq(write_fill_count >> 2),
+
+            # ... and we'll only ever -send- data from the Read buffer.
+            buffer_read.addr             .eq(send_position),
+            out_stream.payload           .eq(buffer_read.data),
+
+            # We're ready to receive data iff we have space in the buffer we're currently filling.
+            in_stream.ready              .eq((write_fill_count + 4 <= self._max_packet_size) & ~write_stream_ended),
+            buffer_write.en              .eq(in_stream.valid.any() & in_stream.ready)
+        ]
 
 
         # If the stream ends while we're adding data to the buffer, mark this as an ended stream.
@@ -365,16 +365,16 @@ class SuperSpeedStreamInEndpoint(Elaboratable):
 
                     # Figure out how the sequence advertisement in our ACK relates to our current sequence number.
                     sequence_advancing = (handshakes_in.next_sequence == next_sequence_number)
-                    sequence_repeated  = (handshakes_in.next_sequence == sequence_number)
 
                     # Our simplest case is actually when an error occurs, which is indicated by receiving
                     # an ACK packet with Retry set to `1`. For now, we'll also treat a repeated sequence number
                     # as an indication that we need to re-try the given packet.
-                    with m.If(handshakes_in.retry_required | sequence_repeated):
+                    with m.If(handshakes_in.retry_required | ~sequence_advancing):
 
                         # In this case, we'll re-transmit the relevant data, either by sending another ZLP...
                         with m.If(last_packet_was_zlp):
                             m.d.comb += interface.tx_zlp.eq(1)
+                            m.d.ss   += sequence_number.eq(next_sequence_number)
 
                         # ... or by resetting our send-position, and moving right back into sending.
                         with m.Else():
@@ -384,7 +384,7 @@ class SuperSpeedStreamInEndpoint(Elaboratable):
 
                     # Otherwise, if our ACK contains the next sequence number, then this is an acknowledgement
                     # of the previous packet [USB3.2r1: 8.12.1.2].
-                    with m.Elif(sequence_advancing):
+                    with m.Else():
 
                         # We no longer need to keep the data that's been acknowledged; clear it.
                         m.d.ss += read_fill_count.eq(0)
@@ -405,6 +405,7 @@ class SuperSpeedStreamInEndpoint(Elaboratable):
 
                                 # ... send a ZLP...
                                 m.d.comb += interface.tx_zlp.eq(1)
+                                m.d.ss   += sequence_number.eq(next_sequence_number)
 
                                 # ... and clear the need to follow up with one, since we've just sent a short packet.
                                 m.d.ss += [
@@ -421,12 +422,14 @@ class SuperSpeedStreamInEndpoint(Elaboratable):
                         # for us in our "write buffer", which we've been filling in the background.
                         # If this is the case, we'll flip which buffer we're working with, and then
                         # ready ourselves for transmit.
-                        packet_completing = in_stream.valid & (write_fill_count + 1 == self._max_packet_size)
+                        packet_completing = in_stream.valid & (write_fill_count + 4 >= self._max_packet_size)
                         with m.Elif(~in_stream.ready | packet_completing):
                             m.next = "WAIT_TO_SEND"
                             m.d.ss += [
                                 ping_pong_toggle   .eq(~ping_pong_toggle),
-                                read_stream_ended  .eq(0)
+                                read_stream_ended  .eq(0),
+
+                                sequence_number    .eq(next_sequence_number)
                             ]
 
                         # If neither of the above conditions are true; we now don't have enough data to send.
