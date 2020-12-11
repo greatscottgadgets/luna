@@ -414,6 +414,8 @@ class DataPacketTransmitter(Elaboratable):
     data_sink: SuperSpeedStreamInterface(), input stream
         The data stream to be send as a data packet. The length of this stream should match thee
         length parameter.
+    send_zlp: Signal(), input
+        Strobe; triggers sending of a zero-length packet.
 
     sequence_number: Signal(5), input
         The sequence number associated with the relevant data packet. Latched in once :attr:``data_sink`` goes valid.
@@ -439,6 +441,7 @@ class DataPacketTransmitter(Elaboratable):
 
         # Input stream.
         self.data_sink       = SuperSpeedStreamInterface()
+        self.send_zlp        = Signal()
 
         # Data parameters.
         self.sequence_number = Signal(5)
@@ -491,6 +494,9 @@ class DataPacketTransmitter(Elaboratable):
                 with m.If(data_sink.valid.any()):
                     m.next = "SEND_HEADER"
 
+                with m.Elif(self.send_zlp):
+                    m.next = "SEND_ZLP"
+
 
             # SEND_HEADER -- we're sending the header associated with our data packet.
             with m.State("SEND_HEADER"):
@@ -522,6 +528,33 @@ class DataPacketTransmitter(Elaboratable):
                 # Once our packet is complete, we'll go back to idle.
                 with m.If(~data_sink.valid.any()):
                     m.next = "WAIT_FOR_DATA"
+
+
+            # SEND_ZLP -- we're sending a ZLP; which in our case means we'll be sending a header
+            # without driving our data stream.
+            with m.State("SEND_ZLP"):
+                header = DataHeaderPacket()
+                m.d.comb += [
+                    header_source.header    .eq(header),
+                    header_source.valid     .eq(1),
+
+                    # We're sending a data packet from up to the host.
+                    header.type             .eq(HeaderPacketType.DATA),
+                    header.direction        .eq(direction),
+                    header.device_address   .eq(self.address),
+
+                    # Fill in our input parameters...
+                    header.data_sequence    .eq(sequence_number),
+                    header.data_length      .eq(0),
+                    header.endpoint_number  .eq(endpoint_number),
+                ]
+
+                # Once our header is accepted, we can move directly back to idle.
+                # Our transmitter will handle generating the zero-length DPP.
+                with m.If(header_source.ready):
+                    m.next = "WAIT_FOR_DATA"
+
+
 
         return m
 

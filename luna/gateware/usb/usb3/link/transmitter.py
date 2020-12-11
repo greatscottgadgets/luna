@@ -704,7 +704,7 @@ class PacketTransmitter(Elaboratable):
         #
 
         # To ensure that a header packet buffer is never held by the receiver for too long
-        # the USB3 specification requires us to automatically enter recover if a credit is.
+        # the USB3 specification requires us to automatically enter recovery if a credit is
         # outstanding for more than 5ms [USB3.2r1: 7.2.4.1.13]. We'll create a timer that can
         # count to this timeout.
         credit_timeout_cycles = int((self.CREDIT_TIMEOUT * self._clock_frequency + 1))

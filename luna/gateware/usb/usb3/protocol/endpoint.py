@@ -38,8 +38,16 @@ class SuperSpeedEndpointInterface:
     tx: SuperSpeedStreamInterface(), output stream from endpoint
         Transmit interface for this endpoint. This stream's ``valid`` must remain high for
         an entire packet; and it must respect the transmitter's ``ready`` signal.
-    tx_length: Signal(range(1024 + 1))
+    tx_zlp: Signal(), output from endpoint
+        Strobe; when pulsed, triggers sending of a zero-length packet.
+    tx_length: Signal(range(1024 + 1)), output from endpoint
         The length of the packet to be transmitted; required for generating its header.
+    tx_endpoint_number: Signal(4), output from endpoint
+        The endpoint number associated with the active transmission.
+    tx_sequence_number: Signal(4), output from endpoint
+        The sequence number associated with the active transmission.
+    tx_direction: Signal(), output from endpoint
+        The direction associated with the active transmission; used for control endpoints.
 
     active_address: Signal(7), input to endpoint
         Contains the device's current address.
@@ -66,6 +74,7 @@ class SuperSpeedEndpointInterface:
 
         # Data packet transmission.
         self.tx                    = SuperSpeedStreamInterface()
+        self.tx_zlp                = Signal()
         self.tx_length             = Signal(range(1024 + 1))
         self.tx_endpoint_number    = Signal(4)
         self.tx_sequence_number    = Signal(5)
@@ -187,9 +196,10 @@ class SuperSpeedEndpointMultiplexer(Elaboratable):
             # If the transmit interface is valid, connect it up to our endpoint.
             # The latest assignment will win; so we can treat these all as a parallel 'if's
             # and still get an appropriate priority encoder.
-            with m.If(interface.tx.valid.any()):
+            with m.If(interface.tx.valid.any() | interface.tx_zlp):
                 m.d.comb += [
                     shared.tx                  .stream_eq(interface.tx),
+                    shared.tx_zlp              .eq(interface.tx_zlp),
                     shared.tx_direction        .eq(interface.tx_direction),
                     shared.tx_endpoint_number  .eq(interface.tx_endpoint_number),
                     shared.tx_sequence_number  .eq(interface.tx_sequence_number),

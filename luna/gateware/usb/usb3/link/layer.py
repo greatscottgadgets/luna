@@ -47,6 +47,7 @@ class USB3LinkLayer(Elaboratable):
         self.data_source_invalid       = Signal()
 
         self.data_sink                 = SuperSpeedStreamInterface()
+        self.data_sink_send_zlp        = Signal()
         self.data_sink_sequence_number = Signal(5)
         self.data_sink_endpoint_number = Signal(4)
         self.data_sink_length          = Signal(range(1024 + 1))
@@ -243,6 +244,7 @@ class USB3LinkLayer(Elaboratable):
 
             # Data interface from Protocol layer.
             data_tx.data_sink        .stream_eq(self.data_sink),
+            data_tx.send_zlp         .eq(self.data_sink_send_zlp),
             data_tx.sequence_number  .eq(self.data_sink_sequence_number),
             data_tx.endpoint_number  .eq(self.data_sink_endpoint_number),
             data_tx.data_length      .eq(self.data_sink_length),

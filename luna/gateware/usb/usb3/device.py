@@ -152,6 +152,7 @@ class USBSuperSpeedDevice(Elaboratable):
 
             # Transmit interface.
             protocol.endpoint_interface.tx                  .stream_eq(endpoint_collection.tx),
+            protocol.endpoint_interface.tx_zlp              .eq(endpoint_collection.tx_zlp),
             protocol.endpoint_interface.tx_length           .eq(endpoint_collection.tx_length),
             protocol.endpoint_interface.tx_endpoint_number  .eq(endpoint_collection.tx_endpoint_number),
             protocol.endpoint_interface.tx_sequence_number  .eq(endpoint_collection.tx_sequence_number),

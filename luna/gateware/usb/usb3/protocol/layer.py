@@ -115,6 +115,7 @@ class USB3ProtocolLayer(Elaboratable):
 
             # Tx interface.
             link.data_sink                  .stream_eq(endpoint_interface.tx),
+            link.data_sink_send_zlp         .eq(endpoint_interface.tx_zlp),
             link.data_sink_length           .eq(endpoint_interface.tx_length),
             link.data_sink_endpoint_number  .eq(endpoint_interface.tx_endpoint_number),
             link.data_sink_sequence_number  .eq(endpoint_interface.tx_sequence_number),

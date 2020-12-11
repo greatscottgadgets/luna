@@ -49,6 +49,8 @@ class HandshakeGeneratorInterface(Record):
             # Commands.
             ('send_ack',        1, DIR_FANIN),
             ('send_stall',      1, DIR_FANIN),
+            ('send_nrdy',       1, DIR_FANIN),
+            ('send_erdy',       1, DIR_FANIN),
 
             # Status.
             ('ready',           1, DIR_FANOUT),
@@ -127,6 +129,28 @@ class ACKHeaderPacket(TransactionHeaderPacket):
         ('reserved_2',         11),
         ('packets_pending',     1), # Host only.
         ('reserved_3',          4),
+    ]
+
+
+class NRDYHeaderPacket(TransactionHeaderPacket):
+    DW1_LAYOUT = [
+        ('subtype',             4),
+        ('reserved_0',          3),
+        ('direction',           1),
+        ('endpoint_number',     4),
+        ('reserved_1',         20),
+    ]
+
+
+class ERDYHeaderPacket(TransactionHeaderPacket):
+    DW1_LAYOUT = [
+        ('subtype',             4),
+        ('reserved_0',          3),
+        ('direction',           1),
+        ('endpoint_number',     4),
+        ('reserved_1',          4),
+        ('number_of_packets',   5),
+        ('reserved_2',         11),
     ]
 
 
@@ -240,6 +264,11 @@ class TransactionPacketGenerator(Elaboratable):
                     m.next = "SEND_ACK"
                 with m.If(interface.send_stall):
                     m.next = "SEND_STALL"
+                with m.If(interface.send_nrdy):
+                    m.next = "SEND_NRDY"
+                with m.If(interface.send_erdy):
+                    m.next = "SEND_NRDY"
+
 
             # SEND_ACK -- actively send an ACK packet to our link partner; and wait for that to complete.
             with m.State("SEND_ACK"):
@@ -252,6 +281,26 @@ class TransactionPacketGenerator(Elaboratable):
                     # TODO: eventually support bursting?
                     number_of_packets = 1,
                 )
+
+
+            # SEND_NRDY -- actively send an NRDY packet to our link partner; and wait for that to complete.
+            with m.State("SEND_NRDY"):
+                send_packet(NRDYHeaderPacket,
+                    subtype           = TransactionPacketSubtype.NRDY,
+                    direction         = USBDirection.IN,
+                )
+
+
+            # SEND_NRDY -- actively send an NRDY packet to our link partner; and wait for that to complete.
+            with m.State("SEND_ERDY"):
+                send_packet(ERDYHeaderPacket,
+                    subtype           = TransactionPacketSubtype.ERDY,
+                    direction         = USBDirection.IN,
+
+                    # TODO: eventually support bursting?
+                    number_of_packets = 1,
+                )
+
 
             # SEND_STALL -- actively send a STALL packet to our link partner; and wait for that to complete.
             with m.State("SEND_STALL"):
