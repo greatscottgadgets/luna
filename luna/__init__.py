@@ -19,6 +19,17 @@ LOG_FORMAT_COLOR = "\u001b[37;1m%(levelname)-8s| \u001b[0m\u001b[1m%(module)-12s
 LOG_FORMAT_PLAIN = "%(levelname)-8s:n%(module)-12s>%(message)s"
 
 
+def configure_default_logging(level=logging.INFO, logger=logging):
+
+    # Set up our logging / output.
+    if sys.stdout.isatty():
+        log_format = LOG_FORMAT_COLOR
+    else:
+        log_format = LOG_FORMAT_PLAIN
+
+    logger.basicConfig(level=logging.INFO, format=log_format)
+
+
 def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
     """ Runs a default CLI that assists in building and running gateware.
 
@@ -66,14 +77,7 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
     MustUse._MustUse__silence = True
 
     args = parser.parse_args()
-
-    # Set up our logging / output.
-    if sys.stdout.isatty():
-        log_format = LOG_FORMAT_COLOR
-    else:
-        log_format = LOG_FORMAT_PLAIN
-
-    logging.basicConfig(level=logging.INFO, format=log_format)
+    configure_default_logging()
 
     # If this isn't a fragment directly, interpret it as an object that will build one.
     if callable(fragment):

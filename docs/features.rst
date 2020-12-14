@@ -32,7 +32,7 @@ Support for Device Mode
 	  - :complete:`feature complete`
 	* -
 	  - super-speed using PIPE PHY
-	  - :inprogress:`in progress`
+	  - :needstest:`basic support complete; still experimental`
 	* -
 	  - super-speed using SerDes PHY
 	  - :inprogress:`in progress`
@@ -192,8 +192,12 @@ only performed on a collection of reference boards.
 	  - iCE40 LP
 	  - no hardware PHY
 	  - :complete:`Full-Speed/Device Mode Support`
+	* - Digilent Nexys Video (SS with add-on board)
+	  - Artix 7
+	  - FMC for PIPE (TUSB1310A) add-on boards
+	  - :complete:`Super-Speed Fully Supported`
 	* - Digilent Genesys2 (SS with add-on board)
 	  - Kintex 7
 	  - ULPI (TUSB1210), FMC for PIPE (TUSB1310A) add-on boards
-	  - :complete:`High-Speed Fully Supported`, / :inprogress:`SuperSpeed In Progress`
+	  - :complete:`High/Super-Speed Fully Supported`
 
