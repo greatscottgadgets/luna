@@ -3,9 +3,9 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 9 9
+Sheet 6 9
 Title "LUNA: Configuration / Dev / Debug Section"
-Date "2020-12-07"
+Date "2020-12-14"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -640,7 +640,7 @@ Text Notes 1600 4200 0    50   ~ 0
 assert this signal from the\nFPGA to tristate the the uC’s \nUSB connections\n\nor assert from the UC to\nprevent the FPGA from\ndriving the USB (used in\nrecovery modes)
 Text HLabel 3900 4150 2    50   Input ~ 0
 FORCE_DFU
-Text HLabel 3800 2850 2    50   Input ~ 0
+Text HLabel 3800 2650 2    50   Input ~ 0
 TARGET_PHY_1V8
 Text HLabel 3800 2450 2    50   Input ~ 0
 HOST_PHY_1V8
@@ -655,28 +655,6 @@ F 1 "+2V5" V 3800 2700 50  0000 L CNN
 F 2 "" H 3800 2550 50  0001 C CNN
 F 3 "" H 3800 2550 50  0001 C CNN
 	1    3800 2550
-	0    1    1    0   
-$EndComp
-$Comp
-L power:+1V1 #PWR040
-U 1 1 5DC0CC5E
-P 3800 2650
-F 0 "#PWR040" H 3800 2500 50  0001 C CNN
-F 1 "+1V1" V 3815 2778 50  0000 L CNN
-F 2 "" H 3800 2650 50  0001 C CNN
-F 3 "" H 3800 2650 50  0001 C CNN
-	1    3800 2650
-	0    1    1    0   
-$EndComp
-$Comp
-L power:+1V8 #PWR039
-U 1 1 5DC07181
-P 3800 2750
-F 0 "#PWR039" H 3800 2600 50  0001 C CNN
-F 1 "+1V8" V 3815 2878 50  0000 L CNN
-F 2 "" H 3800 2750 50  0001 C CNN
-F 3 "" H 3800 2750 50  0001 C CNN
-	1    3800 2750
 	0    1    1    0   
 $EndComp
 Wire Wire Line
@@ -1035,4 +1013,26 @@ Text Notes 5900 5450 0    44   ~ 0
 Populate R5 and R6 to\nallow FPGA to trigger its\nown programming\n(not required unless U6\nis unpopulated).
 Text HLabel 6450 5600 0    50   Input ~ 0
 ~FPGA_SELF_PROGRAM
+$Comp
+L power:+1V1 #PWR040
+U 1 1 5DC0CC5E
+P 3800 2850
+F 0 "#PWR040" H 3800 2700 50  0001 C CNN
+F 1 "+1V1" V 3815 2978 50  0000 L CNN
+F 2 "" H 3800 2850 50  0001 C CNN
+F 3 "" H 3800 2850 50  0001 C CNN
+	1    3800 2850
+	0    1    1    0   
+$EndComp
+$Comp
+L power:+1V8 #PWR039
+U 1 1 5DC07181
+P 3800 2750
+F 0 "#PWR039" H 3800 2600 50  0001 C CNN
+F 1 "+1V8" V 3815 2878 50  0000 L CNN
+F 2 "" H 3800 2750 50  0001 C CNN
+F 3 "" H 3800 2750 50  0001 C CNN
+	1    3800 2750
+	0    1    1    0   
+$EndComp
 $EndSCHEMATC

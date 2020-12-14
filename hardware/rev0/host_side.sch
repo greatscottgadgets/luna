@@ -3,9 +3,9 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 6 9
+Sheet 7 9
 Title "LUNA: Upstream \"Host\" Section"
-Date "2020-12-07"
+Date "2020-12-14"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -97,10 +97,6 @@ $EndComp
 Wire Wire Line
 	6800 2100 6950 2100
 Wire Wire Line
-	7500 2600 6800 2600
-Text HLabel 7500 2600 2    50   BiDi ~ 0
-HOST_ID
-Wire Wire Line
 	6800 2500 7500 2500
 Text HLabel 7500 2500 2    50   BiDi ~ 0
 HOST_D+
@@ -181,9 +177,9 @@ Text Label 5000 2900 0    50   ~ 0
 HOST_NXT
 Text Label 5000 3000 0    50   ~ 0
 HOST_DIR
-Text Label 2850 5550 0    50   ~ 0
+Text Label 2850 5250 0    50   ~ 0
 HOST_PHY_CLK
-Text Label 2850 5450 0    50   ~ 0
+Text Label 2850 5350 0    50   ~ 0
 HOST_PHY_RESET
 Wire Wire Line
 	1900 1300 1900 1200
@@ -270,11 +266,7 @@ Wire Wire Line
 Wire Wire Line
 	5150 3350 5250 3350
 Connection ~ 5250 3350
-NoConn ~ 2700 2200
-NoConn ~ 2700 2500
-NoConn ~ 2700 2600
 NoConn ~ 2700 2700
-NoConn ~ 2700 3000
 NoConn ~ 2700 3100
 NoConn ~ 2700 3200
 NoConn ~ 2700 3350
@@ -293,8 +285,6 @@ Wire Wire Line
 Wire Wire Line
 	2700 5350 4350 5350
 Wire Wire Line
-	2700 5250 4350 5250
-Wire Wire Line
 	2700 4750 4350 4750
 Wire Wire Line
 	2700 3950 4350 3950
@@ -304,10 +294,6 @@ Wire Wire Line
 	2700 3550 4350 3550
 Wire Wire Line
 	2700 2900 4350 2900
-Wire Wire Line
-	2700 2400 4350 2400
-Entry Wire Line
-	4350 2400 4450 2500
 Entry Wire Line
 	4350 2900 4450 3000
 Entry Wire Line
@@ -319,11 +305,7 @@ Entry Wire Line
 Entry Wire Line
 	4350 4750 4450 4850
 Entry Wire Line
-	4350 5250 4450 5350
-Entry Wire Line
 	4350 5350 4450 5450
-Entry Wire Line
-	4350 5450 4450 5550
 Wire Wire Line
 	5500 1900 4550 1900
 Wire Wire Line
@@ -372,37 +354,25 @@ Wire Bus Line
 	4450 5800 5350 5800
 Text Label 5350 5800 0    50   ~ 0
 HOST_ULPI
-Wire Wire Line
-	2700 5450 2850 5450
-Wire Wire Line
-	2850 5550 2700 5550
-Text Label 2850 5350 0    50   ~ 0
+Text Label 2850 4850 0    50   ~ 0
 HOST_STP
-Text Label 2850 5250 0    50   ~ 0
-HOST_DIR
-Text Label 2850 3950 0    50   ~ 0
-HOST_DATA0
-Text Label 2850 4750 0    50   ~ 0
-HOST_DATA1
-Text Label 2850 3550 0    50   ~ 0
-HOST_DATA2
 Text Label 2850 3850 0    50   ~ 0
-HOST_DATA3
+HOST_DATA0
+Text Label 2850 3550 0    50   ~ 0
+HOST_DATA1
+Text Label 2850 3650 0    50   ~ 0
+HOST_DATA2
 Wire Wire Line
 	2700 3650 4350 3650
-Text Label 2850 3650 0    50   ~ 0
-HOST_DATA4
 Text Label 2850 2900 0    50   ~ 0
+HOST_DATA4
+Text Label 2850 2600 0    50   ~ 0
 HOST_DATA5
 Text Label 2850 2400 0    50   ~ 0
 HOST_DATA6
-Wire Wire Line
-	2700 1900 4350 1900
-Entry Wire Line
-	4350 1900 4450 2000
 Entry Wire Line
 	4350 3650 4450 3750
-Text Label 2850 1900 0    50   ~ 0
+Text Label 2850 2500 0    50   ~ 0
 HOST_DATA7
 Wire Wire Line
 	2700 4850 4350 4850
@@ -410,7 +380,7 @@ Entry Wire Line
 	4350 4850 4450 4950
 Entry Wire Line
 	4350 4850 4450 4950
-Text Label 2850 4850 0    50   ~ 0
+Text Label 2850 3950 0    50   ~ 0
 HOST_NXT
 Wire Wire Line
 	7650 3400 8100 3400
@@ -519,20 +489,6 @@ F 6 "USB3343-CP" H 5500 1800 50  0001 C CNN "Part Number"
 	1    0    0    -1  
 $EndComp
 $Comp
-L fpgas_and_processors:ECP5-BGA256 IC1
-U 7 1 5DD79283
-P 1700 1500
-F 0 "IC1" H 1670 -617 50  0000 R CNN
-F 1 "ECP5-BGA256" H 1670 -707 50  0000 R CNN
-F 2 "luna:lattice_cabga256" H -1500 4950 50  0001 L CNN
-F 3 "" H -1950 5900 50  0001 L CNN
-F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H -1950 5800 50  0001 L CNN "Description"
-F 5 "Lattice" H -1900 6750 50  0001 L CNN "Manufacturer"
-F 6 "LFE5U-12F-6BG256C" H -1900 6650 50  0001 L CNN "Part Number"
-	7    1700 1500
-	1    0    0    -1  
-$EndComp
-$Comp
 L Device:C C?
 U 1 1 5DEDB896
 P 6750 5200
@@ -559,8 +515,138 @@ F 3 "" H 4750 3350 50  0001 C CNN
 	1    4750 3350
 	0    1    1    0   
 $EndComp
-NoConn ~ 2700 2000
+$Comp
+L power:+3V3 #PWR?
+U 1 1 60842125
+P 6900 2600
+AR Path="/5DCD9772/60842125" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/60842125" Ref="#PWR0128"  Part="1" 
+AR Path="/5DDDB747/60842125" Ref="#PWR?"  Part="1" 
+F 0 "#PWR0128" H 6900 2450 50  0001 C CNN
+F 1 "+3V3" V 6900 2800 50  0000 C CNN
+F 2 "" H 6900 2600 50  0001 C CNN
+F 3 "" H 6900 2600 50  0001 C CNN
+	1    6900 2600
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	6800 2600 6900 2600
+$Comp
+L Device:R R?
+U 1 1 608EC401
+P 3600 5800
+AR Path="/608EC401" Ref="R?"  Part="1" 
+AR Path="/5DD754D4/608EC401" Ref="R32"  Part="1" 
+F 0 "R32" V 3700 5800 50  0000 C CNN
+F 1 "5.1K" V 3600 5800 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 3530 5800 50  0001 C CNN
+F 3 "~" H 3600 5800 50  0001 C CNN
+F 4 "GENERIC-RES-0402-5.1K" H 3600 5800 50  0001 C CNN "Part Number"
+	1    3600 5800
+	1    0    0    1   
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 608EC407
+P 3600 6150
+AR Path="/608EC407" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/608EC407" Ref="#PWR06"  Part="1" 
+F 0 "#PWR06" H 3600 5900 50  0001 C CNN
+F 1 "GND" H 3604 5978 50  0000 C CNN
+F 2 "" H 3600 6150 50  0001 C CNN
+F 3 "" H 3600 6150 50  0001 C CNN
+	1    3600 6150
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R R?
+U 1 1 608EC40E
+P 3800 5800
+AR Path="/608EC40E" Ref="R?"  Part="1" 
+AR Path="/5DD754D4/608EC40E" Ref="R33"  Part="1" 
+F 0 "R33" V 3900 5800 50  0000 C CNN
+F 1 "5.1K" V 3800 5800 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 3730 5800 50  0001 C CNN
+F 3 "~" H 3800 5800 50  0001 C CNN
+F 4 "GENERIC-RES-0402-5.1K" H 3800 5800 50  0001 C CNN "Part Number"
+	1    3800 5800
+	1    0    0    1   
+$EndComp
+Wire Wire Line
+	3600 5950 3600 6050
+Wire Wire Line
+	3600 6050 3800 6050
+Wire Wire Line
+	3800 6050 3800 5950
+Connection ~ 3600 6050
+Wire Wire Line
+	3600 6050 3600 6150
+Text HLabel 3900 2000 2    50   BiDi ~ 0
+HOST_CC1
+Text Label 2850 3000 0    50   ~ 0
+HOST_DATA3
+Entry Wire Line
+	4350 3000 4450 3100
+Wire Wire Line
+	4350 3000 2700 3000
+$Comp
+L fpgas_and_processors:ECP5-BGA256 IC1
+U 7 1 5DD79283
+P 1700 1500
+F 0 "IC1" H 1670 -617 50  0000 R CNN
+F 1 "ECP5-BGA256" H 1670 -707 50  0000 R CNN
+F 2 "luna:lattice_cabga256" H -1500 4950 50  0001 L CNN
+F 3 "" H -1950 5900 50  0001 L CNN
+F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H -1950 5800 50  0001 L CNN "Description"
+F 5 "Lattice" H -1900 6750 50  0001 L CNN "Manufacturer"
+F 6 "LFE5U-12F-6BG256C" H -1900 6650 50  0001 L CNN "Part Number"
+	7    1700 1500
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3900 5450 2700 5450
+Text HLabel 3900 1900 2    50   BiDi ~ 0
+HOST_CC2
+Text HLabel 3900 5550 2    50   BiDi ~ 0
+HOST_SBU1
+Text HLabel 3900 5450 2    50   BiDi ~ 0
+HOST_SBU2
+Entry Wire Line
+	4350 2400 4450 2500
+Entry Wire Line
+	4350 2500 4450 2600
+Wire Wire Line
+	2700 2400 4350 2400
+Wire Wire Line
+	4350 2500 2700 2500
+Text Label 2850 4750 0    50   ~ 0
+HOST_DIR
+Entry Wire Line
+	4350 5250 4450 5350
+Wire Wire Line
+	2700 5250 4350 5250
+Entry Wire Line
+	4350 2600 4450 2700
+Wire Wire Line
+	4350 2600 2700 2600
 NoConn ~ 2700 2100
+NoConn ~ 2700 2200
+Wire Wire Line
+	2700 2000 3600 2000
+Wire Wire Line
+	2700 5550 3900 5550
+Wire Wire Line
+	2700 1900 3800 1900
+Wire Wire Line
+	3800 5650 3800 1900
+Connection ~ 3800 1900
+Wire Wire Line
+	3800 1900 3900 1900
+Wire Wire Line
+	3600 5650 3600 2000
 Wire Bus Line
 	4450 1650 4450 5800
+Connection ~ 3600 2000
+Wire Wire Line
+	3600 2000 3900 2000
 $EndSCHEMATC
