@@ -1188,4 +1188,6 @@ Wire Wire Line
 	7100 7500 7100 5800
 Wire Wire Line
 	7100 5800 7150 5800
+Text Notes 900  7700 0    50   ~ 0
+Maximum input VBUS voltage: 5.5 V
 $EndSCHEMATC

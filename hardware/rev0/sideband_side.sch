@@ -404,8 +404,6 @@ Wire Wire Line
 NoConn ~ 7400 3600
 Wire Wire Line
 	2500 4400 4750 4400
-Wire Wire Line
-	2500 2450 3750 2450
 Entry Wire Line
 	4750 4400 4850 4300
 Entry Wire Line
@@ -596,10 +594,8 @@ Wire Wire Line
 Connection ~ 3550 6150
 Wire Wire Line
 	3550 6150 3550 6250
-Text HLabel 3850 2450 2    50   BiDi ~ 0
+Text HLabel 3850 3550 2    50   BiDi ~ 0
 SIDEBAND_CC2
-Wire Wire Line
-	3850 2450 3750 2450
 Text Label 2650 3450 0    50   ~ 0
 SIDEBAND_DATA3
 Text Label 2650 3800 0    50   ~ 0
@@ -617,18 +613,6 @@ Wire Wire Line
 Wire Wire Line
 	2700 5550 2500 5550
 Wire Wire Line
-	3750 2450 3750 5750
-Connection ~ 3750 2450
-Text HLabel 3850 3550 2    50   BiDi ~ 0
-SIDEBAND_CC1
-Wire Wire Line
-	2500 3550 3550 3550
-Wire Wire Line
-	3550 5750 3550 3550
-Connection ~ 3550 3550
-Wire Wire Line
-	3550 3550 3850 3550
-Wire Wire Line
 	3850 5250 2500 5250
 Text HLabel 3850 5450 2    50   BiDi ~ 0
 SIDEBAND_SBU2
@@ -641,6 +625,22 @@ Wire Wire Line
 	3850 4900 2500 4900
 Wire Wire Line
 	3850 5450 2500 5450
+Wire Wire Line
+	2500 3550 3750 3550
+Text HLabel 3850 2450 2    50   BiDi ~ 0
+SIDEBAND_CC1
+Wire Wire Line
+	2500 2450 3550 2450
+Wire Wire Line
+	3550 5750 3550 2450
+Connection ~ 3550 2450
+Wire Wire Line
+	3550 2450 3850 2450
+Wire Wire Line
+	3750 5750 3750 3550
 Wire Bus Line
 	4850 2350 4850 5250
+Connection ~ 3750 3550
+Wire Wire Line
+	3750 3550 3850 3550
 $EndSCHEMATC
