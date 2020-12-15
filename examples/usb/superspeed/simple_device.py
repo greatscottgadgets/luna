@@ -12,7 +12,7 @@ from usb_protocol.emitters         import SuperSpeedDeviceDescriptorCollection
 
 from luna                          import top_level_cli
 from luna.gateware.platform        import NullPin
-from luna.gateware.usb.devices.ila import USBIntegratedLogicAnalyer, USBIntegratedLogicAnalyzerFrontend
+from luna.gateware.usb.devices.ila import USBIntegratedLogicAnalyzer, USBIntegratedLogicAnalyzerFrontend
 
 from luna.usb3                     import USBSuperSpeedDevice
 
