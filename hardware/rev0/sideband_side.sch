@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 3 9
 Title "LUNA: Sideband USB PHY"
-Date "2020-12-16"
+Date "2020-12-17"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
