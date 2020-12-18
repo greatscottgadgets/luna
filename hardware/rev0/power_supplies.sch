@@ -520,20 +520,6 @@ Wire Notes Line
 Wire Notes Line
 	550  3350 7000 3350
 $Comp
-L support_hardware:TCR2EE11 U4
-U 1 1 5DB6F5E4
-P 5350 4150
-F 0 "U4" H 5350 4517 50  0000 C CNN
-F 1 "TCR2EE11" H 5350 4426 50  0000 C CNN
-F 2 "Package_TO_SOT_SMD:SOT-553" H 5350 3750 50  0001 C CNN
-F 3 "https://toshiba.semicon-storage.com/info/docget.jsp?did=13794&prodName=TCR2EF45" H 5100 4400 50  0001 C CNN
-F 4 "IC REG LINEAR 1.15V 200MA ESV" H 5350 4150 50  0001 C CNN "Description"
-F 5 "Toshiba" H 5350 4150 50  0001 C CNN "Manufacturer"
-F 6 "TCR2EE115,LM(CT" H 5350 4150 50  0001 C CNN "Part Number"
-	1    5350 4150
-	1    0    0    -1  
-$EndComp
-$Comp
 L power:+2V5 #PWR030
 U 1 1 5DB70700
 P 4800 3750
@@ -1265,4 +1251,20 @@ F 4 "GENERIC-CAP-0603-1uF" H 1250 3900 50  0001 C CNN "Part Number"
 	1    1250 3900
 	0    1    -1   0   
 $EndComp
+$Comp
+L Regulator_Linear:MIC5504-1.8YM5 U4
+U 1 1 5FFE1C03
+P 5350 4150
+F 0 "U4" H 5350 4517 50  0000 C CNN
+F 1 "TCR2EF115" H 5350 4426 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-23-5" H 5350 3750 50  0001 C CNN
+F 3 "https://toshiba.semicon-storage.com/info/docget.jsp?did=13794&prodName=TCR2EF115" H 5100 4400 50  0001 C CNN
+F 4 "IC REG LINEAR 1.15V 200MA SMV" H 5350 4150 50  0001 C CNN "Description"
+F 5 "Toshiba" H 5350 4150 50  0001 C CNN "Manufacturer"
+F 6 "TCR2EF115,LM(CT" H 5350 4150 50  0001 C CNN "Part Number"
+	1    5350 4150
+	1    0    0    -1  
+$EndComp
+Text Notes 3850 5050 0    39   ~ 0
+Operating the +1V1 rail at 1.15 V\nis a compromise between performance\nand power consumption. ECP5 core\nsupply voltage is specified as 1.1 V\nwhile the higher performing ECP5-5G\n(confirmed to be the same die) core\nsupply voltage is specified as 1.2 V.\n
 $EndSCHEMATC
