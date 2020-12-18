@@ -261,13 +261,13 @@ Wire Wire Line
 	4400 3400 4400 3600
 Wire Wire Line
 	3000 4300 4400 4300
-Text Label 3200 3400 0    50   ~ 0
+Text Label 3200 3800 0    50   ~ 0
 LED3
-Text Label 3200 3700 0    50   ~ 0
-LED4
-Text Label 3200 4200 0    50   ~ 0
-LED5
 Text Label 3200 4300 0    50   ~ 0
+LED4
+Text Label 3200 4400 0    50   ~ 0
+LED5
+Text Label 3200 3700 0    50   ~ 0
 LED1
 Entry Wire Line
 	4600 3900 4500 4000
@@ -599,14 +599,10 @@ Wire Wire Line
 	5250 5650 3900 5650
 Wire Wire Line
 	3900 5650 3900 5500
-Text Label 3200 3800 0    50   ~ 0
+Text Label 3200 4200 0    50   ~ 0
 LED0
-Text Label 3200 4400 0    50   ~ 0
+Text Label 3200 3400 0    50   ~ 0
 LED2
-Wire Bus Line
-	5600 1200 5600 3700
-Wire Bus Line
-	4500 3600 4500 4600
 $Comp
 L Connector:TestPoint TP?
 U 1 1 6155D0D8
@@ -620,4 +616,8 @@ F 3 "~" H 5450 5450 50  0001 C CNN
 	1    5250 5450
 	0    1    -1   0   
 $EndComp
+Wire Bus Line
+	5600 1200 5600 3700
+Wire Bus Line
+	4500 3600 4500 4600
 $EndSCHEMATC
