@@ -94,7 +94,7 @@ Wire Wire Line
 $Sheet
 S 800  6450 1700 950 
 U 5DE77FE3
-F0 "RAM / 1V8 Section" 50
+F0 "RAM Section" 50
 F1 "ram_section.sch" 50
 $EndSheet
 Text Notes 1050 6950 0    100  ~ 0

@@ -532,8 +532,6 @@ Wire Wire Line
 Wire Wire Line
 	3700 2850 3800 2850
 Wire Wire Line
-	3700 2750 3800 2750
-Wire Wire Line
 	3800 2650 3700 2650
 Wire Wire Line
 	3800 2550 3700 2550
@@ -968,17 +966,6 @@ F 3 "" H 3800 2850 50  0001 C CNN
 	0    1    1    0   
 $EndComp
 $Comp
-L power:+1V8 #PWR039
-U 1 1 5DC07181
-P 3800 2750
-F 0 "#PWR039" H 3800 2600 50  0001 C CNN
-F 1 "+1V8" V 3815 2878 50  0000 L CNN
-F 2 "" H 3800 2750 50  0001 C CNN
-F 3 "" H 3800 2750 50  0001 C CNN
-	1    3800 2750
-	0    1    1    0   
-$EndComp
-$Comp
 L power:+3V3 #PWR0124
 U 1 1 5FF9BDE5
 P 4500 6050
@@ -1097,4 +1084,5 @@ Wire Wire Line
 	1900 5250 1900 5450
 Wire Wire Line
 	2100 5250 2100 5450
+NoConn ~ 3700 2750
 $EndSCHEMATC

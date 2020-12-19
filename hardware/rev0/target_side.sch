@@ -622,7 +622,7 @@ Wire Wire Line
 	2350 4900 5400 4900
 Text Label 2500 4500 0    50   ~ 0
 TARGET_DATA4
-Text HLabel 3250 2700 2    50   Output ~ 0
+Text HLabel 3250 3100 2    50   Output ~ 0
 VBUS_A_TO_C_EN
 Text HLabel 3250 2300 2    50   Output ~ 0
 VBUS_5V_TO_A_EN
@@ -634,7 +634,7 @@ Wire Wire Line
 	2350 3100 3250 3100
 Wire Wire Line
 	3250 3200 2350 3200
-Text HLabel 3250 3100 2    50   Input ~ 0
+Text HLabel 3250 2700 2    50   Input ~ 0
 VBUS_A_TO_C_FAULT
 Text HLabel 3250 3200 2    50   Input ~ 0
 VBUS_C_TO_A_FAULT

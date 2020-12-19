@@ -3,7 +3,7 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 3 9
+Sheet 2 9
 Title "LUNA: Sideband USB PHY"
 Date "2020-12-19"
 Rev "r0"

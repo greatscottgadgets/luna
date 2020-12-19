@@ -3,7 +3,7 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 4 9
+Sheet 3 9
 Title "LUNA: RAM Section"
 Date "2020-12-19"
 Rev "r0"
@@ -24,17 +24,6 @@ Wire Wire Line
 Connection ~ 1850 1800
 Wire Wire Line
 	1850 1800 1900 1800
-$Comp
-L power:+1V8 #PWR081
-U 1 1 5DE84804
-P 1850 1700
-F 0 "#PWR081" H 1850 1550 50  0001 C CNN
-F 1 "+1V8" H 1864 1873 50  0000 C CNN
-F 2 "" H 1850 1700 50  0001 C CNN
-F 3 "" H 1850 1700 50  0001 C CNN
-	1    1850 1700
-	1    0    0    -1  
-$EndComp
 $Comp
 L fpgas_and_processors:ECP5-BGA256 IC1
 U 3 1 5DE93650
@@ -57,14 +46,12 @@ F 0 "U10" H 5400 5772 50  0000 C CNN
 F 1 "HyperRAM" H 5400 5682 50  0000 C CNN
 F 2 "luna:BGA-24_5x5_6.0x8.0mm" H 6000 3950 50  0001 C CNN
 F 3 "" H 5400 3950 50  0001 C CNN
-F 4 "DRAM 64Mb HyperRAM x8, 200MHz, Ind temp, 1.8V" H 5400 4850 50  0001 C CNN "Description"
+F 4 "DRAM 64Mb HyperRAM x8, 166MHz, Ind temp, 3.0V" H 5400 4850 50  0001 C CNN "Description"
 F 5 "Winbond" H 5400 4850 50  0001 C CNN "Manufacturer"
-F 6 "W956D8MBYA5I" H 5400 4850 50  0001 C CNN "Part Number"
+F 6 "W956A8MBYA6I" H 5400 4850 50  0001 C CNN "Part Number"
 	1    5400 4850
 	-1   0    0    -1  
 $EndComp
-Text Notes 1000 6500 0    100  ~ 0
-note: this section is 1V8; do not connect to 3V3 signals!
 Wire Wire Line
 	6000 4150 6350 4150
 Wire Wire Line
@@ -80,17 +67,6 @@ Wire Wire Line
 	6350 4250 6550 4250
 Wire Wire Line
 	6550 4250 6550 4000
-$Comp
-L power:+1V8 #PWR084
-U 1 1 5DEA6771
-P 6550 4000
-F 0 "#PWR084" H 6550 3850 50  0001 C CNN
-F 1 "+1V8" H 6564 4173 50  0000 C CNN
-F 2 "" H 6550 4000 50  0001 C CNN
-F 3 "" H 6550 4000 50  0001 C CNN
-	1    6550 4000
-	1    0    0    -1  
-$EndComp
 Wire Wire Line
 	6000 5350 6350 5350
 Wire Wire Line
@@ -299,8 +275,34 @@ Entry Wire Line
 Entry Wire Line
 	3750 5650 3850 5750
 NoConn ~ 2700 4250
+$Comp
+L power:+3V3 #PWR?
+U 1 1 613C3B97
+P 1850 1700
+AR Path="/613C3B97" Ref="#PWR?"  Part="1" 
+AR Path="/5DE77FE3/613C3B97" Ref="#PWR0118"  Part="1" 
+F 0 "#PWR0118" H 1850 1550 50  0001 C CNN
+F 1 "+3V3" H 1864 1873 50  0000 C CNN
+F 2 "" H 1850 1700 50  0001 C CNN
+F 3 "" H 1850 1700 50  0001 C CNN
+	1    1850 1700
+	1    0    0    -1  
+$EndComp
 Wire Bus Line
 	7200 4450 7200 6050
 Wire Bus Line
 	3850 2800 3850 6050
+$Comp
+L power:+3V3 #PWR?
+U 1 1 613C781C
+P 6550 4000
+AR Path="/613C781C" Ref="#PWR?"  Part="1" 
+AR Path="/5DE77FE3/613C781C" Ref="#PWR0119"  Part="1" 
+F 0 "#PWR0119" H 6550 3850 50  0001 C CNN
+F 1 "+3V3" H 6564 4173 50  0000 C CNN
+F 2 "" H 6550 4000 50  0001 C CNN
+F 3 "" H 6550 4000 50  0001 C CNN
+	1    6550 4000
+	1    0    0    -1  
+$EndComp
 $EndSCHEMATC
