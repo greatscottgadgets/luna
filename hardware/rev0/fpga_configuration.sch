@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 6 9
 Title "LUNA: Configuration / Dev / Debug Section"
-Date "2020-12-17"
+Date "2020-12-18"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -361,64 +361,64 @@ FPGA_TMS
 Wire Wire Line
 	5750 4300 9450 4300
 Wire Wire Line
-	1350 6100 1550 6100
+	1350 6450 1550 6450
 $Comp
 L Connector:Conn_ARM_JTAG_SWD_10 J6
 U 1 1 5DB28143
-P 2050 6400
-F 0 "J6" H 1800 7100 50  0000 R CNN
-F 1 "Conn_ARM_JTAG_SWD_10" H 1800 7000 50  0000 R CNN
-F 2 "luna:SWD_CONNECTOR_LARGE_BOX" H 2050 6400 50  0001 C CNN
-F 3 "http://infocenter.arm.com/help/topic/com.arm.doc.ddi0314h/DDI0314H_coresight_components_trm.pdf" V 1700 5150 50  0001 C CNN
-F 4 "CONN HEADER VERT 10POS 1.27MM" H 2050 6400 50  0001 C CNN "Description"
-F 5 "Samtec" H 2050 6400 50  0001 C CNN "Manufacturer"
-F 6 "FTSH-105-01-F-D-K" H 2050 6400 50  0001 C CNN "Part Number"
-	1    2050 6400
+P 2050 6750
+F 0 "J6" H 1800 7450 50  0000 R CNN
+F 1 "Conn_ARM_JTAG_SWD_10" H 1800 7350 50  0000 R CNN
+F 2 "luna:SWD_CONNECTOR_LARGE_BOX" H 2050 6750 50  0001 C CNN
+F 3 "http://infocenter.arm.com/help/topic/com.arm.doc.ddi0314h/DDI0314H_coresight_components_trm.pdf" V 1700 5500 50  0001 C CNN
+F 4 "CONN HEADER VERT 10POS 1.27MM" H 2050 6750 50  0001 C CNN "Description"
+F 5 "Samtec" H 2050 6750 50  0001 C CNN "Manufacturer"
+F 6 "FTSH-105-01-F-D-K" H 2050 6750 50  0001 C CNN "Part Number"
+	1    2050 6750
 	-1   0    0    -1  
 $EndComp
-NoConn ~ 1550 6500
-NoConn ~ 1550 6600
+NoConn ~ 1550 6850
+NoConn ~ 1550 6950
 $Comp
 L power:GND #PWR049
 U 1 1 5DB45414
-P 2100 7150
-F 0 "#PWR049" H 2100 6900 50  0001 C CNN
-F 1 "GND" H 2104 6978 50  0000 C CNN
-F 2 "" H 2100 7150 50  0001 C CNN
-F 3 "" H 2100 7150 50  0001 C CNN
-	1    2100 7150
+P 2100 7500
+F 0 "#PWR049" H 2100 7250 50  0001 C CNN
+F 1 "GND" H 2104 7328 50  0000 C CNN
+F 2 "" H 2100 7500 50  0001 C CNN
+F 3 "" H 2100 7500 50  0001 C CNN
+	1    2100 7500
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	2100 7050 2100 7150
+	2100 7400 2100 7500
 Wire Wire Line
-	2050 7000 2050 7050
+	2050 7350 2050 7400
 Wire Wire Line
-	2050 7050 2100 7050
+	2050 7400 2100 7400
 Wire Wire Line
-	2150 7000 2150 7050
+	2150 7350 2150 7400
 Wire Wire Line
-	2150 7050 2100 7050
-Connection ~ 2100 7050
+	2150 7400 2100 7400
+Connection ~ 2100 7400
 $Comp
 L power:+3V3 #PWR048
 U 1 1 5DB4C59C
-P 2050 5650
-F 0 "#PWR048" H 2050 5500 50  0001 C CNN
-F 1 "+3V3" H 2064 5823 50  0000 C CNN
-F 2 "" H 2050 5650 50  0001 C CNN
-F 3 "" H 2050 5650 50  0001 C CNN
-	1    2050 5650
+P 2050 6000
+F 0 "#PWR048" H 2050 5850 50  0001 C CNN
+F 1 "+3V3" H 2064 6173 50  0000 C CNN
+F 2 "" H 2050 6000 50  0001 C CNN
+F 3 "" H 2050 6000 50  0001 C CNN
+	1    2050 6000
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	2050 5650 2050 5800
+	2050 6000 2050 6150
 Text Label 2150 2750 0    50   ~ 0
 UC_SWDCLK
 Wire Wire Line
-	950  6300 1550 6300
+	950  6650 1550 6650
 Wire Wire Line
-	850  6400 1550 6400
+	850  6750 1550 6750
 Text Label 2150 2850 0    50   ~ 0
 UC_SWDIO
 Wire Wire Line
@@ -439,63 +439,23 @@ NoConn ~ 9450 3500
 NoConn ~ 9450 3600
 NoConn ~ 9450 3800
 NoConn ~ 9450 3900
-$Comp
-L Connector:Conn_ARM_JTAG_SWD_10 J5
-U 1 1 5DC7E70D
-P 4500 6400
-F 0 "J5" H 4200 7100 50  0000 R CNN
-F 1 "Conn_FPGA_JTAG_10" H 4200 7000 50  0000 R CNN
-F 2 "luna:SWD_CONNECTOR_LARGE_BOX" H 4500 6400 50  0001 C CNN
-F 3 "http://infocenter.arm.com/help/topic/com.arm.doc.ddi0314h/DDI0314H_coresight_components_trm.pdf" V 4150 5150 50  0001 C CNN
-F 4 "CONN HEADER VERT 10POS 1.27MM" H 4500 6400 50  0001 C CNN "Description"
-F 5 "Samtec" H 4500 6400 50  0001 C CNN "Manufacturer"
-F 6 "FTSH-105-01-F-D-K" H 4500 6400 50  0001 C CNN "Part Number"
-	1    4500 6400
-	-1   0    0    -1  
-$EndComp
 Wire Wire Line
-	4000 6300 3400 6300
+	4000 6650 3400 6650
 Wire Wire Line
-	4000 6400 3400 6400
+	4000 6750 3400 6750
 Wire Wire Line
-	4000 6500 3400 6500
+	4000 6850 3400 6850
 Wire Wire Line
-	4000 6600 3400 6600
-Text Label 3400 6300 0    50   ~ 0
+	4000 6950 3400 6950
+Text Label 3400 6650 0    50   ~ 0
 FPGA_TCK
-Text Label 3400 6400 0    50   ~ 0
+Text Label 3400 6750 0    50   ~ 0
 FPGA_TMS
-Text Label 3400 6500 0    50   ~ 0
+Text Label 3400 6850 0    50   ~ 0
 FPGA_TDO
-Text Label 3400 6600 0    50   ~ 0
+Text Label 3400 6950 0    50   ~ 0
 FPGA_TDI
-Wire Wire Line
-	4500 7000 4500 7100
-Wire Wire Line
-	4500 7100 4550 7100
-Wire Wire Line
-	4600 7100 4600 7000
-Wire Wire Line
-	4550 7100 4550 7200
-Wire Wire Line
-	4550 7200 4500 7200
-Connection ~ 4550 7100
-Wire Wire Line
-	4550 7100 4600 7100
-$Comp
-L power:GND #PWR043
-U 1 1 5DCBE012
-P 4500 7200
-F 0 "#PWR043" H 4500 6950 50  0001 C CNN
-F 1 "GND" V 4504 7072 50  0000 R CNN
-F 2 "" H 4500 7200 50  0001 C CNN
-F 3 "" H 4500 7200 50  0001 C CNN
-	1    4500 7200
-	0    1    1    0   
-$EndComp
-NoConn ~ 4000 6100
-Wire Wire Line
-	4500 5700 4500 5800
+NoConn ~ 4000 6450
 Wire Wire Line
 	5650 4200 9450 4200
 $Comp
@@ -529,9 +489,9 @@ Text HLabel 6050 3050 2    50   Input ~ 0
 UC_RX_FPGA_TX
 NoConn ~ 9450 2700
 NoConn ~ 9450 2800
-Text Label 1050 6400 0    50   ~ 0
+Text Label 1050 6750 0    50   ~ 0
 UC_SWDIO
-Text Label 1050 6300 0    50   ~ 0
+Text Label 1050 6650 0    50   ~ 0
 UC_SWDCLK
 Wire Wire Line
 	5650 3050 6050 3050
@@ -822,15 +782,9 @@ F 3 "" H 3200 4250 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	950  6300 950  2750
-Wire Wire Line
 	950  2750 2700 2750
 Wire Wire Line
-	850  6400 850  2850
-Wire Wire Line
 	850  2850 2700 2850
-Wire Wire Line
-	1350 6100 1350 2550
 Wire Wire Line
 	1350 2550 2050 2550
 Wire Wire Line
@@ -841,17 +795,6 @@ Wire Wire Line
 Wire Wire Line
 	1250 2550 1350 2550
 Connection ~ 1350 2550
-$Comp
-L power:+3V3 #PWR0124
-U 1 1 5FF9BDE5
-P 4500 5700
-F 0 "#PWR0124" H 4500 5550 50  0001 C CNN
-F 1 "+3V3" H 4514 5873 50  0000 C CNN
-F 2 "" H 4500 5700 50  0001 C CNN
-F 3 "" H 4500 5700 50  0001 C CNN
-	1    4500 5700
-	1    0    0    -1  
-$EndComp
 $Comp
 L Connector:TestPoint TP?
 U 1 1 6001FEDC
@@ -1035,4 +978,123 @@ F 3 "" H 3800 2750 50  0001 C CNN
 	1    3800 2750
 	0    1    1    0   
 $EndComp
+$Comp
+L power:+3V3 #PWR0124
+U 1 1 5FF9BDE5
+P 4500 6050
+F 0 "#PWR0124" H 4500 5900 50  0001 C CNN
+F 1 "+3V3" H 4514 6223 50  0000 C CNN
+F 2 "" H 4500 6050 50  0001 C CNN
+F 3 "" H 4500 6050 50  0001 C CNN
+	1    4500 6050
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	4500 6050 4500 6150
+$Comp
+L power:GND #PWR043
+U 1 1 5DCBE012
+P 4500 7550
+F 0 "#PWR043" H 4500 7300 50  0001 C CNN
+F 1 "GND" V 4504 7422 50  0000 R CNN
+F 2 "" H 4500 7550 50  0001 C CNN
+F 3 "" H 4500 7550 50  0001 C CNN
+	1    4500 7550
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	4550 7450 4600 7450
+Connection ~ 4550 7450
+Wire Wire Line
+	4550 7550 4500 7550
+Wire Wire Line
+	4550 7450 4550 7550
+Wire Wire Line
+	4600 7450 4600 7350
+Wire Wire Line
+	4500 7450 4550 7450
+Wire Wire Line
+	4500 7350 4500 7450
+$Comp
+L Connector:Conn_ARM_JTAG_SWD_10 J5
+U 1 1 5DC7E70D
+P 4500 6750
+F 0 "J5" H 4200 7450 50  0000 R CNN
+F 1 "Conn_FPGA_JTAG_10" H 4200 7350 50  0000 R CNN
+F 2 "luna:SWD_CONNECTOR_LARGE_BOX" H 4500 6750 50  0001 C CNN
+F 3 "http://infocenter.arm.com/help/topic/com.arm.doc.ddi0314h/DDI0314H_coresight_components_trm.pdf" V 4150 5500 50  0001 C CNN
+F 4 "CONN HEADER VERT 10POS 1.27MM" H 4500 6750 50  0001 C CNN "Description"
+F 5 "Samtec" H 4500 6750 50  0001 C CNN "Manufacturer"
+F 6 "FTSH-105-01-F-D-K" H 4500 6750 50  0001 C CNN "Part Number"
+	1    4500 6750
+	-1   0    0    -1  
+$EndComp
+NoConn ~ 2100 4750
+$Comp
+L power:GND #PWR0131
+U 1 1 60198439
+P 2100 5450
+F 0 "#PWR0131" H 2100 5200 50  0001 C CNN
+F 1 "GND" H 2104 5278 50  0000 C CNN
+F 2 "" H 2100 5450 50  0001 C CNN
+F 3 "" H 2100 5450 50  0001 C CNN
+	1    2100 5450
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2000 4550 950  4550
+Wire Wire Line
+	2000 4750 2000 4550
+Wire Wire Line
+	2000 5350 1350 5350
+Wire Wire Line
+	2000 5250 2000 5350
+Wire Wire Line
+	1900 4650 850  4650
+Wire Wire Line
+	1900 4750 1900 4650
+$Comp
+L power:+3V3 #PWR0133
+U 1 1 60164576
+P 1900 5450
+F 0 "#PWR0133" H 1900 5300 50  0001 C CNN
+F 1 "+3V3" H 1914 5623 50  0000 C CNN
+F 2 "" H 1900 5450 50  0001 C CNN
+F 3 "" H 1900 5450 50  0001 C CNN
+	1    1900 5450
+	-1   0    0    1   
+$EndComp
+$Comp
+L Connector_Generic:Conn_02x03_Odd_Even J10
+U 1 1 60114D15
+P 2000 5050
+F 0 "J10" V 2096 4862 50  0000 R CNN
+F 1 "TC_SWD" V 2005 4862 50  0000 R CNN
+F 2 "Connector:Tag-Connect_TC2030-IDC-FP_2x03_P1.27mm_Vertical" H 2000 5050 50  0001 C CNN
+F 3 "~" H 2000 5050 50  0001 C CNN
+F 4 "Tag-Connect" H 2000 5050 50  0001 C CNN "Manufacturer"
+F 5 "DNP" H 2000 5050 50  0001 C CNN "Note"
+F 6 "TC2030-IDC" H 2000 5050 50  0001 C CNN "Part Number"
+	1    2000 5050
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	950  2750 950  4550
+Wire Wire Line
+	850  2850 850  4650
+Wire Wire Line
+	1350 2550 1350 5350
+Connection ~ 850  4650
+Wire Wire Line
+	850  4650 850  6750
+Connection ~ 950  4550
+Wire Wire Line
+	950  4550 950  6650
+Connection ~ 1350 5350
+Wire Wire Line
+	1350 5350 1350 6450
+Wire Wire Line
+	1900 5250 1900 5450
+Wire Wire Line
+	2100 5250 2100 5450
 $EndSCHEMATC

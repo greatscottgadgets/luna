@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 3 9
 Title "LUNA: Sideband USB PHY"
-Date "2020-12-17"
+Date "2020-12-18"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -638,9 +638,9 @@ Wire Wire Line
 	3550 2450 3850 2450
 Wire Wire Line
 	3750 5750 3750 3550
-Wire Bus Line
-	4850 2350 4850 5250
 Connection ~ 3750 3550
 Wire Wire Line
 	3750 3550 3850 3550
+Wire Bus Line
+	4850 2350 4850 5250
 $EndSCHEMATC
