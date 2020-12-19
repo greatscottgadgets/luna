@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 8 9
 Title "LUNA: Downstream / Target / Analysis Section"
-Date "2020-12-18"
+Date "2020-12-19"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -136,7 +136,7 @@ TARGET_D-
 Wire Wire Line
 	8900 2600 9600 2600
 Text HLabel 9600 2500 2    50   Input ~ 0
-TARGET_VBUS
+TARGET_VBUS_C
 Connection ~ 9750 3600
 Wire Wire Line
 	9750 3700 9750 3600
@@ -490,7 +490,7 @@ Text Label 2500 3000 0    50   ~ 0
 TARGET_PHY_NXT
 Text Label 2500 3600 0    50   ~ 0
 TARGET_DATA0
-Text Label 2500 2700 0    50   ~ 0
+Text Label 2500 2800 0    50   ~ 0
 TARGET_DATA1
 Wire Wire Line
 	2350 3500 5400 3500
@@ -600,26 +600,17 @@ Entry Wire Line
 Text Label 2500 3700 0    50   ~ 0
 TARGET_DATA2
 Entry Wire Line
-	5500 2800 5400 2700
-Wire Wire Line
-	5400 2700 2350 2700
+	5500 2900 5400 2800
 Entry Wire Line
 	5400 4600 5500 4700
 Wire Wire Line
 	5400 4600 2350 4600
-Text HLabel 3250 2200 2    50   Input ~ 0
-TARGET_FAULT
 Wire Wire Line
 	2350 2200 3250 2200
-NoConn ~ 2350 3200
 Wire Wire Line
 	3250 2300 2350 2300
-Text HLabel 3250 2300 2    50   Output ~ 0
-A_PORT_POWER_ENABLE
 Wire Wire Line
 	2350 2100 3250 2100
-Text HLabel 3250 2100 2    50   Output ~ 0
-ALLOW_POWER_VIA_TARGET_PORT
 Wire Wire Line
 	3300 5000 2350 5000
 Wire Wire Line
@@ -631,8 +622,26 @@ Wire Wire Line
 	2350 4900 5400 4900
 Text Label 2500 4500 0    50   ~ 0
 TARGET_DATA4
-NoConn ~ 2350 3100
-NoConn ~ 2350 2800
+Text HLabel 3250 2700 2    50   Output ~ 0
+VBUS_A_TO_C_EN
+Text HLabel 3250 2300 2    50   Output ~ 0
+VBUS_5V_TO_A_EN
+Text HLabel 3250 2200 2    50   Input ~ 0
+VBUS_5V_TO_A_FAULT
+Text HLabel 3250 2100 2    50   Output ~ 0
+VBUS_C_TO_A_EN
+Wire Wire Line
+	2350 3100 3250 3100
+Wire Wire Line
+	3250 3200 2350 3200
+Text HLabel 3250 3100 2    50   Input ~ 0
+VBUS_A_TO_C_FAULT
+Text HLabel 3250 3200 2    50   Input ~ 0
+VBUS_C_TO_A_FAULT
+Wire Wire Line
+	2350 2800 5400 2800
+Wire Wire Line
+	3250 2700 2350 2700
 Wire Bus Line
 	5500 1900 5500 6000
 $EndSCHEMATC
