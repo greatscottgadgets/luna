@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 9
 Title "LUNA USB Multitool"
-Date "2020-12-19"
+Date "2020-12-20"
 Rev "r0"
 Comp "Copyright 2019-2020 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -117,11 +117,11 @@ U 1 1 5E0711AF
 P 1050 2400
 F 0 "Y1" H 900 2000 50  0000 L CNN
 F 1 "Osc60MHz" H 1450 2450 50  0000 L CNN
-F 2 "Crystal:Crystal_SMD_2016-4Pin_2.0x1.6mm" H 1050 2400 50  0001 C CNN
+F 2 "Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm" H 1050 2400 50  0001 C CNN
 F 3 "" H 1050 2400 50  0001 C CNN
 F 4 "MEMS OSC XO 60.0000MHZ H/LV-CMOS" H 1050 2400 50  0001 C CNN "Description"
 F 5 "SiTIME" H 1050 2400 50  0001 C CNN "Manufacturer"
-F 6 "SIT1602BC-73-33E-60.000000E" H 1050 2400 50  0001 C CNN "Part Number"
+F 6 "SIT1602BC-23-33E-60.000000E" H 1050 2400 50  0001 C CNN "Part Number"
 	1    1050 2400
 	1    0    0    -1  
 $EndComp
