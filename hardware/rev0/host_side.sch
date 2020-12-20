@@ -3,7 +3,7 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 6 9
+Sheet 5 9
 Title "LUNA: Upstream \"Host\" Section"
 Date "2020-12-19"
 Rev "r0"
@@ -629,8 +629,6 @@ Entry Wire Line
 	4350 2600 4450 2700
 Wire Wire Line
 	4350 2600 2700 2600
-NoConn ~ 2700 2100
-NoConn ~ 2700 2200
 Wire Wire Line
 	2700 2000 3600 2000
 Wire Wire Line
@@ -647,6 +645,78 @@ Wire Wire Line
 Connection ~ 3600 2000
 Wire Wire Line
 	3600 2000 3900 2000
+$Comp
+L Connector:Conn_Coaxial J?
+U 1 1 619FE681
+P 3600 1300
+AR Path="/619FE681" Ref="J?"  Part="1" 
+AR Path="/5DD754D4/619FE681" Ref="J9"  Part="1" 
+F 0 "J9" H 3699 1229 50  0000 L CNN
+F 1 "Conn_Coaxial" H 3700 1184 50  0001 L CNN
+F 2 "luna:SMA-EDGE" H 3600 1300 50  0001 C CNN
+F 3 " ~" H 3600 1300 50  0001 C CNN
+F 4 "DNP" H 3700 1300 50  0000 L CNN "Note"
+	1    3600 1300
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 619FE687
+P 3750 1100
+AR Path="/619FE687" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/619FE687" Ref="#PWR0106"  Part="1" 
+F 0 "#PWR0106" H 3750 850 50  0001 C CNN
+F 1 "GND" H 3850 950 50  0000 R CNN
+F 2 "" H 3750 1100 50  0001 C CNN
+F 3 "" H 3750 1100 50  0001 C CNN
+	1    3750 1100
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 619FE68D
+P 3750 1500
+AR Path="/619FE68D" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/619FE68D" Ref="#PWR0107"  Part="1" 
+F 0 "#PWR0107" H 3750 1250 50  0001 C CNN
+F 1 "GND" H 3850 1350 50  0000 R CNN
+F 2 "" H 3750 1500 50  0001 C CNN
+F 3 "" H 3750 1500 50  0001 C CNN
+	1    3750 1500
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	3750 1500 3600 1500
+Text Notes 3750 700  2    50   ~ 0
+Trigger I/O
+Wire Wire Line
+	3750 1100 3600 1100
+$Comp
+L Connector:Conn_Coaxial J?
+U 1 1 619FE697
+P 3600 900
+AR Path="/619FE697" Ref="J?"  Part="1" 
+AR Path="/5DD754D4/619FE697" Ref="J8"  Part="1" 
+F 0 "J8" H 3700 874 50  0000 L CNN
+F 1 "Conn_Coaxial" H 3700 784 50  0001 L CNN
+F 2 "luna:SMA-EDGE" H 3600 900 50  0001 C CNN
+F 3 " ~" H 3600 900 50  0001 C CNN
+F 4 "DNP" H 3700 950 50  0000 L CNN "Note"
+	1    3600 900 
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2700 2200 3300 2200
+Wire Wire Line
+	3300 2200 3300 1300
+Wire Wire Line
+	3300 1300 3400 1300
+Wire Wire Line
+	3400 900  3200 900 
+Wire Wire Line
+	3200 900  3200 2100
+Wire Wire Line
+	3200 2100 2700 2100
 Wire Bus Line
 	4450 1650 4450 5800
 $EndSCHEMATC

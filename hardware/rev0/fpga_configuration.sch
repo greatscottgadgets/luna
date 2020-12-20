@@ -3,7 +3,7 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 5 9
+Sheet 4 9
 Title "LUNA: Configuration / Dev / Debug Section"
 Date "2020-12-19"
 Rev "r0"

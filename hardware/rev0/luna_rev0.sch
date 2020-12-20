@@ -142,8 +142,6 @@ F 3 "" H 1300 2200 50  0001 C CNN
 	1    1300 2200
 	1    0    0    -1  
 $EndComp
-Wire Wire Line
-	1700 2600 2150 2600
 Text Label 7000 3450 0    50   ~ 0
 TARGET_D-
 Wire Wire Line
@@ -251,145 +249,19 @@ F 3 "" H 2050 3550 50  0001 C CNN
 	0    1    1    0   
 $EndComp
 $Comp
-L power:GND #PWR0111
-U 1 1 5E2A5843
-P 2850 2100
-F 0 "#PWR0111" H 2850 1850 50  0001 C CNN
-F 1 "GND" H 2850 1950 50  0000 C CNN
-F 2 "" H 2850 2100 50  0001 C CNN
-F 3 "" H 2850 2100 50  0001 C CNN
-	1    2850 2100
-	1    0    0    -1  
-$EndComp
-$Comp
 L power:GND #PWR0110
 U 1 1 5E2A54E0
-P 2850 1600
-F 0 "#PWR0110" H 2850 1350 50  0001 C CNN
-F 1 "GND" H 2850 1450 50  0000 C CNN
-F 2 "" H 2850 1600 50  0001 C CNN
-F 3 "" H 2850 1600 50  0001 C CNN
-	1    2850 1600
-	-1   0    0    1   
-$EndComp
-Wire Wire Line
-	3100 1000 3150 1000
-Connection ~ 3100 1000
-Wire Wire Line
-	3100 2150 3100 1000
-Wire Wire Line
-	2950 2150 3100 2150
-Wire Wire Line
-	2950 2100 2950 2150
-Wire Wire Line
-	2950 1400 3150 1400
-Wire Wire Line
-	1800 1000 3100 1000
-$Comp
-L Connector:Conn_Coaxial J8
-U 1 1 5E41D377
-P 3350 1000
-F 0 "J8" H 3450 974 50  0000 L CNN
-F 1 "Conn_Coaxial" H 3450 884 50  0001 L CNN
-F 2 "luna:SMA-EDGE" H 3350 1000 50  0001 C CNN
-F 3 " ~" H 3350 1000 50  0001 C CNN
-F 4 "DNP" H 3450 1050 50  0000 L CNN "Note"
-	1    3350 1000
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	3500 1200 3350 1200
-Connection ~ 2950 1400
-Wire Wire Line
-	2950 1400 2950 1600
-Wire Wire Line
-	2850 1400 2950 1400
-Wire Wire Line
-	2850 1100 1800 1100
-Wire Wire Line
-	2850 1400 2850 1100
-Wire Wire Line
-	1800 1200 2750 1200
-Wire Wire Line
-	2750 1200 2750 1600
-Wire Wire Line
-	1800 1300 2600 1300
-Wire Wire Line
-	2600 2100 2750 2100
-Wire Wire Line
-	2600 1300 2600 2100
-Text Notes 2700 900  2    50   ~ 0
-Trigger I/O
-$Comp
-L Connector_Generic:Conn_02x03_Odd_Even J7
-U 1 1 5E44B790
-P 2850 1800
-F 0 "J7" V 2900 1750 50  0000 L CNN
-F 1 "Conn_02x02_Counter_Clockwise" V 2945 1879 50  0001 L CNN
-F 2 "Connector_PinHeader_2.54mm:PinHeader_2x03_P2.54mm_Horizontal" H 2850 1800 50  0001 C CNN
-F 3 "~" H 2850 1800 50  0001 C CNN
-F 4 "DNP" H 2900 2000 50  0000 C CNN "Note"
-	1    2850 1800
+P 2700 2400
+F 0 "#PWR0110" H 2700 2150 50  0001 C CNN
+F 1 "GND" V 2700 2200 50  0000 C CNN
+F 2 "" H 2700 2400 50  0001 C CNN
+F 3 "" H 2700 2400 50  0001 C CNN
+	1    2700 2400
 	0    1    1    0   
-$EndComp
-Wire Wire Line
-	3500 1600 3350 1600
-$Comp
-L power:GND #PWR0107
-U 1 1 5E440A75
-P 3500 1600
-F 0 "#PWR0107" H 3500 1350 50  0001 C CNN
-F 1 "GND" H 3600 1450 50  0000 R CNN
-F 2 "" H 3500 1600 50  0001 C CNN
-F 3 "" H 3500 1600 50  0001 C CNN
-	1    3500 1600
-	0    -1   -1   0   
-$EndComp
-$Comp
-L power:GND #PWR0106
-U 1 1 5E43820F
-P 3500 1200
-F 0 "#PWR0106" H 3500 950 50  0001 C CNN
-F 1 "GND" H 3600 1050 50  0000 R CNN
-F 2 "" H 3500 1200 50  0001 C CNN
-F 3 "" H 3500 1200 50  0001 C CNN
-	1    3500 1200
-	0    -1   -1   0   
-$EndComp
-$Comp
-L Connector:Conn_Coaxial J9
-U 1 1 5E41DB94
-P 3350 1400
-F 0 "J9" H 3449 1329 50  0000 L CNN
-F 1 "Conn_Coaxial" H 3450 1284 50  0001 L CNN
-F 2 "luna:SMA-EDGE" H 3350 1400 50  0001 C CNN
-F 3 " ~" H 3350 1400 50  0001 C CNN
-F 4 "DNP" H 3450 1400 50  0000 L CNN "Note"
-	1    3350 1400
-	1    0    0    -1  
 $EndComp
 Wire Wire Line
 	800  2200 1300 2200
 Connection ~ 1300 2200
-Wire Wire Line
-	1800 1700 2150 1700
-Wire Wire Line
-	2150 1700 2150 2600
-NoConn ~ 1800 1400
-$Sheet
-S 600  800  1200 1050
-U 5DF88884
-F0 "Debug & Control Connections" 50
-F1 "debug_control_connections.sch" 50
-F2 "CLKIN_60MHZ" I R 1800 1700 50 
-F3 "USER_IO0" B R 1800 1000 50 
-F4 "USER_IO1" B R 1800 1100 50 
-F5 "USER_IO2" B R 1800 1200 50 
-F6 "USER_IO3" B R 1800 1300 50 
-F7 "USER_IO4" B R 1800 1400 50 
-F8 "USER_IO5" B R 1800 1500 50 
-$EndSheet
-NoConn ~ 1800 1500
 Wire Notes Line
 	3900 500  3900 3200
 Wire Notes Line
@@ -397,15 +269,14 @@ Wire Notes Line
 $Comp
 L Connector:TestPoint TP1
 U 1 1 5E216C1B
-P 2150 1700
-F 0 "TP1" H 2208 1818 50  0000 L CNN
-F 1 "TestPoint" H 2208 1728 50  0000 L CNN
-F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 2350 1700 50  0001 C CNN
-F 3 "~" H 2350 1700 50  0001 C CNN
-	1    2150 1700
-	1    0    0    -1  
+P 2100 2600
+F 0 "TP1" H 2158 2718 50  0000 L CNN
+F 1 "TestPoint" H 2158 2628 50  0000 L CNN
+F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 2300 2600 50  0001 C CNN
+F 3 "~" H 2300 2600 50  0001 C CNN
+	1    2100 2600
+	0    1    1    0   
 $EndComp
-Connection ~ 2150 1700
 Text Notes 4050 850  0    50   ~ 0
 All caps ceramic / rated 5 volts or\nhigher unless noted; nominal values\nare post-DC-bias degradation.
 Text Notes 4050 1250 0    50   ~ 0
@@ -876,4 +747,129 @@ F9 "VBUS_5V_TO_A_EN" I L 8700 750 50
 $EndSheet
 Wire Wire Line
 	10150 2250 6900 2250
+$Comp
+L Connector_Generic:Conn_02x06_Top_Bottom J7
+U 1 1 615ABEB3
+P 3000 2200
+F 0 "J7" H 3050 2707 50  0000 C CNN
+F 1 "PMOD" H 3050 2616 50  0000 C CNN
+F 2 "luna:PinSocket_2x06_P2.54mm_PMOD" H 3000 2200 50  0001 C CNN
+F 3 "~" H 3000 2200 50  0001 C CNN
+F 4 "DNP" H 3050 2525 50  0000 C CNN "Note"
+	1    3000 2200
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3V3 #PWR0120
+U 1 1 615BA7DC
+P 2700 2500
+F 0 "#PWR0120" H 2700 2350 50  0001 C CNN
+F 1 "+3V3" V 2715 2628 50  0000 L CNN
+F 2 "" H 2700 2500 50  0001 C CNN
+F 3 "" H 2700 2500 50  0001 C CNN
+	1    2700 2500
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:+3V3 #PWR0121
+U 1 1 615C2D28
+P 3400 2500
+F 0 "#PWR0121" H 3400 2350 50  0001 C CNN
+F 1 "+3V3" V 3415 2628 50  0000 L CNN
+F 2 "" H 3400 2500 50  0001 C CNN
+F 3 "" H 3400 2500 50  0001 C CNN
+	1    3400 2500
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	3400 2400 3300 2400
+Wire Wire Line
+	3300 2500 3400 2500
+Wire Wire Line
+	2800 2400 2700 2400
+Wire Wire Line
+	2700 2500 2800 2500
+$Sheet
+S 600  800  1200 1050
+U 5DF88884
+F0 "Debug & Control Connections" 50
+F1 "debug_control_connections.sch" 50
+F2 "CLKIN_60MHZ" I R 1800 1750 50 
+F3 "PMOD6" B R 1800 1500 50 
+F4 "PMOD7" B R 1800 1600 50 
+F5 "PMOD0" B R 1800 900 50 
+F6 "PMOD1" B R 1800 1000 50 
+F7 "PMOD2" B R 1800 1100 50 
+F8 "PMOD3" B R 1800 1200 50 
+F9 "PMOD4" B R 1800 1300 50 
+F10 "PMOD5" B R 1800 1400 50 
+$EndSheet
+Wire Wire Line
+	1700 2600 2000 2600
+Wire Wire Line
+	1800 1750 2000 1750
+Wire Wire Line
+	2000 1750 2000 2600
+Connection ~ 2000 2600
+Wire Wire Line
+	2000 2600 2100 2600
+Wire Wire Line
+	1800 1300 3400 1300
+Wire Wire Line
+	3400 1300 3400 2000
+Wire Wire Line
+	3400 2000 3300 2000
+Wire Wire Line
+	1800 1400 3500 1400
+Wire Wire Line
+	3500 1400 3500 2100
+Wire Wire Line
+	3500 2100 3300 2100
+Wire Wire Line
+	1800 1500 3600 1500
+Wire Wire Line
+	3600 1500 3600 2200
+Wire Wire Line
+	3600 2200 3300 2200
+Wire Wire Line
+	1800 1600 3700 1600
+Wire Wire Line
+	3700 1600 3700 2300
+Wire Wire Line
+	3700 2300 3300 2300
+Wire Wire Line
+	1800 900  2700 900 
+Wire Wire Line
+	2700 900  2700 2000
+Wire Wire Line
+	2700 2000 2800 2000
+Wire Wire Line
+	1800 1000 2600 1000
+Wire Wire Line
+	2600 1000 2600 2100
+Wire Wire Line
+	2600 2100 2800 2100
+Wire Wire Line
+	1800 1100 2500 1100
+Wire Wire Line
+	2500 1100 2500 2200
+Wire Wire Line
+	2500 2200 2800 2200
+Wire Wire Line
+	1800 1200 2400 1200
+Wire Wire Line
+	2400 1200 2400 2300
+Wire Wire Line
+	2400 2300 2800 2300
+$Comp
+L power:GND #PWR0111
+U 1 1 61A2BE78
+P 3400 2400
+F 0 "#PWR0111" H 3400 2150 50  0001 C CNN
+F 1 "GND" V 3400 2200 50  0000 C CNN
+F 2 "" H 3400 2400 50  0001 C CNN
+F 3 "" H 3400 2400 50  0001 C CNN
+	1    3400 2400
+	0    -1   -1   0   
+$EndComp
 $EndSCHEMATC
