@@ -3,9 +3,9 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 9 9
+Sheet 6 9
 Title "LUNA: Right Side I/O"
-Date "2020-12-20"
+Date "2020-12-21"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -261,13 +261,13 @@ Wire Wire Line
 	4400 3400 4400 3600
 Wire Wire Line
 	3000 4300 4400 4300
-Text Label 3200 3800 0    50   ~ 0
+Text Label 3200 3400 0    50   ~ 0
 LED3
-Text Label 3200 4300 0    50   ~ 0
-LED4
-Text Label 3200 4400 0    50   ~ 0
-LED5
 Text Label 3200 3700 0    50   ~ 0
+LED4
+Text Label 3200 4200 0    50   ~ 0
+LED5
+Text Label 3200 4300 0    50   ~ 0
 LED1
 Entry Wire Line
 	4600 3900 4500 4000
@@ -599,9 +599,9 @@ Wire Wire Line
 	5250 5650 3900 5650
 Wire Wire Line
 	3900 5650 3900 5500
-Text Label 3200 4200 0    50   ~ 0
+Text Label 3200 4400 0    50   ~ 0
 LED0
-Text Label 3200 3400 0    50   ~ 0
+Text Label 3200 3800 0    50   ~ 0
 LED2
 $Comp
 L Connector:TestPoint TP?
