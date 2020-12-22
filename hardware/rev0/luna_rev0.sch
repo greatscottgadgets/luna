@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 9
 Title "LUNA USB Multitool"
-Date "2020-12-21"
+Date "2020-12-22"
 Rev "r0"
 Comp "Copyright 2019-2020 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -299,6 +299,7 @@ F9 "RESET" I L 4100 5650 50
 F10 "UC_TX_FPGA_RX" O R 5800 6200 50 
 F11 "UC_RX_FPGA_TX" I R 5800 6300 50 
 F12 "~FPGA_SELF_PROGRAM" I L 4100 6100 50 
+F13 "TARGET_VBUS_C" I R 5800 5000 50 
 $EndSheet
 Wire Wire Line
 	4100 6800 3200 6800
@@ -666,7 +667,7 @@ Connection ~ 8400 2700
 Wire Wire Line
 	8400 2700 8500 2700
 Wire Wire Line
-	5800 3250 7000 3250
+	5800 3250 5900 3250
 Wire Wire Line
 	8500 2050 8500 1650
 Wire Wire Line
@@ -872,4 +873,11 @@ F 3 "" H 3400 2400 50  0001 C CNN
 	1    3400 2400
 	0    -1   -1   0   
 $EndComp
+Wire Wire Line
+	5900 3250 5900 5000
+Wire Wire Line
+	5900 5000 5800 5000
+Connection ~ 5900 3250
+Wire Wire Line
+	5900 3250 7000 3250
 $EndSCHEMATC

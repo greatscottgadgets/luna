@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 4 9
 Title "LUNA: Configuration / Dev / Debug Section"
-Date "2020-12-21"
+Date "2020-12-22"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -129,7 +129,7 @@ Wire Wire Line
 	1100 1150 1100 1100
 Wire Wire Line
 	1100 1100 1400 1100
-Text Notes 2950 1600 0    138  ~ 0
+Text Notes 2600 4700 0    138  ~ 0
 Development / Debug uC
 Text Label 2150 2550 0    50   ~ 0
 UC_RESET
@@ -532,7 +532,7 @@ Wire Wire Line
 Wire Wire Line
 	3700 2850 3800 2850
 Wire Wire Line
-	3800 2650 3700 2650
+	5250 2650 3700 2650
 Wire Wire Line
 	3800 2550 3700 2550
 Wire Wire Line
@@ -598,7 +598,7 @@ Text Notes 1600 4200 0    50   ~ 0
 assert this signal from the\nFPGA to tristate the the uC’s \nUSB connections\n\nor assert from the UC to\nprevent the FPGA from\ndriving the USB (used in\nrecovery modes)
 Text HLabel 3900 4150 2    50   Input ~ 0
 FORCE_DFU
-Text HLabel 3800 2650 2    50   Input ~ 0
+Text HLabel 3800 2750 2    50   Input ~ 0
 TARGET_PHY_1V8
 Text HLabel 3800 2450 2    50   Input ~ 0
 HOST_PHY_1V8
@@ -829,7 +829,7 @@ Wire Wire Line
 Wire Wire Line
 	5950 1450 6950 1450
 Connection ~ 6950 1450
-Text Notes 4600 2650 0    50   ~ 0
+Text Notes 4650 2450 0    50   ~ 0
 rail monitors\nfor test
 Wire Wire Line
 	2000 1100 2800 1100
@@ -1084,5 +1084,68 @@ Wire Wire Line
 	1900 5250 1900 5450
 Wire Wire Line
 	2100 5250 2100 5450
-NoConn ~ 3700 2750
+Text HLabel 5350 1450 0    50   Input ~ 0
+TARGET_VBUS_C
+$Comp
+L Device:R R?
+U 1 1 5FE432BE
+P 5450 2200
+AR Path="/5DCD9772/5FE432BE" Ref="R?"  Part="1" 
+AR Path="/5DCAA6D2/5FE432BE" Ref="R43"  Part="1" 
+F 0 "R43" H 5200 2100 50  0000 C CNN
+F 1 "8.06k+1%" H 5200 2200 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 5380 2200 50  0001 C CNN
+F 3 "~" H 5450 2200 50  0001 C CNN
+F 4 "RES SMD 8.06K OHM 1% 1/10W 0402" H 5450 2200 50  0001 C CNN "Description"
+F 5 "Panasonic" H 5450 2200 50  0001 C CNN "Manufacturer"
+F 6 "ERJ-2RKF8061X" H 5450 2200 50  0001 C CNN "Part Number"
+	1    5450 2200
+	-1   0    0    1   
+$EndComp
+$Comp
+L Device:R R?
+U 1 1 5FE510BF
+P 5450 1700
+AR Path="/5DCD9772/5FE510BF" Ref="R?"  Part="1" 
+AR Path="/5DCAA6D2/5FE510BF" Ref="R4"  Part="1" 
+F 0 "R4" H 5200 1600 50  0000 C CNN
+F 1 "8.06k+1%" H 5200 1700 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 5380 1700 50  0001 C CNN
+F 3 "~" H 5450 1700 50  0001 C CNN
+F 4 "RES SMD 8.06K OHM 1% 1/10W 0402" H 5450 1700 50  0001 C CNN "Description"
+F 5 "Panasonic" H 5450 1700 50  0001 C CNN "Manufacturer"
+F 6 "ERJ-2RKF8061X" H 5450 1700 50  0001 C CNN "Part Number"
+	1    5450 1700
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	5250 1950 5250 2650
+Wire Wire Line
+	5250 1950 5450 1950
+Wire Wire Line
+	5450 1950 5450 2050
+Wire Wire Line
+	5450 1950 5450 1850
+Connection ~ 5450 1950
+$Comp
+L power:GND #PWR016
+U 1 1 5FE88B44
+P 5450 2450
+F 0 "#PWR016" H 5450 2200 50  0001 C CNN
+F 1 "GND" H 5455 2277 50  0000 C CNN
+F 2 "" H 5450 2450 50  0001 C CNN
+F 3 "" H 5450 2450 50  0001 C CNN
+	1    5450 2450
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	5450 2450 5450 2350
+Wire Wire Line
+	5350 1450 5450 1450
+Wire Wire Line
+	5450 1450 5450 1550
+Wire Wire Line
+	3700 2750 3800 2750
+Text Label 4350 2650 0    50   ~ 0
+HALF_TARGET_VBUS_C
 $EndSCHEMATC
