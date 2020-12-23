@@ -25,3 +25,18 @@ jobs:
         pip install tox
 
     - run: tox -e py`echo ${{ matrix.py-ver }} | sed 's#\.##g'`
+
+  fomu:
+    runs-on: ubuntu-latest
+    container: hdlc/impl
+    steps:
+
+    - uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+        apt update -qq
+        apt install -y git python3-pip dfu-util
+        python3 -m pip install --upgrade pip
+        pip3 install -r requirements.txt
+        PYTHONPATH=$(pwd) LUNA_PLATFORM=luna.gateware.platform.fomu:FomuPVT python3 examples/usb/acm_serial.py -o fomu.bit
