@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 9 9
 Title "LUNA: Debug and Control Connections"
-Date "2020-12-22"
+Date "2020-12-23"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -63,6 +63,7 @@ F 3 "~" H 4850 3200 50  0001 C CNN
 F 4 "RES ARRAY 4 RES 33 OHM 0804" H 4850 3200 50  0001 C CNN "Description"
 F 5 "Yageo" H 4850 3200 50  0001 C CNN "Manufacturer"
 F 6 "YC124-JR-0733RL" H 4850 3200 50  0001 C CNN "Part Number"
+F 7 "any equivalent" H 4850 3200 50  0001 C CNN "Substitution"
 	1    4850 3200
 	0    1    1    0   
 $EndComp
@@ -79,6 +80,7 @@ F 3 "~" H 4850 3850 50  0001 C CNN
 F 4 "RES ARRAY 4 RES 33 OHM 0804" H 4850 3850 50  0001 C CNN "Description"
 F 5 "Yageo" H 4850 3850 50  0001 C CNN "Manufacturer"
 F 6 "YC124-JR-0733RL" H 4850 3850 50  0001 C CNN "Part Number"
+F 7 "any equivalent" H 4850 3850 50  0001 C CNN "Substitution"
 	1    4850 3850
 	0    1    1    0   
 $EndComp
@@ -130,6 +132,7 @@ F 3 "" H -1450 6350 50  0001 L CNN
 F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H -1450 6250 50  0001 L CNN "Description"
 F 5 "Lattice" H -1400 7200 50  0001 L CNN "Manufacturer"
 F 6 "LFE5U-12F-6BG256C" H -1400 7100 50  0001 L CNN "Part Number"
+F 7 "LFE5U-12F-*BG256*" H 2200 1950 50  0001 C CNN "Substitution"
 	2    2200 1950
 	1    0    0    -1  
 $EndComp

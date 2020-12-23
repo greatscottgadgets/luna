@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 8 9
 Title "LUNA: Power Supplies"
-Date "2020-12-22"
+Date "2020-12-23"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -24,6 +24,7 @@ F 3 "" H 4700 7750 50  0001 L CNN
 F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H 4700 7650 50  0001 L CNN "Description"
 F 5 "Lattice" H 4750 8600 50  0001 L CNN "Manufacturer"
 F 6 "LFE5U-12F-6BG256C" H 4750 8500 50  0001 L CNN "Part Number"
+F 7 "LFE5U-12F-*BG256*" H 8350 3350 50  0001 C CNN "Substitution"
 	1    8350 3350
 	1    0    0    -1  
 $EndComp
@@ -183,6 +184,7 @@ F 1 "0.1uF" H 1700 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 1738 850 50  0001 C CNN
 F 3 "~" H 1700 1000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 1700 1000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 1700 1000 50  0001 C CNN "Substitution"
 	1    1700 1000
 	1    0    0    -1  
 $EndComp
@@ -195,6 +197,7 @@ F 1 "0.1uF" H 1900 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 1938 850 50  0001 C CNN
 F 3 "~" H 1900 1000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 1900 1000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 1900 1000 50  0001 C CNN "Substitution"
 	1    1900 1000
 	1    0    0    -1  
 $EndComp
@@ -207,6 +210,7 @@ F 1 "0.1uF" H 2100 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2138 850 50  0001 C CNN
 F 3 "~" H 2100 1000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 2100 1000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 2100 1000 50  0001 C CNN "Substitution"
 	1    2100 1000
 	1    0    0    -1  
 $EndComp
@@ -219,6 +223,7 @@ F 1 "0.1uF" H 2300 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2338 850 50  0001 C CNN
 F 3 "~" H 2300 1000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 2300 1000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 2300 1000 50  0001 C CNN "Substitution"
 	1    2300 1000
 	1    0    0    -1  
 $EndComp
@@ -231,6 +236,7 @@ F 1 "0.1uF" H 2500 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2538 850 50  0001 C CNN
 F 3 "~" H 2500 1000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 2500 1000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 2500 1000 50  0001 C CNN "Substitution"
 	1    2500 1000
 	1    0    0    -1  
 $EndComp
@@ -243,6 +249,7 @@ F 1 "0.1uF" H 2700 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2738 850 50  0001 C CNN
 F 3 "~" H 2700 1000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 2700 1000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 2700 1000 50  0001 C CNN "Substitution"
 	1    2700 1000
 	1    0    0    -1  
 $EndComp
@@ -455,6 +462,7 @@ F 1 "0.1uF" H 2700 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2738 1850 50  0001 C CNN
 F 3 "~" H 2700 2000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 2700 2000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 2700 2000 50  0001 C CNN "Substitution"
 	1    2700 2000
 	1    0    0    -1  
 $EndComp
@@ -467,6 +475,7 @@ F 1 "0.1uF" H 2500 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2538 1850 50  0001 C CNN
 F 3 "~" H 2500 2000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 2500 2000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 2500 2000 50  0001 C CNN "Substitution"
 	1    2500 2000
 	1    0    0    -1  
 $EndComp
@@ -479,6 +488,7 @@ F 1 "0.1uF" H 2300 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2338 1850 50  0001 C CNN
 F 3 "~" H 2300 2000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 2300 2000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 2300 2000 50  0001 C CNN "Substitution"
 	1    2300 2000
 	1    0    0    -1  
 $EndComp
@@ -491,6 +501,7 @@ F 1 "0.1uF" H 2100 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 2138 1850 50  0001 C CNN
 F 3 "~" H 2100 2000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 2100 2000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 2100 2000 50  0001 C CNN "Substitution"
 	1    2100 2000
 	1    0    0    -1  
 $EndComp
@@ -503,6 +514,7 @@ F 1 "0.1uF" H 1900 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 1938 1850 50  0001 C CNN
 F 3 "~" H 1900 2000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 1900 2000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 1900 2000 50  0001 C CNN "Substitution"
 	1    1900 2000
 	1    0    0    -1  
 $EndComp
@@ -515,6 +527,7 @@ F 1 "0.1uF" H 1700 1900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 1738 1850 50  0001 C CNN
 F 3 "~" H 1700 2000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 1700 2000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 1700 2000 50  0001 C CNN "Substitution"
 	1    1700 2000
 	1    0    0    -1  
 $EndComp
@@ -550,6 +563,7 @@ F 1 "1uF" H 3600 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 3888 850 50  0001 C CNN
 F 3 "~" H 3850 1000 50  0001 C CNN
 F 4 "GENERIC-CAP-0603-1uF" H 3850 1000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 3850 1000 50  0001 C CNN "Substitution"
 	1    3850 1000
 	1    0    0    -1  
 $EndComp
@@ -562,6 +576,7 @@ F 1 "0.1uF" H 4200 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 4238 850 50  0001 C CNN
 F 3 "~" H 4200 1000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 4200 1000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 4200 1000 50  0001 C CNN "Substitution"
 	1    4200 1000
 	1    0    0    -1  
 $EndComp
@@ -589,6 +604,7 @@ F 1 "0.1uF" H 4400 900 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 4438 850 50  0001 C CNN
 F 3 "~" H 4400 1000 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 4400 1000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 4400 1000 50  0001 C CNN "Substitution"
 	1    4400 1000
 	1    0    0    -1  
 $EndComp
@@ -609,6 +625,7 @@ F 1 "2.2K" V 7200 1400 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 7130 1400 50  0001 C CNN
 F 3 "~" H 7200 1400 50  0001 C CNN
 F 4 "GENERIC-RES-0402-2.2K" H 7200 1400 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 7200 1400 50  0001 C CNN "Substitution"
 	1    7200 1400
 	0    -1   1    0   
 $EndComp
@@ -625,6 +642,7 @@ F 3 "" H 7900 1150 50  0001 C CNN
 F 4 "IC PWR SWITCH P-CHAN 1:1 SOT25" H 7900 1150 50  0001 C CNN "Description"
 F 5 "Diodes Inc." H 7900 1150 50  0001 C CNN "Manufacturer"
 F 6 "AP22811AW5-7" H 7900 1150 50  0001 C CNN "Part Number"
+F 7 "AP22804AW5-7, AP22814AW5-7" H 7900 1150 50  0001 C CNN "Substitution"
 	1    7900 1150
 	1    0    0    -1  
 $EndComp
@@ -657,6 +675,7 @@ F 1 "1uF" H 6065 1055 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 5988 950 50  0001 C CNN
 F 3 "~" H 5950 1100 50  0001 C CNN
 F 4 "GENERIC-CAP-0603-1uF" H 5950 1100 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 5950 1100 50  0001 C CNN "Substitution"
 	1    5950 1100
 	1    0    0    -1  
 $EndComp
@@ -699,6 +718,7 @@ F 1 "0.1uF" H 9150 1450 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 9188 1400 50  0001 C CNN
 F 3 "~" H 9150 1550 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 9150 1550 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 9150 1550 50  0001 C CNN "Substitution"
 	1    9150 1550
 	0    1    -1   0   
 $EndComp
@@ -745,6 +765,7 @@ F 1 "2.2K" V 7250 1950 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 7180 1950 50  0001 C CNN
 F 3 "~" H 7250 1950 50  0001 C CNN
 F 4 "GENERIC-RES-0402-2.2K" H 7250 1950 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 7250 1950 50  0001 C CNN "Substitution"
 	1    7250 1950
 	0    1    1    0   
 $EndComp
@@ -761,6 +782,7 @@ F 3 "" H 7900 1700 50  0001 C CNN
 F 4 "IC PWR SWITCH P-CHAN 1:1 SOT25" H 7900 1700 50  0001 C CNN "Description"
 F 5 "Diodes Inc." H 7900 1700 50  0001 C CNN "Manufacturer"
 F 6 "AP22811AW5-7" H 7900 1700 50  0001 C CNN "Part Number"
+F 7 "AP22804AW5-7, AP22814AW5-7" H 7900 1700 50  0001 C CNN "Substitution"
 	1    7900 1700
 	1    0    0    -1  
 $EndComp
@@ -844,6 +866,7 @@ F 1 "1uF" H 6515 1955 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 6438 1850 50  0001 C CNN
 F 3 "~" H 6400 2000 50  0001 C CNN
 F 4 "GENERIC-CAP-0603-1uF" H 6400 2000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 6400 2000 50  0001 C CNN "Substitution"
 	1    6400 2000
 	1    0    0    -1  
 $EndComp
@@ -873,6 +896,7 @@ F 1 "1uF" H 10015 2055 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 9938 1950 50  0001 C CNN
 F 3 "~" H 9900 2100 50  0001 C CNN
 F 4 "GENERIC-CAP-0603-1uF" H 9900 2100 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 9900 2100 50  0001 C CNN "Substitution"
 	1    9900 2100
 	1    0    0    -1  
 $EndComp
@@ -929,6 +953,7 @@ F 3 "" H 8400 2550 50  0001 C CNN
 F 4 "IC PWR SWITCH P-CHAN 1:1 SOT25" H 8400 2550 50  0001 C CNN "Description"
 F 5 "Diodes Inc." H 8400 2550 50  0001 C CNN "Manufacturer"
 F 6 "AP22811AW5-7" H 8400 2550 50  0001 C CNN "Part Number"
+F 7 "AP22804AW5-7, AP22814AW5-7" H 8400 2550 50  0001 C CNN "Substitution"
 	1    8400 2550
 	-1   0    0    1   
 $EndComp
@@ -964,6 +989,7 @@ F 1 "2.2K" V 9050 2300 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 8980 2300 50  0001 C CNN
 F 3 "~" H 9050 2300 50  0001 C CNN
 F 4 "GENERIC-RES-0402-2.2K" H 9050 2300 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 9050 2300 50  0001 C CNN "Substitution"
 	1    9050 2300
 	0    1    -1   0   
 $EndComp
@@ -1026,6 +1052,7 @@ F 1 "1uF" V 1400 3800 50  0000 C CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 1288 3650 50  0001 C CNN
 F 3 "~" H 1250 3800 50  0001 C CNN
 F 4 "GENERIC-CAP-0603-1uF" H 1250 3800 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 1250 3800 50  0001 C CNN "Substitution"
 	1    1250 3800
 	0    1    -1   0   
 $EndComp
@@ -1095,6 +1122,7 @@ F 0 "TP5" V 6005 6137 50  0000 L CNN
 F 1 "TestPoint" V 6095 6137 50  0000 L CNN
 F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 6250 5950 50  0001 C CNN
 F 3 "~" H 6250 5950 50  0001 C CNN
+F 4 "DNP" H 6050 5950 50  0001 C CNN "Note"
 	1    6050 5950
 	0    1    1    0   
 $EndComp
@@ -1109,6 +1137,7 @@ F 0 "TP4" V 6005 4037 50  0000 L CNN
 F 1 "TestPoint" V 6095 4037 50  0000 L CNN
 F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 6250 3850 50  0001 C CNN
 F 3 "~" H 6250 3850 50  0001 C CNN
+F 4 "DNP" H 6050 3850 50  0001 C CNN "Note"
 	1    6050 3850
 	0    1    1    0   
 $EndComp
@@ -1123,6 +1152,7 @@ F 0 "TP3" V 3005 4037 50  0000 L CNN
 F 1 "TestPoint" V 3095 4037 50  0000 L CNN
 F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 3250 3850 50  0001 C CNN
 F 3 "~" H 3250 3850 50  0001 C CNN
+F 4 "DNP" H 3050 3850 50  0001 C CNN "Note"
 	1    3050 3850
 	0    1    1    0   
 $EndComp
@@ -1202,6 +1232,7 @@ F 1 "1uF" H 6015 4055 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 5938 3950 50  0001 C CNN
 F 3 "~" H 5900 4100 50  0001 C CNN
 F 4 "GENERIC-CAP-0603-1uF" H 5900 4100 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 5900 4100 50  0001 C CNN "Substitution"
 	1    5900 4100
 	1    0    0    -1  
 $EndComp
@@ -1234,6 +1265,7 @@ F 1 "0.1uF" V 4289 3750 50  0000 C CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 4488 3600 50  0001 C CNN
 F 3 "~" H 4450 3750 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 4450 3750 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 4450 3750 50  0001 C CNN "Substitution"
 	1    4450 3750
 	0    1    1    0   
 $EndComp
@@ -1348,6 +1380,7 @@ F 1 "1uF" H 6015 6255 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 5938 6150 50  0001 C CNN
 F 3 "~" H 5900 6300 50  0001 C CNN
 F 4 "GENERIC-CAP-0603-1uF" H 5900 6300 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 5900 6300 50  0001 C CNN "Substitution"
 	1    5900 6300
 	1    0    0    -1  
 $EndComp
@@ -1380,6 +1413,7 @@ F 1 "1uF" V 4289 5950 50  0000 C CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 4488 5800 50  0001 C CNN
 F 3 "~" H 4450 5950 50  0001 C CNN
 F 4 "GENERIC-CAP-0603-1uF" H 4450 5950 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 4450 5950 50  0001 C CNN "Substitution"
 	1    4450 5950
 	0    1    1    0   
 $EndComp
@@ -1460,6 +1494,7 @@ F 1 "10K" V 9050 800 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 8980 800 50  0001 C CNN
 F 3 "~" H 9050 800 50  0001 C CNN
 F 4 "GENERIC-RES-0402-10K" H 9050 800 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 9050 800 50  0001 C CNN "Substitution"
 	1    9050 800 
 	0    1    1    0   
 $EndComp
@@ -1489,6 +1524,7 @@ F 1 "10K" V 9050 600 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 8980 600 50  0001 C CNN
 F 3 "~" H 9050 600 50  0001 C CNN
 F 4 "GENERIC-RES-0402-10K" H 9050 600 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 9050 600 50  0001 C CNN "Substitution"
 	1    9050 600 
 	0    1    1    0   
 $EndComp
@@ -1528,6 +1564,7 @@ F 1 "10K" V 7250 700 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 7180 700 50  0001 C CNN
 F 3 "~" H 7250 700 50  0001 C CNN
 F 4 "GENERIC-RES-0402-10K" H 7250 700 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 7250 700 50  0001 C CNN "Substitution"
 	1    7250 700 
 	0    -1   1    0   
 $EndComp

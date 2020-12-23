@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 9
 Title "LUNA USB Multitool"
-Date "2020-12-22"
+Date "2020-12-23"
 Rev "r0"
 Comp "Copyright 2019-2020 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -157,6 +157,7 @@ F 3 "~" H 2350 5550 50  0001 C CNN
 F 4 "SWITCH TACTILE SPST-NO 0.05A 12V" H 2350 5550 50  0001 C CNN "Description"
 F 5 "XUNPU" H 2350 5550 50  0001 C CNN "Manufacturer"
 F 6 "TS-1002N-09526" H 2350 5550 50  0001 C CNN "Part Number"
+F 7 "Yuandi TS-1093C-A12B3-D1" H 2350 5550 50  0001 C CNN "Substitution"
 	1    2350 5550
 	1    0    0    -1  
 $EndComp
@@ -189,6 +190,7 @@ F 3 "~" H 2350 5900 50  0001 C CNN
 F 4 "SWITCH TACTILE SPST-NO 0.05A 12V" H 2350 5900 50  0001 C CNN "Description"
 F 5 "XUNPU" H 2350 5900 50  0001 C CNN "Manufacturer"
 F 6 "TS-1002N-09526" H 2350 5900 50  0001 C CNN "Part Number"
+F 7 "Yuandi TS-1093C-A12B3-D1" H 2350 5900 50  0001 C CNN "Substitution"
 	1    2350 5900
 	1    0    0    -1  
 $EndComp
@@ -274,6 +276,7 @@ F 0 "TP1" H 2158 2718 50  0000 L CNN
 F 1 "TestPoint" H 2158 2628 50  0000 L CNN
 F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 2300 2600 50  0001 C CNN
 F 3 "~" H 2300 2600 50  0001 C CNN
+F 4 "DNP" H 2100 2600 50  0001 C CNN "Note"
 	1    2100 2600
 	0    1    1    0   
 $EndComp
@@ -320,6 +323,7 @@ F 3 "" H 1150 4300 50  0001 C CNN
 F 4 "CONN RCPT USB2.0 TYPE-C 16POS" H 1000 4300 50  0001 C CNN "Description"
 F 5 "XKB" H 1000 4300 50  0001 C CNN "Manufacturer"
 F 6 "U262-161N-4BVC11" H 1000 4300 50  0001 C CNN "Part Number"
+F 7 "HRO TYPE-C-31-M-12, GCT USB4105-GF-A, Cvilux USA CU3216SASDLR009-NH" H 1000 4300 50  0001 C CNN "Substitution"
 	1    1000 4300
 	1    0    0    -1  
 $EndComp
@@ -365,6 +369,7 @@ F 3 " ~" H 10600 2200 50  0001 C CNN
 F 4 "USB A TYPE RECEPTACLE, SHORT BODY" H 10450 2250 50  0001 C CNN "Description"
 F 5 "Jing Extension of the Electronic Co." H 10450 2250 50  0001 C CNN "Manufacturer"
 F 6 "C42504" H 10450 2250 50  0001 C CNN "Part Number"
+F 7 "Kycon KUSBXHT-SB-AS1N-B30-NF, Würth Elektronik 614104150121, Tensility 54-00015, GCT USB1125-GF-B" H 10450 2250 50  0001 C CNN "Substitution"
 	1    10450 2250
 	-1   0    0    -1  
 $EndComp
@@ -468,6 +473,7 @@ F 3 "" H 7900 5200 50  0001 C CNN
 F 4 "CONN RCPT USB2.0 TYPE-C 16POS" H 7750 5200 50  0001 C CNN "Description"
 F 5 "XKB" H 7750 5200 50  0001 C CNN "Manufacturer"
 F 6 "U262-161N-4BVC11" H 7750 5200 50  0001 C CNN "Part Number"
+F 7 "HRO TYPE-C-31-M-12, GCT USB4105-GF-A, Cvilux USA CU3216SASDLR009-NH" H 7750 5200 50  0001 C CNN "Substitution"
 	1    7750 5200
 	-1   0    0    -1  
 $EndComp
@@ -586,6 +592,7 @@ F 3 "" H 9250 3300 50  0001 C CNN
 F 4 "CONN RCPT USB2.0 TYPE-C 16POS" H 9100 3300 50  0001 C CNN "Description"
 F 5 "XKB" H 9100 3300 50  0001 C CNN "Manufacturer"
 F 6 "U262-161N-4BVC11" H 9100 3300 50  0001 C CNN "Part Number"
+F 7 "HRO TYPE-C-31-M-12, GCT USB4105-GF-A, Cvilux USA CU3216SASDLR009-NH" H 9100 3300 50  0001 C CNN "Substitution"
 	1    9100 3300
 	-1   0    0    -1  
 $EndComp

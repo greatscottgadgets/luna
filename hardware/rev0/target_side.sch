@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 7 9
 Title "LUNA: Downstream / Target / Analysis Section"
-Date "2020-12-22"
+Date "2020-12-23"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -67,6 +67,7 @@ F 3 "~" H 9200 3050 50  0001 C CNN
 F 4 "RES SMD 8.06K OHM 1% 1/10W 0402" H 9200 3050 50  0001 C CNN "Description"
 F 5 "Panasonic" H 9200 3050 50  0001 C CNN "Manufacturer"
 F 6 "ERJ-2RKF8061X" H 9200 3050 50  0001 C CNN "Part Number"
+F 7 "any equivalent" H 9200 3050 50  0001 C CNN "Substitution"
 	1    9200 3050
 	0    1    1    0   
 $EndComp
@@ -172,6 +173,7 @@ F 1 "1uF" H 9865 3805 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 9788 3700 50  0001 C CNN
 F 3 "~" H 9750 3850 50  0001 C CNN
 F 4 "GENERIC-CAP-0603-1uF" H 9750 3850 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 9750 3850 50  0001 C CNN "Substitution"
 	1    9750 3850
 	1    0    0    -1  
 $EndComp
@@ -205,6 +207,7 @@ F 1 "1uF" H 9415 3805 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0603_1608Metric" H 9338 3700 50  0001 C CNN
 F 3 "~" H 9300 3850 50  0001 C CNN
 F 4 "GENERIC-CAP-0603-1uF" H 9300 3850 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 9300 3850 50  0001 C CNN "Substitution"
 	1    9300 3850
 	1    0    0    -1  
 $EndComp
@@ -247,6 +250,7 @@ F 3 "" H -2250 6050 50  0001 L CNN
 F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H -2250 5950 50  0001 L CNN "Description"
 F 5 "Lattice" H -2200 6900 50  0001 L CNN "Manufacturer"
 F 6 "LFE5U-12F-6BG256C" H -2200 6800 50  0001 L CNN "Part Number"
+F 7 "LFE5U-12F-*BG256*" H 1400 1650 50  0001 C CNN "Substitution"
 	4    1400 1650
 	1    0    0    -1  
 $EndComp
@@ -322,6 +326,7 @@ F 1 "0.1uF" H 8165 5355 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 8088 5250 50  0001 C CNN
 F 3 "~" H 8050 5400 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 8050 5400 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 8050 5400 50  0001 C CNN "Substitution"
 	1    8050 5400
 	1    0    0    -1  
 $EndComp
@@ -337,6 +342,7 @@ F 1 "0.1uF" H 8665 5355 50  0000 L CNN
 F 2 "Capacitor_SMD:C_0402_1005Metric" H 8588 5250 50  0001 C CNN
 F 3 "~" H 8550 5400 50  0001 C CNN
 F 4 "GENERIC-CAP-0402-0.1uF" H 8550 5400 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 8550 5400 50  0001 C CNN "Substitution"
 	1    8550 5400
 	1    0    0    -1  
 $EndComp
@@ -416,6 +422,7 @@ F 1 "10K" V 6850 5250 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 6780 5250 50  0001 C CNN
 F 3 "~" H 6850 5250 50  0001 C CNN
 F 4 "GENERIC-RES-0402-10K" H 6850 5250 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 6850 5250 50  0001 C CNN "Substitution"
 	1    6850 5250
 	1    0    0    -1  
 $EndComp
@@ -588,6 +595,7 @@ F 3 "~" H 9250 2500 50  0001 C CNN
 F 4 "RES SMD 20K OHM 5% 1/16W 0402" H 9250 2500 50  0001 C CNN "Description"
 F 5 "Yageo" H 9250 2500 50  0001 C CNN "Manufacturer"
 F 6 "RC0402JR-0720KL" H 9250 2500 50  0001 C CNN "Part Number"
+F 7 "any equivalent" H 9250 2500 50  0001 C CNN "Substitution"
 	1    9250 2500
 	0    1    1    0   
 $EndComp

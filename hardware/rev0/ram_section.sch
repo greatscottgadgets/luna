@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 3 9
 Title "LUNA: RAM Section"
-Date "2020-12-22"
+Date "2020-12-23"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -35,6 +35,7 @@ F 3 "" H -2000 6500 50  0001 L CNN
 F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H -2000 6400 50  0001 L CNN "Description"
 F 5 "Lattice" H -1950 7350 50  0001 L CNN "Manufacturer"
 F 6 "LFE5U-12F-6BG256C" H -1950 7250 50  0001 L CNN "Part Number"
+F 7 "LFE5U-12F-*BG256*" H 1650 2100 50  0001 C CNN "Substitution"
 	3    1650 2100
 	1    0    0    -1  
 $EndComp
@@ -49,6 +50,7 @@ F 3 "" H 5400 3950 50  0001 C CNN
 F 4 "DRAM 64Mb HyperRAM x8, 166MHz, Ind temp, 3.0V" H 5400 4850 50  0001 C CNN "Description"
 F 5 "Winbond" H 5400 4850 50  0001 C CNN "Manufacturer"
 F 6 "W956A8MBYA6I" H 5400 4850 50  0001 C CNN "Part Number"
+F 7 "W956A8MBYA5I" H 5400 4850 50  0001 C CNN "Substitution"
 	1    5400 4850
 	-1   0    0    -1  
 $EndComp

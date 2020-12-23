@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 6 9
 Title "LUNA: Right Side I/O"
-Date "2020-12-22"
+Date "2020-12-23"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -78,6 +78,7 @@ F 1 "5.1K" V 6900 2050 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 6830 2050 50  0001 C CNN
 F 3 "~" H 6900 2050 50  0001 C CNN
 F 4 "GENERIC-RES-0402-5.1K" H 6900 2050 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 6900 2050 50  0001 C CNN "Substitution"
 	1    6900 2050
 	1    0    0    1   
 $EndComp
@@ -96,6 +97,7 @@ F 1 "5.1K" V 6900 3250 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 6830 3250 50  0001 C CNN
 F 3 "~" H 6900 3250 50  0001 C CNN
 F 4 "GENERIC-RES-0402-5.1K" H 6900 3250 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 6900 3250 50  0001 C CNN "Substitution"
 	1    6900 3250
 	1    0    0    1   
 $EndComp
@@ -114,6 +116,7 @@ F 1 "36K" V 6900 1550 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 6830 1550 50  0001 C CNN
 F 3 "~" H 6900 1550 50  0001 C CNN
 F 4 "GENERIC-RES-0402-36K" H 6900 1550 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 6900 1550 50  0001 C CNN "Substitution"
 	1    6900 1550
 	1    0    0    1   
 $EndComp
@@ -136,6 +139,7 @@ F 1 "36K" V 6900 2750 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 6830 2750 50  0001 C CNN
 F 3 "~" H 6900 2750 50  0001 C CNN
 F 4 "GENERIC-RES-0402-36K" H 6900 2750 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 6900 2750 50  0001 C CNN "Substitution"
 	1    6900 2750
 	1    0    0    1   
 $EndComp
@@ -170,6 +174,7 @@ F 3 "" H -1650 6500 50  0001 L CNN
 F 4 "FPGA - Field Programmable Gate Array ECP5; 12k LUTs; 1.1V" H -1650 6400 50  0001 L CNN "Description"
 F 5 "Lattice" H -1600 7350 50  0001 L CNN "Manufacturer"
 F 6 "LFE5U-12F-6BG256C" H -1600 7250 50  0001 L CNN "Part Number"
+F 7 "LFE5U-12F-*BG256*" H 2000 2100 50  0001 C CNN "Substitution"
 	5    2000 2100
 	1    0    0    -1  
 $EndComp
@@ -306,6 +311,7 @@ F 1 "330" V 5150 3900 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 5080 3900 50  0001 C CNN
 F 3 "~" H 5150 3900 50  0001 C CNN
 F 4 "GENERIC-RES-0402-330" H 5150 3900 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 5150 3900 50  0001 C CNN "Substitution"
 	1    5150 3900
 	0    1    1    0   
 $EndComp
@@ -320,6 +326,7 @@ F 1 "330" V 5150 4000 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 5080 4000 50  0001 C CNN
 F 3 "~" H 5150 4000 50  0001 C CNN
 F 4 "GENERIC-RES-0402-330" H 5150 4000 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 5150 4000 50  0001 C CNN "Substitution"
 	1    5150 4000
 	0    1    1    0   
 $EndComp
@@ -334,6 +341,7 @@ F 1 "330" V 5150 4100 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 5080 4100 50  0001 C CNN
 F 3 "~" H 5150 4100 50  0001 C CNN
 F 4 "GENERIC-RES-0402-330" H 5150 4100 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 5150 4100 50  0001 C CNN "Substitution"
 	1    5150 4100
 	0    1    1    0   
 $EndComp
@@ -348,6 +356,7 @@ F 1 "330" V 5150 4200 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 5080 4200 50  0001 C CNN
 F 3 "~" H 5150 4200 50  0001 C CNN
 F 4 "GENERIC-RES-0402-330" H 5150 4200 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 5150 4200 50  0001 C CNN "Substitution"
 	1    5150 4200
 	0    1    1    0   
 $EndComp
@@ -362,6 +371,7 @@ F 1 "330" V 5150 4300 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 5080 4300 50  0001 C CNN
 F 3 "~" H 5150 4300 50  0001 C CNN
 F 4 "GENERIC-RES-0402-330" H 5150 4300 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 5150 4300 50  0001 C CNN "Substitution"
 	1    5150 4300
 	0    1    1    0   
 $EndComp
@@ -376,6 +386,7 @@ F 1 "330" V 5150 4400 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 5080 4400 50  0001 C CNN
 F 3 "~" H 5150 4400 50  0001 C CNN
 F 4 "GENERIC-RES-0402-330" H 5150 4400 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 5150 4400 50  0001 C CNN "Substitution"
 	1    5150 4400
 	0    1    1    0   
 $EndComp
@@ -562,6 +573,7 @@ F 0 "TP6" V 5300 5250 50  0000 L CNN
 F 1 "TestPoint" V 5200 5250 50  0000 L CNN
 F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 5450 5050 50  0001 C CNN
 F 3 "~" H 5450 5050 50  0001 C CNN
+F 4 "DNP" H 5250 5050 50  0001 C CNN "Note"
 	1    5250 5050
 	0    1    -1   0   
 $EndComp
@@ -575,6 +587,7 @@ F 0 "TP9" V 5300 5850 50  0000 L CNN
 F 1 "TestPoint" V 5200 5850 50  0000 L CNN
 F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 5450 5650 50  0001 C CNN
 F 3 "~" H 5450 5650 50  0001 C CNN
+F 4 "DNP" H 5250 5650 50  0001 C CNN "Note"
 	1    5250 5650
 	0    1    -1   0   
 $EndComp
@@ -588,6 +601,7 @@ F 0 "TP7" V 5300 5450 50  0000 L CNN
 F 1 "TestPoint" V 5200 5450 50  0000 L CNN
 F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 5450 5250 50  0001 C CNN
 F 3 "~" H 5450 5250 50  0001 C CNN
+F 4 "DNP" H 5250 5250 50  0001 C CNN "Note"
 	1    5250 5250
 	0    1    -1   0   
 $EndComp
@@ -613,6 +627,7 @@ F 0 "TP8" V 5300 5650 50  0000 L CNN
 F 1 "TestPoint" V 5200 5650 50  0000 L CNN
 F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 5450 5450 50  0001 C CNN
 F 3 "~" H 5450 5450 50  0001 C CNN
+F 4 "DNP" H 5250 5450 50  0001 C CNN "Note"
 	1    5250 5450
 	0    1    -1   0   
 $EndComp
