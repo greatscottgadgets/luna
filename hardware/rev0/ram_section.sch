@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 3 9
 Title "LUNA: RAM Section"
-Date "2020-12-23"
+Date "2020-12-24"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -290,10 +290,6 @@ F 3 "" H 1850 1700 50  0001 C CNN
 	1    1850 1700
 	1    0    0    -1  
 $EndComp
-Wire Bus Line
-	7200 4450 7200 6050
-Wire Bus Line
-	3850 2800 3850 6050
 $Comp
 L power:+3V3 #PWR?
 U 1 1 613C781C
@@ -307,4 +303,8 @@ F 3 "" H 6550 4000 50  0001 C CNN
 	1    6550 4000
 	1    0    0    -1  
 $EndComp
+Wire Bus Line
+	7200 4450 7200 6050
+Wire Bus Line
+	3850 2800 3850 6050
 $EndSCHEMATC

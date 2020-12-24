@@ -4,8 +4,8 @@ EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
 Sheet 9 9
-Title "LUNA: Debug and Control Connections"
-Date "2020-12-23"
+Title "LUNA: Clock and PMOD"
+Date "2020-12-24"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -24,8 +24,6 @@ Wire Wire Line
 Connection ~ 2450 1650
 Wire Wire Line
 	2450 1650 2500 1650
-Text HLabel 3700 4750 2    50   Input ~ 0
-CLKIN_60MHZ
 NoConn ~ 3150 2500
 NoConn ~ 3150 2800
 NoConn ~ 3150 2900
@@ -38,10 +36,10 @@ NoConn ~ 3150 3950
 NoConn ~ 3150 4250
 NoConn ~ 3150 4350
 $Comp
-L power:+3V3 #PWR0105
+L power:+3V3 #PWR?
 U 1 1 5E3ECE52
 P 2450 1500
-F 0 "#PWR0105" H 2450 1350 50  0001 C CNN
+F 0 "#PWR?" H 2450 1350 50  0001 C CNN
 F 1 "+3V3" H 2464 1673 50  0000 C CNN
 F 2 "" H 2450 1500 50  0001 C CNN
 F 3 "" H 2450 1500 50  0001 C CNN
@@ -49,14 +47,14 @@ F 3 "" H 2450 1500 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	3150 4750 3700 4750
+	3150 4750 4550 4750
 $Comp
 L Device:R_Pack04 RN?
 U 1 1 61658D8E
 P 4850 3200
 AR Path="/61658D8E" Ref="RN?"  Part="1" 
 AR Path="/5DF88884/61658D8E" Ref="RN1"  Part="1" 
-F 0 "RN1" V 4433 3200 50  0000 C CNN
+F 0 "RN?" V 4433 3200 50  0000 C CNN
 F 1 "R_Pack04" V 4524 3200 50  0000 C CNN
 F 2 "Resistor_SMD:R_Array_Convex_4x0402" V 5125 3200 50  0001 C CNN
 F 3 "~" H 4850 3200 50  0001 C CNN
@@ -73,7 +71,7 @@ U 1 1 61658D97
 P 4850 3850
 AR Path="/61658D97" Ref="RN?"  Part="1" 
 AR Path="/5DF88884/61658D97" Ref="RN2"  Part="1" 
-F 0 "RN2" V 4433 3850 50  0000 C CNN
+F 0 "RN?" V 4433 3850 50  0000 C CNN
 F 1 "R_Pack04" V 4524 3850 50  0000 C CNN
 F 2 "Resistor_SMD:R_Array_Convex_4x0402" V 5125 3850 50  0001 C CNN
 F 3 "~" H 4850 3850 50  0001 C CNN
@@ -122,10 +120,10 @@ Wire Wire Line
 	5050 3000 5150 3000
 NoConn ~ 3150 4650
 $Comp
-L fpgas_and_processors:ECP5-BGA256 IC1
+L fpgas_and_processors:ECP5-BGA256 IC?
 U 2 1 5DFF5299
 P 2200 1950
-F 0 "IC1" H 2170 508 50  0000 R CNN
+F 0 "IC?" H 2170 508 50  0000 R CNN
 F 1 "ECP5-BGA256" H 2170 418 50  0000 R CNN
 F 2 "luna:lattice_cabga256" H -1000 5400 50  0001 L CNN
 F 3 "" H -1450 6350 50  0001 L CNN
@@ -179,4 +177,80 @@ Wire Wire Line
 	4450 3850 4450 4450
 Wire Wire Line
 	4450 4450 3150 4450
+$Comp
+L support_hardware:DSC60xx Y?
+U 1 1 604A6A9B
+P 3600 5400
+AR Path="/604A6A9B" Ref="Y?"  Part="1" 
+AR Path="/5DF88884/604A6A9B" Ref="Y1"  Part="1" 
+F 0 "Y?" H 3450 5000 50  0000 L CNN
+F 1 "Osc60MHz" H 4000 5450 50  0000 L CNN
+F 2 "Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm" H 3600 5400 50  0001 C CNN
+F 3 "" H 3600 5400 50  0001 C CNN
+F 4 "MEMS OSC XO 60.0000MHZ H/LV-CMOS" H 3600 5400 50  0001 C CNN "Description"
+F 5 "SiTIME" H 3600 5400 50  0001 C CNN "Manufacturer"
+F 6 "SIT1602BC-23-33E-60.000000E" H 3600 5400 50  0001 C CNN "Part Number"
+	1    3600 5400
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3500 5600 3350 5600
+Wire Wire Line
+	3350 5600 3350 5200
+Wire Wire Line
+	3850 5200 3850 5300
+$Comp
+L power:+3V3 #PWR?
+U 1 1 604A6AA4
+P 3850 5200
+AR Path="/604A6AA4" Ref="#PWR?"  Part="1" 
+AR Path="/5DF88884/604A6AA4" Ref="#PWR011"  Part="1" 
+F 0 "#PWR?" H 3850 5050 50  0001 C CNN
+F 1 "+3V3" H 3864 5373 50  0000 C CNN
+F 2 "" H 3850 5200 50  0001 C CNN
+F 3 "" H 3850 5200 50  0001 C CNN
+	1    3850 5200
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 604A6AAA
+P 3850 6050
+AR Path="/604A6AAA" Ref="#PWR?"  Part="1" 
+AR Path="/5DF88884/604A6AAA" Ref="#PWR018"  Part="1" 
+F 0 "#PWR?" H 3850 5800 50  0001 C CNN
+F 1 "GND" H 4000 6000 50  0000 C CNN
+F 2 "" H 3850 6050 50  0001 C CNN
+F 3 "" H 3850 6050 50  0001 C CNN
+	1    3850 6050
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3850 6050 3850 5950
+Wire Wire Line
+	3350 5200 3850 5200
+Connection ~ 3850 5200
+$Comp
+L Connector:TestPoint TP?
+U 1 1 604A6AB4
+P 4650 5600
+AR Path="/604A6AB4" Ref="TP?"  Part="1" 
+AR Path="/5DF88884/604A6AB4" Ref="TP1"  Part="1" 
+F 0 "TP?" H 4708 5718 50  0000 L CNN
+F 1 "TestPoint" H 4708 5628 50  0000 L CNN
+F 2 "TestPoint:TestPoint_Pad_D1.0mm" H 4850 5600 50  0001 C CNN
+F 3 "~" H 4850 5600 50  0001 C CNN
+F 4 "DNP" H 4650 5600 50  0001 C CNN "Note"
+	1    4650 5600
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	4250 5600 4550 5600
+Wire Wire Line
+	4550 4750 4550 5600
+Connection ~ 4550 5600
+Wire Wire Line
+	4550 5600 4650 5600
+Text Label 3600 4750 0    50   ~ 0
+CLKIN_60MHZ
 $EndSCHEMATC

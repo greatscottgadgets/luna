@@ -3,9 +3,9 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 8 9
+Sheet 7 9
 Title "LUNA: Power Supplies"
-Date "2020-12-23"
+Date "2020-12-24"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
