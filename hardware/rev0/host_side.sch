@@ -97,14 +97,14 @@ $EndComp
 Wire Wire Line
 	6800 2100 6950 2100
 Wire Wire Line
-	6800 2500 7500 2500
-Text HLabel 7500 2500 2    50   BiDi ~ 0
+	6800 2500 7600 2500
+Text HLabel 7600 2500 2    50   BiDi ~ 0
 HOST_D+
-Text HLabel 7500 2400 2    50   BiDi ~ 0
+Text HLabel 7600 2400 2    50   BiDi ~ 0
 HOST_D-
 Wire Wire Line
-	6800 2400 7500 2400
-Text HLabel 7500 2300 2    50   Input ~ 0
+	6800 2400 7600 2400
+Text HLabel 7600 2300 2    50   Input ~ 0
 HOST_VBUS
 Connection ~ 7650 3400
 Wire Wire Line
@@ -663,6 +663,24 @@ Text HLabel 3900 2100 2    50   BiDi ~ 0
 USER_IO0
 Text HLabel 3900 2200 2    50   BiDi ~ 0
 USER_IO1
+$Comp
+L power:PWR_FLAG #FLG?
+U 1 1 60975114
+P 7500 2200
+AR Path="/5DA7BAF4/60975114" Ref="#FLG?"  Part="1" 
+AR Path="/5DD754D4/60975114" Ref="#FLG0106"  Part="1" 
+F 0 "#FLG0106" H 7500 2275 50  0001 C CNN
+F 1 "PWR_FLAG" H 7500 2373 50  0000 C CNN
+F 2 "" H 7500 2200 50  0001 C CNN
+F 3 "~" H 7500 2200 50  0001 C CNN
+	1    7500 2200
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	7500 2200 7500 2300
+Connection ~ 7500 2300
+Wire Wire Line
+	7500 2300 7600 2300
 Wire Bus Line
 	4450 1650 4450 5800
 $EndSCHEMATC

@@ -174,16 +174,16 @@ Wire Wire Line
 Wire Wire Line
 	8250 4050 8250 3950
 Connection ~ 8250 3950
-Text HLabel 8100 2850 2    50   Input ~ 0
+Text HLabel 8200 2850 2    50   Input ~ 0
 SIDEBAND_VBUS
 Wire Wire Line
-	7400 2950 8100 2950
-Text HLabel 8100 2950 2    50   BiDi ~ 0
+	7400 2950 8200 2950
+Text HLabel 8200 2950 2    50   BiDi ~ 0
 SIDEBAND_D-
-Text HLabel 8100 3050 2    50   BiDi ~ 0
+Text HLabel 8200 3050 2    50   BiDi ~ 0
 SIDEBAND_D+
 Wire Wire Line
-	7400 3050 8100 3050
+	7400 3050 8200 3050
 Wire Wire Line
 	7400 2650 7550 2650
 $Comp
@@ -652,6 +652,24 @@ Wire Wire Line
 Connection ~ 3750 3550
 Wire Wire Line
 	3750 3550 3850 3550
+$Comp
+L power:PWR_FLAG #FLG?
+U 1 1 60985856
+P 8100 2750
+AR Path="/5DA7BAF4/60985856" Ref="#FLG?"  Part="1" 
+AR Path="/5DCD9772/60985856" Ref="#FLG0105"  Part="1" 
+F 0 "#FLG0105" H 8100 2825 50  0001 C CNN
+F 1 "PWR_FLAG" H 8100 2923 50  0000 C CNN
+F 2 "" H 8100 2750 50  0001 C CNN
+F 3 "~" H 8100 2750 50  0001 C CNN
+	1    8100 2750
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	8100 2750 8100 2850
 Wire Bus Line
 	4850 2350 4850 5250
+Connection ~ 8100 2850
+Wire Wire Line
+	8100 2850 8200 2850
 $EndSCHEMATC
