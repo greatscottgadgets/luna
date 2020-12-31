@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 5 9
 Title "LUNA: Right Side I/O"
-Date "2020-12-24"
+Date "2020-12-28"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
