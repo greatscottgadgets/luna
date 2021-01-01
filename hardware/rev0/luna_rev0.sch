@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 9
 Title "LUNA USB Multitool"
-Date "2020-12-28"
+Date "2020-12-31"
 Rev "r0"
 Comp "Copyright 2019-2020 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -217,7 +217,7 @@ F 2 "luna:USB_A_Kycon_KUSBXHT-SB-AS1N-B30-NF_Horizontal" H 8750 2300 50  0001 C 
 F 3 " ~" H 8750 2300 50  0001 C CNN
 F 4 "USB A TYPE RECEPTACLE, SHORT BODY" H 8600 2350 50  0001 C CNN "Description"
 F 5 "Jing Extension of the Electronic Co." H 8600 2350 50  0001 C CNN "Manufacturer"
-F 6 "C42504" H 8600 2350 50  0001 C CNN "Part Number"
+F 6 "C42411" H 8600 2350 50  0001 C CNN "Part Number"
 F 7 "Kycon KUSBXHT-SB-AS1N-B30-NF, Würth Elektronik 614104150121, Tensility 54-00015, GCT USB1125-GF-B" H 8600 2350 50  0001 C CNN "Substitution"
 	1    8600 2350
 	-1   0    0    -1  

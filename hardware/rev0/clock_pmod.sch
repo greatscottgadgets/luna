@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 9 9
 Title "LUNA: Clock and PMOD"
-Date "2020-12-28"
+Date "2020-12-31"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
