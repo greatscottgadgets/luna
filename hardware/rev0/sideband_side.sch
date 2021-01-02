@@ -623,13 +623,8 @@ Wire Wire Line
 	2700 5650 2700 5550
 Wire Wire Line
 	2700 5550 2500 5550
-Wire Wire Line
-	3850 5250 2500 5250
 Text HLabel 3850 5450 2    50   BiDi ~ 0
 SIDEBAND_SBU2
-Connection ~ 2500 5250
-Wire Wire Line
-	2500 5250 2350 5250
 Text HLabel 3850 4900 2    50   BiDi ~ 0
 SIDEBAND_SBU1
 Wire Wire Line
@@ -667,9 +662,11 @@ F 3 "~" H 8100 2750 50  0001 C CNN
 $EndComp
 Wire Wire Line
 	8100 2750 8100 2850
-Wire Bus Line
-	4850 2350 4850 5250
 Connection ~ 8100 2850
 Wire Wire Line
 	8100 2850 8200 2850
+Wire Wire Line
+	2500 5250 3850 5250
+Wire Bus Line
+	4850 2350 4850 5250
 $EndSCHEMATC
