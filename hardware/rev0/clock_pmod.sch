@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 9 9
 Title "LUNA: Clock and PMOD"
-Date "2020-12-31"
+Date "2021-01-03"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -82,42 +82,26 @@ F 7 "any equivalent" H 4850 3850 50  0001 C CNN "Substitution"
 	1    4850 3850
 	0    1    1    0   
 $EndComp
-Text HLabel 5150 3850 2    50   BiDi ~ 0
-PMOD6
-Text HLabel 5150 3950 2    50   BiDi ~ 0
-PMOD7
-Text HLabel 5150 3000 2    50   BiDi ~ 0
-PMOD0
-Text HLabel 5150 3100 2    50   BiDi ~ 0
-PMOD1
-Text HLabel 5150 3300 2    50   BiDi ~ 0
-PMOD2
-Text HLabel 5150 3750 2    50   BiDi ~ 0
-PMOD3
-Text HLabel 5150 3200 2    50   BiDi ~ 0
-PMOD4
-Text HLabel 5150 3650 2    50   BiDi ~ 0
-PMOD5
 Wire Wire Line
 	4550 3000 4650 3000
 NoConn ~ 3150 3100
 NoConn ~ 3150 2400
 Wire Wire Line
-	5050 3950 5150 3950
+	5050 3950 5800 3950
 Wire Wire Line
-	5050 3850 5150 3850
+	5050 3850 5800 3850
 Wire Wire Line
-	5050 3750 5150 3750
+	5050 3750 5800 3750
 Wire Wire Line
-	5050 3650 5150 3650
+	5050 3650 5800 3650
 Wire Wire Line
-	5050 3300 5150 3300
+	5050 3300 5800 3300
 Wire Wire Line
-	5050 3200 5150 3200
+	5050 3200 5800 3200
 Wire Wire Line
-	5050 3100 5150 3100
+	5050 3100 5800 3100
 Wire Wire Line
-	5050 3000 5150 3000
+	5050 3000 5800 3000
 NoConn ~ 3150 4650
 $Comp
 L fpgas_and_processors:ECP5-BGA256 IC1
@@ -253,4 +237,44 @@ Wire Wire Line
 	4550 5600 4650 5600
 Text Label 3600 4750 0    50   ~ 0
 CLKIN_60MHZ
+Text Label 5250 3000 0    50   ~ 0
+PMOD_A0
+Text Label 5250 3100 0    50   ~ 0
+PMOD_A1
+Text Label 5250 3200 0    50   ~ 0
+PMOD_A4
+Text Label 5250 3300 0    50   ~ 0
+PMOD_A2
+Text Label 5250 3650 0    50   ~ 0
+PMOD_A5
+Text Label 5250 3750 0    50   ~ 0
+PMOD_A3
+Text Label 5250 3850 0    50   ~ 0
+PMOD_A6
+Text Label 5250 3950 0    50   ~ 0
+PMOD_A7
+Wire Bus Line
+	5900 2550 6700 2550
+Text Label 6050 2550 0    50   ~ 0
+PMOD_A[0..7]
+Text HLabel 6700 2550 2    50   BiDi ~ 0
+PMOD_A[0..7]
+Entry Wire Line
+	5800 3000 5900 2900
+Entry Wire Line
+	5800 3100 5900 3000
+Entry Wire Line
+	5800 3200 5900 3100
+Entry Wire Line
+	5800 3300 5900 3200
+Entry Wire Line
+	5800 3650 5900 3550
+Entry Wire Line
+	5800 3750 5900 3650
+Entry Wire Line
+	5800 3850 5900 3750
+Entry Wire Line
+	5800 3950 5900 3850
+Wire Bus Line
+	5900 2550 5900 4050
 $EndSCHEMATC

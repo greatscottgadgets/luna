@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 4 9
 Title "LUNA: Configuration / Dev / Debug Section"
-Date "2020-12-31"
+Date "2021-01-03"
 Rev "r0"
 Comp "Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -610,12 +610,12 @@ SIDEBAND_PHY_1V8
 $Comp
 L power:+2V5 #PWR046
 U 1 1 5DC1FF9A
-P 3800 2550
-F 0 "#PWR046" H 3800 2400 50  0001 C CNN
-F 1 "+2V5" V 3800 2700 50  0000 L CNN
-F 2 "" H 3800 2550 50  0001 C CNN
-F 3 "" H 3800 2550 50  0001 C CNN
-	1    3800 2550
+P 3800 2850
+F 0 "#PWR046" H 3800 2700 50  0001 C CNN
+F 1 "+2V5" V 3800 3000 50  0000 L CNN
+F 2 "" H 3800 2850 50  0001 C CNN
+F 3 "" H 3800 2850 50  0001 C CNN
+	1    3800 2850
 	0    1    1    0   
 $EndComp
 Wire Wire Line
@@ -972,12 +972,12 @@ Text HLabel 6450 5600 0    50   Input ~ 0
 $Comp
 L power:+1V1 #PWR040
 U 1 1 5DC0CC5E
-P 3800 2850
-F 0 "#PWR040" H 3800 2700 50  0001 C CNN
-F 1 "+1V1" V 3815 2978 50  0000 L CNN
-F 2 "" H 3800 2850 50  0001 C CNN
-F 3 "" H 3800 2850 50  0001 C CNN
-	1    3800 2850
+P 3800 2550
+F 0 "#PWR040" H 3800 2400 50  0001 C CNN
+F 1 "+1V1" V 3815 2678 50  0000 L CNN
+F 2 "" H 3800 2550 50  0001 C CNN
+F 3 "" H 3800 2550 50  0001 C CNN
+	1    3800 2550
 	0    1    1    0   
 $EndComp
 $Comp

@@ -1,4 +1,4 @@
-update=Thu 31 Dec 2020 12:40:06 PM
+update=Sat 02 Jan 2021 11:11:42 PM
 last_client=kicad
 [general]
 version=1
@@ -15,7 +15,7 @@ ERC_TestSimilarLabels=1
 [pcbnew]
 version=1
 PageLayoutDescrFile=
-LastNetListRead=luna_rev0.net
+LastNetListRead=
 CopperLayerCount=4
 BoardThickness=1.6
 AllowMicroVias=0
