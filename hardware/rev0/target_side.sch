@@ -5,9 +5,9 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 6 9
 Title "LUNA: Downstream / Target / Analysis Section"
-Date "2021-01-03"
+Date "2021-01-04"
 Rev "r0"
-Comp "Great Scott Gadgets"
+Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
 Comment2 ""
 Comment3 "Licensed under the CERN-OHL-P v2"

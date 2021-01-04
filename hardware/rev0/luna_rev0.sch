@@ -5,9 +5,9 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 9
 Title "LUNA USB Multitool"
-Date "2021-01-03"
+Date "2021-01-04"
 Rev "r0"
-Comp "Copyright 2019-2020 Great Scott Gadgets"
+Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
 Comment2 ""
 Comment3 "Licensed under the CERN-OHL-P v2"
@@ -918,10 +918,6 @@ Wire Wire Line
 	7450 3600 7450 3700
 Wire Wire Line
 	7450 3500 7450 3400
-Wire Bus Line
-	2650 6350 2650 7350
-Wire Bus Line
-	6150 5450 6150 7250
 Wire Wire Line
 	6500 3700 6500 5450
 Wire Wire Line
@@ -948,4 +944,8 @@ F3 "UC_TX_FPGA_RX" I L 7100 5450 50
 F4 "TARGET_CC2" B L 7100 5150 50 
 F5 "TARGET_CC1" B L 7100 5250 50 
 $EndSheet
+Wire Bus Line
+	2650 6350 2650 7350
+Wire Bus Line
+	6150 5450 6150 7250
 $EndSCHEMATC
