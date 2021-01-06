@@ -3,9 +3,9 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 9 9
+Sheet 8 9
 Title "LUNA: Clock and PMOD"
-Date "2021-01-04"
+Date "2021-01-05"
 Rev "r0"
 Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -16,14 +16,9 @@ $EndDescr
 Wire Wire Line
 	2400 1750 2400 1650
 Wire Wire Line
-	2400 1650 2450 1650
-Wire Wire Line
 	2500 1650 2500 1750
 Wire Wire Line
-	2450 1650 2450 1500
-Connection ~ 2450 1650
-Wire Wire Line
-	2450 1650 2500 1650
+	2400 1650 2400 1550
 NoConn ~ 3150 2500
 NoConn ~ 3150 2800
 NoConn ~ 3150 2900
@@ -38,12 +33,12 @@ NoConn ~ 3150 4350
 $Comp
 L power:+3V3 #PWR0105
 U 1 1 5E3ECE52
-P 2450 1500
-F 0 "#PWR0105" H 2450 1350 50  0001 C CNN
-F 1 "+3V3" H 2464 1673 50  0000 C CNN
-F 2 "" H 2450 1500 50  0001 C CNN
-F 3 "" H 2450 1500 50  0001 C CNN
-	1    2450 1500
+P 2400 1550
+F 0 "#PWR0105" H 2400 1400 50  0001 C CNN
+F 1 "+3V3" H 2414 1723 50  0000 C CNN
+F 2 "" H 2400 1550 50  0001 C CNN
+F 3 "" H 2400 1550 50  0001 C CNN
+	1    2400 1550
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
@@ -178,22 +173,22 @@ F 6 "SIT1602BC-23-33E-60.000000E" H 3600 5400 50  0001 C CNN "Part Number"
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	3500 5600 3350 5600
+	3500 5600 3400 5600
 Wire Wire Line
-	3350 5600 3350 5200
+	3400 5600 3400 5200
 Wire Wire Line
 	3850 5200 3850 5300
 $Comp
 L power:+3V3 #PWR?
 U 1 1 604A6AA4
-P 3850 5200
+P 3850 5100
 AR Path="/604A6AA4" Ref="#PWR?"  Part="1" 
 AR Path="/5DF88884/604A6AA4" Ref="#PWR011"  Part="1" 
-F 0 "#PWR011" H 3850 5050 50  0001 C CNN
-F 1 "+3V3" H 3864 5373 50  0000 C CNN
-F 2 "" H 3850 5200 50  0001 C CNN
-F 3 "" H 3850 5200 50  0001 C CNN
-	1    3850 5200
+F 0 "#PWR011" H 3850 4950 50  0001 C CNN
+F 1 "+3V3" H 3864 5273 50  0000 C CNN
+F 2 "" H 3850 5100 50  0001 C CNN
+F 3 "" H 3850 5100 50  0001 C CNN
+	1    3850 5100
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -212,7 +207,7 @@ $EndComp
 Wire Wire Line
 	3850 6050 3850 5950
 Wire Wire Line
-	3350 5200 3850 5200
+	3400 5200 3850 5200
 Connection ~ 3850 5200
 $Comp
 L Connector:TestPoint TP?
@@ -275,6 +270,11 @@ Entry Wire Line
 	5800 3850 5900 3750
 Entry Wire Line
 	5800 3950 5900 3850
+Wire Wire Line
+	3850 5100 3850 5200
+Connection ~ 2400 1650
+Wire Wire Line
+	2400 1650 2500 1650
 Wire Bus Line
 	5900 2550 5900 4050
 $EndSCHEMATC

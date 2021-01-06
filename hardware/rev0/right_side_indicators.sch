@@ -3,9 +3,9 @@ EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
-Sheet 5 9
+Sheet 9 9
 Title "LUNA: Right Side I/O"
-Date "2021-01-04"
+Date "2021-01-05"
 Rev "r0"
 Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -14,25 +14,20 @@ Comment3 "Licensed under the CERN-OHL-P v2"
 Comment4 ""
 $EndDescr
 Wire Wire Line
-	2150 1900 2150 1850
+	2150 1900 2150 1800
 Wire Wire Line
-	2150 1850 2200 1850
+	2250 1800 2250 1900
 Wire Wire Line
-	2250 1850 2250 1900
-Connection ~ 2200 1850
-Wire Wire Line
-	2200 1850 2250 1850
-Wire Wire Line
-	2200 1700 2200 1850
+	2150 1700 2150 1800
 $Comp
 L power:+3V3 #PWR086
 U 1 1 5DF1CB59
-P 2200 1700
-F 0 "#PWR086" H 2200 1550 50  0001 C CNN
-F 1 "+3V3" H 2214 1873 50  0000 C CNN
-F 2 "" H 2200 1700 50  0001 C CNN
-F 3 "" H 2200 1700 50  0001 C CNN
-	1    2200 1700
+P 2150 1700
+F 0 "#PWR086" H 2150 1550 50  0001 C CNN
+F 1 "+3V3" H 2164 1873 50  0000 C CNN
+F 2 "" H 2150 1700 50  0001 C CNN
+F 3 "" H 2150 1700 50  0001 C CNN
+	1    2150 1700
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
@@ -631,6 +626,9 @@ F 4 "DNP" H 5250 5450 50  0001 C CNN "Note"
 	1    5250 5450
 	0    1    -1   0   
 $EndComp
+Connection ~ 2150 1800
+Wire Wire Line
+	2150 1800 2250 1800
 Wire Bus Line
 	5600 1200 5600 3700
 Wire Bus Line
