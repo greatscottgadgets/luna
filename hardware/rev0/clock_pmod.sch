@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 8 9
 Title "LUNA: Clock and PMOD"
-Date "2021-01-05"
+Date "2021-01-08"
 Rev "r0"
 Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -50,7 +50,7 @@ P 4850 3200
 AR Path="/61658D8E" Ref="RN?"  Part="1" 
 AR Path="/5DF88884/61658D8E" Ref="RN1"  Part="1" 
 F 0 "RN1" V 4433 3200 50  0000 C CNN
-F 1 "R_Pack04" V 4524 3200 50  0000 C CNN
+F 1 "33" V 4524 3200 50  0000 C CNN
 F 2 "Resistor_SMD:R_Array_Convex_4x0402" V 5125 3200 50  0001 C CNN
 F 3 "~" H 4850 3200 50  0001 C CNN
 F 4 "RES ARRAY 4 RES 33 OHM 0804" H 4850 3200 50  0001 C CNN "Description"
@@ -67,7 +67,7 @@ P 4850 3850
 AR Path="/61658D97" Ref="RN?"  Part="1" 
 AR Path="/5DF88884/61658D97" Ref="RN2"  Part="1" 
 F 0 "RN2" V 4433 3850 50  0000 C CNN
-F 1 "R_Pack04" V 4524 3850 50  0000 C CNN
+F 1 "33" V 4524 3850 50  0000 C CNN
 F 2 "Resistor_SMD:R_Array_Convex_4x0402" V 5125 3850 50  0001 C CNN
 F 3 "~" H 4850 3850 50  0001 C CNN
 F 4 "RES ARRAY 4 RES 33 OHM 0804" H 4850 3850 50  0001 C CNN "Description"

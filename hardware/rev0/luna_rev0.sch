@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 9
 Title "LUNA USB Multitool"
-Date "2021-01-05"
+Date "2021-01-08"
 Rev "r0"
 Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -730,7 +730,7 @@ PMOD_A6
 $Sheet
 S 1250 7000 1200 450 
 U 5DF88884
-F0 "Clock and PMOD" 50
+F0 "Clock and Pmod" 50
 F1 "clock_pmod.sch" 50
 F2 "PMOD_A[0..7]" B R 2450 7350 50 
 $EndSheet
@@ -950,4 +950,8 @@ Wire Bus Line
 	2650 6350 2650 7350
 Wire Bus Line
 	6150 5450 6150 7250
+Text Label 6000 3800 0    50   ~ 0
+FPGA_TMS
+Text Label 6000 3700 0    50   ~ 0
+FPGA_TDI
 $EndSCHEMATC
