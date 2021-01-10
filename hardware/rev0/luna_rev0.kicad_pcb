@@ -2,7 +2,7 @@
 
   (general
     (thickness 1.6)
-    (drawings 249)
+    (drawings 250)
     (tracks 4294)
     (zones 0)
     (modules 176)
@@ -8023,6 +8023,9 @@
     )
   )
 
+  (gr_text "order of copper layers:\n    Copper 1: F.Cu (front)\n    Copper 2: In1.Cu\n    Copper 3: In2.Cu\n    Copper 4: B.Cu (back)\n\nPCB description: 4 layer PCB 1.6 mm\n    Copper 1: 0.035 mm\n    Dielectric 1-2: 2313 prepreg 0.1 mm\n    Copper 2: 0.0175 mm\n    Dielectric 2-3: 1.265 mm\n    Copper 3: 0.0175 mm\n    Dielectric 3-4: 2313 prepreg 0.1 mm\n    Copper 4: 0.035 mm\n\n2313 prepreg substrate with Er=4.05\nrequired differential microstrip impedance:\n    5 mil trace, 5 mil space: 90 ohm (±10%)\ntwo sided solder mask\ntwo sided silkscreen\ntwo sided assembly\n5 mil minimum trace width\n5 mil minimum isolation\n10 mil minimum drill\n" (at 149 89) (layer F.Fab) (tstamp 5FFC8339)
+    (effects (font (size 1 1) (thickness 0.15)) (justify left))
+  )
   (gr_line (start 132.8 80.9) (end 133 80.7) (layer B.SilkS) (width 0.2032) (tstamp 6005C27E))
   (gr_line (start 132.8 80.5) (end 132.8 80.9) (layer B.SilkS) (width 0.2032))
   (gr_line (start 133 80.7) (end 132.8 80.5) (layer B.SilkS) (width 0.2032))
