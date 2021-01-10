@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 9
 Title "LUNA USB Multitool"
-Date "2021-01-08"
+Date "2021-01-10"
 Rev "r0"
 Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -946,12 +946,12 @@ Wire Wire Line
 	2350 2050 2250 2050
 Wire Wire Line
 	2350 4600 2250 4600
-Wire Bus Line
-	2650 6350 2650 7350
-Wire Bus Line
-	6150 5450 6150 7250
 Text Label 6000 3800 0    50   ~ 0
 FPGA_TMS
 Text Label 6000 3700 0    50   ~ 0
 FPGA_TDI
+Wire Bus Line
+	2650 6350 2650 7350
+Wire Bus Line
+	6150 5450 6150 7250
 $EndSCHEMATC

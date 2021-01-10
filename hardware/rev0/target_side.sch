@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 5 9
 Title "LUNA: Downstream / Target / Analysis Section"
-Date "2021-01-08"
+Date "2021-01-10"
 Rev "r0"
 Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -61,7 +61,7 @@ AR Path="/5DD754D4/5DDE2B06" Ref="R?"  Part="1"
 AR Path="/5DDDB747/5DDE2B06" Ref="R18"  Part="1" 
 AR Path="/60B354AE/5DDE2B06" Ref="R39"  Part="1" 
 F 0 "R18" V 9150 2850 50  0000 C CNN
-F 1 "8.06k+1%" V 9100 3200 50  0000 C CNN
+F 1 "8.06k±1%" V 9100 3200 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 9130 3050 50  0001 C CNN
 F 3 "~" H 9200 3050 50  0001 C CNN
 F 4 "RES SMD 8.06K OHM 1% 1/10W 0402" H 9200 3050 50  0001 C CNN "Description"
