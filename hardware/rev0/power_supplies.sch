@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 6 9
 Title "LUNA: Power Supplies"
-Date "2021-01-10"
+Date "2021-01-12"
 Rev "r0"
 Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"

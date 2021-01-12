@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 9 9
 Title "LUNA: Right Side I/O"
-Date "2021-01-10"
+Date "2021-01-12"
 Rev "r0"
 Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -261,13 +261,11 @@ Wire Wire Line
 	4400 3400 4400 3600
 Wire Wire Line
 	3000 4300 4400 4300
-Text Label 3200 3400 0    50   ~ 0
+Text Label 3200 3800 0    50   ~ 0
 LED3
-Text Label 3200 3700 0    50   ~ 0
-LED4
-Text Label 3200 4200 0    50   ~ 0
-LED5
 Text Label 3200 4300 0    50   ~ 0
+LED4
+Text Label 3200 3700 0    50   ~ 0
 LED1
 Entry Wire Line
 	4600 3900 4500 4000
@@ -489,17 +487,15 @@ F 6 "LED SMD 0603 ORANGE" H 5650 4000 50  0001 C CNN "Description"
 	1    5650 4000
 	1    0    0    -1  
 $EndComp
-Text Label 4800 3900 0    50   ~ 0
-LED0
-Text Label 4800 4000 0    50   ~ 0
-LED1
-Text Label 4800 4100 0    50   ~ 0
-LED2
-Text Label 4800 4200 0    50   ~ 0
-LED3
 Text Label 4800 4300 0    50   ~ 0
+LED1
+Text Label 4800 4200 0    50   ~ 0
+LED2
+Text Label 4800 4100 0    50   ~ 0
+LED3
+Text Label 4800 4000 0    50   ~ 0
 LED4
-Text Label 4800 4400 0    50   ~ 0
+Text Label 4800 3900 0    50   ~ 0
 LED5
 Text Label 4550 5450 0    50   ~ 0
 DEBUG_SPI_CS
@@ -575,9 +571,7 @@ Wire Wire Line
 	5250 5650 3900 5650
 Wire Wire Line
 	3900 5650 3900 5500
-Text Label 3200 4400 0    50   ~ 0
-LED0
-Text Label 3200 3800 0    50   ~ 0
+Text Label 3200 3400 0    50   ~ 0
 LED2
 $Comp
 L Connector:TestPoint TP?
@@ -630,10 +624,6 @@ F 5 "any equivalent" H 5150 4300 50  0001 C CNN "Substitution"
 	1    5150 4300
 	0    1    1    0   
 $EndComp
-Wire Bus Line
-	5600 1200 5600 3700
-Wire Bus Line
-	4500 3600 4500 4600
 $Comp
 L Device:R R?
 U 1 1 5FFD756F
@@ -649,4 +639,14 @@ F 5 "any equivalent" H 5150 4400 50  0001 C CNN "Substitution"
 	1    5150 4400
 	0    1    1    0   
 $EndComp
+Wire Bus Line
+	5600 1200 5600 3700
+Wire Bus Line
+	4500 3600 4500 4600
+Text Label 3200 4400 0    50   ~ 0
+LED5
+Text Label 3200 4200 0    50   ~ 0
+LED0
+Text Label 4800 4400 0    50   ~ 0
+LED0
 $EndSCHEMATC
