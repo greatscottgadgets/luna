@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 1 9
 Title "LUNA USB Multitool"
-Date "2021-01-12"
+Date "2021-01-19"
 Rev "r0"
 Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -298,8 +298,8 @@ F8 "VBUS_5V_TO_A_FAULT" I R 5850 950 50
 F9 "TARGET_VBUS_C" I R 5850 1750 50 
 F10 "VBUS_A_TO_C_FAULT" I R 5850 1550 50 
 F11 "VBUS_5V_TO_A_EN" O R 5850 850 50 
-F12 "VBUS_A_TO_C_EN" O R 5850 1150 50 
-F13 "VBUS_C_TO_A_EN" O R 5850 1450 50 
+F12 "VBUS_A_TO_C_EN" O R 5850 1450 50 
+F13 "VBUS_C_TO_A_EN" O R 5850 1150 50 
 $EndSheet
 $Sheet
 S 7550 750  1100 1200
