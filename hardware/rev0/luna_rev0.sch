@@ -189,7 +189,7 @@ F 3 " ~" H 9200 2300 50  0001 C CNN
 F 4 "USB A TYPE RECEPTACLE, SHORT BODY" H 9050 2350 50  0001 C CNN "Description"
 F 5 "Jing Extension of the Electronic Co." H 9050 2350 50  0001 C CNN "Manufacturer"
 F 6 "C42411" H 9050 2350 50  0001 C CNN "Part Number"
-F 7 "Kycon KUSBXHT-SB-AS1N-B30-NF, Würth Elektronik 614104150121, Tensility 54-00015, GCT USB1125-GF-B" H 9050 2350 50  0001 C CNN "Substitution"
+F 7 "Kycon KUSBXHT-SB-AS1N-B30-NF, Tensility 54-00015, GCT USB1125-GF-B" H 9050 2350 50  0001 C CNN "Substitution"
 	1    9050 2350
 	-1   0    0    -1  
 $EndComp

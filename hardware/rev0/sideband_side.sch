@@ -985,10 +985,6 @@ Wire Wire Line
 Connection ~ 6350 2350
 Wire Wire Line
 	6350 2350 6000 2350
-Wire Bus Line
-	7550 650  7550 2450
-Wire Bus Line
-	6050 3300 6050 6600
 $Comp
 L Device:C C19
 U 1 1 600A7C1B
@@ -1003,4 +999,8 @@ F 6 "DNP" H 5750 2550 50  0000 C CNN "Note"
 	1    5550 2700
 	0    -1   -1   0   
 $EndComp
+Wire Bus Line
+	7550 650  7550 2450
+Wire Bus Line
+	6050 3300 6050 6600
 $EndSCHEMATC

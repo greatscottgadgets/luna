@@ -639,14 +639,14 @@ F 5 "any equivalent" H 5150 4400 50  0001 C CNN "Substitution"
 	1    5150 4400
 	0    1    1    0   
 $EndComp
-Wire Bus Line
-	5600 1200 5600 3700
-Wire Bus Line
-	4500 3600 4500 4600
 Text Label 3200 4400 0    50   ~ 0
 LED5
 Text Label 3200 4200 0    50   ~ 0
 LED0
 Text Label 4800 4400 0    50   ~ 0
 LED0
+Wire Bus Line
+	5600 1200 5600 3700
+Wire Bus Line
+	4500 3600 4500 4600
 $EndSCHEMATC
