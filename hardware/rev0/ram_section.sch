@@ -291,10 +291,6 @@ Wire Wire Line
 Connection ~ 6100 4150
 Wire Wire Line
 	6000 4850 6650 4850
-Wire Bus Line
-	6750 4450 6750 6050
-Wire Bus Line
-	3850 2800 3850 6050
 Wire Wire Line
 	6000 4950 6650 4950
 Text Label 2900 5450 0    50   ~ 0
@@ -303,4 +299,8 @@ Text Label 6150 4950 0    50   ~ 0
 ~RAM_CLK
 Text Label 6150 4850 0    50   ~ 0
 RAM_CLK
+Wire Bus Line
+	6750 4450 6750 6050
+Wire Bus Line
+	3850 2800 3850 6050
 $EndSCHEMATC

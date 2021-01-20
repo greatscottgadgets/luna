@@ -803,7 +803,7 @@ Wire Wire Line
 	7700 900  7400 900 
 Text HLabel 7400 900  0    50   Output ~ 0
 VBUS_C_TO_A_FAULT
-Text HLabel 7400 1000 0    50   Input ~ 0
+Text HLabel 8900 1000 2    50   Input ~ 0
 VBUS_A_TO_C_EN
 Text HLabel 7400 1100 0    50   Input ~ 0
 VBUS_5V_TO_A_EN
@@ -1197,7 +1197,7 @@ Wire Wire Line
 	8700 1950 8700 1100
 Text HLabel 8900 1100 2    50   Output ~ 0
 VBUS_A_TO_C_FAULT
-Text HLabel 8900 1000 2    50   Input ~ 0
+Text HLabel 7400 1000 0    50   Input ~ 0
 VBUS_C_TO_A_EN
 Wire Wire Line
 	8600 1000 8900 1000
