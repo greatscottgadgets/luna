@@ -18,12 +18,7 @@
 #include "boot.h"
 #include "common/nvm.h"
 
-
-// Buttons.
-const static Pin RECOVERY_BUTTON = {.group = 1, .pin = 22, .mux = 0 };
-
-// LEDs.
-const static Pin LED_PIN = {.group = 0, .pin = 18, .mux = 0 };
+#include <board.h>
 
 __attribute__ ((section(".copyright")))
 __attribute__ ((used))
@@ -115,7 +110,7 @@ void bootloader_main(void)
 	clock_init_usb(GCLK_SYSTEM);
 	init_systick();
 	nvm_init();
-	
+
 	__enable_irq();
 
 	pin_mux(PIN_USB_DM);
@@ -164,7 +159,7 @@ bool button_pressed(void)
 	pin_in(RECOVERY_BUTTON);
 	pin_pull_up(RECOVERY_BUTTON);
 
-	
+
 	// Drop into Recovery Mode if the recovery button is presssed.
 	if (pin_read(RECOVERY_BUTTON) == 0) {
 		return true;

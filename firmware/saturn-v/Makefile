@@ -9,6 +9,8 @@
 #
 #
 
+BOARD ?= luna_d21
+
 CROSS=arm-none-eabi-
 
 # Toolchain
@@ -21,14 +23,14 @@ SIZE    = $(CROSS)size
 # Basename of targets
 TARGET_NAME = bootloader
 
-# Hardware configuration. Not so critical. I suspect binary would not change
-# for any value here in the D21 family.
-PART = SAMD21G18A
+# Per-board configuration.
+include boards/$(BOARD)/board.mk
+
 
 # Compiler flags.
 CFLAGS = -Wall --std=gnu99 -Os -g3 \
 			-flto -fdata-sections -ffunction-sections -funsigned-char -funsigned-bitfields \
-			-mcpu=cortex-m0plus -mthumb -D __$(PART)__ -I .
+			-mcpu=cortex-m0plus -mthumb -D __$(PART)__ -I . -Iboards/$(BOARD)
 
 # USB PID/VID and other branding values
 CFLAGS += \
@@ -45,7 +47,7 @@ INC_PATHS = \
 			sam0/cmsis \
 			sam0/include \
 			sam0/cmsis/samd21/include \
-			sam0/cmsis/samd21/source 
+			sam0/cmsis/samd21/source \
 
 CFLAGS += $(foreach INC,$(addprefix $(PRJ_PATH)/,$(INC_PATHS)),-I$(INC))
 
@@ -114,9 +116,9 @@ clobber: clean
 
 debug:
 	@echo CFLAGS = $(CFLAGS)
-	@echo 
+	@echo
 	@echo C_SRCS = $(C_SRCS)
-	@echo 
+	@echo
 	@echo OBJS = $(OBJS)
 
 tags:
