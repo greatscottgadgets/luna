@@ -46,14 +46,18 @@ class UARTBridgeExample(Elaboratable):
         with m.If(stream.ready):
             m.d.sync += current_letter.eq(current_letter + 1)
 
-
         # Hook everything up.
         m.d.comb += [
             stream.payload  .eq(letters[current_letter]),
             stream.valid    .eq(counter == 0),
 
-            uart.tx.eq(transmitter.tx)
+            uart.tx.o       .eq(transmitter.tx),
         ]
+
+        # If this platform has an output-enable control on its UART, drive it iff
+        # we're actively driving a transmission.
+        if hasattr(uart.tx, 'oe'):
+            m.d.comb += uart.tx.oe.eq(transmitter.driving),
 
 
         # Turn on a single LED, just to show something's running.

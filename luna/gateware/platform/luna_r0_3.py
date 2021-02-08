@@ -92,7 +92,11 @@ class LUNAPlatformRev0D3(LatticeECP5Platform, LUNAPlatform):
         # function but not both simultaneously.
 
         # UART connected to the debug controller; can be routed to a host via CDC-ACM.
-        UARTResource(0, rx="R14", tx="T14", attrs=Attrs(IO_TYPE="LVCMOS33")),
+        Resource("uart", 0,
+            Subsignal("rx",  Pins("R14",  dir="i")),
+            Subsignal("tx",  Pins("T14",  dir="oe"), Attrs(PULLMODE="UP")),
+            Attrs(IO_TYPE="LVCMOS33")
+        ),
 
         # SPI bus connected to test points for simple register exchanges.
         # The FPGA acts as peripheral, not controller.
