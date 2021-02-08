@@ -27,11 +27,6 @@ from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 from luna.gateware.interface.ulpi     import UTMITranslator
 from luna.gateware.usb.analyzer       import USBAnalyzer
 
-# Temporary.
-from luna.apollo                      import ApolloDebugger
-from luna.gateware.interface.uart     import UARTTransmitter
-
-
 USB_SPEED_HIGH       = 0b00
 USB_SPEED_FULL       = 0b01
 USB_SPEED_LOW        = 0b10

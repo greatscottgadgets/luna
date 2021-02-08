@@ -19,7 +19,7 @@ from luna.gateware.interface.ulpi     import ULPIRegisterWindow
 from luna.gateware.interface.flash    import ECP5ConfigurationFlashInterface
 from luna.gateware.interface.psram    import HyperRAMInterface
 
-from luna.apollo.support.selftest     import ApolloSelfTestCase, named_test
+from apollo.support.selftest          import ApolloSelfTestCase, named_test
 
 #
 # Clock frequencies for each of the domains.

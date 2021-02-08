@@ -7,6 +7,7 @@ from setuptools import setup, find_packages
 # Provide our default install requirements.
 install_requirements = [
     'pyusb',
+    'apollo @ git+https://github.com/apollo/apollo.git',
     'nmigen @ git+https://github.com/nmigen/nmigen.git',
     'nmigen_boards @ git+https://github.com/nmigen/nmigen-boards.git',
     'pyvcd',
@@ -44,11 +45,6 @@ setup(
     python_requires="~=3.7",
     install_requires=install_requirements,
     setup_requires=['setuptools', 'setuptools_scm'],
-    entry_points= {
-        'console_scripts': [
-            'luna-dev = luna.commands.luna_dev:main',
-        ],
-    },
 
     extras_require = {
         'console_tests': ["prompt_toolkit"],

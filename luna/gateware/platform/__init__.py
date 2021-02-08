@@ -71,7 +71,7 @@ def _get_platform_from_string(platform):
 def get_appropriate_platform() -> LatticeECP5Platform:
     """ Attempts to return the most appropriate platform for the local configuration. """
 
-    from ... import apollo
+    import apollo
 
     # If we have a LUNA_PLATFORM variable, use it instead of autonegotiating.
     if os.getenv("LUNA_PLATFORM"):

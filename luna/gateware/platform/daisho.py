@@ -376,8 +376,8 @@ class DaishoPlatform(IntelPlatform, LUNAPlatform):
     def toolchain_program(self, products, name):
         """ Programs the relevant Daisho board via its sideband connection. """
 
-        from luna.apollo import ApolloDebugger
-        from luna.apollo.intel import IntelJTAGProgrammer
+        from apollo import ApolloDebugger
+        from apollo.intel import IntelJTAGProgrammer
 
         # If the user has opted to use their own programming cable, use it instead.
         if os.environ.get("PROGRAM_WITH_QUARTUS", False):
