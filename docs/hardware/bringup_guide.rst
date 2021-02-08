@@ -45,15 +45,32 @@ Build/upload Saturn-V
 
 The “recovery mode (RVM)” bootloader for LUNA boards is named
 *Saturn-V*; as it’s the first stage in “getting to LUNA”. The bootloader
-is located in the ``firmware/saturn-v`` folder.
+is located in [in its own repository](https://github.com/greatscottgadgets/saturn-v).
 
-Build the DFU bootloader by invoking ``make``. An example invocation
-might look like:
+You can clone the bootloader using `git`:
 
 .. code:: sh
 
-   $ cd firmware/saturn-v
+   $ git clone https://github.com/greatscottgadgets/saturn-v
+
+
+Build the DFU bootloader by invoking ``make``. An example invocation
+for modern LUNA hardware might look like:
+
+.. code:: sh
+
+   $ cd saturn-v
    $ make
+
+If you're building a board that predates r0.3 hardware, you'll need to specify
+the board you're building for:
+
+
+.. code:: sh
+
+   $ cd saturn-v
+   $ make BOARD=luna_d21
+
 
 The build should yield two useful build products: ``bootloader.elf`` and
 ``bootloader.bin``; your SWD programmer will likely consume one of these
@@ -107,8 +124,16 @@ Build/upload Apollo
 
 The next bringup step is to upload the *Apollo* Debug Controller
 firmware, which will provide an easy way to interface with the board’s
-FPGA and any gateware running on it. The Apollo firmware is located in
-``firmware/apollo``.
+FPGA and any gateware running on it. The Apollo source is located
+[in its own repository](https://github.com/greatscottgadgets/apollo).
+
+You can clone the bootloader using `git`:
+
+.. code:: sh
+
+   $ git clone https://github.com/greatscottgadgets/apollo
+
+
 
 You can build and run the firmware in one step by invoking ``make``. In
 order to ensure your firmware matches the hardware it’s running on,

@@ -46,30 +46,32 @@ From the root of the repository:
 Testing
 -------
 
-The easiest way to test your installation is to run one of the test
+The easiest way to test your installation is to build one of the test
 applets. These applets are just Python scripts that construct and
 program gateware using nMigen; so they can be run like any other script:
 
 .. code:: sh
 
-   # With a LUNA board connected; we can run the full test.
+   # With LUNA hardware connected; we can run the full test, and test both
+   # our installation and the attached hardware.
    python3 applets/interactive-test.py
 
-   # Without a board connected, we can still exercise the toolchain.
+   # Without LUNA hardware connected, we'll only build the applet, to exercise
+   # our toolchain.
    python3 applets/interactive-test.py --dry-run
 
-The ``luna-dev`` utility.
+The ``apollo`` utility.
 -------------------------
 
-The ``luna`` distribution ships with a utility that can be used to
-perform various simple functions useful in development; including simple
-JTAG operations, SVF playback, manipulating the board’s flash, and debug
-comms.
+The ``luna`` distribution depends on ``apollo``, which includes a utility
+that can be used to perform various simple functions useful in development;
+including simple JTAG operations, SVF playback, manipulating the board’s flash,
+and debug comms.
 
 .. code:: sh
 
-   $ luna-dev
-   usage: luna-dev [-h] command: [[argument]] [[value]]
+   $ apollo
+   usage: apollo [-h] command: [[argument]] [[value]]
 
    Utility for LUNA development via an onboard Debug Controller.
 
@@ -87,6 +89,6 @@ comms.
      [argument]  the argument to the given command; often a filename
      [value]     the value to a register write command
 
-To have easy access to the ``luna-dev`` command, you’ll need to ensure
+To have easy access to the ``apollo`` command, you’ll need to ensure
 that your python binary directory is in your ``PATH``. For macOS/Linux,
 this often means adding ``~/.local/bin`` to your ``PATH``.
