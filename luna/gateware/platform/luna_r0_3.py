@@ -109,7 +109,7 @@ class LUNAPlatformRev0D3(LatticeECP5Platform, LUNAPlatform):
         ),
 
         # FPGA-connected LEDs numbered 5-0.
-        *LEDResources(pins="T15 R15 R16 P15 P16 P14", attrs=Attrs(IO_TYPE="LVCMOS33"), invert=True),
+        *LEDResources(pins="P14 P16 P15 R16 R15 T15", attrs=Attrs(IO_TYPE="LVCMOS33"), invert=True),
 
         # USB PHYs
         ULPIResource("sideband_phy", 0,
@@ -154,6 +154,10 @@ class LUNAPlatformRev0D3(LatticeECP5Platform, LUNAPlatform):
         # User I/O connections (SMA connectors).
         Resource("user_io", 0, Pins("C3", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
         Resource("user_io", 1, Pins("D3", dir="io"), Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
+
+        # Convenience references.
+        Resource("user_pmod", 0, Pins("A3 A4 A5 A6 C6 B6 C7 B7", dir="io"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("user_pmod", 1, Pins("M5 N5 M4 N3 L4 L5 K4 K5", dir="io"), Attrs(IO_TYPE="LVCMOS33")),
     ]
 
     connectors = [
