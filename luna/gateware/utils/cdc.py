@@ -39,7 +39,15 @@ def synchronize(m, signal, *, output=None, o_domain='sync', stages=2):
         return FFSynchronizer(signal, output, o_domain=o_domain, stages=stages)
 
     if output is None:
-        output = signal.like(signal)
+        if isinstance(signal, Signal):
+            output = Signal.like(signal)
+        else:
+            output = Record.like(signal)
+
+    # If the object knows how to synchronize itself, let it.
+    if hasattr(signal, '_synchronize_'):
+        signal._synchronize_(m, output, o_domain=o_domain, stages=stages)
+        return output
 
     # Trivial case: if this element doesn't have a layout,
     # we can just synchronize it directly.
