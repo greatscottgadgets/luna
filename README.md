@@ -35,7 +35,6 @@ This project is broken down into several directories:
 * `luna` -- the primary LUNA python toolkit; generates gateware and provides USB functionality
   * `luna/gateware` -- the core gateware components for LUNA; and utilities for stitching them together
 * `examples` -- simple LUNA-related examples; mostly gateware-targeted, currently
-* `firmware` -- firmware for the LUNA debug controller
 * `docs` -- sources for the LUNA Sphinx documentation
 * `contrib` -- contributed/non-core components; such as udev rules
 * `applets` -- pre-made gateware applications that provide useful functionality on their own (e.g., are more than examples)
