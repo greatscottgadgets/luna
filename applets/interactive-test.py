@@ -14,12 +14,18 @@ from nmigen.lib.cdc import FFSynchronizer
 from luna                             import top_level_cli
 from luna.gateware.utils.cdc          import synchronize
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator
+from luna.gateware.interface.jtag     import ECP5DebugSPIBridge
 from luna.gateware.interface.spi      import SPIRegisterInterface
 from luna.gateware.interface.ulpi     import ULPIRegisterWindow
 from luna.gateware.interface.flash    import ECP5ConfigurationFlashInterface
 from luna.gateware.interface.psram    import HyperRAMInterface
 
-from luna.apollo.support.selftest     import ApolloSelfTestCase, named_test
+from apollo.support.selftest          import ApolloSelfTestCase, named_test
+
+
+# Store the IDs for Cypress and Winbond HyperRAMs.
+ALLOWED_HYPERRAM_IDS = (0x0c81, 0x0c86)
+
 
 #
 # Clock frequencies for each of the domains.
@@ -92,7 +98,8 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
         m.submodules.clocking = clocking
 
         # Create a set of registers, and expose them over SPI.
-        board_spi = platform.request("debug_spi")
+        board_spi = m.submodules.spi = ECP5DebugSPIBridge()
+
         spi_registers = SPIRegisterInterface(default_read_value=-1)
         m.submodules.spi_registers = spi_registers
 
@@ -149,17 +156,17 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
         #
 
         # Data direction register.
-        user_io_dir = spi_registers.add_register(REGISTER_USER_IO_DIR, size=4)
+        user_io_dir = spi_registers.add_register(REGISTER_USER_IO_DIR, size=2)
 
         # Pin (input) state register.
-        user_io_in  = Signal(4)
+        user_io_in  = Signal(2)
         spi_registers.add_sfr(REGISTER_USER_IO_IN, read=user_io_in)
 
         # Output value register.
-        user_io_out = spi_registers.add_register(REGISTER_USER_IO_OUT, size=4)
+        user_io_out = spi_registers.add_register(REGISTER_USER_IO_OUT, size=2)
 
         # Grab and connect each of our user-I/O ports our GPIO registers.
-        for i in range(4):
+        for i in range(2):
             pin = platform.request("user_io", i)
             m.d.comb += [
                 pin.oe         .eq(user_io_dir[i]),
@@ -212,35 +219,28 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
         #
         # SPI flash passthrough connections.
         #
-        flash_sdo = Signal()
+        #flash_sdo = Signal()
 
-        spi_flash_bus = platform.request('spi_flash')
-        spi_flash_passthrough = ECP5ConfigurationFlashInterface(bus=spi_flash_bus)
+        #spi_flash_bus = platform.request('spi_flash')
+        #spi_flash_passthrough = ECP5ConfigurationFlashInterface(bus=spi_flash_bus)
 
-        m.submodules += spi_flash_passthrough
-        m.d.comb += [
-            spi_flash_passthrough.sck   .eq(board_spi.sck),
-            spi_flash_passthrough.sdi   .eq(board_spi.sdi),
-            flash_sdo                   .eq(spi_flash_passthrough.sdo),
-        ]
+        #m.submodules += spi_flash_passthrough
+        #m.d.comb += [
+        #    spi_flash_passthrough.sck   .eq(board_spi.sck),
+        #    spi_flash_passthrough.sdi   .eq(board_spi.sdi),
+        #    flash_sdo                   .eq(spi_flash_passthrough.sdo),
+        #]
 
         #
         # Synchronize each of our I/O SPI signals, where necessary.
         #
         spi = synchronize(m, board_spi)
 
-        # Select the passthrough or gateware SPI based on our chip-select values.
-        gateware_sdo = Signal()
-        with m.If(spi_registers.spi.cs):
-            m.d.comb += board_spi.sdo.eq(gateware_sdo)
-        with m.Else():
-            m.d.comb += board_spi.sdo.eq(flash_sdo)
-
         # Connect our register interface to our board SPI.
         m.d.comb += [
             spi_registers.spi.sck .eq(spi.sck),
             spi_registers.spi.sdi .eq(spi.sdi),
-            gateware_sdo          .eq(spi_registers.spi.sdo),
+            board_spi.sdo         .eq(spi_registers.spi.sdo),
             spi_registers.spi.cs  .eq(spi.cs)
         ]
 
@@ -329,6 +329,7 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
 
         # Write the value to it.
         self.dut.spi.register_write(phy_register_base + 1, value)
+        self.dut.spi.register_write(phy_register_base + 1, value)
 
         # Set the address again to perform the read.
         self.dut.spi.register_write(phy_register_base, 0x16)
@@ -359,15 +360,15 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
             self.assertPhyReadBack(register_base, (1 << i))
 
 
-    def assertHyperRAMRegister(self, address: int, expected_value: int):
+    def assertHyperRAMRegister(self, address: int, expected_values: int):
         """ Assertion that fails iff a RAM register doesn't hold the expected value. """
 
         self.dut.spi.register_write(REGISTER_RAM_REG_ADDR, address)
         self.dut.spi.register_write(REGISTER_RAM_REG_ADDR, address)
         actual_value =  self.dut.spi.register_read(REGISTER_RAM_VALUE)
 
-        if actual_value != expected_value:
-            raise AssertionError(f"PHY register {address} was {actual_value}, not expected {expected_value}")
+        if actual_value not in expected_values:
+            raise AssertionError(f"PHY register {address} was {actual_value}, not one of expected {expected_value}")
 
 
     @named_test("Debug module")
@@ -392,7 +393,7 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
 
     @named_test("HyperRAM")
     def test_hyperram(self, dut):
-        self.assertHyperRAMRegister(0, 0x0c81)
+        self.assertHyperRAMRegister(0, ALLOWED_HYPERRAM_IDS)
 
 
 

@@ -1,7 +1,7 @@
 #
 # This file is part of LUNA.
 #
-# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# Copyright (c) 2020-2021 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
@@ -84,21 +84,12 @@ class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
             Subsignal("sdi",  Pins("T8",  dir="o")),
             Subsignal("sdo",  Pins("T7",  dir="i")),
 
-            # In r0.1, the chip select line can either be driven by the FPGA
+            # In r0.2, the chip select line can either be driven by the FPGA
             # or by the Debug Controller. Accordingly, we'll mark the line as
             # bidirectional, and let the user decide.
             Subsignal("cs",   PinsN("N8", dir="io")),
             Attrs(IO_TYPE="LVCMOS33")
         ),
-
-        #
-        # Note: r0.1 has a DFM issue that makes it difficult to solder a BGA with
-        # reliable connections on the intended SCK pin (P12), and lacks a CS pin on the
-        # debug SPI; which seems like a silly omission.
-        #
-        # Accordingly, we're mapping the debug SPI and UART over the same pins, as the
-        # microcontroller can use either.
-        #
 
         # UART connected to the debug controller; can be routed to a host via CDC-ACM.
         UARTResource(0, rx="R14", tx="T14", attrs=Attrs(IO_TYPE="LVCMOS33")),
@@ -173,8 +164,8 @@ class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
     def toolchain_program(self, products, name):
         """ Programs the relevant LUNA board via its sideband connection. """
 
-        from luna.apollo import ApolloDebugger
-        from luna.apollo.ecp5 import ECP5_JTAGProgrammer
+        from apollo import ApolloDebugger
+        from apollo.ecp5 import ECP5_JTAGProgrammer
 
         # Create our connection to the debug module.
         debugger = ApolloDebugger()
@@ -189,8 +180,8 @@ class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
     def toolchain_flash(self, products, name="top"):
         """ Programs the LUNA board's flash via its sideband connection. """
 
-        from luna.apollo import ApolloDebugger
-        from luna.apollo.flash import ensure_flash_gateware_loaded
+        from apollo import ApolloDebugger
+        from apollo.flash import ensure_flash_gateware_loaded
 
         # Create our connection to the debug module.
         debugger = ApolloDebugger()
@@ -207,8 +198,8 @@ class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
     def toolchain_erase(self):
         """ Erases the LUNA board's flash. """
 
-        from luna.apollo import ApolloDebugger
-        from luna.apollo.flash import ensure_flash_gateware_loaded
+        from apollo import ApolloDebugger
+        from apollo.flash import ensure_flash_gateware_loaded
 
         # Create our connection to the debug module.
         debugger = ApolloDebugger()

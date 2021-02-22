@@ -163,8 +163,8 @@ class AmaltheaPlatformRev0D1(LatticeECP5Platform, LUNAPlatform):
     def toolchain_program(self, products, name):
         """ Programs the relevant LUNA board via its sideband connection. """
 
-        from luna.apollo import ApolloDebugger
-        from luna.apollo.ecp5 import ECP5_JTAGProgrammer
+        from apollo import ApolloDebugger
+        from apollo.ecp5 import ECP5_JTAGProgrammer
 
         # Create our connection to the debug module.
         debugger = ApolloDebugger()
@@ -179,8 +179,8 @@ class AmaltheaPlatformRev0D1(LatticeECP5Platform, LUNAPlatform):
     def toolchain_flash(self, products, name="top"):
         """ Programs the LUNA board's flash via its sideband connection. """
 
-        from luna.apollo import ApolloDebugger
-        from luna.apollo.flash import ensure_flash_gateware_loaded
+        from apollo import ApolloDebugger
+        from apollo.flash import ensure_flash_gateware_loaded
 
         # Create our connection to the debug module.
         debugger = ApolloDebugger()
@@ -197,8 +197,8 @@ class AmaltheaPlatformRev0D1(LatticeECP5Platform, LUNAPlatform):
     def toolchain_erase(self):
         """ Erases the LUNA board's flash. """
 
-        from luna.apollo import ApolloDebugger
-        from luna.apollo.flash import ensure_flash_gateware_loaded
+        from apollo import ApolloDebugger
+        from apollo.flash import ensure_flash_gateware_loaded
 
         # Create our connection to the debug module.
         debugger = ApolloDebugger()

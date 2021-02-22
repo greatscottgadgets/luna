@@ -6,14 +6,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import sys
-from nmigen import Signal, Module, Elaboratable, ClockDomain, ClockSignal, Cat
+
+from nmigen                  import *
+from apollo                  import create_ila_frontend
 
 from luna                    import top_level_cli
 from luna.gateware.platform  import NullPin
 from luna.gateware.utils.cdc import synchronize
 from luna.gateware.debug.ila import SyncSerialILA
 
-from luna.apollo             import create_ila_frontend
 
 class ILAExample(Elaboratable):
     """ Gateware module that demonstrates use of the internal ILA. """

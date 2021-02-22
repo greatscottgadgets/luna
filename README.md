@@ -33,8 +33,6 @@ Building this board yourself isn't for the faint of heart -- as it requires plac
 This project is broken down into several directories:
 
 * `luna` -- the primary LUNA python toolkit; generates gateware and provides USB functionality
-  * `luna/apollo`   -- host-python submodule for communicating via the Debug Controller
-  * `luna/commands` -- utilities for working with LUNA boards; including for using the debug controller to load FPGA gateware
   * `luna/gateware` -- the core gateware components for LUNA; and utilities for stitching them together
 * `examples` -- simple LUNA-related examples; mostly gateware-targeted, currently
 * `firmware` -- firmware for the LUNA debug controller
@@ -46,3 +44,11 @@ This project is broken down into several directories:
 
 LUNA's documentation is captured on [Read the Docs](https://luna.readthedocs.io/en/latest/). Raw documentation sources
 are in the `docs` folder.
+
+## Related Projects
+
+LUNA hardware is supported by two firmware projects:
+
+* [Apollo](https://github.com/greatscottgadgets/apollo/), the firmware that runs on LUNA hardware's debug controller,
+  and which is responsible for configuring its FPGA.
+* [Saturn-V](https://github.com/greatscottgadgets/saturn-v/), a DFU bootloader created for LUNA hardware.

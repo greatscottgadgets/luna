@@ -26,6 +26,11 @@ class UARTTransmitter(Elaboratable):
 
     tx: Signal(), output
         The UART output.
+    driving: Signal(), output
+        True iff the UART is in the middle of driving data. In some cases, it's desireable
+        to have the UART drive the line only when it is actively sending; letting a pull
+        resistor handle pulling the line to idle. This line can be used to determine when the
+        line should be driven.
 
     stream: input stream
         The stream carrying the data to be sent.
@@ -50,6 +55,7 @@ class UARTTransmitter(Elaboratable):
         # I/O port
         #
         self.tx              = Signal(reset=1)
+        self.driving         = Signal()
         self.stream          = StreamInterface()
 
         self.idle            = Signal()
@@ -94,8 +100,11 @@ class UARTTransmitter(Elaboratable):
 
             # TRANSMIT: actively shift out start/data/stop
             with m.State("TRANSMIT"):
-                m.d.comb += self.tx       .eq(data_shift[0])
                 m.d.sync += baud_counter  .eq(baud_counter - 1)
+                m.d.comb += [
+                    self.tx       .eq(data_shift[0]),
+                    self.driving  .eq(1)
+                ]
 
                 # If we've finished a bit period...
                 with m.If(baud_counter == 0):
