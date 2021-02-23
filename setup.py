@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 # Provide our default install requirements.
 install_requirements = [
     'pyusb',
-    'apollo @ git+https://github.com/apollo/apollo.git',
+    'apollo @ git+https://github.com/greatscottgadgets/apollo.git',
     'nmigen @ git+https://github.com/nmigen/nmigen.git',
     'nmigen_boards @ git+https://github.com/nmigen/nmigen-boards.git',
     'pyvcd',
