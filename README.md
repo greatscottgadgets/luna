@@ -19,7 +19,7 @@ Some things you'll be able to use LUNA for in the future:
 - **Man-in-the-middle'ing USB communications.** The LUNA toolkit will be able to act
   as a *USB proxy*, transparently modifying USB data as it flows between a host and a device.
 - **USB reverse engineering and security research.** The LUNA toolkit will serve as an ideal
-  backend for tools like [FaceDancer](https://github.com/usb-tools/facedancer); allowing easily
+  backend for tools like [FaceDancer](https://github.com/usb-tools/facedancer); allowing easy
   emulation and rapid prototyping of compliant and non-compliant USB devices.
 
 ## LUNA Hardware
@@ -35,14 +35,14 @@ This project is broken down into several directories:
 * `luna` -- the primary LUNA python toolkit; generates gateware and provides USB functionality
   * `luna/gateware` -- the core gateware components for LUNA; and utilities for stitching them together
 * `examples` -- simple LUNA-related examples; mostly gateware-targeted, currently
-* `docs` -- sources for the LUNA Sphinx documentation.
+* `docs` -- sources for the LUNA Sphinx documentation
 * `contrib` -- contributed/non-core components; such as udev rules
-* `applets` -- pre-made gateware applications that provide useful functionality on their own (e.g. are more than examples)
+* `applets` -- pre-made gateware applications that provide useful functionality on their own (e.g., are more than examples)
 
 ## Project Documentation
 
 LUNA's documentation is captured on [Read the Docs](https://luna.readthedocs.io/en/latest/). Raw documentation sources
-are is in the `docs` folder.
+are in the `docs` folder.
 
 ## Related Projects
 
