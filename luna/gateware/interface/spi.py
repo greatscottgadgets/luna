@@ -666,16 +666,26 @@ class SPIRegisterInterface(Elaboratable):
             connections['elaborate'](m)
 
 
-    def elaborate(self, platform):
-        m = Module()
+    def _connect_interface(self, m):
+        """ Connects up our SPI transciever interface.
+
+        Intended to be overridden, if need be.
+        """
 
         # Connect up our SPI transceiver submodule.
-        m.submodules.interface = self.interface
         m.d.comb += [
             self.interface.spi  .connect(self.spi),
             self.idle           .eq(self.interface.idle),
             self.stalled        .eq(self.interface.stalled)
         ]
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Attach our SPI interface.
+        m.submodules.interface = self.interface
+        self._connect_interface(m)
 
         # Split the command into our "write" and "address" signals.
         m.d.comb += [

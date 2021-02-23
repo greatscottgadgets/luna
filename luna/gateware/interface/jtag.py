@@ -7,9 +7,12 @@
 """ Hardware for communicating over various FPGAs' debug interfaces. """
 
 from nmigen         import *
-from nmigen.lib.cdc import FFSynchronizer
+from nmigen.lib.cdc import FFSynchronizer, PulseSynchronizer
 from nmigen.hdl.ast import ValueCastable
 from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
+
+from ..utils        import falling_edge_detected
+from .spi           import SPIRegisterInterface
 
 class ECP5DebugSPIBridge(Elaboratable, ValueCastable):
     """ Hardware that creates a virtual 'debug SPI' port, exposed over JTAG.
@@ -137,3 +140,228 @@ class ECP5DebugSPIBridge(Elaboratable, ValueCastable):
 
         # ... and connect our output directly through.
         m.d.comb += self.sdo.eq(output.sdo)
+
+
+
+class JTAGCommandInterface(Elaboratable):
+    """ Interface that allow us to receive simple register-style commands over ECP5 JTAGG.
+
+    This module works in an emulation of JTAG, except both instruction and data are shifted
+    in the SHIFT-DR state. To shift an instruction, place the Lattice ER1 instruction into the
+    JTAG IR, and then shift the instruction in as data. To shift data, place the Lattice ER2
+    instruction into the JTAG IR, and then shift data normally.
+
+
+    Attributes
+    ----------
+    command: Signal(command_size), output
+        The command read from the SPI bus.
+    command_ready: Signal(), output
+        Strobes high to indicate a new command is ready.
+
+    word_received: Signal(word_size), output
+        The most recent word received.
+    word_complete: Signal(), output
+        Strobe indicating a new word is present on word_in.
+    word_to_send: Signal(word_size), input
+        The word to be transmitted; latched in on next word_complete and while cs is low
+    """
+
+    def __init__(self, command_size=8, word_size=32, output_domain="sync"):
+        self.command_size   = command_size
+        self.word_size      = word_size
+        self._output_domain = output_domain
+
+        #
+        # I/O port.
+        #
+
+        # Command I/O.
+        self.command        = Signal(self.command_size)
+        self.command_ready  = Signal()
+
+        # Data I/O
+        self.word_received  = Signal(self.word_size)
+        self.word_to_send   = Signal.like(self.word_received)
+        self.word_complete  = Signal()
+
+        # Status
+        self.idle    = Signal()
+        self.stalled = Signal()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        #
+        # Instruction and data registers.
+        #
+        instruction_register         = Signal(self.command_size + 1, reset=(2 ** self.command_size) - 1)
+        data_register                = Signal(self.word_size + 1, reset=(2 ** self.word_size) - 1)
+
+        #
+        # JTAG interface.
+        #
+
+        jtag_clk = Signal()
+        jtag_tdi = Signal()
+
+        jtag_tdo_instruction = Signal()
+        jtag_tdo_data        = Signal()
+        jtag_ce_instruction  = Signal()
+        jtag_ce_data         = Signal()
+        jtag_in_shift_dr     = Signal()
+        jtag_not_in_reset    = Signal()
+        jtag_in_reset        = Signal()
+        jtag_in_update_dr    = Signal()
+        jtag_rti_instruction = Signal()
+
+        # Instantiate our core JTAG interface, and hook it up to our signals.
+        # This essentially grabs a connection to the ECP5's JTAG data chain when the ER1 or ER2
+        # instructions are loaded into its instruction register.
+        m.submodules.jtag =  Instance("JTAGG",
+            o_JTCK    = jtag_clk,
+            o_JTDI    = jtag_tdi,
+            i_JTDO1   = jtag_tdo_instruction,
+            i_JTDO2   = jtag_tdo_data,
+            o_JCE1    = jtag_ce_instruction,
+            o_JCE2    = jtag_ce_data,
+            o_JSHIFT  = jtag_in_shift_dr,
+            o_JRSTN   = jtag_not_in_reset,
+            o_JUPDATE = jtag_in_update_dr,
+            o_JRTI1   = jtag_rti_instruction,
+        )
+        m.d.comb += jtag_in_reset.eq(~jtag_not_in_reset)
+
+        # Create a clock domain clocked from our JTAG clock, for most of our internals.
+        m.domains.jtag = ClockDomain(local=True)
+        m.d.comb += ClockSignal("jtag").eq(jtag_clk)
+
+
+        # Synchronize our data to be transmitted into the JTAG domain.
+        synchronized_word_to_send = Signal.like(self.word_to_send)
+        m.submodules += [
+            FFSynchronizer(self.word_to_send, synchronized_word_to_send, o_domain="jtag")
+        ]
+
+
+        #
+        # Instruction / data register handling.
+        #
+
+        # Always output the end of our scan chains.
+        m.d.comb += [
+            jtag_tdo_instruction  .eq(instruction_register[0]),
+            jtag_tdo_data         .eq(data_register[0]),
+        ]
+
+        # Once we're actively shifting an instruction over JTAG, capture it.
+        shifting_instruction = jtag_ce_instruction & jtag_in_shift_dr
+        with m.If(jtag_in_reset):
+            m.d.jtag += instruction_register.eq(instruction_register.reset)
+        with m.Elif(shifting_instruction):
+            m.d.jtag += instruction_register.eq(Cat(instruction_register[1:], jtag_tdi))
+
+
+        # Once we're actively shifting an instruction over JTAG, capture it.
+        shifting_data = jtag_ce_data & jtag_in_shift_dr
+        with m.If(jtag_in_reset):
+            m.d.jtag += data_register.eq(data_register.reset)
+        with m.Elif(shifting_data):
+            m.d.jtag += data_register.eq(Cat(data_register[1:], jtag_tdi))
+        with m.Elif(jtag_rti_instruction):
+            m.d.jtag += data_register.eq(synchronized_word_to_send)
+
+
+        #
+        # Output domain handling.
+        #
+        synchronized_command               = Signal.like(instruction_register)
+        synchronized_data                  = Signal.like(data_register)
+        synchronized_shifting_instruction  = Signal()
+        synchronized_shifting_data         = Signal()
+
+        # Capture synchronized versions of our instruction and data, and associated signals.
+        m.submodules += [
+            FFSynchronizer(instruction_register, synchronized_command),
+            FFSynchronizer(data_register,        synchronized_data),
+
+            FFSynchronizer(shifting_instruction, synchronized_shifting_instruction),
+            FFSynchronizer(shifting_data, synchronized_shifting_data),
+        ]
+
+        # Create our event strobes.
+        command_ready = Signal()
+        data_ready    = Signal()
+
+        # Create our internal "data/command ready" signals.
+        m.d.sync += [
+           command_ready  .eq(falling_edge_detected(m, synchronized_shifting_instruction)),
+           data_ready     .eq(falling_edge_detected(m, synchronized_shifting_data)),
+        ]
+
+        # Latch our output data when new data is ready.
+        with m.If(command_ready):
+            m.d.sync += self.command.eq(synchronized_command[1:])
+        with m.If(data_ready):
+            m.d.sync += self.word_received.eq(synchronized_data[1:])
+
+        # Create sync-domain versions of our data/command ready signals, which are delayed
+        # one cycle from our internal ones, to coincide with the point at which our data is latched.
+        m.d.sync += [
+            self.command_ready  .eq(command_ready),
+            self.word_complete  .eq(data_ready)
+        ]
+
+        return m
+
+
+
+class JTAGRegisterInterface(SPIRegisterInterface):
+    """ JTAG-carried version of our SPI register interface. """
+
+
+    def __init__(self, address_size=15, register_size=32, default_read_value=0, support_size_autonegotiation=True):
+        """
+        Parameters:
+            address_size       -- the size of an address, in bits; recommended to be one bit
+                                  less than a binary number, as the write command is formed by adding a one-bit
+                                  write flag to the start of every address
+            register_size      -- The size of any given register, in bits.
+            default_read_value -- The read value read from a non-existent or write-only register.
+
+            support_size_autonegotiation --
+                If set, register 0 is used as a size auto-negotiation register. Functionally equivalent to
+                calling .support_size_autonegotiation(); see its documentation for details on autonegotiation.
+        """
+
+        self.address_size  = address_size
+        self.register_size = register_size
+        self.default_read_value  = default_read_value
+
+        #
+        # I/O port
+        #
+        self.idle    = Signal()
+        self.stalled = Signal()
+
+        #
+        # Internal details.
+        #
+
+        # Instantiate an SPI command transciever submodule.
+        self.interface = JTAGCommandInterface(command_size=address_size + 1, word_size=register_size)
+
+        # Create a new, empty dictionary mapping registers to their signals.
+        self.registers = {}
+
+        # Create signals for each of our register control signals.
+        self._is_write = Signal()
+        self._address  = Signal(self.address_size)
+
+        if support_size_autonegotiation:
+            self.support_size_autonegotiation()
+
+
+    def _connect_interface(self, m):
+        pass
