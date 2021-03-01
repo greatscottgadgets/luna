@@ -60,8 +60,8 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
          help="Keeps the local files in the default `build` folder.")
     parser.add_argument('--fpga', metavar='part_number',
          help="Overrides build configuration to build for a given FPGA. Useful if no FPGA is connected during build.")
-    parser.add_argument('--console', '-C', action='store_true',
-         help="Attempts to open a convenience 115200 8N1 UART console to the device immediately after uploading.")
+    parser.add_argument('--console', metavar="port",
+         help="Attempts to open a convenience 115200 8N1 UART console on the specified port immediately after uploading.")
 
     # If we have SoC options, print them to the command line.
     if cli_soc:
@@ -169,7 +169,7 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
             del sys.argv[1:]
 
             # Run miniterm with our default port and baudrate.
-            serial.tools.miniterm.main(default_port="/dev/ttyACM0", default_baudrate=115200)
+            serial.tools.miniterm.main(default_port=args.console, default_baudrate=115200)
 
         # Return the fragment we're working with, for convenience.
         if args.upload or args.flash:

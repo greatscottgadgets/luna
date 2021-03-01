@@ -138,17 +138,17 @@ class LUNAPlatformRev0D3(LatticeECP5Platform, LUNAPlatform):
         Resource("target_a_to_c_fault",  0, Pins("E14", dir="i"), Attrs(IO_TYPE="LVCMOS33")),
         Resource("target_5v_to_a_fault", 0, Pins("B15", dir="i"), Attrs(IO_TYPE="LVCMOS33")),
 
-        # HyperRAM (1V8 domain).
+        # HyperRAM (3V3 domain).
         Resource("ram", 0,
             # Note: our clock uses the pseudo-differential I/O present on the top tiles.
             # This requires a recent version of trellis+nextpnr. If your build complains
-            # that LVCMOS18D is an invalid I/O type, you'll need to upgrade.
-            Subsignal("clk",   DiffPairs("B14", "A15", dir="o"), Attrs(IO_TYPE="LVCMOS18D")),
+            # that LVCMOS33D is an invalid I/O type, you'll need to upgrade.
+            Subsignal("clk",   DiffPairs("B14", "A15", dir="o"), Attrs(IO_TYPE="LVCMOS33D")),
             Subsignal("dq",    Pins("A11 B10 B12 A12 B11 A10 B9 A9", dir="io")),
             Subsignal("rwds",  Pins( "A13", dir="io")),
             Subsignal("cs",    PinsN("A14", dir="o")),
             Subsignal("reset", PinsN("B13", dir="o")),
-            Attrs(IO_TYPE="LVCMOS18", SLEWRATE="FAST")
+            Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")
         ),
 
         # User I/O connections (SMA connectors).

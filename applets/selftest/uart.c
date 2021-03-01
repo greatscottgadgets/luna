@@ -51,3 +51,16 @@ void uart_print_byte(uint8_t value)
 	uart_put_hexit(value >> 4);
 	uart_put_hexit(value & 0x0f);
 }
+
+
+/**
+ * Prints the hex value of a byte to the UART console.
+ */
+void uart_print_word(uint16_t value)
+{
+	uart_puts("0x");
+	uart_put_hexit((value >> 12) & 0x0f);
+	uart_put_hexit((value >>  8) & 0x0f);
+	uart_put_hexit((value >>  4) & 0x0f);
+	uart_put_hexit((value >>  0) & 0x0f);
+}

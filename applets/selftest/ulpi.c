@@ -15,16 +15,19 @@ uint8_t read_ulpi_register(enum ulpi_phy phy, uint8_t address)
 {
 	switch (phy) {
 		case TARGET_PHY:
+			while(target_ulpi_busy_read());
 			target_ulpi_address_write(address);
-			sleep_ms(1);
+			while(target_ulpi_busy_read());
 			return target_ulpi_value_read();
 		case HOST_PHY:
+			while(host_ulpi_busy_read());
 			host_ulpi_address_write(address);
-			sleep_ms(1);
+			while(host_ulpi_busy_read());
 			return host_ulpi_value_read();
 		case SIDEBAND_PHY:
+			while(sideband_ulpi_busy_read());
 			sideband_ulpi_address_write(address);
-			sleep_ms(1);
+			while(sideband_ulpi_busy_read());
 			return sideband_ulpi_value_read();
 	}
 }
@@ -38,22 +41,22 @@ void write_ulpi_register(enum ulpi_phy phy, uint8_t address, uint8_t value)
 {
 	switch (phy) {
 		case TARGET_PHY:
+			while(target_ulpi_busy_read());
 			target_ulpi_address_write(address);
-			sleep_ms(1);
+			while(target_ulpi_busy_read());
 			target_ulpi_value_write(value);
-			sleep_ms(1);
 			break;
 		case HOST_PHY:
+			while(host_ulpi_busy_read());
 			host_ulpi_address_write(address);
-			sleep_ms(1);
+			while(host_ulpi_busy_read());
 			host_ulpi_value_write(value);
-			sleep_ms(1);
 			break;
 		case SIDEBAND_PHY:
+			while(sideband_ulpi_busy_read());
 			sideband_ulpi_address_write(address);
-			sleep_ms(1);
+			while(sideband_ulpi_busy_read());
 			sideband_ulpi_value_write(value);
-			sleep_ms(1);
 			break;
 	}
 }

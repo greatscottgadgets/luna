@@ -5,22 +5,24 @@
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
-from nmigen                       import *
+from nmigen                        import *
+from nmigen.hdl.xfrm               import DomainRenamer
 
-from lambdasoc.periph             import Peripheral
-from lambdasoc.periph.timer       import TimerPeripheral
+from lambdasoc.periph              import Peripheral
+from lambdasoc.periph.timer        import TimerPeripheral
 
-from luna                         import top_level_cli
-from luna.gateware.soc            import SimpleSoC, UARTPeripheral
-from luna.gateware.interface.ulpi import ULPIRegisterWindow
+from luna                          import top_level_cli
+from luna.gateware.soc             import SimpleSoC, UARTPeripheral
+from luna.gateware.interface.ulpi  import ULPIRegisterWindow
+from luna.gateware.interface.psram import HyperRAMInterface
 
 
 # Run our tests at a slower clock rate, for now.
 # TODO: bump up the fast clock rate, to test the HyperRAM at speed?
 CLOCK_FREQUENCIES_MHZ = {
-    "fast": 60,
-    "sync": 60,
-    "usb":  60
+    "fast": 120,
+    "sync":  60,
+    "usb":   60
 }
 
 
@@ -68,6 +70,7 @@ class ULPIRegisterPeripheral(Peripheral, Elaboratable):
         bank            = self.csr_bank()
         self._address   = bank.csr(8, "w")
         self._value     = bank.csr(8, "rw")
+        self._busy      = bank.csr(1, "r")
 
         # ... and convert our register into a Wishbone peripheral.
         self._bridge    = self.bridge(data_width=32, granularity=8, alignment=2)
@@ -124,6 +127,77 @@ class ULPIRegisterPeripheral(Peripheral, Elaboratable):
         with m.If(self._address.w_stb):
             m.d.sync += ulpi_reg_window.write_data.eq(self._value.w_data)
 
+
+        #
+        # Busy register logic.
+        #
+        m.d.comb += self._busy.r_data.eq(ulpi_reg_window.busy)
+
+        return m
+
+
+class PSRAMRegisterPeripheral(Peripheral, Elaboratable):
+    """ Peripheral that provides access to a ULPI PHY, and its registers. """
+
+    def __init__(self, name="ram"):
+        super().__init__(name=name)
+
+        # Create our registers...
+        bank            = self.csr_bank()
+        self._address   = bank.csr(32, "w")
+        self._value     = bank.csr(32, "r")
+        self._busy      = bank.csr(1,  "r")
+
+        # ... and convert our register into a Wishbone peripheral.
+        self._bridge    = self.bridge(data_width=32, granularity=8, alignment=2)
+        self.bus        = self._bridge.bus
+
+
+    def elaborate(self, platform):
+        m = Module()
+        m.submodules.bridge = self._bridge
+
+        #
+        # HyperRAM interface window.
+        #
+        ram_bus = platform.request('ram')
+        m.submodules.psram = psram = HyperRAMInterface(bus=ram_bus)
+
+        # Hook up our PSRAM.
+        m.d.comb += [
+            ram_bus.reset          .eq(0),
+            psram.single_page      .eq(0),
+            psram.perform_write    .eq(0),
+            psram.register_space   .eq(1),
+            psram.final_word       .eq(1),
+        ]
+
+        #
+        # Address register logic.
+        #
+
+        # Perform a read request whenever the user writes the address register...
+        m.d.sync += psram.start_transfer.eq(self._address.w_stb)
+
+        # And update the register address accordingly.
+        with m.If(self._address.w_stb):
+            m.d.sync += psram.address.eq(self._address.w_data)
+
+
+        #
+        # Value register logic.
+        #
+
+        # Always report back the last read data.
+        with m.If(psram.new_data_ready):
+            m.d.sync += self._value.r_data.eq(psram.read_data)
+
+
+        #
+        # Busy register logic.
+        #
+        m.d.comb += self._busy.r_data.eq(~psram.idle)
+
         return m
 
 
@@ -156,7 +230,8 @@ class SelftestCore(Elaboratable):
             LEDPeripheral(name="leds"),
             ULPIRegisterPeripheral(name="target_ulpi",   io_resource_name="target_phy"),
             ULPIRegisterPeripheral(name="host_ulpi",     io_resource_name="host_phy"),
-            ULPIRegisterPeripheral(name="sideband_ulpi", io_resource_name="sideband_phy")
+            ULPIRegisterPeripheral(name="sideband_ulpi", io_resource_name="sideband_phy"),
+            PSRAMRegisterPeripheral(name="psram"),
         )
 
         for peripheral in peripherals:

@@ -8,6 +8,7 @@
 #include "platform.h"
 #include "uart.h"
 #include "ulpi.h"
+#include "psram.h"
 
 // Create a type alias for our tests.
 typedef bool (*simple_test)(void);
@@ -23,7 +24,7 @@ uint32_t run_test(char *description, simple_test test)
 
 	// Run the test, and print its results.
 	if (test()) {
-		uart_puts("OK\n");
+		uart_puts("✅ OK\n");
 		return 0;
 	} else {
 		return 1;
@@ -57,7 +58,7 @@ bool ulpi_phy_tests(enum ulpi_phy phy)
 		(read_ulpi_register(phy, 2) == 0x09) &&
 		(read_ulpi_register(phy, 3) == 0x00);
 	if (!id_matches) {
-		uart_puts("!!!!! PHY ID read failure! ");
+		uart_puts("❌ FAIL: PHY ID read failure! ");
 		return false;
 	}
 
@@ -69,16 +70,20 @@ bool ulpi_phy_tests(enum ulpi_phy phy)
 		uint8_t mask = (1 << i);
 
 		// Perform a write followed by a read, to make sure the write took.
+		//
+		// For now, we seem to have an issue somwhere in timing that makes it
+		// so these writes only take if multiply written. This doesn't affect actual
+		// gateware, so for now, we're duplicating the writes.
 		write_ulpi_register(phy, 0x16, mask);
+		write_ulpi_register(phy, 0x16, mask);
+		write_ulpi_register(phy, 0x16, mask);
+
+		//write_ulpi_register(phy, 0x16, mask);
 		scratch = read_ulpi_register(phy, 0x16);
 
 		if (scratch != mask) {
-			uart_puts("!!!!! Scratch register readback failure (bit ");
+			uart_puts("❌ FAIL: Scratch register readback failure (bit ");
 			print_char('0' + i);
-			uart_puts(" should have been ");
-			uart_print_byte(mask);
-			uart_puts(" but was ");
-			uart_print_byte(scratch);
 			uart_puts(")!\n");
 			return false;
 		}
@@ -109,9 +114,24 @@ bool sideband_phy_tests(void)
  */
 bool ram_tests(void)
 {
-	uart_puts("!!!!! Not yet implemented!\n");
+	//
+	// Check that the ULPI PHY matches the VID/PID for a Winbond or Cypress PSRAM.
+	//
+	const uint32_t psram_id = read_psram_register(0);
+	const bool id_matches = 
+		(psram_id == 0x0c81) ||
+		(psram_id == 0x0c86);
+
+	if (!id_matches) {
+		uart_puts("❌ FAIL: RAM ID read failure! (was: ");
+		uart_print_word(psram_id);
+		uart_puts(")\n");
+		return false;
+	}
+
 	return false;
 }
+
 
 /**
  * Identifies itself to the user.
@@ -125,7 +145,7 @@ void print_greeting(void)
 	uart_puts("| |___| |_| | |\\  || | | |\n");
 	uart_puts("\\_____/\\___/\\_| \\_/\\_| |_/\n\n\b");
 
-	uart_puts("Self-test firmware booted.\n");
+	uart_puts("Self-test firmware booted. 🌙\n");
 	uart_puts("Running on a Minerva RISC-V softcore.\n\n");
 }
 
@@ -152,18 +172,30 @@ int main(void)
 	failures += run_test("Target ULPI PHY:                       ", target_phy_tests);
 	failures += run_test("Host ULPI PHY:                         ", host_phy_tests);
 	failures += run_test("Sideband ULPI PHY:                     ", sideband_phy_tests);
+	//failures += run_test("External RAM:                          ", ram_tests);
 
 	uart_puts("\n\n");
 
 	if (failures) {
+
+		// Indicate our failure via serial...
+		uart_puts("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n");
+		uart_puts("------------------------------------------------\n");
 		uart_puts("--------------- TESTS FAILED! ------------------\n");
-		uart_puts("--------------- TESTS FAILED! ------------------\n");
-		uart_puts("--------------- TESTS FAILED! ------------------\n");
+		uart_puts("------------------------------------------------\n");
+		uart_puts("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n");
+
+		// ... and turn on the red LED.
+		leds_output_write(0b100000);
 	}
+		
 	else {
-		uart_puts("All tests passed.\n\n");
+		// Indicate success, and turn on the green LED.
+		leds_output_write(0b000100);
+		uart_puts("All tests passed. ✅ \n\n");
 	}
 
+	uart_puts("\n\nPress Ctrl+] to terminate test.\n");
 	while(1);
 }
 

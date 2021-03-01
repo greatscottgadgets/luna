@@ -513,7 +513,7 @@ class SimpleSoC(CPUSoC, Elaboratable):
             start, size = self._range_for_peripheral(memory)
 
             if size:
-                emit(f"    {name} : ORIGIN = 0x{start:08x}, LENGTH = {size:08x}")
+                emit(f"    {name} : ORIGIN = 0x{start:08x}, LENGTH = 0x{size:08x}")
 
         emit("}")
         emit("")

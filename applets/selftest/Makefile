@@ -3,6 +3,7 @@
 #
 
 TARGET  = selftest
+PORT   ?= /dev/ttyACM0
 
 CROSS  ?= riscv64-unknown-elf-
 
@@ -10,20 +11,20 @@ CC      = $(CROSS)gcc
 OBJCOPY = $(CROSS)objcopy
 
 CFLAGS  = -march=rv32i -mabi=ilp32 -g -Os -Iinclude -ffreestanding -ffunction-sections -fdata-sections
-LDFLAGS = -Tsoc.ld -T$(TARGET).ld -nostartfiles -ffreestanding -Wl,-M -Wl,--gc-sections
+LDFLAGS = -Tsoc.ld -T$(TARGET).ld -nostartfiles -ffreestanding -Wl,--gc-sections
 
 SOC = $(TARGET)_soc.py
 SOURCES = \
 	start.S \
 	$(TARGET).c \
+	platform.c \
 	uart.c \
 	ulpi.c \
-	platform.c
+	psram.c
 
 
 # By default, build our binary.
-all: $(TARGET).bin
-
+all: $(TARGET).bit
 
 #
 # Generated files.
@@ -46,6 +47,9 @@ $(TARGET).elf: $(SOURCES) soc.ld resources.h
 $(TARGET).bin: $(TARGET).elf
 	$(OBJCOPY) -O binary $< $@
 
+$(TARGET).bit: $(TARGET).bin $(SOC)
+	./$(SOC) --dry-run -o $(TARGET).bit
+
 
 #
 # Virtual/command targets.
@@ -56,12 +60,11 @@ $(TARGET).bin: $(TARGET).elf
 clean:
 	rm -f $(TARGET).elf $(TARGET).bin soc.ld resources.h
 
-# Loads our "Hello world" program onto the FPGA.
+# Loads the self-test program onto our FPGA.
 program: $(TARGET).bin $(SOC)
 	./$(SOC)
 
-
 # Loads our "Hello world" program onto the FPGA.
-console: $(TARGET).bin $(SOC)
-	./$(SOC) --console
-
+run: $(TARGET).bit 
+	apollo configure $(TARGET).bit
+	miniterm.py $(PORT) 115200
