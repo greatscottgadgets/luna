@@ -72,7 +72,7 @@ class SimpleSoC(CPUSoC, Elaboratable):
         #
 
         # Create our CPU.
-        self.cpu = MinervaCPU(with_debug=True)
+        self.cpu = MinervaCPU(with_debug=False)
 
         # Create our interrupt controller.
         self.intc = GenericInterruptController(width=32)

@@ -13,6 +13,7 @@ install_requirements = [
     'pyvcd',
     'usb_protocol @ git+https://github.com/usb-tools/python-usb-protocol.git',
     'libusb1',
+    'pyserial',
 ]
 
 # On ReadTheDocs don't enforce requirements; we'll use requirements.txt
@@ -48,7 +49,6 @@ setup(
 
     extras_require = {
         'console_tests': ["prompt_toolkit"],
-        'serial_examples': ["pyserial~=3.4"]
     },
 
     # Metadata
