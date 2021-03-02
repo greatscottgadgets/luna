@@ -18,7 +18,7 @@ from luna.gateware.interface.jtag     import JTAGRegisterInterface
 from luna.gateware.interface.ulpi     import ULPIRegisterWindow
 from luna.gateware.interface.psram    import HyperRAMInterface
 
-from apollo.support.selftest          import ApolloSelfTestCase, named_test
+from apollo_fpga.support.selftest          import ApolloSelfTestCase, named_test
 
 
 CLOCK_FREQUENCIES = {

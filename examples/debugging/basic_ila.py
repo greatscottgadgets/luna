@@ -8,7 +8,7 @@
 import sys
 
 from nmigen                  import *
-from apollo                  import create_ila_frontend
+from apollo_fpga                  import create_ila_frontend
 
 from luna                    import top_level_cli
 from luna.gateware.platform  import NullPin

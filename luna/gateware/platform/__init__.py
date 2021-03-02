@@ -71,7 +71,7 @@ def _get_platform_from_string(platform):
 def get_appropriate_platform() -> LatticeECP5Platform:
     """ Attempts to return the most appropriate platform for the local configuration. """
 
-    import apollo
+    import apollo_fpga
 
     # If we have a LUNA_PLATFORM variable, use it instead of autonegotiating.
     if os.getenv("LUNA_PLATFORM"):
@@ -79,7 +79,7 @@ def get_appropriate_platform() -> LatticeECP5Platform:
 
     try:
         # Figure out what hardware revision we're going to connect to...
-        debugger = apollo.ApolloDebugger()
+        debugger = apollo_fpga.ApolloDebugger()
         version = debugger.detect_connected_version()
 
         # ... and look up the relevant platform accordingly.
@@ -94,7 +94,7 @@ def get_appropriate_platform() -> LatticeECP5Platform:
 
 
     # If we don't have a connected platform, fall back to the latest platform.
-    except apollo.DebuggerNotFound:
+    except apollo_fpga.DebuggerNotFound:
         platform = LATEST_PLATFORM()
 
         logging.warning(f"Couldn't auto-detect connected platform. Assuming {platform.name}.")

@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "luna"
+version = "0.1.0"
+description = "nMigen framework for FPGA-based USB solutions"
+authors = ["Katherine Temkin <k@ktemkin.com>"]
+license = "BSD"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+pyserial = "^3.5"
+pyusb = "^1.1.1"
+pyvcd = "^0.2.4"
+libusb1 = "^1.9.2"
+apollo-fpga = "^0.0.3"
+nmigen = {git = "https://github.com/nmigen/nmigen.git"}
+nmigen-soc = {git = "https://github.com/nmigen/nmigen-soc.git"}
+nmigen-boards = {git = "https://github.com/nmigen/nmigen-boards.git"}
+usb-protocol = {git = "https://github.com/usb-tools/python-usb-protocol"}
+
+[tool.poetry.dev-dependencies]
+tox = "^3.22.0"
+minerva = {git = "https://github.com/lambdaconcept/minerva.git"}
+nmigen-stdio = {git = "https://github.com/nmigen/nmigen-stdio.git"}
+lambdasoc = {git = "https://github.com/ktemkin/lambdasoc.git"}
+prompt-toolkit = "^3.0.16"
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-scmver=>0.1.1"]
+build-backend = "poetry.core.masonry.api"

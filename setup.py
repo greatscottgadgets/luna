@@ -3,17 +3,19 @@ import sys
 
 from setuptools import setup, find_packages
 
-
 # Provide our default install requirements.
 install_requirements = [
     'pyusb',
-    'apollo @ git+https://github.com/greatscottgadgets/apollo.git',
-    'nmigen @ git+https://github.com/nmigen/nmigen.git',
-    'nmigen_boards @ git+https://github.com/nmigen/nmigen-boards.git',
-    'pyvcd',
-    'usb_protocol @ git+https://github.com/usb-tools/python-usb-protocol.git',
+    'apollo-fpga==0.*,>=0.0.1',
+    'nmigen @ git+https://github.com/nmigen/nmigen.git#egg=nmigen',
+    'nmigen-boards @ git+https://github.com/nmigen/nmigen-boards.git#egg=nmigen-boards',
+    'nmigen-stdio @ git+https://github.com/nmigen/nmigen-stdio.git#egg=nmigen-stdio',
+    'nmigen-soc @ git+https://github.com/nmigen/nmigen-soc.git#egg=nmigen-soc',
+    'pyvcd~=0.1.4',
+    'usb-protocol @git+https://github.com/usb-tools/python-usb-protocol#egg=usb-protocol',
     'libusb1',
     'pyserial',
+
 ]
 
 # On ReadTheDocs don't enforce requirements; we'll use requirements.txt
@@ -46,9 +48,17 @@ setup(
     python_requires="~=3.7",
     install_requires=install_requirements,
     setup_requires=['setuptools', 'setuptools_scm'],
+    dependency_links=[
+    ],
 
     extras_require = {
-        'console_tests': ["prompt_toolkit"],
+        'console_tests': [
+            "prompt_toolkit",
+        ],
+        'soc': [
+            'lambdasoc @ git+https://github.com/ktemkin/lambdasoc.git#egg=lambdasoc',
+            'minerva @ git+https://github.com/lambdaconcept/minerva.git#egg=minerva',
+        ]
     },
 
     # Metadata
