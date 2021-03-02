@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "luna"
-version = "0.1.0"
+version = "0.1.0-dev.0"
 description = "nMigen framework for FPGA-based USB solutions"
 authors = ["Katherine Temkin <k@ktemkin.com>"]
 license = "BSD"
@@ -25,5 +25,5 @@ lambdasoc = {git = "https://github.com/ktemkin/lambdasoc.git"}
 prompt-toolkit = "^3.0.16"
 
 [build-system]
-requires = ["poetry-core>=1.0.0", "poetry-scmver=>0.1.1"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

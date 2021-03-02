@@ -1,6 +1,6 @@
 [[package]]
 name = "apollo-fpga"
-version = "0.0.1"
+version = "0.0.3"
 description = "host tools for Apollo FPGA debug controllers"
 category = "main"
 optional = false
@@ -422,12 +422,12 @@ testing = ["pytest (>=3.5,!=3.7.3)", "pytest-checkdocs (>=1.2.3)", "pytest-flake
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "f80835e5fc2f8ec4bdbcb0477b30c474db6d9f6816edabab206eb7dd69416e1a"
+content-hash = "118899d2830efff5904996e4d0a01ac0c6845101a52980483513cb849fbab22a"
 
 [metadata.files]
 apollo-fpga = [
-    {file = "apollo-fpga-0.0.1.tar.gz", hash = "sha256:29631f7cef3f729b20167efb8042a8c52cadc49bbdb1a20acc08ba823827a009"},
-    {file = "apollo_fpga-0.0.1-py3-none-any.whl", hash = "sha256:08fc82f47ae26b181273f56f0031cf90a47cf03b556519c0ea6c3764312d108b"},
+    {file = "apollo-fpga-0.0.3.tar.gz", hash = "sha256:4d76109d701e1bdd9fb49d4f8933ec9138cce7e8995c8bc3ce9f27f59476573d"},
+    {file = "apollo_fpga-0.0.3-py3-none-any.whl", hash = "sha256:e69e10e130037ce45dbbacb4d7ddad15ea9e3609a800177a7c1b1c9251e7b688"},
 ]
 appdirs = [
     {file = "appdirs-1.4.4-py2.py3-none-any.whl", hash = "sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128"},
