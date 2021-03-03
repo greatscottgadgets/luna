@@ -385,7 +385,7 @@ class SimpleSoC(CPUSoC, Elaboratable):
 
 
 
-    def generate_c_header(self, macro_name="SOC_RESOURCES", file=None):
+    def generate_c_header(self, macro_name="SOC_RESOURCES", file=None, platform_name="Generic Platform"):
         """ Generates a C header file that simplifies access to the platform's resources.
 
         Parameters:
@@ -420,6 +420,15 @@ class SimpleSoC(CPUSoC, Elaboratable):
         emit("#include <stdint.h>\n")
         emit("#include <stdbool.h>")
         emit("")
+
+        emit("//")
+        emit("// Environment Information")
+        emit("//")
+
+        emit("")
+        emit(f"#define PLATFORM_NAME \"{platform_name}\"")
+        emit("")
+
 
         # Emit our constant data for all Minerva CPUs.
         self._emit_minerva_basics(emit)

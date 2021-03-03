@@ -16,15 +16,19 @@
  */
 uint32_t read_psram_register(uint32_t address)
 {
-	uart_puts("waiting to write\n");
-	while(psram_busy_read());
+	// Wait for things to become ready.
+	if(while_with_timeout(psram_busy_read, 100)) {
+		return -1;
+	}
 
-	uart_puts("writing addr\n");
+	// Apply the address we're targeting.
 	psram_address_write(address);
 
-	uart_puts("waiting to read\n");
-	while(psram_busy_read());
+	// Wait for things to be come ready.
+	if(while_with_timeout(psram_busy_read, 100)) {
+		return -1;
+	}
 
-	uart_puts("doing a read\n");
+	// Finally, read the value back.
 	return psram_value_read();
 }

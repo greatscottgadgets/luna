@@ -15,6 +15,12 @@
 void print_char(char c);
 
 /**
+ * Receives a single character from the UART. Blocking.
+ */
+char uart_getchar(void);
+
+
+/**
  * Transmits a string over our UART.
  */
 void uart_puts(char *str);

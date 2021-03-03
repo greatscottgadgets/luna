@@ -161,7 +161,7 @@ class PSRAMRegisterPeripheral(Peripheral, Elaboratable):
         # HyperRAM interface window.
         #
         ram_bus = platform.request('ram')
-        m.submodules.psram = psram = HyperRAMInterface(bus=ram_bus)
+        m.submodules.psram = psram = HyperRAMInterface(bus=ram_bus, clock_skew=platform.ram_timings['clock_skew'])
 
         # Hook up our PSRAM.
         m.d.comb += [
@@ -251,9 +251,11 @@ class SelftestCore(Elaboratable):
         uart_io  = platform.request("uart", 0)
         m.d.comb += [
             uart_io.tx         .eq(self.uart.tx),
-            uart_io.tx.oe      .eq(self.uart.driving & self.uart.enabled),
             self.uart.rx       .eq(uart_io.rx),
         ]
+
+        if hasattr(uart_io.tx, 'oe'):
+            m.d.comb += uart_io.tx.oe.eq(self.uart.driving & self.uart.enabled),
 
         return m
 

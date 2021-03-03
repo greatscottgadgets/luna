@@ -11,23 +11,39 @@
 /**
  * Reads a value from a ULPI PHY register.
  */
-uint8_t read_ulpi_register(enum ulpi_phy phy, uint8_t address)
+int16_t read_ulpi_register(enum ulpi_phy phy, uint8_t address)
 {
 	switch (phy) {
 		case TARGET_PHY:
-			while(target_ulpi_busy_read());
+			if (while_with_timeout(target_ulpi_busy_read, 100)) {
+				return -1;
+			}
 			target_ulpi_address_write(address);
-			while(target_ulpi_busy_read());
+
+			if (while_with_timeout(target_ulpi_busy_read, 100)) {
+				return -1;
+			}
 			return target_ulpi_value_read();
+
 		case HOST_PHY:
-			while(host_ulpi_busy_read());
+			if (while_with_timeout(host_ulpi_busy_read, 100)) {
+				return -1;
+			}
 			host_ulpi_address_write(address);
-			while(host_ulpi_busy_read());
+
+			if (while_with_timeout(host_ulpi_busy_read, 100)) {
+				return -1;
+			}
 			return host_ulpi_value_read();
 		case SIDEBAND_PHY:
-			while(sideband_ulpi_busy_read());
+			if (while_with_timeout(sideband_ulpi_busy_read, 100)) {
+				return -1;
+			}
 			sideband_ulpi_address_write(address);
-			while(sideband_ulpi_busy_read());
+
+			if (while_with_timeout(sideband_ulpi_busy_read, 100)) {
+				return -1;
+			}
 			return sideband_ulpi_value_read();
 	}
 }
@@ -37,26 +53,44 @@ uint8_t read_ulpi_register(enum ulpi_phy phy, uint8_t address)
 /**
  * Writes a value to a ULPI PHY register.
  */
-void write_ulpi_register(enum ulpi_phy phy, uint8_t address, uint8_t value)
+int write_ulpi_register(enum ulpi_phy phy, uint8_t address, uint8_t value)
 {
 	switch (phy) {
 		case TARGET_PHY:
-			while(target_ulpi_busy_read());
+			if (while_with_timeout(target_ulpi_busy_read, 100)) {
+				return -1;
+			}
 			target_ulpi_address_write(address);
-			while(target_ulpi_busy_read());
+
+			if (while_with_timeout(target_ulpi_busy_read, 100)) {
+				return -1;
+			}
 			target_ulpi_value_write(value);
 			break;
+
 		case HOST_PHY:
-			while(host_ulpi_busy_read());
+			if (while_with_timeout(host_ulpi_busy_read, 100)) {
+				return -1;
+			}
 			host_ulpi_address_write(address);
-			while(host_ulpi_busy_read());
+
+			if (while_with_timeout(host_ulpi_busy_read, 100)) {
+				return -1;
+			}
 			host_ulpi_value_write(value);
 			break;
 		case SIDEBAND_PHY:
-			while(sideband_ulpi_busy_read());
+			if (while_with_timeout(sideband_ulpi_busy_read, 100)) {
+				return -1;
+			}
 			sideband_ulpi_address_write(address);
-			while(sideband_ulpi_busy_read());
+
+			if (while_with_timeout(sideband_ulpi_busy_read, 100)) {
+				return -1;
+			}
 			sideband_ulpi_value_write(value);
 			break;
 	}
+
+	return 0;
 }

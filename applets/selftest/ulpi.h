@@ -20,9 +20,9 @@ enum ulpi_phy {
 /**
  * Reads a value from a ULPI PHY register.
  */
-uint8_t read_ulpi_register(enum ulpi_phy phy, uint8_t address);
+int16_t read_ulpi_register(enum ulpi_phy phy, uint8_t address);
 
 /**
  * Writes a value to a ULPI PHY register.
  */
-void write_ulpi_register(enum ulpi_phy phy, uint8_t address, uint8_t value);
+int write_ulpi_register(enum ulpi_phy phy, uint8_t address, uint8_t value);

@@ -34,6 +34,29 @@ void platform_bringup(void)
 	uart_divisor_write(520);
 }
 
+/**
+ * Waits for a given conditional to be False, or for a given timeout to pass.
+ * @returns 1 if the conditional timed out; or 0 otherwise
+ */
+int while_with_timeout(simple_conditional conditional, uint16_t timeout_ms)
+{
+	// Set our timer to count down from the timeout value.
+	timer_ctr_write(60 * 1000 * timeout_ms);
+
+	while (1) {
+
+		// If our conditional has become false, abort with success.
+		if (!conditional()) {
+			return 0;
+		}
+
+
+		// If our timer has run out, abort with failure.
+		if (!timer_ctr_read()) {
+			return 1;
+		}
+	}
+}
 
 void dispatch_isr(void)
 {

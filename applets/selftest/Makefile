@@ -58,7 +58,7 @@ $(TARGET).bit: $(TARGET).bin $(SOC)
 .PHONY: clean program console
 
 clean:
-	rm -f $(TARGET).elf $(TARGET).bin soc.ld resources.h
+	rm -f $(TARGET).elf $(TARGET).bin $(SOC).bit soc.ld resources.h
 
 # Loads the self-test program onto our FPGA.
 program: $(TARGET).bin $(SOC)

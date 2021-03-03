@@ -54,7 +54,7 @@ class LUNAPlatformRev0D3(LatticeECP5Platform, LUNAPlatform):
     # Preferred DRAM bus I/O (de)-skewing constants.
     #
     ram_timings = dict(
-        clock_skew = 64
+        clock_skew = 16
     )
 
     # Provides any platform-specific ULPI registers necessary.

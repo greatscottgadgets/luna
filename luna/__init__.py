@@ -99,7 +99,7 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
 
     # If we've been asked to generate a C header, generate -only- that.
     if cli_soc and args.generate_c_header:
-        cli_soc.generate_c_header()
+        cli_soc.generate_c_header(platform_name=get_appropriate_platform().name)
         sys.exit(0)
 
     # If we've been asked to generate linker region info, generate -only- that.

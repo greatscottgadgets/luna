@@ -11,9 +11,8 @@ import unittest
 from nmigen import Signal, Module, Cat, Elaboratable, Record, ClockDomain, ClockSignal
 from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
 
-from ..utils.cdc  import stretch_strobe_signal
 from ..utils.io   import delay
-from ..test.utils import LunaGatewareTestCase, fast_domain_test_case
+from ..test.utils import LunaGatewareTestCase, sync_test_case
 
 
 class HyperBus(Record):
@@ -41,9 +40,6 @@ class HyperBus(Record):
 class HyperRAMInterface(Elaboratable):
     """ Gateware interface to HyperRAM series self-refreshing DRAM chips.
 
-    Intended to run at twice the frequency of the interfacing hardware -- e.g. to interface with
-    something from LUNA's sync domain, while existing itself in the fast domain.
-
     I/O port:
         B: bus              -- The primary physical connection to the DRAM chip.
         I: reset            -- An active-high signal used to provide a prolonged reset upon configuration.
@@ -53,7 +49,7 @@ class HyperRAMInterface(Elaboratable):
         I: perform_write    -- When set to 1, a transfer request is viewed as a write, rather than a read.
         I: single_page      -- If set, data accesses will wrap around to the start of the current page when done.
         I: start_transfer   -- Strobe that goes high for 1-8 cycles to request a read operation.
-                            [This added duration allows other clock domains to easily perform requests.]
+                               [This added duration allows other clock domains to easily perform requests.]
         I: final_word       -- Flag that indicates the current word is the last word of the transaction.
 
         O: read_data[16]    -- word that holds the 16 bits most recently read from the PSRAM
@@ -66,11 +62,10 @@ class HyperRAMInterface(Elaboratable):
     LOW_LATENCY_EDGES  = 6
     HIGH_LATENCY_EDGES = 14
 
-    def __init__(self, *, bus, strobe_length=2, in_skew=None, out_skew=None, clock_skew=None):
+    def __init__(self, *, bus, in_skew=None, out_skew=None, clock_skew=None):
         """
         Parmeters:
             bus           -- The RAM record that should be connected to this RAM chip.
-            strobe_length -- The number of fast-clock cycles any strobe should be asserted for.
             data_skews    -- If provided, adds an input delay to each line of the data input.
                              Can be provided as a single delay number, or an interable of eight
                              delays to separately delay each of the input lines.
@@ -135,9 +130,9 @@ class HyperRAMInterface(Elaboratable):
             out_clock = self.bus.clk
 
         with m.If(reset_clock):
-            m.d.fast += out_clock.eq(0)
+            m.d.sync += out_clock.eq(0)
         with m.Elif(advance_clock):
-            m.d.fast += out_clock.eq(~out_clock)
+            m.d.sync += out_clock.eq(~out_clock)
 
 
         #
@@ -164,19 +159,10 @@ class HyperRAMInterface(Elaboratable):
         # This is used to detect edges in RWDS during reads, which semantically mean
         # we should accept new data.
         last_rwds = Signal.like(self.bus.rwds.i)
-        m.d.fast += last_rwds.eq(self.bus.rwds.i)
+        m.d.sync += last_rwds.eq(self.bus.rwds.i)
 
-        # Create a fast-domain version of our 'new data ready' signal.
-        new_data_ready = Signal()
-
-        # We need to stretch our internal strobes to two cycles before passing them
-        # into the main clock domain.
-        stretch_strobe_signal(m,
-            strobe=new_data_ready,
-            output=self.new_data_ready,
-            to_cycles=2,
-            domain=m.d.fast
-        )
+        # Create a sync-domain version of our 'new data ready' signal.
+        new_data_ready = self.new_data_ready
 
 
         #
@@ -184,7 +170,7 @@ class HyperRAMInterface(Elaboratable):
         #
 
         # Provide defaults for our control/status signals.
-        m.d.fast += [
+        m.d.sync += [
             advance_clock       .eq(1),
             reset_clock         .eq(0),
             new_data_ready      .eq(0),
@@ -194,19 +180,19 @@ class HyperRAMInterface(Elaboratable):
             self.bus.dq.oe      .eq(0),
         ]
 
-        with m.FSM(domain='fast') as fsm:
-            m.d.comb += self.idle.eq(fsm.ongoing('IDLE'))
+        with m.FSM() as fsm:
 
             # IDLE state: waits for a transaction request
             with m.State('IDLE'):
-                m.d.fast += reset_clock      .eq(1)
+                m.d.sync += reset_clock      .eq(1)
+                m.d.comb += self.idle        .eq(1)
 
                 # Once we have a transaction request, latch in our control
                 # signals, and assert our chip-select.
                 with m.If(self.start_transfer):
                     m.next = 'LATCH_RWDS'
 
-                    m.d.fast += [
+                    m.d.sync += [
                         is_read          .eq(~self.perform_write),
                         is_register      .eq(self.register_space),
                         is_multipage     .eq(~self.single_page),
@@ -214,7 +200,7 @@ class HyperRAMInterface(Elaboratable):
                     ]
 
                 with m.Else():
-                    m.d.fast += self.bus.cs.eq(0)
+                    m.d.sync += self.bus.cs.eq(0)
 
 
             # LATCH_RWDS -- latch in the value of the RWDS signal, which determines
@@ -222,7 +208,7 @@ class HyperRAMInterface(Elaboratable):
             # as our out-of-phase clock signal will output the relevant data before
             # the next edge can occur.
             with m.State("LATCH_RWDS"):
-                m.d.fast += extra_latency.eq(self.bus.rwds.i),
+                m.d.sync += extra_latency.eq(self.bus.rwds.i),
                 m.next="SHIFT_COMMAND0"
 
 
@@ -252,7 +238,7 @@ class HyperRAMInterface(Elaboratable):
                 )
 
                 # Output our first byte of our command.
-                m.d.fast += [
+                m.d.sync += [
                     data_out       .eq(command_byte),
                     self.bus.dq.oe .eq(1)
                 ]
@@ -263,35 +249,35 @@ class HyperRAMInterface(Elaboratable):
 
 
             with m.State('SHIFT_COMMAND1'):
-                m.d.fast += [
+                m.d.sync += [
                     data_out         .eq(current_address[19:27]),
                     self.bus.dq.oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND2'
 
             with m.State('SHIFT_COMMAND2'):
-                m.d.fast += [
+                m.d.sync += [
                     data_out         .eq(current_address[11:19]),
                     self.bus.dq.oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND3'
 
             with m.State('SHIFT_COMMAND3'):
-                m.d.fast += [
+                m.d.sync += [
                     data_out         .eq(current_address[ 3:16]),
                     self.bus.dq.oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND4'
 
             with m.State('SHIFT_COMMAND4'):
-                m.d.fast += [
+                m.d.sync += [
                     data_out         .eq(0),
                     self.bus.dq.oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND5'
 
             with m.State('SHIFT_COMMAND5'):
-                m.d.fast += [
+                m.d.sync += [
                     data_out         .eq(current_address[0:3]),
                     self.bus.dq.oe   .eq(1)
                 ]
@@ -308,14 +294,14 @@ class HyperRAMInterface(Elaboratable):
                     m.next = "HANDLE_LATENCY"
 
                     with m.If(extra_latency):
-                        m.d.fast += latency_edges_remaining.eq(self.HIGH_LATENCY_EDGES)
+                        m.d.sync += latency_edges_remaining.eq(self.HIGH_LATENCY_EDGES)
                     with m.Else():
-                        m.d.fast += latency_edges_remaining.eq(self.LOW_LATENCY_EDGES)
+                        m.d.sync += latency_edges_remaining.eq(self.LOW_LATENCY_EDGES)
 
 
             # HANDLE_LATENCY -- applies clock edges until our latency period is over.
             with m.State('HANDLE_LATENCY'):
-                m.d.fast += latency_edges_remaining.eq(latency_edges_remaining - 1)
+                m.d.sync += latency_edges_remaining.eq(latency_edges_remaining - 1)
 
                 with m.If(latency_edges_remaining == 0):
                     with m.If(is_read):
@@ -329,9 +315,7 @@ class HyperRAMInterface(Elaboratable):
 
                 # If RWDS has changed, the host has just sent us new data.
                 with m.If(self.bus.rwds.i != last_rwds):
-                    m.d.fast += [
-                        self.read_data[8:16] .eq(data_in)
-                    ]
+                    m.d.sync += self.read_data[8:16].eq(data_in)
                     m.next = 'READ_DATA_LSB'
 
 
@@ -341,7 +325,7 @@ class HyperRAMInterface(Elaboratable):
                 # If RWDS has changed, the host has just sent us new data.
                 # Sample it, and indicate that we now have a valid piece of new data.
                 with m.If(self.bus.rwds.i != last_rwds):
-                    m.d.fast += [
+                    m.d.sync += [
                         self.read_data[0:8]  .eq(data_in),
                         new_data_ready       .eq(1)
                     ]
@@ -349,15 +333,16 @@ class HyperRAMInterface(Elaboratable):
                     # If our controller is done with the transcation, end it.
                     with m.If(self.final_word):
                         m.next = 'RECOVERY'
-                        m.d.fast += advance_clock.eq(0)
+                        m.d.sync += advance_clock.eq(0)
 
                     with m.Else():
-                        m.next = 'READ_DATA_MSB'
+                        #m.next = 'READ_DATA_MSB'
+                        m.next = 'RECOVERY'
 
 
             # RECOVERY state: wait for the required period of time before a new transaction
             with m.State('RECOVERY'):
-                m.d.fast += [
+                m.d.sync += [
                     self.bus.cs   .eq(0),
                     advance_clock .eq(0)
                 ]
@@ -374,9 +359,6 @@ class HyperRAMInterface(Elaboratable):
 
 
 class TestHyperRAMInterface(LunaGatewareTestCase):
-
-    FAST_CLOCK_FREQUENCY = 240e6
-    SYNC_CLOCK_FREQUENCY = None
 
     def instantiate_dut(self):
         # Create a record that recreates the layout of our RAM signals.
@@ -404,7 +386,7 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
 
 
 
-    @fast_domain_test_case
+    @sync_test_case
     def test_register_read(self):
 
         # Before we transact, CS should be de-asserted, and RWDS and DQ should be undriven.
@@ -500,11 +482,7 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
         self.assertEqual((yield self.dut.read_data),      0xCAFE)
         self.assertEqual((yield self.dut.new_data_ready), 1)
 
-        # We're using the default setting where strobe_length = 2,
-        # so our strobe should remain high for one cycle  _after_ the
-        # relevant operation is complete.
         yield
-        self.assertEqual((yield self.dut.new_data_ready),  1)
         self.assertEqual((yield self.ram_signals.cs),      0)
         self.assertEqual((yield self.ram_signals.dq.oe),   0)
         self.assertEqual((yield self.ram_signals.rwds.oe), 0)

@@ -47,7 +47,7 @@ bool debug_controller_tests(void)
  */
 bool ulpi_phy_tests(enum ulpi_phy phy)
 {
-	uint8_t scratch;
+	int16_t scratch;
 
 	//
 	// Check that the ULPI PHY matches the VID/PID for a Microchip USB3343.
@@ -122,6 +122,12 @@ bool ram_tests(void)
 		(psram_id == 0x0c81) ||
 		(psram_id == 0x0c86);
 
+
+	if (psram_id == 0xFFFF) {
+		uart_puts("❌ FAIL: RAM ID read failure! (RAM did not respond)\n");
+		return false;
+	}
+
 	if (!id_matches) {
 		uart_puts("❌ FAIL: RAM ID read failure! (was: ");
 		uart_print_word(psram_id);
@@ -129,7 +135,7 @@ bool ram_tests(void)
 		return false;
 	}
 
-	return false;
+	return true;
 }
 
 
@@ -146,7 +152,9 @@ void print_greeting(void)
 	uart_puts("\\_____/\\___/\\_| \\_/\\_| |_/\n\n\b");
 
 	uart_puts("Self-test firmware booted. 🌙\n");
-	uart_puts("Running on a Minerva RISC-V softcore.\n\n");
+	uart_puts("Running on a Minerva RISC-V softcore on a ");
+	uart_puts(PLATFORM_NAME);
+	uart_puts(" board.\n\n");
 }
 
 
@@ -160,42 +168,84 @@ int main(void)
 	// Perform our platform initialization.
 	platform_bringup();
 
+	// Turn on the yellow LED, indicating that we're performing the tests.
+	leds_output_write(0b001000);
+
 	// Wait for a bit, so we know the other side is listening and ready.
-	// TODO: replace this with a simple command interface, so we don't have to wait?
+	// FIXME: remove this?
 	sleep_ms(1000);
 
 	// Print a nice header for our tests.
 	print_greeting();
 
-	// Run our core tests.
-	failures += run_test("Debug controller & communications:     ", debug_controller_tests);
-	failures += run_test("Target ULPI PHY:                       ", target_phy_tests);
-	failures += run_test("Host ULPI PHY:                         ", host_phy_tests);
-	failures += run_test("Sideband ULPI PHY:                     ", sideband_phy_tests);
-	//failures += run_test("External RAM:                          ", ram_tests);
+	while (1) {
+		char command = 0;
 
-	uart_puts("\n\n");
+		//uart_puts("\n\n");
+		//uart_puts("Press 's' to run the simple self-test (no connections required).");
+		//uart_puts("Press 'f' to run the factory self-test (setup required).\n");
+		//uart_puts("Press 'a' to run the full self-test (setup required).\n");
+		//uart_puts("Press Ctrl+] to terminate test.\n");
 
-	if (failures) {
+		// FIXME: enable test switching
 
-		// Indicate our failure via serial...
-		uart_puts("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n");
-		uart_puts("------------------------------------------------\n");
-		uart_puts("--------------- TESTS FAILED! ------------------\n");
-		uart_puts("------------------------------------------------\n");
-		uart_puts("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n");
+		// Wait for input from the user.
+		//while (!command) {
+		//	command = uart_getchar();
+		//}
+		command = 's';
 
-		// ... and turn on the red LED.
-		leds_output_write(0b100000);
+		switch(command) {
+
+			// Run all tests.
+			case 'a':
+				// Falls through.
+
+			// Run factory tests.
+			case 'f':
+				// Falls through.
+
+			// Run our core tests.
+			case 's':
+				command = 0;
+
+				failures += run_test("Debug controller & communications:     ", debug_controller_tests);
+				failures += run_test("Target ULPI PHY:                       ", target_phy_tests);
+				failures += run_test("Host ULPI PHY:                         ", host_phy_tests);
+				failures += run_test("Sideband ULPI PHY:                     ", sideband_phy_tests);
+				failures += run_test("External RAM:                          ", ram_tests);
+
+				uart_puts("\n\n");
+
+				if (failures) {
+
+					// Indicate our failure via serial...
+					uart_puts("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n");
+					uart_puts("------------------------------------------------\n");
+					uart_puts("--------------- TESTS FAILED! ------------------\n");
+					uart_puts("------------------------------------------------\n");
+					uart_puts("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌\n");
+
+					// ... and turn on the red LED.
+					leds_output_write(0b100000);
+				}
+				
+				else {
+					// Indicate success, and turn on the green LED.
+					leds_output_write(0b000100);
+					uart_puts("All tests passed. ✅ \n\n");
+				}
+
+				// FIXME: remove this
+				uart_puts("Press Ctrl+] to terminate test.\n");
+				while(1);
+
+				break;
+
+			default:
+				uart_puts("Unknown command.\n");
+		}
+
 	}
-		
-	else {
-		// Indicate success, and turn on the green LED.
-		leds_output_write(0b000100);
-		uart_puts("All tests passed. ✅ \n\n");
-	}
-
-	uart_puts("\n\nPress Ctrl+] to terminate test.\n");
-	while(1);
 }
 
