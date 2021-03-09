@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 7 9
 Title "LUNA: Upstream \"Host\" Section"
-Date "2021-01-12"
+Date "2021-03-09"
 Rev "r0"
 Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -526,60 +526,6 @@ F 3 "" H 8650 2600 50  0001 C CNN
 $EndComp
 Wire Wire Line
 	8550 2600 8650 2600
-$Comp
-L Device:R R?
-U 1 1 608EC401
-P 3600 5800
-AR Path="/608EC401" Ref="R?"  Part="1" 
-AR Path="/5DD754D4/608EC401" Ref="R32"  Part="1" 
-F 0 "R32" V 3600 5800 50  0000 C CNN
-F 1 "5.1K±10%" V 3500 5800 50  0000 C CNN
-F 2 "Resistor_SMD:R_0402_1005Metric" V 3530 5800 50  0001 C CNN
-F 3 "~" H 3600 5800 50  0001 C CNN
-F 4 "GENERIC-RES-0402-5.1K" H 3600 5800 50  0001 C CNN "Part Number"
-F 5 "any equivalent" H 3600 5800 50  0001 C CNN "Substitution"
-	1    3600 5800
-	1    0    0    1   
-$EndComp
-$Comp
-L power:GND #PWR?
-U 1 1 608EC407
-P 3600 6150
-AR Path="/608EC407" Ref="#PWR?"  Part="1" 
-AR Path="/5DD754D4/608EC407" Ref="#PWR06"  Part="1" 
-F 0 "#PWR06" H 3600 5900 50  0001 C CNN
-F 1 "GND" H 3604 5978 50  0000 C CNN
-F 2 "" H 3600 6150 50  0001 C CNN
-F 3 "" H 3600 6150 50  0001 C CNN
-	1    3600 6150
-	1    0    0    -1  
-$EndComp
-$Comp
-L Device:R R?
-U 1 1 608EC40E
-P 3800 5800
-AR Path="/608EC40E" Ref="R?"  Part="1" 
-AR Path="/5DD754D4/608EC40E" Ref="R33"  Part="1" 
-F 0 "R33" V 3800 5800 50  0000 C CNN
-F 1 "5.1K±10%" V 3700 5800 50  0000 C CNN
-F 2 "Resistor_SMD:R_0402_1005Metric" V 3730 5800 50  0001 C CNN
-F 3 "~" H 3800 5800 50  0001 C CNN
-F 4 "GENERIC-RES-0402-5.1K" H 3800 5800 50  0001 C CNN "Part Number"
-F 5 "any equivalent" H 3800 5800 50  0001 C CNN "Substitution"
-	1    3800 5800
-	1    0    0    1   
-$EndComp
-Wire Wire Line
-	3600 5950 3600 6050
-Wire Wire Line
-	3600 6050 3800 6050
-Wire Wire Line
-	3800 6050 3800 5950
-Connection ~ 3600 6050
-Wire Wire Line
-	3600 6050 3600 6150
-Text HLabel 3900 2000 2    50   BiDi ~ 0
-HOST_CC1
 Text Label 2850 3000 0    50   ~ 0
 HOST_DATA3
 Entry Wire Line
@@ -603,8 +549,6 @@ F 7 "LFE5U-12F-*BG256*" H 1700 1500 50  0001 C CNN "Substitution"
 $EndComp
 Wire Wire Line
 	3900 5450 2700 5450
-Text HLabel 3900 1900 2    50   BiDi ~ 0
-HOST_CC2
 Text HLabel 3900 5550 2    50   BiDi ~ 0
 HOST_SBU1
 Text HLabel 3900 5450 2    50   BiDi ~ 0
@@ -628,21 +572,7 @@ Entry Wire Line
 Wire Wire Line
 	5350 2600 2700 2600
 Wire Wire Line
-	2700 2000 3600 2000
-Wire Wire Line
 	2700 5550 3900 5550
-Wire Wire Line
-	2700 1900 3800 1900
-Wire Wire Line
-	3800 5650 3800 1900
-Connection ~ 3800 1900
-Wire Wire Line
-	3800 1900 3900 1900
-Wire Wire Line
-	3600 5650 3600 2000
-Connection ~ 3600 2000
-Wire Wire Line
-	3600 2000 3900 2000
 Wire Wire Line
 	2700 2200 3900 2200
 Wire Wire Line
@@ -767,6 +697,177 @@ Wire Wire Line
 	1900 1200 2000 1200
 Wire Wire Line
 	8950 3500 8950 3600
+$Comp
+L Device:R R?
+U 1 1 608EC401
+P 4600 1350
+AR Path="/608EC401" Ref="R?"  Part="1" 
+AR Path="/5DD754D4/608EC401" Ref="R32"  Part="1" 
+F 0 "R32" V 4600 1350 50  0000 C CNN
+F 1 "5.49K±1%" V 4500 1350 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 4530 1350 50  0001 C CNN
+F 3 "~" H 4600 1350 50  0001 C CNN
+F 4 "ERJ-2RKF5491X" H 4600 1350 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 4600 1350 50  0001 C CNN "Substitution"
+F 6 "RES SMD 5.49K OHM 1% 1/10W 0402" H 4600 1350 50  0001 C CNN "Description"
+F 7 "Panasonic" H 4600 1350 50  0001 C CNN "Manufacturer"
+	1    4600 1350
+	-1   0    0    1   
+$EndComp
+$Comp
+L Device:R R?
+U 1 1 608EC40E
+P 3950 1350
+AR Path="/608EC40E" Ref="R?"  Part="1" 
+AR Path="/5DD754D4/608EC40E" Ref="R33"  Part="1" 
+F 0 "R33" V 3950 1350 50  0000 C CNN
+F 1 "5.49K±1%" V 3850 1350 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 3880 1350 50  0001 C CNN
+F 3 "~" H 3950 1350 50  0001 C CNN
+F 4 "ERJ-2RKF5491X" H 3950 1350 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 3950 1350 50  0001 C CNN "Substitution"
+F 6 "RES SMD 5.49K OHM 1% 1/10W 0402" H 3950 1350 50  0001 C CNN "Description"
+F 7 "Panasonic" H 3950 1350 50  0001 C CNN "Manufacturer"
+	1    3950 1350
+	-1   0    0    1   
+$EndComp
+$Comp
+L Device:R R?
+U 1 1 604AD11B
+P 3250 900
+AR Path="/604AD11B" Ref="R?"  Part="1" 
+AR Path="/5DD754D4/604AD11B" Ref="R44"  Part="1" 
+F 0 "R44" V 3250 900 50  0000 C CNN
+F 1 "18.7K±1%" V 3150 900 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 3180 900 50  0001 C CNN
+F 3 "~" H 3250 900 50  0001 C CNN
+F 4 "ERJ-2RKF1872X" H 3250 900 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 3250 900 50  0001 C CNN "Substitution"
+F 6 "RES SMD 18.7K OHM 1% 1/10W 0402" H 3250 900 50  0001 C CNN "Description"
+F 7 "Panasonic" H 3250 900 50  0001 C CNN "Manufacturer"
+	1    3250 900 
+	0    -1   1    0   
+$EndComp
+$Comp
+L Device:R R?
+U 1 1 604B5D60
+P 3250 1100
+AR Path="/604B5D60" Ref="R?"  Part="1" 
+AR Path="/5DD754D4/604B5D60" Ref="R45"  Part="1" 
+F 0 "R45" V 3250 1100 50  0000 C CNN
+F 1 "18.7K±1%" V 3150 1100 50  0000 C CNN
+F 2 "Resistor_SMD:R_0402_1005Metric" V 3180 1100 50  0001 C CNN
+F 3 "~" H 3250 1100 50  0001 C CNN
+F 4 "ERJ-2RKF1872X" H 3250 1100 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 3250 1100 50  0001 C CNN "Substitution"
+F 6 "RES SMD 18.7K OHM 1% 1/10W 0402" H 3250 1100 50  0001 C CNN "Description"
+F 7 "Panasonic" H 3250 1100 50  0001 C CNN "Manufacturer"
+	1    3250 1100
+	0    -1   1    0   
+$EndComp
+Wire Wire Line
+	2700 2000 3000 2000
+Wire Wire Line
+	3000 2000 3000 1100
+Wire Wire Line
+	2700 1900 2900 1900
+Wire Wire Line
+	2900 1900 2900 900 
+$Comp
+L Device:C C?
+U 1 1 6066FA1B
+P 3750 1350
+AR Path="/5DCD9772/6066FA1B" Ref="C?"  Part="1" 
+AR Path="/5DD754D4/6066FA1B" Ref="C51"  Part="1" 
+F 0 "C51" H 3800 1450 50  0000 L CNN
+F 1 "390pF" H 3800 1250 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 3788 1200 50  0001 C CNN
+F 3 "~" H 3750 1350 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-390pF" H 3750 1350 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 3750 1350 50  0001 C CNN "Substitution"
+	1    3750 1350
+	-1   0    0    -1  
+$EndComp
+Wire Wire Line
+	4600 1200 4600 1100
+Wire Wire Line
+	3950 1200 3950 900 
+Wire Wire Line
+	4600 1600 4600 1700
+Connection ~ 4600 1600
+Wire Wire Line
+	3950 1600 3950 1500
+Wire Wire Line
+	4600 1600 4400 1600
+Wire Wire Line
+	4600 1500 4600 1600
+$Comp
+L power:GND #PWR?
+U 1 1 6066FA28
+P 4600 1700
+AR Path="/6066FA28" Ref="#PWR?"  Part="1" 
+AR Path="/5DD754D4/6066FA28" Ref="#PWR06"  Part="1" 
+AR Path="/5DCD9772/6066FA28" Ref="#PWR?"  Part="1" 
+F 0 "#PWR06" H 4600 1450 50  0001 C CNN
+F 1 "GND" H 4604 1528 50  0000 C CNN
+F 2 "" H 4600 1700 50  0001 C CNN
+F 3 "" H 4600 1700 50  0001 C CNN
+	1    4600 1700
+	-1   0    0    -1  
+$EndComp
+$Comp
+L Device:C C?
+U 1 1 6066FA42
+P 4400 1350
+AR Path="/5DCD9772/6066FA42" Ref="C?"  Part="1" 
+AR Path="/5DD754D4/6066FA42" Ref="C52"  Part="1" 
+F 0 "C52" H 4450 1450 50  0000 L CNN
+F 1 "390pF" H 4450 1250 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0402_1005Metric" H 4438 1200 50  0001 C CNN
+F 3 "~" H 4400 1350 50  0001 C CNN
+F 4 "GENERIC-CAP-0402-390pF" H 4400 1350 50  0001 C CNN "Part Number"
+F 5 "any equivalent" H 4400 1350 50  0001 C CNN "Substitution"
+	1    4400 1350
+	-1   0    0    -1  
+$EndComp
+Wire Wire Line
+	3750 1500 3750 1600
+Wire Wire Line
+	3750 1600 3950 1600
+Connection ~ 3950 1600
+Wire Wire Line
+	4400 1500 4400 1600
+Connection ~ 4400 1600
+Wire Wire Line
+	4400 1600 3950 1600
+Wire Wire Line
+	3750 1200 3750 900 
+Wire Wire Line
+	3750 900  3950 900 
+Wire Wire Line
+	4600 1100 4400 1100
+Wire Wire Line
+	4400 1200 4400 1100
+Wire Wire Line
+	4600 1100 4800 1100
+Connection ~ 4600 1100
+Wire Wire Line
+	4800 900  3950 900 
+Connection ~ 3950 900 
+Text HLabel 4800 900  2    50   BiDi ~ 0
+HOST_CC2
+Text HLabel 4800 1100 2    50   BiDi ~ 0
+HOST_CC1
+Wire Wire Line
+	3000 1100 3100 1100
+Wire Wire Line
+	3400 1100 4400 1100
+Connection ~ 4400 1100
+Wire Wire Line
+	3750 900  3400 900 
+Connection ~ 3750 900 
+Wire Wire Line
+	3100 900  2900 900 
 Wire Bus Line
 	5450 1650 5450 5800
 $EndSCHEMATC
