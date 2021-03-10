@@ -924,7 +924,6 @@ F 6 "FTSH-105-01-F-D-K" H 5350 6700 50  0001 C CNN "Part Number"
 	1    5350 6700
 	-1   0    0    -1  
 $EndComp
-NoConn ~ 2550 4750
 $Comp
 L power:GND #PWR0131
 U 1 1 60198439
@@ -970,6 +969,7 @@ F 3 "~" H 2450 5050 50  0001 C CNN
 F 4 "Tag-Connect" H 2450 5050 50  0001 C CNN "Manufacturer"
 F 5 "DNP" H 2450 5050 50  0001 C CNN "Note"
 F 6 "TC2030-IDC" H 2450 5050 50  0001 C CNN "Part Number"
+F 7 "TC2030-CTX" H 2450 5050 50  0001 C CNN "Substitution"
 	1    2450 5050
 	0    -1   -1   0   
 $EndComp
@@ -1325,4 +1325,37 @@ F 7 "Panasonic" H 4600 3950 50  0001 C CNN "Manufacturer"
 	1    4600 3950
 	0    1    -1   0   
 $EndComp
+$Comp
+L power:+5V #PWR?
+U 1 1 604E0BAD
+P 2550 4250
+AR Path="/604E0BAD" Ref="#PWR?"  Part="1" 
+AR Path="/5DCAA6D2/604E0BAD" Ref="#PWR0136"  Part="1" 
+F 0 "#PWR0136" H 2550 4100 50  0001 C CNN
+F 1 "+5V" V 2450 4200 50  0000 L CNN
+F 2 "" H 2550 4250 50  0001 C CNN
+F 3 "" H 2550 4250 50  0001 C CNN
+	1    2550 4250
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:D_Schottky D?
+U 1 1 604E0BB6
+P 2550 4500
+AR Path="/604E0BB6" Ref="D?"  Part="1" 
+AR Path="/5DCAA6D2/604E0BB6" Ref="D9"  Part="1" 
+F 0 "D9" H 2550 4600 50  0000 C CNN
+F 1 "PMEG4010ESBYL" H 2450 4650 50  0001 C CNN
+F 2 "Diode_SMD:D_0402_1005Metric" H 2550 4500 50  0001 C CNN
+F 3 "~" H 2550 4500 50  0001 C CNN
+F 4 "Nexperia" H 2550 4500 50  0001 C CNN "Manufacturer"
+F 5 "PMEG4010ESBYL" H 2550 4500 50  0001 C CNN "Part Number"
+F 6 "DIODE SCHOTTKY 40V 1A DSN1006-2" H 2550 4500 50  0001 C CNN "Description"
+	1    2550 4500
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	2550 4250 2550 4350
+Wire Wire Line
+	2550 4750 2550 4650
 $EndSCHEMATC
