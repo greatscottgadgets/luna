@@ -9238,7 +9238,7 @@
   (gr_text Memory (at 116.921 79.999) (layer F.SilkS) (tstamp 5FD1755A)
     (effects (font (size 0.9144 0.9144) (thickness 0.15)))
   )
-  (gr_text r0.3+ (at 110.4 98.5) (layer F.SilkS) (tstamp 5FED9A6A)
+  (gr_text r0.4 (at 110.4 98.5) (layer F.SilkS) (tstamp 5FED9A6A)
     (effects (font (size 0.6 0.5588) (thickness 0.125)) (justify left))
   )
   (gr_text io0 (at 102 66.5 90) (layer F.SilkS) (tstamp 5FE66833)
