@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 4 9
 Title "LUNA: Configuration / Dev / Debug Section"
-Date "2021-03-09"
+Date "2021-03-10"
 Rev "r0"
 Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
