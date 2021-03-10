@@ -77,7 +77,7 @@
     (mod_text_width 0.15)
     (pad_size 1.524 1.524)
     (pad_drill 0.762)
-    (pad_to_mask_clearance 0)
+    (pad_to_mask_clearance 0.05)
     (pad_to_paste_clearance_ratio -0.05)
     (aux_axis_origin 0 0)
     (visible_elements FFFDBE7F)
