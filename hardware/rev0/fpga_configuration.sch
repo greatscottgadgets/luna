@@ -5,7 +5,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 4 9
 Title "LUNA: Configuration / Dev / Debug Section"
-Date "2021-01-12"
+Date "2021-03-10"
 Rev "r0"
 Comp "Copyright 2019-2021 Great Scott Gadgets"
 Comment1 "Katherine J. Temkin"
@@ -924,7 +924,6 @@ F 6 "FTSH-105-01-F-D-K" H 5350 6700 50  0001 C CNN "Part Number"
 	1    5350 6700
 	-1   0    0    -1  
 $EndComp
-NoConn ~ 2550 4750
 $Comp
 L power:GND #PWR0131
 U 1 1 60198439
@@ -970,6 +969,7 @@ F 3 "~" H 2450 5050 50  0001 C CNN
 F 4 "Tag-Connect" H 2450 5050 50  0001 C CNN "Manufacturer"
 F 5 "DNP" H 2450 5050 50  0001 C CNN "Note"
 F 6 "TC2030-IDC" H 2450 5050 50  0001 C CNN "Part Number"
+F 7 "TC2030-CTX" H 2450 5050 50  0001 C CNN "Substitution"
 	1    2450 5050
 	0    -1   -1   0   
 $EndComp
@@ -1251,10 +1251,10 @@ P 4600 3450
 AR Path="/5DCD9772/5FFED8BB" Ref="R?"  Part="1" 
 AR Path="/5DCAA6D2/5FFED8BB" Ref="R8"  Part="1" 
 F 0 "R8" V 4550 3250 50  0000 C CNN
-F 1 "1K" V 4600 3450 50  0000 C CNN
+F 1 "2.2K" V 4600 3450 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 4530 3450 50  0001 C CNN
 F 3 "~" H 4600 3450 50  0001 C CNN
-F 4 "GENERIC-RES-0402-1K" H 4600 3450 50  0001 C CNN "Part Number"
+F 4 "GENERIC-RES-0402-2.2K" H 4600 3450 50  0001 C CNN "Part Number"
 F 5 "any equivalent" H 4600 3450 50  0001 C CNN "Substitution"
 	1    4600 3450
 	0    1    1    0   
@@ -1266,10 +1266,10 @@ P 4600 3550
 AR Path="/5DCD9772/60003542" Ref="R?"  Part="1" 
 AR Path="/5DCAA6D2/60003542" Ref="R9"  Part="1" 
 F 0 "R9" V 4550 3350 50  0000 C CNN
-F 1 "1K" V 4600 3550 50  0000 C CNN
+F 1 "2.2K" V 4600 3550 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 4530 3550 50  0001 C CNN
 F 3 "~" H 4600 3550 50  0001 C CNN
-F 4 "GENERIC-RES-0402-1K" H 4600 3550 50  0001 C CNN "Part Number"
+F 4 "GENERIC-RES-0402-2.2K" H 4600 3550 50  0001 C CNN "Part Number"
 F 5 "any equivalent" H 4600 3550 50  0001 C CNN "Substitution"
 	1    4600 3550
 	0    1    1    0   
@@ -1281,10 +1281,10 @@ P 4600 3650
 AR Path="/5DCD9772/60003831" Ref="R?"  Part="1" 
 AR Path="/5DCAA6D2/60003831" Ref="R10"  Part="1" 
 F 0 "R10" V 4550 3450 50  0000 C CNN
-F 1 "1K" V 4600 3650 50  0000 C CNN
+F 1 "2.2K" V 4600 3650 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 4530 3650 50  0001 C CNN
 F 3 "~" H 4600 3650 50  0001 C CNN
-F 4 "GENERIC-RES-0402-1K" H 4600 3650 50  0001 C CNN "Part Number"
+F 4 "GENERIC-RES-0402-2.2K" H 4600 3650 50  0001 C CNN "Part Number"
 F 5 "any equivalent" H 4600 3650 50  0001 C CNN "Substitution"
 	1    4600 3650
 	0    1    1    0   
@@ -1297,11 +1297,13 @@ AR Path="/6001DCF6" Ref="R?"  Part="1"
 AR Path="/5DA7BAF4/6001DCF6" Ref="R?"  Part="1" 
 AR Path="/5DCAA6D2/6001DCF6" Ref="R7"  Part="1" 
 F 0 "R7" V 4650 3150 50  0000 C CNN
-F 1 "2.2K" V 4600 3350 50  0000 C CNN
+F 1 "5.5K" V 4600 3350 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 4530 3350 50  0001 C CNN
 F 3 "~" H 4600 3350 50  0001 C CNN
-F 4 "GENERIC-RES-0402-2.2K" H 4600 3350 50  0001 C CNN "Part Number"
+F 4 "ERJ-2RKF5491X" H 4600 3350 50  0001 C CNN "Part Number"
 F 5 "any equivalent" H 4600 3350 50  0001 C CNN "Substitution"
+F 6 "RES SMD 5.49K OHM 1% 1/10W 0402" H 4600 3350 50  0001 C CNN "Description"
+F 7 "Panasonic" H 4600 3350 50  0001 C CNN "Manufacturer"
 	1    4600 3350
 	0    1    -1   0   
 $EndComp
@@ -1313,12 +1315,47 @@ AR Path="/6002A83C" Ref="R?"  Part="1"
 AR Path="/5DA7BAF4/6002A83C" Ref="R?"  Part="1" 
 AR Path="/5DCAA6D2/6002A83C" Ref="R11"  Part="1" 
 F 0 "R11" V 4650 3750 50  0000 C CNN
-F 1 "2.2K" V 4600 3950 50  0000 C CNN
+F 1 "5.5K" V 4600 3950 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 4530 3950 50  0001 C CNN
 F 3 "~" H 4600 3950 50  0001 C CNN
-F 4 "GENERIC-RES-0402-2.2K" H 4600 3950 50  0001 C CNN "Part Number"
+F 4 "ERJ-2RKF5491X" H 4600 3950 50  0001 C CNN "Part Number"
 F 5 "any equivalent" H 4600 3950 50  0001 C CNN "Substitution"
+F 6 "RES SMD 5.49K OHM 1% 1/10W 0402" H 4600 3950 50  0001 C CNN "Description"
+F 7 "Panasonic" H 4600 3950 50  0001 C CNN "Manufacturer"
 	1    4600 3950
 	0    1    -1   0   
 $EndComp
+$Comp
+L power:+5V #PWR?
+U 1 1 604E0BAD
+P 2550 4250
+AR Path="/604E0BAD" Ref="#PWR?"  Part="1" 
+AR Path="/5DCAA6D2/604E0BAD" Ref="#PWR0136"  Part="1" 
+F 0 "#PWR0136" H 2550 4100 50  0001 C CNN
+F 1 "+5V" V 2450 4200 50  0000 L CNN
+F 2 "" H 2550 4250 50  0001 C CNN
+F 3 "" H 2550 4250 50  0001 C CNN
+	1    2550 4250
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:D_Schottky D?
+U 1 1 604E0BB6
+P 2550 4500
+AR Path="/604E0BB6" Ref="D?"  Part="1" 
+AR Path="/5DCAA6D2/604E0BB6" Ref="D9"  Part="1" 
+F 0 "D9" H 2550 4600 50  0000 C CNN
+F 1 "PMEG4010ESBYL" H 2450 4650 50  0001 C CNN
+F 2 "Diode_SMD:D_0402_1005Metric" H 2550 4500 50  0001 C CNN
+F 3 "~" H 2550 4500 50  0001 C CNN
+F 4 "Nexperia" H 2550 4500 50  0001 C CNN "Manufacturer"
+F 5 "PMEG4010ESBYL" H 2550 4500 50  0001 C CNN "Part Number"
+F 6 "DIODE SCHOTTKY 40V 1A DSN1006-2" H 2550 4500 50  0001 C CNN "Description"
+	1    2550 4500
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	2550 4250 2550 4350
+Wire Wire Line
+	2550 4750 2550 4650
 $EndSCHEMATC
