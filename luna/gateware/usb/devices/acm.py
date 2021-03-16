@@ -225,14 +225,14 @@ class USBSerialDevice(Elaboratable):
 
         # Create an endpoint for serial rx...
         serial_rx_endpoint = USBStreamOutEndpoint(
-            endpoint_number=0x04,
+            endpoint_number=self._DATA_ENDPOINT_NUMBER,
             max_packet_size=self._max_packet_size,
         )
         usb.add_endpoint(serial_rx_endpoint)
 
         # ... and one for serial tx.
         serial_tx_endpoint = USBStreamInEndpoint(
-            endpoint_number=0x04,
+            endpoint_number=self._DATA_ENDPOINT_NUMBER,
             max_packet_size=self._max_packet_size
         )
         usb.add_endpoint(serial_tx_endpoint)
