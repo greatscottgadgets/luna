@@ -625,7 +625,6 @@ class StreamSerializer(Elaboratable):
                     # If there's still data left to transmit, move forward.
                     with m.If(should_continue):
                         m.d.sync += position_in_stream.eq(position_in_stream + 1)
-                        m.d.comb += self.stream.payload.eq(self.data[position_in_stream + 1])
 
                     # Otherwise, we've finished streaming. Return to IDLE.
                     with m.Else():
