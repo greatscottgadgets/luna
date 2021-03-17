@@ -50,7 +50,7 @@ class USB2MidiExample(Elaboratable):
             configDescr.add_subordinate_descriptor(interface)
 
             streamingInterface = uac.ClassSpecificMidiStreamingInterfaceDescriptorEmitter()
-            
+
             # prevent the descriptor from getting too large, see https://github.com/greatscottgadgets/luna/issues/86
             #outToHostJack = uac.MidiOutJackDescriptorEmitter()
             #outToHostJack.bJackID = 1
@@ -94,7 +94,7 @@ class USB2MidiExample(Elaboratable):
             #streamingInterface.add_subordinate_descriptor(inMidiEndpoint)
 
             configDescr.add_subordinate_descriptor(streamingInterface)
-            
+
         return descriptors
 
     def elaborate(self, platform):
@@ -130,7 +130,7 @@ class USB2MidiExample(Elaboratable):
         #)
         #usb.add_endpoint(ep1_in)
 
-        leds    = Cat(platform.request_optional("led", i, default=NullPin()) for i in range(6))
+        leds    = Cat(platform.request_optional("led", i, default=NullPin()) for i in range(8))
         with m.If(ep1_out.stream.valid):
             m.d.usb += [
                 leds     .eq(ep1_out.stream.payload),

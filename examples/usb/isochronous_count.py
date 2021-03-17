@@ -7,12 +7,13 @@
 
 import os
 
-from nmigen                  import Elaboratable, Module, Signal
-from usb_protocol.types      import USBTransferType
+from nmigen                  import Elaboratable, Module, Cat
+from usb_protocol.types      import USBTransferType, USBDirection
 from usb_protocol.emitters   import DeviceDescriptorCollection
 
 from luna                    import top_level_cli
-from luna.usb2               import USBDevice, USBIsochronousInEndpoint
+from luna.usb2               import USBDevice, USBIsochronousInEndpoint, USBIsochronousOutEndpoint
+from luna.gateware.platform  import NullPin
 
 
 class USBIsochronousCounterDeviceExample(Elaboratable):
@@ -42,7 +43,7 @@ class USBIsochronousCounterDeviceExample(Elaboratable):
             d.idProduct          = 0xf3b
 
             d.iManufacturer      = "LUNA"
-            d.iProduct           = "Isochronous IN Test"
+            d.iProduct           = "Isochronous IN/OUT Test"
             d.iSerialNumber      = "no serial"
 
             d.bNumConfigurations = 1
@@ -56,7 +57,13 @@ class USBIsochronousCounterDeviceExample(Elaboratable):
 
                 with i.EndpointDescriptor() as e:
                     e.bmAttributes     = USBTransferType.ISOCHRONOUS
-                    e.bEndpointAddress = 0x80 | self.ISO_ENDPOINT_NUMBER
+                    e.bEndpointAddress = USBDirection.IN.to_endpoint_address(self.ISO_ENDPOINT_NUMBER)
+                    e.wMaxPacketSize   = self.TRANSFERS_PER_MICROFRAME | self.MAX_ISO_PACKET_SIZE
+                    e.bInterval        = 1
+
+                with i.EndpointDescriptor() as e:
+                    e.bmAttributes     = USBTransferType.ISOCHRONOUS
+                    e.bEndpointAddress = USBDirection.OUT.to_endpoint_address(self.ISO_ENDPOINT_NUMBER)
                     e.wMaxPacketSize   = self.TRANSFERS_PER_MICROFRAME | self.MAX_ISO_PACKET_SIZE
                     e.bInterval        = 1
 
@@ -78,24 +85,39 @@ class USBIsochronousCounterDeviceExample(Elaboratable):
         descriptors = self.create_descriptors()
         usb.add_standard_control_endpoint(descriptors)
 
-        # Add a stream endpoint to our device.
-        iso_ep = USBIsochronousInEndpoint(
+        # Add an isochronous in endpoint to our device.
+        iso_ep_in = USBIsochronousInEndpoint(
             endpoint_number=self.ISO_ENDPOINT_NUMBER,
             max_packet_size=self.MAX_ISO_PACKET_SIZE
         )
-        usb.add_endpoint(iso_ep)
+        usb.add_endpoint(iso_ep_in)
+
+        # Add an isochronous out endpoint to our device.
+        iso_ep_out = USBIsochronousOutEndpoint(
+            endpoint_number=self.ISO_ENDPOINT_NUMBER,
+            max_packet_size=self.MAX_ISO_PACKET_SIZE
+        )
+        usb.add_endpoint(iso_ep_out)
 
         # We'll tie our address directly to our value, ensuring that we always
         # count as each offset is increased.
         m.d.comb += [
-            iso_ep.bytes_in_frame.eq(self.MAX_ISO_PACKET_SIZE * 3),
-            iso_ep.value.eq(iso_ep.address)
+            iso_ep_in.bytes_in_frame.eq(self.MAX_ISO_PACKET_SIZE * 3),
+            iso_ep_in.value.eq(iso_ep_in.address)
         ]
+
+        # tie the out endpoint's stream payload to the LEDs
+        leds = Cat(platform.request_optional("led", i, default=NullPin()) for i in range(8))
+        with m.If(iso_ep_out.stream.valid):
+            m.d.usb += [
+                leds.eq(iso_ep_out.stream.payload),
+            ]
 
         # Connect our device as a high speed device by default.
         m.d.comb += [
-            usb.connect          .eq(1),
-            usb.full_speed_only  .eq(1 if os.getenv('LUNA_FULL_ONLY') else 0),
+            iso_ep_out.stream.ready.eq(1), # receive everything, no backpressure
+            usb.connect            .eq(1),
+            usb.full_speed_only    .eq(1 if os.getenv('LUNA_FULL_ONLY') else 0),
         ]
 
 

@@ -6,12 +6,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from luna.gateware.platform.de0_nano import DE0NanoPlatform
-from nmigen              import Elaboratable, Module
+from nmigen              import Elaboratable, Module, Cat
 
 from luna                import top_level_cli
 from luna.usb2           import USBDevice, USBIsochronousInEndpoint, USBIsochronousOutEndpoint
 
 from luna.gateware.stream                        import StreamInterface
+from luna.gateware.platform                      import NullPin
 from luna.gateware.usb.usb2.device               import USBDevice
 from luna.gateware.usb.usb2.request              import USBRequestHandler, StallOnlyRequestHandler
 from luna.gateware.usb.usb2.endpoints.stream     import USBStreamInEndpoint, USBStreamOutEndpoint
@@ -51,7 +52,7 @@ class USB2AudioExample(Elaboratable):
             d.bNumConfigurations = 1
 
         with descriptors.ConfigurationDescriptor() as configDescr:
-            # Interface Issociation 
+            # Interface Association
             interfaceAssociationDescriptor                 = uac2.InterfaceAssociationDescriptorEmitter()
             interfaceAssociationDescriptor.bInterfaceCount = 3 # Audio Control + Inputs + Outputs
             configDescr.add_subordinate_descriptor(interfaceAssociationDescriptor)
@@ -67,7 +68,7 @@ class USB2AudioExample(Elaboratable):
             self.create_output_channels_descriptor(configDescr)
 
             self.create_input_channels_descriptor(configDescr)
-            
+
         return descriptors
 
     def create_audio_control_interface_descriptor(self):
@@ -220,7 +221,7 @@ class USB2AudioExample(Elaboratable):
 
         ep1_out = USBIsochronousOutEndpoint(
             endpoint_number=1, # EP 1 OUT
-            max_packet_size=self.MAX_PACKET_SIZE
+            max_packet_size=self.MAX_PACKET_SIZE,
         )
         usb.add_endpoint(ep1_out)
 
@@ -236,11 +237,17 @@ class USB2AudioExample(Elaboratable):
         )
         usb.add_endpoint(ep2_in)
 
+        leds    = Cat(platform.request_optional("led", i, default=NullPin()) for i in range(8))
+        with m.If(ep1_out.stream.valid):
+            m.d.usb += [
+                leds.eq(ep1_out.stream.payload),
+            ]
+
         # Connect our device as a high speed device
         m.d.comb += [
             ep2_in.bytes_in_frame.eq(self.MAX_PACKET_SIZE * 3),
             ep2_in.value.eq(ep2_in.address),
-            ep1_out.value.eq(ep1_out.address),  
+            ep1_out.stream.ready .eq(1),
             usb.connect          .eq(1),
             usb.full_speed_only  .eq(0),
         ]
