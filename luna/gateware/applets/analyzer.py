@@ -192,6 +192,8 @@ class USBAnalyzerConnection:
             # FIXME: add timeout
             self._device = usb.core.find(idVendor=USB_VENDOR_ID, idProduct=USB_PRODUCT_ID)
 
+        self._start_time = datetime.now()
+
 
     def _fetch_data_into_buffer(self):
         """ Attempts a single data read from the analyzer into our buffer. """
@@ -239,4 +241,5 @@ class USBAnalyzerConnection:
         # ... and return it.
         # TODO: extract and provide status flags
         # TODO: generate a timestamp on-device
-        return packet, datetime.now(), None
+        timestamp_us = (datetime.now() - self._start_time).total_seconds() * 1e6
+        return packet, timestamp_us, None
