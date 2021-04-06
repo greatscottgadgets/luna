@@ -167,12 +167,12 @@ development environment. See [[Setting up the development environment]]
 to get your environment set up.
 
 Next, we can check to make sure your LUNA board is recognized by the
-LUNA toolchain. Running the ``luna-dev info`` command will list any
+LUNA toolchain. Running the ``apollo info`` command will list any
 detected devices:
 
 .. code:: sh
 
-   $ luna-dev info
+   $ apollo info
    Detected a LUNA device!
        Hardware: LUNA r0.2
        Serial number: <snip>
@@ -197,7 +197,7 @@ submodules. You can pull down the relevant submodules using ``git``:
 
    $ git submodule update --init --recursive
 
-**Issue: the luna-dev info command doesn't see a connected board.**
+**Issue: the ``apollo info`` command doesn't see a connected board.**
 
 On Linux, this can be caused by a permissions issue. Check first for the
 presence of your device using ``lsusb``; if you see a device with the
