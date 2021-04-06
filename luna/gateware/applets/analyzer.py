@@ -187,9 +187,11 @@ class USBAnalyzerConnection:
 
         # For now, we'll use a slow, synchronous connection to the device via pyusb.
         # This should be replaced with libusb1 for performance.
+        end_time = time.time() + 6
         while not self._device:
+            if time.time() > end_time:
+                raise RuntimeError('Timeout! The analyzer device did not show up.')
 
-            # FIXME: add timeout
             self._device = usb.core.find(idVendor=USB_VENDOR_ID, idProduct=USB_PRODUCT_ID)
 
 
