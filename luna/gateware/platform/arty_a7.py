@@ -38,7 +38,7 @@ class ArtyA7ClockDomainGenerator(Elaboratable):
         m.domains.sync    = ClockDomain()
 
         # Grab our main clock.
-        clk50 = platform.request(platform.default_clk)
+        clk100 = platform.request(platform.default_clk)
 
         # USB2 PLL connections.
         clk12         = Signal()
@@ -61,7 +61,7 @@ class ArtyA7ClockDomainGenerator(Elaboratable):
             p_CLKIN1_PERIOD        = 10.000,
             i_CLKFBIN              = usb2_feedback,
             o_CLKFBOUT             = usb2_feedback,
-            i_CLKIN1               = clk50,
+            i_CLKIN1               = clk100,
             o_CLKOUT0              = clk12,
             o_CLKOUT1              = clk48,
             o_LOCKED               = usb2_locked,
