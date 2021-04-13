@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Standard, full-gateware control request handlers. """
 
+from luna.gateware.test import utils
 import unittest
 
 from nmigen                 import Module, Elaboratable, Cat
@@ -21,12 +22,13 @@ from ...stream.generator    import StreamSerializer
 class StandardRequestHandler(USBRequestHandler):
     """ Pure-gateware USB setup request handler. Implements the standard requests required for enumeration. """
 
-    def __init__(self, descriptors: DeviceDescriptorCollection):
+    def __init__(self, descriptors: DeviceDescriptorCollection, max_packet_size=64):
         """
         Parameters:
             descriptors    -- The DeviceDescriptorCollection that contains our descriptors.
         """
         self.descriptors = descriptors
+        self._max_packet_size = max_packet_size
         super().__init__()
 
 
@@ -123,6 +125,14 @@ class StandardRequestHandler(USBRequestHandler):
                 # IDLE -- not handling any active request
                 with m.State('IDLE'):
 
+                    m.d.usb += [
+                        # Start at the beginning of our next / fresh GET_DESCRIPTOR request.
+                        get_descriptor_handler.start_position  .eq(0),
+
+                        # Always start our responses with DATA1 pids, per [USB 2.0: 8.5.3].
+                        self.interface.tx_data_pid             .eq(1)
+                    ]
+
                     # If we've received a new setup packet, handle it.
                     with m.If(setup.received):
 
@@ -171,7 +181,25 @@ class StandardRequestHandler(USBRequestHandler):
 
                     # Respond to our data stage with a descriptor...
                     with m.If(interface.data_requested):
-                        m.d.comb += get_descriptor_handler.start  .eq(1),
+                        m.d.comb += get_descriptor_handler.start.eq(1)
+
+                    # Each time we receive an ACK, advance in our descriptor.
+                    # This allows us to send descriptors with >64B of content.
+                    with m.If(interface.handshakes_in.ack):
+
+                        # NOTE: this logic might need to be scaled by bytes-per-word for USB3, if it's ever used.
+                        # For now, we're not using it on USB3 at all, since we assume descriptors always fit in a
+                        # USB3 packet.
+                        next_start_position = get_descriptor_handler.start_position + self._max_packet_size
+                        m.d.usb += [
+
+                            # We've received an ACK; so mark the section we've sent of the descriptor as
+                            # received, and move forward...
+                            get_descriptor_handler.start_position  .eq(next_start_position),
+
+                            # ... and toggle our data PID.
+                            self.interface.tx_data_pid             .eq(~self.interface.tx_data_pid)
+                        ]
 
                     # ... and ACK our status stage.
                     with m.If(interface.status_requested):

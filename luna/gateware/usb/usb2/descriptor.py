@@ -45,7 +45,7 @@ class GetDescriptorHandler(Elaboratable):
         O: stall      -- Pulsed if a STALL handshake should be generated, instead of a response.
     """
 
-    def __init__(self, descriptor_collection: DeviceDescriptorCollection):
+    def __init__(self, descriptor_collection: DeviceDescriptorCollection, max_packet_length=64):
         """
         Parameteres:
             descriptor_collection -- The DeviceDescriptorCollection containing the descriptors
@@ -53,17 +53,19 @@ class GetDescriptorHandler(Elaboratable):
         """
 
         self._descriptors = descriptor_collection
+        self._max_packet_length = max_packet_length
 
         #
         # I/O port
         #
-        self.value  = Signal(16)
-        self.length = Signal(16)
+        self.value          = Signal(16)
+        self.length         = Signal(16)
 
-        self.start  = Signal()
+        self.start          = Signal()
+        self.start_position = Signal(11)
 
-        self.tx     = USBInStreamInterface()
-        self.stall  = Signal()
+        self.tx             = USBInStreamInterface()
+        self.stall          = Signal()
 
 
     def elaborate(self, platform):
@@ -73,6 +75,23 @@ class GetDescriptorHandler(Elaboratable):
         descriptor_generators = {}
 
         #
+        # Figure out the maximum length we're willing to send.
+        #
+        length = Signal(16)
+
+        # We'll never send more than our MaxPacketSize. This means that we'll want to send a maximum of
+        # either our maximum packet length, or the amount of data we have remaining; whichever is less.
+        #
+        # Note that this doesn't take into account the length of the actual data to be sent; this is handled
+        # in the stream generator.
+        words_remaining = self.length - self.start_position
+        with m.If(words_remaining <= self._max_packet_length):
+            m.d.comb += length.eq(words_remaining)
+        with m.Else():
+            m.d.comb += length.eq(self._max_packet_length)
+
+
+        #
         # Create our constant-stream generators for each of our descriptors.
         #
         for type_number, index, raw_descriptor in self._descriptors:
@@ -80,6 +99,11 @@ class GetDescriptorHandler(Elaboratable):
             # Create the generator...
             generator = USBDescriptorStreamGenerator(raw_descriptor)
             descriptor_generators[(type_number, index)] = generator
+
+            m.d.comb += [
+                generator.max_length     .eq(length),
+                generator.start_position .eq(self.start_position)
+            ]
 
             # ... and attach it to this module.
             m.submodules += generator
@@ -98,11 +122,8 @@ class GetDescriptorHandler(Elaboratable):
                 with m.Case(type_number << 8 | index):
 
                     # ... connect the relevant generator to our output.
-                    m.d.comb += [
-                        generator.stream      .attach(self.tx),
-                        generator.start       .eq(self.start),
-                        generator.max_length  .eq(self.length)
-                    ]
+                    m.d.comb += generator.stream  .attach(self.tx)
+                    m.d.usb += generator.start    .eq(self.start),
 
             # If none of our descriptors match, stall any request that comes in.
             with m.Case():

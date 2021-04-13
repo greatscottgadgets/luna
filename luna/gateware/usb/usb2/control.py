@@ -47,10 +47,11 @@ class USBControlEndpoint(Elaboratable):
             and timer should be set to None; and will be ignored.
     """
 
-    def __init__(self, *, utmi, endpoint_number=0, standalone=False):
+    def __init__(self, *, utmi, endpoint_number=0, standalone=False, max_packet_size=64):
         self.utmi             = utmi
         self._standalone      = standalone
         self._endpoint_number = endpoint_number
+        self._max_packet_size = max_packet_size
 
         #
         # I/O Port
@@ -83,7 +84,7 @@ class USBControlEndpoint(Elaboratable):
         Parameters:
 
         """
-        handler = StandardRequestHandler(descriptors)
+        handler = StandardRequestHandler(descriptors, max_packet_size=self._max_packet_size)
         self._request_handlers.append(handler)
 
 
@@ -200,7 +201,7 @@ class USBControlEndpoint(Elaboratable):
 
             # Fix our data PIDs to DATA1, for now, as we don't support multi-packet responses, yet.
             # Per [USB2.0: 8.5.3], the first packet of the DATA or STATUS phase always carries a DATA1 PID.
-            interface.tx_pid_toggle.eq(1)
+            interface.tx_pid_toggle                .eq(request_handler.tx_data_pid)
         ]
 
 

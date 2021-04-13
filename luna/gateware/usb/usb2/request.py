@@ -80,6 +80,7 @@ class RequestHandlerInterface:
         self.tx                    = USBInStreamInterface()
         self.handshakes_out        = HandshakeExchangeInterface(is_detector=True)
         self.handshakes_in         = HandshakeExchangeInterface(is_detector=False)
+        self.tx_data_pid           = Signal(reset=1)
 
 
 
@@ -490,6 +491,11 @@ class USBRequestHandlerMultiplexer(Elaboratable):
         )
         tx_mux.add_interfaces(i.tx for i in self._interfaces)
         m.d.comb += self.shared.tx.stream_eq(tx_mux.output)
+
+        # Pass through the relevant PID from our data source.
+        for i in self._interfaces:
+            with m.If(i.tx.valid):
+                m.d.comb += self.shared.tx_data_pid.eq(i.tx_data_pid)
 
         # OR together all of our handshake-generation requests.
         any_ack   = functools.reduce(operator.__or__, (i.handshakes_out.ack   for i in self._interfaces))

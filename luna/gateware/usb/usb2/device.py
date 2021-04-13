@@ -461,6 +461,7 @@ class FullDeviceTest(USBDeviceTest):
 
             d.bNumConfigurations = 1
 
+        # Provide a core configuration descriptor for testing.
         with descriptors.ConfigurationDescriptor() as c:
 
             with c.InterfaceDescriptor() as i:
@@ -474,9 +475,7 @@ class FullDeviceTest(USBDeviceTest):
                     e.bEndpointAddress = 0x81
                     e.wMaxPacketSize   = 512
 
-
         dut.add_standard_control_endpoint(descriptors)
-
 
 
     @usb_domain_test_case
@@ -548,6 +547,66 @@ class FullDeviceTest(USBDeviceTest):
         handshake, configuration = yield from self.get_configuration()
         self.assertEqual(handshake, USBPacketID.ACK)
         self.assertEqual(configuration, [1], "device did not accept configuration!")
+
+
+class LongDescriptorTest(USBDeviceTest):
+    """ :meta private: """
+
+    FRAGMENT_UNDER_TEST = USBDevice
+    FRAGMENT_ARGUMENTS = {'handle_clocking': False}
+
+    def initialize_signals(self):
+
+        # Keep our device from resetting.
+        yield self.utmi.line_state.eq(0b01)
+
+        # Have our USB device connected.
+        yield self.dut.connect.eq(1)
+
+        # Pretend our PHY is always ready to accept data,
+        # so we can move forward quickly.
+        yield self.utmi.tx_ready.eq(1)
+
+
+    def provision_dut(self, dut):
+        self.descriptors = descriptors = DeviceDescriptorCollection()
+
+        with descriptors.DeviceDescriptor() as d:
+            d.idVendor           = 0x16d0
+            d.idProduct          = 0xf3b
+
+            d.iManufacturer      = "LUNA"
+            d.iProduct           = "Test Device"
+            d.iSerialNumber      = "1234"
+
+            d.bNumConfigurations = 1
+
+        # Provide a core configuration descriptor for testing.
+        with descriptors.ConfigurationDescriptor() as c:
+
+            with c.InterfaceDescriptor() as i:
+                i.bInterfaceNumber = 0
+
+                for n in range(15):
+
+                    with i.EndpointDescriptor() as e:
+                        e.bEndpointAddress = n
+                        e.wMaxPacketSize   = 512
+
+                    with i.EndpointDescriptor() as e:
+                        e.bEndpointAddress = 0x80 | n
+                        e.wMaxPacketSize   = 512
+
+        dut.add_standard_control_endpoint(descriptors)
+
+
+    @usb_domain_test_case
+    def test_long_descriptor(self):
+
+        # Read our configuration descriptor (no subordinates).
+        handshake, data = yield from self.get_descriptor(DescriptorTypes.CONFIGURATION, length=95)
+        self.assertEqual(handshake, USBPacketID.ACK)
+        self.assertEqual(len(data), 95)
 
 
 #

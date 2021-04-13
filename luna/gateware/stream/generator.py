@@ -26,6 +26,9 @@ class ConstantStreamGenerator(Elaboratable):
     done: Signal(), output
         Strobe that pulses high when we're finishing a transmission.
 
+    start_position: Signal(range(len(data)), input
+        Specifies the starting position in the constant stream; applied when start() is pulsed.
+
     max_length: Signal(max_length_width), input
         The maximum length to be sent -in bytes-. Defaults to the length of the stream.
         Only present if the `max_length_width` parameter is provided on creation.
@@ -78,12 +81,13 @@ class ConstantStreamGenerator(Elaboratable):
             self.stream      = stream_type()
             self._data_width = len(self.stream.data)
 
+        self.start_position = Signal(range(self._data_length))
 
         # If we have a maximum length width, include it in our I/O port.
         # Otherwise, use a constant.
         if max_length_width:
-            self.max_length      = Signal(max_length_width)
-            self.output_length   = Signal.like(self.max_length)
+            self.max_length        = Signal(max_length_width)
+            self.output_length     = Signal.like(self.max_length)
         else:
             self.max_length = self._data_length
 
@@ -163,19 +167,32 @@ class ConstantStreamGenerator(Elaboratable):
 
         # If we have a maximum length we're enforcing, create a counter for it.
         if self._max_length_width:
-            bytes_sent     = Signal.like(self._max_length_width)
+            bytes_sent     = Signal(self._max_length_width)
             bytes_per_word = (self._data_width + 7) // 8
         else:
             bytes_sent     = 0
             bytes_per_word = 0
 
 
-
         # Track when we're on the first and last packet.
-        on_first_packet = position_in_stream == 0
+        on_first_packet = position_in_stream == self.start_position
         on_last_packet  = \
             (position_in_stream          == (data_length - 1)) | \
             (bytes_sent + bytes_per_word >= self.max_length)
+
+
+        #
+        # Figure out where we should start in our stream.
+        #
+        start_position = Signal.like(position_in_stream)
+
+        # If our starting position is greater than our data length, use our data length.
+        with m.If(self.start_position >= self._data_length):
+            m.d.comb += start_position.eq(data_length - 1)
+
+        # Otherwise, use our starting position.
+        with m.Else():
+            m.d.comb += start_position.eq(self.start_position)
 
 
         #
@@ -202,7 +219,7 @@ class ConstantStreamGenerator(Elaboratable):
 
                 # Keep ourselves at the beginning of the stream, but don't yet count.
                 m.d.sync += [
-                    position_in_stream  .eq(0),
+                    position_in_stream  .eq(start_position),
                     bytes_sent          .eq(0)
                 ]
 
