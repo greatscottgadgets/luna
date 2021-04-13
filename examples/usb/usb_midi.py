@@ -51,17 +51,16 @@ class USB2MidiExample(Elaboratable):
 
             streamingInterface = uac.ClassSpecificMidiStreamingInterfaceDescriptorEmitter()
 
-            # prevent the descriptor from getting too large, see https://github.com/greatscottgadgets/luna/issues/86
-            #outToHostJack = uac.MidiOutJackDescriptorEmitter()
-            #outToHostJack.bJackID = 1
-            #outToHostJack.bJackType = uac.MidiStreamingJackTypes.EMBEDDED
-            #outToHostJack.add_source(2)
-            #streamingInterface.add_subordinate_descriptor(outToHostJack)
-#
-            #inToDeviceJack = uac.MidiInJackDescriptorEmitter()
-            #inToDeviceJack.bJackID = 2
-            #inToDeviceJack.bJackType = uac.MidiStreamingJackTypes.EXTERNAL
-            #streamingInterface.add_subordinate_descriptor(inToDeviceJack)
+            outToHostJack = uac.MidiOutJackDescriptorEmitter()
+            outToHostJack.bJackID = 1
+            outToHostJack.bJackType = uac.MidiStreamingJackTypes.EMBEDDED
+            outToHostJack.add_source(2)
+            streamingInterface.add_subordinate_descriptor(outToHostJack)
+
+            inToDeviceJack = uac.MidiInJackDescriptorEmitter()
+            inToDeviceJack.bJackID = 2
+            inToDeviceJack.bJackType = uac.MidiStreamingJackTypes.EXTERNAL
+            streamingInterface.add_subordinate_descriptor(inToDeviceJack)
 
             inFromHostJack = uac.MidiInJackDescriptorEmitter()
             inFromHostJack.bJackID = 3
@@ -83,15 +82,14 @@ class USB2MidiExample(Elaboratable):
             outMidiEndpoint.add_associated_jack(3)
             streamingInterface.add_subordinate_descriptor(outMidiEndpoint)
 
-            # prevent the descriptor from getting too large, see https://github.com/greatscottgadgets/luna/issues/86
-            #inEndpoint = uac.StandardMidiStreamingDataEndpointDescriptorEmitter()
-            #inEndpoint.bEndpointAddress = USBDirection.IN.from_endpoint_address(1)
-            #inEndpoint.wMaxPacketSize = self.MAX_PACKET_SIZE
-            #streamingInterface.add_subordinate_descriptor(inEndpoint)
-#
-            #inMidiEndpoint = uac.ClassSpecificMidiStreamingBulkDataEndpointDescriptorEmitter()
-            #inMidiEndpoint.add_associated_jack(1)
-            #streamingInterface.add_subordinate_descriptor(inMidiEndpoint)
+            inEndpoint = uac.StandardMidiStreamingDataEndpointDescriptorEmitter()
+            inEndpoint.bEndpointAddress = USBDirection.IN.from_endpoint_address(1)
+            inEndpoint.wMaxPacketSize = self.MAX_PACKET_SIZE
+            streamingInterface.add_subordinate_descriptor(inEndpoint)
+
+            inMidiEndpoint = uac.ClassSpecificMidiStreamingBulkDataEndpointDescriptorEmitter()
+            inMidiEndpoint.add_associated_jack(1)
+            streamingInterface.add_subordinate_descriptor(inMidiEndpoint)
 
             configDescr.add_subordinate_descriptor(streamingInterface)
 
@@ -124,11 +122,11 @@ class USB2MidiExample(Elaboratable):
         )
         usb.add_endpoint(ep1_out)
 
-        #ep1_in = USBStreamInEndpoint(
-        #    endpoint_number=1, # EP 1 IN
-        #    max_packet_size=self.MAX_PACKET_SIZE
-        #)
-        #usb.add_endpoint(ep1_in)
+        ep1_in = USBStreamInEndpoint(
+            endpoint_number=1, # EP 1 IN
+            max_packet_size=self.MAX_PACKET_SIZE
+        )
+        usb.add_endpoint(ep1_in)
 
         leds    = Cat(platform.request_optional("led", i, default=NullPin()) for i in range(8))
         with m.If(ep1_out.stream.valid):
