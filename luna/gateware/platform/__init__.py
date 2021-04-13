@@ -17,6 +17,7 @@ from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
 from .luna_r0_1 import LUNAPlatformRev0D1
 from .luna_r0_2 import LUNAPlatformRev0D2
 from .luna_r0_3 import LUNAPlatformRev0D3
+from .luna_r0_4 import LUNAPlatformRev0D4
 from .daisho    import DaishoPlatform
 from .amalthea  import AmaltheaPlatformRev0D1
 
@@ -25,7 +26,7 @@ from .core      import NullPin
 
 
 # Stores the latest platform; for reference / automagic.
-LATEST_PLATFORM = LUNAPlatformRev0D2
+LATEST_PLATFORM = LUNAPlatformRev0D4
 
 
 # Table mapping LUNA revision numbers to their platform objects.
@@ -33,6 +34,7 @@ PLATFORM_FOR_REVISION = {
     (0,   1): LUNAPlatformRev0D1,
     (0,   2): LUNAPlatformRev0D2,
     (0,   3): LUNAPlatformRev0D3,
+    (0,   4): LUNAPlatformRev0D4,
     (254, 1): AmaltheaPlatformRev0D1,
     (255, 0): DaishoPlatform
 }
