@@ -278,7 +278,7 @@ class IntegratedLogicAnalyzerTest(LunaGatewareTestCase):
 
 class SyncSerialILA(Elaboratable):
     """ Super-simple ILA that reads samples out over a simple unidirectional SPI.
-    Create a receiver for this object by calling apollo.ila_receiver_for(<this>).
+    Create a receiver for this object by calling apollo_fpga.ila_receiver_for(<this>).
 
     This protocol is simple: every time CS goes low, we begin sending out a bit of
     sample on each rising edge. Once a new sample is complete, the next sample begins
@@ -671,7 +671,7 @@ class StreamILA(Elaboratable):
 
 class AsyncSerialILA(Elaboratable):
     """ Super-simple ILA that reads samples out over a UART connection.
-    Create a receiver for this object by calling apollo.ila_receiver_for(<this>).
+    Create a receiver for this object by calling apollo_fpga.ila_receiver_for(<this>).
 
     This protocol is simple: we wait for a trigger; and then broadcast our samples.
     We broadcast one buffer of samples per each subsequent trigger.
@@ -957,7 +957,7 @@ class AsyncSerialILAFrontend(ILAFrontend):
 
     def _split_samples(self, all_samples):
         """ Returns an iterator that iterates over each sample in the raw binary of samples. """
-        from apollo.support.bits import bits
+        from apollo_fpga.support.bits import bits
 
         sample_width_bytes = self.ila.bytes_per_sample
 
