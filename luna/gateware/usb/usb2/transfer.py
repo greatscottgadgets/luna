@@ -315,7 +315,7 @@ class USBInTransferManager(Elaboratable):
                     # for us in our "write buffer", which we've been filling in the background.
                     # If this is the case, we'll flip which buffer we're working with, toggle our data pid,
                     # and then ready ourselves for transmit.
-                    packet_completing = in_stream.valid & (write_fill_count + 1 == self._max_packet_size)
+                    packet_completing = in_stream.valid & ((write_fill_count + 1 == self._max_packet_size) | in_stream.last)
                     with m.Elif(~in_stream.ready | packet_completing):
                         m.next = "WAIT_TO_SEND"
                         m.d.usb += [
