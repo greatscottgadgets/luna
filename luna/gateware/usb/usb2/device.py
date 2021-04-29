@@ -174,6 +174,8 @@ class USBDevice(Elaboratable):
         control_endpoint = USBControlEndpoint(utmi=self.utmi)
         self.add_endpoint(control_endpoint)
 
+        return control_endpoint
+
 
     def add_standard_control_endpoint(self, descriptors: DeviceDescriptorCollection):
         """ Adds a control endpoint with standard request handlers to the device.
