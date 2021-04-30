@@ -5,30 +5,39 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Standard, full-gateware control request handlers. """
 
-from luna.gateware.test import utils
+import operator
 import unittest
+import functools
+from typing import Iterable, Callable
 
-from nmigen                 import Module, Elaboratable, Cat
+from luna.gateware.test import utils
+
+from nmigen                 import Module, Elaboratable, Cat, Signal
+from nmigen.hdl.ast         import Value, Const
 from usb_protocol.types     import USBStandardRequests, USBRequestType
 from usb_protocol.emitters  import DeviceDescriptorCollection
-
 
 from ..usb2.request         import RequestHandlerInterface, USBRequestHandler
 from ..usb2.descriptor      import GetDescriptorHandler
 from ..stream               import USBInStreamInterface
 from ...stream.generator    import StreamSerializer
+from .                      import SetupPacket
 
 
 class StandardRequestHandler(USBRequestHandler):
     """ Pure-gateware USB setup request handler. Implements the standard requests required for enumeration. """
 
-    def __init__(self, descriptors: DeviceDescriptorCollection, max_packet_size=64):
+    def __init__(self, descriptors: DeviceDescriptorCollection, max_packet_size: int = 64, blacklist: Iterable[Callable[[SetupPacket], Value]] = ()):
         """
         Parameters:
-            descriptors    -- The DeviceDescriptorCollection that contains our descriptors.
+            descriptors     -- The DeviceDescriptorCollection that contains our descriptors.
+            max_packet_size -- The maximum packet size for the control endpoint.
+            blacklist       -- Blacklist for packets to be ignored by this request handler.
         """
         self.descriptors = descriptors
         self._max_packet_size = max_packet_size
+        self._blacklist = blacklist
+
         super().__init__()
 
 
@@ -136,21 +145,25 @@ class StandardRequestHandler(USBRequestHandler):
                     # If we've received a new setup packet, handle it.
                     with m.If(setup.received):
 
-                        # Select which standard packet we're going to handler.
-                        with m.Switch(setup.request):
+                        # Only handle setup packet if not blacklisted
+                        blacklisted = functools.reduce(operator.__or__, (f(setup) for f in self._blacklist), Const(0))
+                        with m.If(~blacklisted):
 
-                            with m.Case(USBStandardRequests.GET_STATUS):
-                                m.next = 'GET_STATUS'
-                            with m.Case(USBStandardRequests.SET_ADDRESS):
-                                m.next = 'SET_ADDRESS'
-                            with m.Case(USBStandardRequests.SET_CONFIGURATION):
-                                m.next = 'SET_CONFIGURATION'
-                            with m.Case(USBStandardRequests.GET_DESCRIPTOR):
-                                m.next = 'GET_DESCRIPTOR'
-                            with m.Case(USBStandardRequests.GET_CONFIGURATION):
-                                m.next = 'GET_CONFIGURATION'
-                            with m.Case():
-                                m.next = 'UNHANDLED'
+                            # Select which standard packet we're going to handler.
+                            with m.Switch(setup.request):
+
+                                with m.Case(USBStandardRequests.GET_STATUS):
+                                    m.next = 'GET_STATUS'
+                                with m.Case(USBStandardRequests.SET_ADDRESS):
+                                    m.next = 'SET_ADDRESS'
+                                with m.Case(USBStandardRequests.SET_CONFIGURATION):
+                                    m.next = 'SET_CONFIGURATION'
+                                with m.Case(USBStandardRequests.GET_DESCRIPTOR):
+                                    m.next = 'GET_DESCRIPTOR'
+                                with m.Case(USBStandardRequests.GET_CONFIGURATION):
+                                    m.next = 'GET_CONFIGURATION'
+                                with m.Case():
+                                    m.next = 'UNHANDLED'
 
 
                 # GET_STATUS -- Fetch the device's status.
