@@ -263,7 +263,7 @@ class USBStreamOutEndpoint(Elaboratable):
     def __init__(self, *, endpoint_number, max_packet_size, buffer_size=None):
         self._endpoint_number = endpoint_number
         self._max_packet_size = max_packet_size
-        self._buffer_size = buffer_size if (buffer_size is not None) else (self._max_packet_size * 2)
+        self._buffer_size = buffer_size if (buffer_size is not None) else (self._max_packet_size * 2 - 1)
 
         #
         # I/O port
