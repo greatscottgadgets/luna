@@ -292,6 +292,9 @@ class USBStreamOutEndpoint(Elaboratable):
         # Stores the data toggle value we expect.
         expected_data_toggle = Signal()
 
+        # Stores whether we've had a receive overflow.
+        overflow = Signal()
+
         #
         # Receiver logic.
         #
@@ -332,7 +335,7 @@ class USBStreamOutEndpoint(Elaboratable):
         ping_response_requested  = endpoint_number_matches & tokenizer.is_ping & tokenizer.ready_for_response
         data_response_requested  = targeting_endpoint & tokenizer.is_out & interface.rx_ready_for_response
 
-        okay_to_receive          = targeting_endpoint & sufficient_space & expected_pid_match
+        okay_to_receive          = targeting_endpoint & expected_pid_match & ~overflow
         should_skip              = targeting_endpoint & ~expected_pid_match
 
         m.d.comb += [
@@ -344,23 +347,23 @@ class USBStreamOutEndpoint(Elaboratable):
             fifo.write_data[9]   .eq(rx_first),
             fifo.write_en        .eq(okay_to_receive & rx.next & rx.valid),
 
-            # We'll keep data if our packet finishes with a valid CRC; and discard it otherwise.
-            fifo.write_commit    .eq(targeting_endpoint & boundary_detector.complete_out),
-            fifo.write_discard   .eq(targeting_endpoint & boundary_detector.invalid_out),
+            # We'll keep data if our packet finishes with a valid CRC and no overflow; and discard it otherwise.
+            fifo.write_commit    .eq(targeting_endpoint & boundary_detector.complete_out & ~overflow),
+            fifo.write_discard   .eq(targeting_endpoint & (boundary_detector.invalid_out | (boundary_detector.complete_out & overflow))),
 
             # We'll ACK each packet if it's received correctly; _or_ if we skipped the packet
             # due to a PID sequence mismatch. If we get a PID sequence mismatch, we assume that
             # we missed a previous ACK from the host; and ACK without accepting data [USB 2.0: 8.6.3].
             interface.handshakes_out.ack  .eq(
                 (data_response_requested & okay_to_receive) |
-                (ping_response_requested & okay_to_receive) |
+                (ping_response_requested & sufficient_space) |
                 (data_response_requested & should_skip)
             ),
 
             # We'll NAK any time we want to accept a packet, but we don't have enough room.
             interface.handshakes_out.nak  .eq(
                 (data_response_requested & ~okay_to_receive & ~should_skip) |
-                (ping_response_requested & ~okay_to_receive)
+                (ping_response_requested & ~sufficient_space)
             ),
 
             # Our stream data always comes directly out of the FIFO; and is valid
@@ -377,6 +380,14 @@ class USBStreamOutEndpoint(Elaboratable):
             fifo.read_en      .eq(stream.ready),
             fifo.read_commit  .eq(1)
         ]
+
+        # We'll set the overflow flag if we're receiving data we don't have room for.
+        with m.If(fifo.write_en & fifo.full):
+            m.d.usb += overflow.eq(1)
+
+        # We'll clear the overflow flag when the packet is done.
+        with m.If(data_response_requested):
+            m.d.usb += overflow.eq(0)
 
         # We'll toggle our DATA PID each time we issue an ACK to the host [USB 2.0: 8.6.2].
         with m.If(data_response_requested & okay_to_receive):
