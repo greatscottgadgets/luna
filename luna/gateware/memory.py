@@ -135,12 +135,19 @@ class TransactionalizedFIFO(Elaboratable):
         current_write_pointer   = Signal(address_range)
         m.d.comb += write_port.addr.eq(current_write_pointer)
 
+
+        # Compute the location for the next write, accounting for wraparound. We'll not assume a binary-sized
+        # buffer; so we'll compute the wraparound manually.
+        next_write_pointer      = Signal.like(current_write_pointer)
+        with m.If(current_write_pointer == self.depth):
+            m.d.comb += next_write_pointer.eq(0)
+        with m.Else():
+            m.d.comb += next_write_pointer.eq(current_write_pointer + 1)
+
+
         # If we're writing to the fifo, update our current write position.
         with m.If(self.write_en & ~self.full):
-            with m.If(current_write_pointer == self.depth):
-                m.d.sync += current_write_pointer.eq(0)
-            with m.Else():
-                m.d.sync += current_write_pointer.eq(current_write_pointer + 1)
+            m.d.sync += current_write_pointer.eq(next_write_pointer)
 
         # If we're committing a FIFO write, update our committed position.
         with m.If(self.write_commit):
@@ -211,7 +218,7 @@ class TransactionalizedFIFO(Elaboratable):
             m.d.comb += self.space_available.eq(committed_read_pointer - current_write_pointer - 1)
 
         # Our FIFO is full if we don't have any space available.
-        m.d.comb += self.full.eq(current_write_pointer + 1 == committed_read_pointer)
+        m.d.comb += self.full.eq(next_write_pointer == committed_read_pointer)
 
 
         # If we're not supposed to be in the sync domain, rename our sync domain to the target.
