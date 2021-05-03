@@ -79,7 +79,7 @@ class GetDescriptorHandlerSingleMemory(Elaboratable):
         Each descriptor type starting from 0 until maximum used type number has
         an entry consisting of number of indexes for this type number (2 bytes)
         and address of first index (2 bytes).
-        Invalid entries have a value of 0xFFFFFFFF
+        Invalid entries have a value of 0x0000xxxx (0 entries).
 
         Example:
         0000  0xFFFF
@@ -110,11 +110,7 @@ class GetDescriptorHandlerSingleMemory(Elaboratable):
         """
 
         # Get all descriptors and cache them in a dictionary, so that we can access them at will
-        descriptors = {
-            # StandardDescriptorNumbers.DEVICE: {},
-            # StandardDescriptorNumbers.CONFIGURATION: {},
-            # StandardDescriptorNumbers.STRING: {}
-        }
+        descriptors = {}
         for type_number, index, raw_descriptor in self._descriptors:
             if type_number not in descriptors:
                 descriptors[type_number] = {}
@@ -128,18 +124,15 @@ class GetDescriptorHandlerSingleMemory(Elaboratable):
             assert(sorted(indexes.keys())[-1] == len(indexes) - 1)
 
         total_size = (# Base addresses
-                      self.maximum_type_number * 4 +
+                      (self.maximum_type_number + 1) * 4 +
                       # Points to data
                       functools.reduce(lambda x, indexes: x + len(indexes), descriptors.values(), 0) * 4 +
-                      # Actual data + Length
+                      # Actual data
                       functools.reduce(lambda x, indexes: x + functools.reduce(lambda x, raw_descriptor: x + ((len(raw_descriptor)+3)//4)*4, indexes.values(), 0), descriptors.values(), 0))
 
         rom = bytearray(total_size)
 
         # Fill ROM
-
-        # Fill are of type offsets with 0xFF, so that unused type numbers have a value of 0xFFFF
-        rom[0:(self.maximum_type_number+1)*4] = bytearray([0xFF] * (self.maximum_type_number+1)*4)
 
         # Write type offsets and number of entries
         next_free_address = (self.maximum_type_number+1)*4
@@ -162,7 +155,9 @@ class GetDescriptorHandlerSingleMemory(Elaboratable):
         #     data = " ".join([f"{rom[16*i+j]:02X}" for j in range(16 if i < (len(rom)//16) else  len(rom)-16*i)])
         #     print(f"{i*16:04X} {data}")
 
-        self.rom_content = [struct.unpack(">I", rom[4*i:4*i+4])[0] for i in range(total_size//4+1)]
+        assert(total_size == len(rom))
+
+        self.rom_content = [struct.unpack(">I", rom[4*i:4*i+4])[0] for i in range(total_size//4)]
         self.descriptor_max_length = functools.reduce(lambda x, indexes: max(x, functools.reduce(lambda x, raw_descriptor: max(x, len(raw_descriptor)), indexes.values(), 0)), descriptors.values(), 0)
 
     def elaborate(self, platform) -> Module:
@@ -235,7 +230,7 @@ class GetDescriptorHandlerSingleMemory(Elaboratable):
 
             with m.State('TYPE'):
                 # If no entries are available for index or type number is unused, stall
-                with m.If((index >= rom_read_port.data.word_select(1, 16)) | (rom_read_port.data == ~Const(0, 32))):
+                with m.If(index >= rom_read_port.data.word_select(1, 16)):
                     m.d.comb += [
                         self.stall.eq(1)
                     ]
@@ -323,7 +318,7 @@ class GetDescriptorHandlerSingleMemoryTest(LunaUSBGatewareTestCase):
                     e.bInterval        = 11
 
     # HID Descriptor (Example E.8 of HID specification)
-    descriptors.add_descriptor(b'\x09\x21\x01\x01\x00\x01\x22\x32')
+    descriptors.add_descriptor(b'\x09\x21\x01\x01\x00\x01\x22\x00\x32')
 
     FRAGMENT_UNDER_TEST = GetDescriptorHandlerSingleMemory
     FRAGMENT_ARGUMENTS = {"descriptor_collection": descriptors}
