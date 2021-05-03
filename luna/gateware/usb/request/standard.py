@@ -5,8 +5,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Standard, full-gateware control request handlers. """
 
-from luna.gateware.test import utils
+import os
 import unittest
+
+from luna.gateware.test import utils
 
 from nmigen                 import Module, Elaboratable, Cat
 from usb_protocol.types     import USBStandardRequests, USBRequestType
@@ -14,21 +16,38 @@ from usb_protocol.emitters  import DeviceDescriptorCollection
 
 
 from ..usb2.request         import RequestHandlerInterface, USBRequestHandler
-from ..usb2.descriptor      import GetDescriptorHandler
+from ..usb2.descriptor      import GetDescriptorHandlerDistributed, GetDescriptorHandlerBlock
 from ..stream               import USBInStreamInterface
 from ...stream.generator    import StreamSerializer
+from luna.gateware.usb.usb2 import descriptor
 
 
 class StandardRequestHandler(USBRequestHandler):
-    """ Pure-gateware USB setup request handler. Implements the standard requests required for enumeration. """
+    """ Pure-gateware USB setup request handler. Implements the standard requests required for enumeration.
 
-    def __init__(self, descriptors: DeviceDescriptorCollection, max_packet_size=64):
+    Parameters
+    ----------
+    descriptors: DeviceDescriptorCollection
+        The DeviceDescriptorCollection that contains our descriptors.
+    max_packet_size: int, optional
+        The maximum packet size for the endpoint associated with this handler.
+
+    avoid_blockram: int, optional
+
+     """
+
+    def __init__(self, descriptors: DeviceDescriptorCollection, max_packet_size=64, avoid_blockram=None):
         """
         Parameters:
-            descriptors    -- The DeviceDescriptorCollection that contains our descriptors.
         """
-        self.descriptors = descriptors
+        self.descriptors      = descriptors
         self._max_packet_size = max_packet_size
+        self._avoid_blockram  = avoid_blockram
+
+        # If we don't have a value for avoiding blockrams; defer to the environment.
+        if self._avoid_blockram is None:
+            self._avoid_blockram = os.getenv("LUNA_AVOID_BLOCKRAM", False)
+
         super().__init__()
 
 
@@ -103,9 +122,13 @@ class StandardRequestHandler(USBRequestHandler):
         #
         # Submodules
         #
+        if self._avoid_blockram:
+            descriptor_handler_type = GetDescriptorHandlerDistributed
+        else:
+            descriptor_handler_type = GetDescriptorHandlerBlock
 
         # Handler for Get Descriptor requests; responds with our various fixed descriptors.
-        m.submodules.get_descriptor = get_descriptor_handler = GetDescriptorHandler(self.descriptors)
+        m.submodules.get_descriptor = get_descriptor_handler = descriptor_handler_type(self.descriptors)
         m.d.comb += [
             get_descriptor_handler.value  .eq(setup.value),
             get_descriptor_handler.length .eq(setup.length),
