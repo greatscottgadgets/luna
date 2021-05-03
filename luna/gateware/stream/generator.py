@@ -222,6 +222,9 @@ class ConstantStreamGenerator(Elaboratable):
                     position_in_stream  .eq(start_position),
                     bytes_sent          .eq(0)
                 ]
+                m.d.comb += [
+                    rom_read_port.addr  .eq(start_position),
+                ]
 
                 # Once the user requests that we start, move to our stream being valid.
                 with m.If(self.start & (self.max_length > 0)):
@@ -341,7 +344,6 @@ class ConstantStreamGeneratorTest(LunaUSBGatewareTestCase):
     FRAGMENT_UNDER_TEST = ConstantStreamGenerator
     FRAGMENT_ARGUMENTS  = {'constant_data': b"HELLO, WORLD", 'domain': "usb", 'max_length_width': 16}
 
-
     @usb_domain_test_case
     def test_basic_transmission(self):
         dut = self.dut
@@ -404,6 +406,70 @@ class ConstantStreamGeneratorTest(LunaUSBGatewareTestCase):
         yield
         self.assertEqual((yield dut.stream.valid), 0)
 
+    @usb_domain_test_case
+    def test_basic_start_position(self):
+        dut = self.dut
+
+        # Start at position 2
+        yield dut.start_position.eq(2)
+
+        # Establish a very high max length; so it doesn't apply.
+        yield dut.max_length.eq(1000)
+
+        # We shouldn't see a transmission before we request a start.
+        yield from self.advance_cycles(10)
+        self.assertEqual((yield dut.stream.valid), 0)
+        self.assertEqual((yield dut.stream.first), 0)
+        self.assertEqual((yield dut.stream.last),  0)
+
+        # Once we pulse start, we should see the transmission start,
+        # and we should see our first byte of data.
+        yield from self.pulse(dut.start)
+        self.assertEqual((yield dut.stream.valid),   1)
+        self.assertEqual((yield dut.stream.payload), ord('L'))
+        self.assertEqual((yield dut.stream.first),   1)
+
+        # That data should remain there until we accept it.
+        yield from self.advance_cycles(10)
+        self.assertEqual((yield dut.stream.valid),   1)
+        self.assertEqual((yield dut.stream.payload), ord('L'))
+
+        # Once we indicate that we're accepting data...
+        yield dut.stream.ready.eq(1)
+        yield
+
+        # ... we should start seeing the remainder of our transmission.
+        for i in 'LO':
+            yield
+            self.assertEqual((yield dut.stream.payload), ord(i))
+            self.assertEqual((yield dut.stream.first),   0)
+
+
+        # If we drop the 'accepted', we should still see the next byte...
+        yield dut.stream.ready.eq(0)
+        yield
+        self.assertEqual((yield dut.stream.payload), ord(','))
+
+        # ... but that byte shouldn't be accepted, so we should remain there.
+        yield
+        self.assertEqual((yield dut.stream.payload), ord(','))
+
+        # If we start accepting data again...
+        yield dut.stream.ready.eq(1)
+        yield
+
+        # ... we should see the remainder of the stream.
+        for i in ' WORLD':
+            yield
+            self.assertEqual((yield dut.stream.payload), ord(i))
+
+
+        # On the last byte of data, we should see last = 1.
+        self.assertEqual((yield dut.stream.last),   1)
+
+        # After the last datum, we should see valid drop to '0'.
+        yield
+        self.assertEqual((yield dut.stream.valid), 0)
 
     @usb_domain_test_case
     def test_max_length(self):
