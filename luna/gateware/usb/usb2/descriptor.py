@@ -110,7 +110,7 @@ class GetDescriptorHandler(Elaboratable):
             ]
 
             # ... and attach it to this module.
-            setattr(m.submodules, f'USBDescriptorStreamGenerator({type_number.name if type(type_number) == StandardDescriptorNumbers else type_number},{index})', generator)
+            setattr(m.submodules, f'USBDescriptorStreamGenerator({type_number.name if isinstance(type_number, StandardDescriptorNumbers) else type_number},{index})', generator)
 
 
         #
