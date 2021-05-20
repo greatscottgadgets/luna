@@ -244,9 +244,6 @@ class USBStreamOutEndpoint(Elaboratable):
     ----------
     stream: StreamInterface, output stream
         Full-featured stream interface that carries the data we've received from the host.
-        Note that this stream is *transaction* oriented; which means that First and Last indicate
-        the start and end of an individual data packet. This means that short packet detection is
-        the responsibility of the stream's consumer.
     interface: EndpointInterface
         Communications link to our USB device.
 
@@ -266,7 +263,7 @@ class USBStreamOutEndpoint(Elaboratable):
     def __init__(self, *, endpoint_number, max_packet_size, buffer_size=None):
         self._endpoint_number = endpoint_number
         self._max_packet_size = max_packet_size
-        self._buffer_size = buffer_size if (buffer_size is not None) else (self._max_packet_size * 2)
+        self._buffer_size = buffer_size if (buffer_size is not None) else (self._max_packet_size * 2 - 1)
 
         #
         # I/O port
@@ -286,11 +283,17 @@ class USBStreamOutEndpoint(Elaboratable):
         # Internal state.
         #
 
-        # Stores whether this is the first byte of a transfer. True if the previous byte had its `last` bit set.
-        is_first_byte = Signal(reset=1)
-
         # Stores the data toggle value we expect.
         expected_data_toggle = Signal()
+
+        # Stores whether we've had a receive overflow.
+        overflow = Signal()
+
+        # Stores a count of received bytes in the current packet.
+        rx_cnt = Signal(range(self._max_packet_size))
+
+        # Stores whether we're in the middle of a transfer.
+        transfer_active = Signal()
 
         #
         # Receiver logic.
@@ -312,12 +315,6 @@ class USBStreamOutEndpoint(Elaboratable):
         # Create a Rx FIFO.
         m.submodules.fifo = fifo = TransactionalizedFIFO(width=10, depth=self._buffer_size, name="rx_fifo", domain="usb")
 
-        # Generate our `first` bit from the most recently transmitted bit.
-        # Essentially, if the most recently valid byte was accompanied by an asserted `last`, the next byte
-        # should have `first` asserted.
-        with m.If(stream.valid & stream.ready):
-            m.d.usb += is_first_byte.eq(stream.last)
-
 
         #
         # Create some basic conditionals that will help us make decisions.
@@ -332,35 +329,37 @@ class USBStreamOutEndpoint(Elaboratable):
         ping_response_requested  = endpoint_number_matches & tokenizer.is_ping & tokenizer.ready_for_response
         data_response_requested  = targeting_endpoint & tokenizer.is_out & interface.rx_ready_for_response
 
-        okay_to_receive          = targeting_endpoint & sufficient_space & expected_pid_match
+        okay_to_receive          = targeting_endpoint & expected_pid_match & ~overflow
         should_skip              = targeting_endpoint & ~expected_pid_match
+
+        full_packet              = rx_cnt == self._max_packet_size - 1
 
         m.d.comb += [
 
             # We'll always populate our FIFO directly from the receive stream; but we'll also include our
             # "short packet detected" signal, as this indicates that we're detecting the last byte of a transfer.
             fifo.write_data[0:8] .eq(rx.payload),
-            fifo.write_data[8]   .eq(rx_last),
-            fifo.write_data[9]   .eq(rx_first),
+            fifo.write_data[8]   .eq(rx_last & ~full_packet),
+            fifo.write_data[9]   .eq(rx_first & ~transfer_active),
             fifo.write_en        .eq(okay_to_receive & rx.next & rx.valid),
 
-            # We'll keep data if our packet finishes with a valid CRC; and discard it otherwise.
-            fifo.write_commit    .eq(targeting_endpoint & boundary_detector.complete_out),
-            fifo.write_discard   .eq(targeting_endpoint & boundary_detector.invalid_out),
+            # We'll keep data if our packet finishes with a valid CRC and no overflow; and discard it otherwise.
+            fifo.write_commit    .eq(targeting_endpoint & boundary_detector.complete_out & ~overflow),
+            fifo.write_discard   .eq(targeting_endpoint & (boundary_detector.invalid_out | (boundary_detector.complete_out & overflow))),
 
             # We'll ACK each packet if it's received correctly; _or_ if we skipped the packet
             # due to a PID sequence mismatch. If we get a PID sequence mismatch, we assume that
             # we missed a previous ACK from the host; and ACK without accepting data [USB 2.0: 8.6.3].
             interface.handshakes_out.ack  .eq(
                 (data_response_requested & okay_to_receive) |
-                (ping_response_requested & okay_to_receive) |
+                (ping_response_requested & sufficient_space) |
                 (data_response_requested & should_skip)
             ),
 
             # We'll NAK any time we want to accept a packet, but we don't have enough room.
             interface.handshakes_out.nak  .eq(
                 (data_response_requested & ~okay_to_receive & ~should_skip) |
-                (ping_response_requested & ~okay_to_receive)
+                (ping_response_requested & ~sufficient_space)
             ),
 
             # Our stream data always comes directly out of the FIFO; and is valid
@@ -377,6 +376,23 @@ class USBStreamOutEndpoint(Elaboratable):
             fifo.read_en      .eq(stream.ready),
             fifo.read_commit  .eq(1)
         ]
+
+        # Count bytes in packet.
+        with m.If(fifo.write_en):
+            m.d.usb += rx_cnt.eq(rx_cnt + 1)
+
+            # Set the transfer active flag depending on whether this is a full packet.
+            with m.If(rx_last):
+                m.d.usb += transfer_active.eq(full_packet)
+
+        # We'll set the overflow flag if we're receiving data we don't have room for.
+        with m.If(fifo.write_en & fifo.full):
+            m.d.usb += overflow.eq(1)
+
+        # We'll clear the overflow flag and byte counter when the packet is done.
+        with m.If(data_response_requested):
+            m.d.usb += overflow.eq(0)
+            m.d.usb += rx_cnt.eq(0)
 
         # We'll toggle our DATA PID each time we issue an ACK to the host [USB 2.0: 8.6.2].
         with m.If(data_response_requested & okay_to_receive):
