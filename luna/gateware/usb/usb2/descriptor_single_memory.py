@@ -135,8 +135,8 @@ class GetDescriptorHandlerSingleMemory(Elaboratable):
         # Fill ROM
 
         # Write type offsets and number of entries
-        next_free_address = (self.maximum_type_number+1)*4
-        type_index_base_address = [0] * (self.maximum_type_number+1)
+        next_free_address = (self.maximum_type_number + 1) * 4
+        type_index_base_address = [0] * (self.maximum_type_number + 1)
         for type_number, indexes in sorted(descriptors.items()):
             type_base_address = type_number * 4
             rom[type_base_address:type_base_address + 4] = struct.pack(">HH", len(indexes), next_free_address)
@@ -147,17 +147,13 @@ class GetDescriptorHandlerSingleMemory(Elaboratable):
         for type_number, indexes in sorted(descriptors.items()):
             for index, raw_descriptor in sorted(indexes.items()):
                 index_base_address = type_index_base_address[type_number] + index * 4
-                rom[index_base_address:index_base_address+4] = struct.pack(">HH", len(raw_descriptor), next_free_address)
+                rom[index_base_address:index_base_address + 4] = struct.pack(">HH", len(raw_descriptor), next_free_address)
                 rom[next_free_address:next_free_address+len(raw_descriptor)] = raw_descriptor
-                next_free_address += ((len(raw_descriptor)+3)//4)*4
-
-        # for i in range(len(rom)//16+1):
-        #     data = " ".join([f"{rom[16*i+j]:02X}" for j in range(16 if i < (len(rom)//16) else  len(rom)-16*i)])
-        #     print(f"{i*16:04X} {data}")
+                next_free_address += ((len(raw_descriptor) + 3) // 4) * 4
 
         assert(total_size == len(rom))
 
-        self.rom_content = [struct.unpack(">I", rom[4*i:4*i+4])[0] for i in range(total_size//4)]
+        self.rom_content = [struct.unpack(">I", rom[4*i:4*i+4])[0] for i in range(total_size // 4)]
         self.descriptor_max_length = functools.reduce(lambda x, indexes: max(x, functools.reduce(lambda x, raw_descriptor: max(x, len(raw_descriptor)), indexes.values(), 0)), descriptors.values(), 0)
 
     def elaborate(self, platform) -> Module:
@@ -209,43 +205,29 @@ class GetDescriptorHandlerSingleMemory(Elaboratable):
             m.d.comb += self.tx.valid.eq(fsm.ongoing('STREAMING'))
 
             with m.State('IDLE'):
-                m.d.comb += [
-                    rom_read_port.addr.eq(type_number),
-                ]
-                m.d.sync += [
-                    bytes_sent.eq(0)
-                ]
+                m.d.comb += rom_read_port.addr.eq(type_number),
+                m.d.sync += bytes_sent.eq(0)
 
                 with m.If(self.start):
-                    m.d.sync += [
-                        position_in_stream.eq(self.start_position),
-                    ]
+                    m.d.sync += position_in_stream.eq(self.start_position),
 
                     with m.If((length > 0) & (type_number <= self.maximum_type_number)):
                         m.next = 'TYPE'
                     with m.Else():
-                        m.d.comb += [
-                            self.stall.eq(1)
-                        ]
+                        m.d.comb += self.stall.eq(1)
 
             with m.State('TYPE'):
                 # If no entries are available for index or type number is unused, stall
                 with m.If(index >= rom_read_port.data.word_select(1, 16)):
-                    m.d.comb += [
-                        self.stall.eq(1)
-                    ]
+                    m.d.comb += self.stall.eq(1)
                     m.next = "IDLE"
 
                 with m.Else():
-                    m.d.comb += [
-                        rom_read_port.addr.eq(rom_read_port.data.bit_select(2, rom_read_port.addr.width)+index)
-                    ]
+                    m.d.comb += rom_read_port.addr.eq(rom_read_port.data.bit_select(2, rom_read_port.addr.width) + index)
                     m.next = 'INDEX'
 
             with m.State('INDEX'):
-                m.d.comb += [
-                   rom_read_port.addr.eq((rom_read_port.data+position_in_stream).bit_select(2, rom_read_port.addr.width))
-                ]
+                m.d.comb += rom_read_port.addr.eq((rom_read_port.data + position_in_stream).bit_select(2, rom_read_port.addr.width))
                 m.d.sync += [
                     descriptor_data_base_address.eq(rom_read_port.data.bit_select(2, descriptor_data_base_address.width)),
                     descriptor_length.eq(rom_read_port.data.word_select(1, 16))
@@ -255,8 +237,8 @@ class GetDescriptorHandlerSingleMemory(Elaboratable):
             with m.State('STREAMING'):
                 m.d.comb += [
                     # Always drive the stream from our current memory output...
-                    rom_read_port.addr.eq(descriptor_data_base_address+position_in_stream.bit_select(2, position_in_stream.width-2)),
-                    self.tx.payload.eq(rom_read_port.data.word_select(3-position_in_stream.bit_select(0, 2), 8)),
+                    rom_read_port.addr.eq(descriptor_data_base_address + position_in_stream.bit_select(2, position_in_stream.width - 2)),
+                    self.tx.payload.eq(rom_read_port.data.word_select(3 - position_in_stream.bit_select(0, 2), 8)),
 
                     # ... and base First and Last based on our current position in the stream.
                     self.tx.first    .eq(on_first_packet),
@@ -269,9 +251,7 @@ class GetDescriptorHandlerSingleMemory(Elaboratable):
                             position_in_stream.eq(position_in_stream + 1),
                             bytes_sent.eq(bytes_sent + 1),
                         ]
-                        m.d.comb += [
-                            rom_read_port.addr.eq(descriptor_data_base_address+(position_in_stream+1).bit_select(2, position_in_stream.width-2)),
-                        ]
+                        m.d.comb += rom_read_port.addr.eq(descriptor_data_base_address+(position_in_stream + 1).bit_select(2, position_in_stream.width - 2)),
 
                     # Otherwise, we've finished streaming. Return to IDLE.
                     with m.Else():
@@ -359,11 +339,11 @@ class GetDescriptorHandlerSingleMemoryTest(LunaUSBGatewareTestCase):
         expected_bytes = min(len(expected_data), max_length-start_position, max_packet_length)
 
         for i in range(expected_bytes):
-            self.assertEqual((yield self.dut.tx.first), 1 if (i == 0) else 0)
-            self.assertEqual((yield self.dut.tx.last), 1 if (i == expected_bytes-1) else 0)
-            self.assertEqual((yield self.dut.tx.valid), 1)
+            self.assertEqual((yield self.dut.tx.first),   1 if (i == 0) else 0)
+            self.assertEqual((yield self.dut.tx.last),    1 if (i == expected_bytes - 1) else 0)
+            self.assertEqual((yield self.dut.tx.valid),   1)
             self.assertEqual((yield self.dut.tx.payload), expected_data[i])
-            self.assertEqual((yield self.dut.stall), 0)
+            self.assertEqual((yield self.dut.stall),      0)
             yield
 
         self.assertEqual((yield self.dut.tx.valid), 0)
