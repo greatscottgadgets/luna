@@ -10,7 +10,7 @@ from nmigen.build import *
 from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
 from nmigen_boards.resources import *
 
-from .core import LUNAPlatform
+from .core import LUNAApolloPlatform
 from ..architecture.car import LunaECP5DomainGenerator
 
 __all__ = ["LUNAPlatformRev0D2"]
@@ -21,7 +21,7 @@ __all__ = ["LUNAPlatformRev0D2"]
 # This is supported by a PHY feature that allows you to swap pins 13 + 14.
 #
 
-class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
+class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAApolloPlatform):
     """ Board description for the pre-release r0.2 revision of LUNA. """
 
     name        = "LUNA r0.2"
@@ -160,52 +160,3 @@ class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAPlatform):
 
         return super().toolchain_prepare(fragment, name, **overrides, **kwargs)
 
-
-    def toolchain_program(self, products, name):
-        """ Programs the relevant LUNA board via its sideband connection. """
-
-        from apollo_fpga import ApolloDebugger
-        from apollo_fpga.ecp5 import ECP5_JTAGProgrammer
-
-        # Create our connection to the debug module.
-        debugger = ApolloDebugger()
-
-        # Grab our generated bitstream, and upload it to the FPGA.
-        bitstream =  products.get("{}.bit".format(name))
-        with debugger.jtag as jtag:
-            programmer = ECP5_JTAGProgrammer(jtag)
-            programmer.configure(bitstream)
-
-
-    def toolchain_flash(self, products, name="top"):
-        """ Programs the LUNA board's flash via its sideband connection. """
-
-        from apollo_fpga import ApolloDebugger
-        from apollo_fpga.flash import ensure_flash_gateware_loaded
-
-        # Create our connection to the debug module.
-        debugger = ApolloDebugger()
-        ensure_flash_gateware_loaded(debugger, platform=self.__class__())
-
-        # Grab our generated bitstream, and upload it to the .
-        bitstream =  products.get("{}.bit".format(name))
-        with debugger.flash as flash:
-            flash.program(bitstream)
-
-        debugger.soft_reset()
-
-
-    def toolchain_erase(self):
-        """ Erases the LUNA board's flash. """
-
-        from apollo_fpga import ApolloDebugger
-        from apollo_fpga.flash import ensure_flash_gateware_loaded
-
-        # Create our connection to the debug module.
-        debugger = ApolloDebugger()
-        ensure_flash_gateware_loaded(debugger, platform=self.__class__())
-
-        with debugger.flash as flash:
-            flash.erase()
-
-        debugger.soft_reset()
