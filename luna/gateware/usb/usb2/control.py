@@ -265,7 +265,7 @@ class USBControlEndpoint(Elaboratable):
                     ]
 
                 # Once we get an IN token, we should move on to the STATUS stage. [USB2, 8.5.3]
-                with m.If(interface.tokenizer.new_token & interface.tokenizer.is_in):
+                with m.If(endpoint_targeted & interface.tokenizer.new_token & interface.tokenizer.is_in):
                     m.next = 'STATUS_IN'
 
 
