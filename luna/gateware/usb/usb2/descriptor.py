@@ -110,7 +110,7 @@ class GetDescriptorHandler(Elaboratable):
             ]
 
             # ... and attach it to this module.
-            setattr(m.submodules, f'USBDescriptorStreamGenerator({type_number.name},{index})', generator)
+            setattr(m.submodules, f'USBDescriptorStreamGenerator({type_number.name if isinstance(type_number, StandardDescriptorNumbers) else type_number},{index})', generator)
 
 
         #
@@ -164,6 +164,9 @@ class GetDescriptorHandlerTest(LunaUSBGatewareTestCase):
                     e.bmAttributes     = 0x03
                     e.wMaxPacketSize   = 64
                     e.bInterval        = 11
+
+    # HID Descriptor (Example E.8 of HID specification)
+    descriptors.add_descriptor(b'\x09\x21\x01\x01\x00\x01\x22\x00\x32')
 
     FRAGMENT_UNDER_TEST = GetDescriptorHandler
     FRAGMENT_ARGUMENTS = {"descriptor_collection": descriptors}
