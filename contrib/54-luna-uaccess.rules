@@ -2,4 +2,4 @@ ATTR{idVendor}=="16d0", ATTR{idProduct}=="05a5", SYMLINK+="luna%k", TAG+="uacces
 ATTR{idVendor}=="16d0", ATTR{idProduct}=="0f3b", SYMLINK+="lunatarget%k", TAG+="uaccess"
 
 ATTR{idVendor}=="1d50", ATTR{idProduct}=="615c", SYMLINK+="apollo%k", TAG+="uaccess"
-ATTR{idVendor}=="1d50", ATTR{idProduct}=="614b", SYMLINK+="luna%k", TAG+="uaccess"
+ATTR{idVendor}=="1d50", ATTR{idProduct}=="615b", SYMLINK+="luna%k", TAG+="uaccess"
