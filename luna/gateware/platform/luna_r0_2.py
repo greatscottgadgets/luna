@@ -21,7 +21,7 @@ __all__ = ["LUNAPlatformRev0D2"]
 # This is supported by a PHY feature that allows you to swap pins 13 + 14.
 #
 
-class LUNAPlatformRev0D2(LatticeECP5Platform, LUNAApolloPlatform):
+class LUNAPlatformRev0D2(LUNAApolloPlatform, LatticeECP5Platform):
     """ Board description for the pre-release r0.2 revision of LUNA. """
 
     name        = "LUNA r0.2"

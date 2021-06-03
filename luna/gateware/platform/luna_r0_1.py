@@ -35,7 +35,7 @@ def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset
     )
 
 
-class LUNAPlatformRev0D1(LatticeECP5Platform, LUNAApolloPlatform):
+class LUNAPlatformRev0D1(LUNAApolloPlatform, LatticeECP5Platform):
     """ Board description for the pre-release r0.1 revision of LUNA. """
 
     name        = "LUNA r0.1"
