@@ -1,13 +1,17 @@
 LOCATE COMP "clk_60mhz"  SITE "A8";
 
-LOCATE COMP "led[5]"     SITE "L16";
-LOCATE COMP "led[4]"     SITE "L15";
-LOCATE COMP "led[3]"     SITE "M16";
-LOCATE COMP "led[2]"     SITE "M15";
-LOCATE COMP "led[1]"     SITE "N16";
-LOCATE COMP "led[0]"     SITE "P15";
+LOCATE COMP "led[5]"     SITE "T15";
+IOBUF PORT  "led[5]"     IO_TYPE=LVCMOS33;
+LOCATE COMP "led[4]"     SITE "R15";
+IOBUF PORT  "led[4]"     IO_TYPE=LVCMOS33;
+LOCATE COMP "led[3]"     SITE "R16";
+IOBUF PORT  "led[3]"     IO_TYPE=LVCMOS33;
+LOCATE COMP "led[2]"     SITE "P15";
+IOBUF PORT  "led[2]"     IO_TYPE=LVCMOS33;
+LOCATE COMP "led[1]"     SITE "P16";
+IOBUF PORT  "led[1]"     IO_TYPE=LVCMOS33;
+LOCATE COMP "led[0]"     SITE "P14";
+IOBUF PORT  "led[0]"     IO_TYPE=LVCMOS33;
 
-LOCATE COMP "user_io[3]" SITE "A2";
-LOCATE COMP "user_io[2]" SITE "A3";
-LOCATE COMP "user_io[1]" SITE "A4";
-LOCATE COMP "user_io[0]" SITE "A5";
+LOCATE COMP "user_io[1]" SITE "D3";
+LOCATE COMP "user_io[0]" SITE "C3";

@@ -92,3 +92,68 @@ class LUNAPlatform:
             log = logging.warnings if expected else logging.debug
             log(f"Skipping resource {name}/{number}, as it is not present on this platform.")
             return default
+
+
+class LUNAApolloPlatform(LUNAPlatform):
+    """ Base class for Apollo-based LUNA platforms; includes configuration. """
+
+    def toolchain_program(self, products, name):
+        """ Programs the relevant LUNA board via its sideband connection. """
+
+        from apollo_fpga import ApolloDebugger
+        from apollo_fpga.ecp5 import ECP5_JTAGProgrammer
+
+        # Create our connection to the debug module.
+        debugger = ApolloDebugger()
+
+        # Grab our generated bitstream, and upload it to the FPGA.
+        bitstream =  products.get("{}.bit".format(name))
+        with debugger.jtag as jtag:
+            programmer = ECP5_JTAGProgrammer(jtag)
+            programmer.configure(bitstream)
+
+
+    def _ensure_unconfigured(self, debugger):
+        """ Ensures a given FPGA is unconfigured and thus ready for e.g. SPI flashing. """
+
+        from apollo_fpga.ecp5 import ECP5_JTAGProgrammer
+
+        with debugger.jtag as jtag:
+            programmer = ECP5_JTAGProgrammer(jtag)
+            programmer.unconfigure()
+
+
+    def toolchain_flash(self, products, name="top"):
+        """ Programs the LUNA board's flash via its sideband connection. """
+
+        from apollo_fpga import ApolloDebugger
+        from apollo_fpga.ecp5 import ECP5_JTAGProgrammer
+
+        # Create our connection to the debug module.
+        debugger = ApolloDebugger()
+        self._ensure_unconfigured(debugger)
+
+        # Grab our generated bitstream, and upload it to the .
+        bitstream =  products.get("{}.bit".format(name))
+        with debugger.jtag as jtag:
+            programmer = ECP5_JTAGProgrammer(jtag)
+            programmer.flash(bitstream)
+
+        debugger.soft_reset()
+
+
+    def toolchain_erase(self):
+        """ Erases the LUNA board's flash. """
+
+        from apollo_fpga import ApolloDebugger
+        from apollo_fpga.ecp5 import ECP5_JTAGProgrammer
+
+        # Create our connection to the debug module.
+        debugger = ApolloDebugger()
+        self._ensure_unconfigured(debugger)
+
+        with debugger.jtag as jtag:
+            programmer = ECP5_JTAGProgrammer(jtag)
+            programmer.erase_flash()
+
+        debugger.soft_reset()
