@@ -1,9 +1,0 @@
-[submodule "firmware/saturn-v/deps/usb"]
-	path = firmware/saturn-v/deps/usb
-	url = https://github.com/opendime/USB-XMEGA.git
-[submodule "firmware/saturn-v/deps/sam0"]
-	path = firmware/saturn-v/deps/sam0
-	url = https://github.com/avrxml/sam0.git
-[submodule "firmware/lib/tinyusb"]
-	path = firmware/lib/tinyusb
-	url = https://github.com/ktemkin/tinyusb.git

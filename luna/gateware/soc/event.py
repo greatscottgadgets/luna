@@ -15,6 +15,8 @@ from nmigen import tracer
 
 from nmigen_soc import csr
 
+from lambdasoc.periph.event import IRQLine
+
 
 __all__ = ["EventSource", "IRQLine", "InterruptSource"]
 
@@ -54,13 +56,6 @@ class EventSource:
         self.mode = mode
         self.stb  = Signal(name="{}_stb".format(self.name))
 
-
-class IRQLine(Signal):
-    """Interrupt request line."""
-    def __init__(self, *, name=None, src_loc_at=0):
-        super().__init__(name=name, src_loc_at=1 + src_loc_at)
-
-    __hash__ = object.__hash__
 
 
 class InterruptSource(Elaboratable):

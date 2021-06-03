@@ -13,6 +13,8 @@ from unittest import TestCase
 from nmigen import Record, Instance, Module, Signal, Cat
 from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
 
+
+# FIXME: move this out of here and into an ECP5-specific set of functionality
 def delay(m, signal, interval, *, out=None):
     """ Creates a delayed copy of a given I/O signal.
 

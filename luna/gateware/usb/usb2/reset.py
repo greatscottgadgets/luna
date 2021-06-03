@@ -8,7 +8,7 @@
 
 import unittest
 
-from nmigen                import Signal, Module, Elaboratable, Instance
+from nmigen                import *
 
 from .                     import USBSpeed
 from ...interface.utmi     import UTMITransmitInterface, UTMIOperatingMode, UTMITerminationSelect
@@ -138,6 +138,9 @@ class USBResetSequencer(Elaboratable):
 
     def elaborate(self, platform):
         m = Module()
+
+        if hasattr(platform, 'ignore_phy_vbus') and platform.ignore_phy_vbus:
+            self.vbus_connected = Const(1)
 
         # Event timer: keeps track of the timing of each of the individual event phases.
         timer = Signal(range(0, self._CYCLES_3_MILLISECONDS + 1))

@@ -13,6 +13,7 @@ import warnings
 from unittest       import TestCase
 from nmigen         import Record, Module, Signal
 from nmigen.lib.cdc import FFSynchronizer
+from nmigen.lib.io  import Pin
 from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
 
 from ..test         import LunaGatewareTestCase, sync_test_case
@@ -38,7 +39,15 @@ def synchronize(m, signal, *, output=None, o_domain='sync', stages=2):
         return FFSynchronizer(signal, output, o_domain=o_domain, stages=stages)
 
     if output is None:
-        output = signal.like(signal)
+        if isinstance(signal, Signal):
+            output = Signal.like(signal)
+        else:
+            output = Record.like(signal)
+
+    # If the object knows how to synchronize itself, let it.
+    if hasattr(signal, '_synchronize_'):
+        signal._synchronize_(m, output, o_domain=o_domain, stages=stages)
+        return output
 
     # Trivial case: if this element doesn't have a layout,
     # we can just synchronize it directly.
@@ -51,13 +60,14 @@ def synchronize(m, signal, *, output=None, o_domain='sync', stages=2):
     for name, layout, direction in signal.layout:
 
         # If this is a record itself, we'll need to recurse.
-        if isinstance(signal[name], Record) and (len(layout.fields) > 1):
+        if isinstance(signal[name], (Record, Pin)):
             synchronize(m, signal[name], output=output[name],
                     o_domain=o_domain, stages=stages)
+            continue
 
         # Skip any output elements, as they're already
         # in our clock domain, and we don't want to drive them.
-        if (direction == DIR_FANOUT) or hasattr(signal[name], 'o'):
+        if (direction == DIR_FANOUT) or (hasattr(signal[name], 'o') and ~hasattr(signal[name], 'i')):
             m.d.comb += signal[name].eq(output[name])
             continue
 

@@ -13,7 +13,7 @@ from luna.gateware.utils.cdc          import synchronize
 from luna.gateware.debug.ila          import SyncSerialILA
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 
-from luna.apollo                      import create_ila_frontend
+from apollo_fpga                           import create_ila_frontend
 
 #
 # Clock frequencies for each of the domains.

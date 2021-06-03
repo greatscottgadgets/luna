@@ -43,8 +43,9 @@ class EndpointInterface:
 
     tx: USBInStreamInterface, output stream from endpoint
         Transmit interface for this endpoint.
-    tx_pid_toggle: Signal(), output from endpoint
+    tx_pid_toggle: Signal(2), output from endpoint
         Value for the data PID toggle; 0 indicates we'll send DATA0; 1 indicates DATA1.
+        2 indicates we'll send DATA2, while 3 indicates we'll send DATAM.
 
     handshakes_in: HandshakeExchangeInterface, input to endpoint
         Carries handshakes detected from the host.
@@ -94,10 +95,10 @@ class EndpointInterface:
         self.rx_complete           = Signal()
         self.rx_ready_for_response = Signal()
         self.rx_invalid            = Signal()
-        self.rx_pid_toggle         = Signal()
+        self.rx_pid_toggle         = Signal(2)
 
         self.tx                    = USBInStreamInterface()
-        self.tx_pid_toggle         = Signal()
+        self.tx_pid_toggle         = Signal(2)
 
         self.handshakes_in         = HandshakeExchangeInterface(is_detector=True)
         self.handshakes_out        = HandshakeExchangeInterface(is_detector=False)
@@ -246,7 +247,7 @@ class USBEndpointMultiplexer(Elaboratable):
             pass_signals=('ready',)
         )
         tx_mux.add_interfaces(i.tx for i in self._interfaces)
-        m.d.comb += self.shared.tx.connect(tx_mux.output)
+        m.d.comb += self.shared.tx.stream_eq(tx_mux.output)
 
         # OR together all of our handshake-generation requests...
         self.or_join_interface_signals(m, lambda interface : interface.handshakes_out.ack)

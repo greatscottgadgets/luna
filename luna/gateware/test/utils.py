@@ -13,8 +13,7 @@ import unittest
 from functools import wraps
 
 from nmigen import Signal
-from nmigen.test.utils import FHDLTestCase
-from nmigen.back.pysim import Simulator
+from nmigen.sim import Simulator
 
 
 def sync_test_case(process_function, *, domain="sync"):
@@ -59,8 +58,16 @@ def fast_domain_test_case(process_function):
     return sync_test_case(process_function, domain='fast')
 
 
+def ss_domain_test_case(process_function):
+    """
+    Decorator that converts a function into a simple synchronous-process
+    test case in the SuperSpeed domain.
+    """
+    return sync_test_case(process_function, domain='ss')
 
-class LunaGatewareTestCase(FHDLTestCase):
+
+
+class LunaGatewareTestCase(unittest.TestCase):
 
     domain = 'sync'
 
@@ -74,6 +81,7 @@ class LunaGatewareTestCase(FHDLTestCase):
     FAST_CLOCK_FREQUENCY = None
     SYNC_CLOCK_FREQUENCY = 120e6
     USB_CLOCK_FREQUENCY  = None
+    SS_CLOCK_FREQUENCY   = None
 
 
     def instantiate_dut(self):
@@ -99,6 +107,8 @@ class LunaGatewareTestCase(FHDLTestCase):
             self.sim.add_clock(1 / self.SYNC_CLOCK_FREQUENCY, domain="sync")
         if self.FAST_CLOCK_FREQUENCY:
             self.sim.add_clock(1 / self.FAST_CLOCK_FREQUENCY, domain="fast")
+        if self.SS_CLOCK_FREQUENCY:
+            self.sim.add_clock(1 / self.SS_CLOCK_FREQUENCY, domain="ss")
 
 
     def initialize_signals(self):
@@ -108,9 +118,7 @@ class LunaGatewareTestCase(FHDLTestCase):
 
     def traces_of_interest(self):
         """ Returns an interable of traces to include in any generated output. """
-
-        # Default to including all signals.
-        return self.sim._signal_names
+        return ()
 
 
     def simulate(self, *, vcd_suffix=None):
@@ -172,6 +180,7 @@ class LunaGatewareTestCase(FHDLTestCase):
             'sync': self.SYNC_CLOCK_FREQUENCY,
             'usb':  self.USB_CLOCK_FREQUENCY,
             'fast': self.FAST_CLOCK_FREQUENCY,
+            'ss': self.SS_CLOCK_FREQUENCY
         }
         self.assertIsNotNone(frequencies[self.domain], f"no frequency provied for `{self.domain}`-domain clock!")
 
@@ -200,3 +209,10 @@ class LunaUSBGatewareTestCase(LunaGatewareTestCase):
 
     SYNC_CLOCK_FREQUENCY = None
     USB_CLOCK_FREQUENCY  = 60e6
+
+
+class LunaSSGatewareTestCase(LunaGatewareTestCase):
+    """ Specialized form of :class:``LunaGatewareTestCase`` that assumes a USB domain clock, but no others. """
+
+    SYNC_CLOCK_FREQUENCY = None
+    SS_CLOCK_FREQUENCY   = 125e6

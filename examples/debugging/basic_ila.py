@@ -6,13 +6,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import sys
-from nmigen import Signal, Module, Elaboratable, ClockDomain, ClockSignal, Cat
+
+from nmigen                  import *
+from apollo_fpga                  import create_ila_frontend
 
 from luna                    import top_level_cli
+from luna.gateware.platform  import NullPin
 from luna.gateware.utils.cdc import synchronize
 from luna.gateware.debug.ila import SyncSerialILA
 
-from luna.apollo             import create_ila_frontend
 
 class ILAExample(Elaboratable):
     """ Gateware module that demonstrates use of the internal ILA. """
@@ -20,7 +22,6 @@ class ILAExample(Elaboratable):
     def __init__(self):
         self.counter = Signal(28)
         self.ila  = SyncSerialILA(signals=[self.counter], sample_depth=32)
-
 
     def emit_analysis_vcd(self, filename='-'):
         frontend = create_ila_frontend(self.ila)
@@ -39,7 +40,7 @@ class ILAExample(Elaboratable):
         m.d.comb += self.ila.trigger.eq(self.counter == 7)
 
         # Grab our I/O connectors.
-        leds    = [platform.request("led", i, dir="o") for i in range(0, 6)]
+        leds    = [platform.request_optional("led", i, default=NullPin(), dir="o") for i in range(0, 6)]
         spi_bus = synchronize(m, platform.request('debug_spi'))
 
         # Attach the LEDs and User I/O to the MSBs of our counter.

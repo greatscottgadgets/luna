@@ -27,11 +27,6 @@ from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 from luna.gateware.interface.ulpi     import UTMITranslator
 from luna.gateware.usb.analyzer       import USBAnalyzer
 
-# Temporary.
-from luna.apollo                      import ApolloDebugger
-from luna.gateware.interface.uart     import UARTTransmitter
-
-
 USB_SPEED_HIGH       = 0b00
 USB_SPEED_FULL       = 0b01
 USB_SPEED_LOW        = 0b10
@@ -143,7 +138,7 @@ class USBAnalyzerApplet(Elaboratable):
 
         m.d.comb += [
             # USB stream uplink.
-            stream_ep.stream            .connect(analyzer.stream),
+            stream_ep.stream            .stream_eq(analyzer.stream),
 
             usb.connect                 .eq(1),
 
@@ -192,9 +187,11 @@ class USBAnalyzerConnection:
 
         # For now, we'll use a slow, synchronous connection to the device via pyusb.
         # This should be replaced with libusb1 for performance.
+        end_time = time.time() + 6
         while not self._device:
+            if time.time() > end_time:
+                raise RuntimeError('Timeout! The analyzer device did not show up.')
 
-            # FIXME: add timeout
             self._device = usb.core.find(idVendor=USB_VENDOR_ID, idProduct=USB_PRODUCT_ID)
 
 

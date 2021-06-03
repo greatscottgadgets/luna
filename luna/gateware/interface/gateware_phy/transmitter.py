@@ -385,7 +385,6 @@ class TxPipeline(Elaboratable):
 
         self.o_pkt_end = Signal()
 
-
         self.fit_dat = Signal()
         self.fit_oe  = Signal()
 
@@ -504,7 +503,7 @@ class TxPipeline(Elaboratable):
                     with m.If(bitstuff.o_will_stall):
                         m.next = 'STUFF_LAST_BIT'
                     with m.Else():
-                        m.d.usb += state_gray.eq(0b1)
+                        m.d.usb += state_gray.eq(0b10)
                         m.next = 'IDLE'
 
                 with m.Else():

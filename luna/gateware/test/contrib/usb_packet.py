@@ -54,7 +54,7 @@ def encode_data(data):
     output = ""
 
     for b in data:
-        output += ("{0:08b}".format(b))[::-1]
+        output += (f"{int(b):08b}")[::-1]
 
     return output
 

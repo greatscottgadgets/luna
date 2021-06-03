@@ -14,7 +14,7 @@ from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, 
 from nmigen.lib.cdc import FFSynchronizer
 
 from luna                             import top_level_cli
-from luna.apollo                      import ApolloDebugger, ApolloILAFrontend
+from apollo_fpga                           import ApolloDebugger, ApolloILAFrontend
 from luna.gateware.utils.cdc          import synchronize
 from luna.gateware.interface.spi      import SPIRegisterInterface, SPIMultiplexer, SPIBus
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator

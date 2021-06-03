@@ -37,6 +37,7 @@ from nmigen.lib.fifo import AsyncFIFOBuffered
 from nmigen.hdl.ast  import Past
 from nmigen.hdl.xfrm import ResetInserter
 
+from ...utils.cdc import synchronize
 
 class RxClockDataRecovery(Elaboratable):
     """RX Clock Data Recovery module.
@@ -99,6 +100,12 @@ class RxClockDataRecovery(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
+        # Synchronize the USB signals at our I/O boundary.
+        # Despite the assumptions made in ValentyUSB, this line rate recovery FSM
+        # isn't enough to properly synchronize these inputs. We'll explicitly synchronize.
+        sync_dp = synchronize(m, self._usbp, o_domain="usb_io")
+        sync_dn = synchronize(m, self._usbn, o_domain="usb_io")
+
         #######################################################################
         # Line State Recovery State Machine
         #
@@ -107,26 +114,28 @@ class RxClockDataRecovery(Elaboratable):
         # to have changed to the new state while the other is still in the old
         # state.  The following state machine detects transitions and waits an
         # extra sampling clock before decoding the state on the differential
-        # pair.  This transition period # will only ever last for one clock as
+        # pair.  This transition period  will only ever last for one clock as
         # long as there is no noise on the line.  If there is enough noise on
         # the line then the data may be corrupted and the packet will fail the
         # data integrity checks.
         #
-        dpair = Signal(2)
-        m.d.comb += dpair.eq(Cat(self._usbn, self._usbp))
+        dpair =  Cat(sync_dp, sync_dn)
 
         # output signals for use by the clock recovery stage
-        line_state_dt = Signal()
-        line_state_dj = Signal()
-        line_state_dk = Signal()
-        line_state_se0 = Signal()
-        line_state_se1 = Signal()
+        line_state_in_transition = Signal()
 
-        # If we are in a transition state, then we can sample the pair and
-        # move to the next corresponding line state.
-        with m.FSM(domain="usb_io"):
+        with m.FSM(domain="usb_io") as fsm:
+            m.d.usb_io += [
+                self.line_state_se0  .eq(fsm.ongoing("SE0")),
+                self.line_state_se1  .eq(fsm.ongoing("SE1")),
+                self.line_state_dj   .eq(fsm.ongoing("DJ" )),
+                self.line_state_dk   .eq(fsm.ongoing("DK" )),
+            ]
+
+            # If we are in a transition state, then we can sample the pair and
+            # move to the next corresponding line state.
             with m.State("DT"):
-                m.d.comb += line_state_dt.eq(1)
+                m.d.comb += line_state_in_transition.eq(1)
 
                 with m.Switch(dpair):
                     with m.Case(0b10):
@@ -141,22 +150,18 @@ class RxClockDataRecovery(Elaboratable):
             # If we are in a valid line state and the value of the pair changes,
             # then we need to move to the transition state.
             with m.State("DJ"):
-                m.d.comb += line_state_dj.eq(1)
                 with m.If(dpair != 0b10):
                     m.next = "DT"
 
             with m.State("DK"):
-                m.d.comb += line_state_dk.eq(1)
                 with m.If(dpair != 0b01):
                     m.next = "DT"
 
             with m.State("SE0"):
-                m.d.comb += line_state_se0.eq(1)
                 with m.If(dpair != 0b00):
                     m.next = "DT"
 
             with m.State("SE1"):
-                m.d.comb += line_state_se1.eq(1)
                 with m.If(dpair != 0b11):
                     m.next = "DT"
 
@@ -177,22 +182,11 @@ class RxClockDataRecovery(Elaboratable):
         # We 4x oversample, so make the line_state_phase have
         # 4 possible values.
         line_state_phase = Signal(2)
-
-        m.d.usb_io += [
-            self.line_state_valid.eq(line_state_phase == 1),
+        m.d.usb_io += self.line_state_valid.eq(line_state_phase == 1)
 
 
-            # flop all the outputs to help with timing
-            self.line_state_dj.eq(line_state_dj),
-            self.line_state_dk.eq(line_state_dk),
-            self.line_state_se0.eq(line_state_se0),
-            self.line_state_se1.eq(line_state_se1),
-        ]
-
-
-        with m.If(line_state_dt):
+        with m.If(line_state_in_transition):
             m.d.usb_io += [
-
                 # re-align the phase with the incoming transition
                 line_state_phase.eq(0),
 
@@ -606,7 +600,7 @@ class RxPipeline(Elaboratable):
         #
         # Packet boundary detection.
         #
-        m.submodules.detect = detect = RxPacketDetect()
+        m.submodules.detect = detect = ResetInserter(self.reset)(RxPacketDetect())
         m.d.comb += [
             detect.i_valid  .eq(nrzi.o_valid),
             detect.i_se0    .eq(nrzi.o_se0),

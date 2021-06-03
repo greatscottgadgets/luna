@@ -12,8 +12,9 @@ from nmigen          import Elaboratable, Signal, Module
 from nmigen.hdl.rec  import Record, DIR_FANIN, DIR_FANOUT
 from nmigen.hdl.xfrm import DomainRenamer
 
-from ..stream       import StreamInterface
-from ..test         import LunaUSBGatewareTestCase, usb_domain_test_case
+from ..stream         import StreamInterface
+from ..stream.arbiter import StreamArbiter
+from ..test           import LunaUSBGatewareTestCase, usb_domain_test_case
 
 
 class USBInStreamInterface(StreamInterface):
@@ -50,7 +51,7 @@ class USBOutStreamInterface(Record):
 
     This is a heavily simplified version of our StreamInterface, which omits the 'first',
     'last', and 'ready' signals. Instead, the streamer indicates when data is valid using
-    the 'next' signal; and the receiver must keep times.
+    the 'next' signal; and the receiver must keep time.
 
     This is selected so the relevant interface can easily be translated to the UTMI receive
     signals, with the following mappings:
@@ -84,6 +85,12 @@ class USBOutStreamInterface(Record):
             self.next      .eq(utmi_rx.rx_valid),
             self.data      .eq(utmi_rx.payload)
         ]
+
+
+    def stream_eq(self, other):
+        """ Generates a list of connections that connect this stream to the provided UTMIReceiveInterface. """
+        return self.connect(other)
+
 
 
 
@@ -125,9 +132,7 @@ class USBOutStreamBoundaryDetector(Elaboratable):
     ----------
     domain: str
         The name of the domain the stream belongs to; defaults to "usb".
-
     """
-
 
     def __init__(self, domain="usb"):
 
@@ -313,6 +318,83 @@ class USBOutStreamBoundaryDetectorTest(LunaUSBGatewareTestCase):
         self.assertEqual((yield processed_stream.payload),  0xDD)
         self.assertEqual((yield dut.first), 0)
         self.assertEqual((yield dut.last), 1)
+
+
+class USBRawSuperSpeedStream(StreamInterface):
+    """ Variant of LUNA's StreamInterface optimized for carrying raw USB3 data.
+
+    Low-level USB3 data-streams consist of both data bytes ("data") and control flags,
+    which differentiate standard data bytes from data bytes used for control.
+
+    This variant comes implicitly with the relevant control flags; and is sized to allow
+    gearing that makes USB3's high-speed signals manageable.
+
+    Parameters
+    ----------
+    payload_words: int
+        The number of payload words (1 byte data, 1 bit control) to include in the current stream.
+    """
+
+    def __init__(self, payload_words=4):
+        super().__init__(payload_width=8 * payload_words, extra_fields=[('ctrl', payload_words)])
+
+
+    def stream_eq(self, interface, *, endian_swap=False, omit=None, **kwargs):
+        """ Extend the global ``stream_eq`` operator to swap endianness. """
+
+        # If we're not performing an endian swap, delegate directly to our parent.
+        if endian_swap == False:
+            return super().stream_eq(interface, omit=omit, **kwargs)
+
+        # Otherwise, perform our full endian swap.
+
+        if omit is None:
+            omit = []
+
+        # Add ``data`` and ``ctrl`` to the list of fields to omit, as we'll
+        # create those connection operations ourselves.
+        omit = [*omit, 'code', 'data']
+
+        # Gather the operations used to perform the basic ``stream_eq``...
+        operations = super().stream_eq(interface, omit=omit, **kwargs)
+
+        # ... and then add the operations necessary to connect our data/ctrl,
+        # with endianness swaps.
+        payload_words = len(self.ctrl)
+        for i in range(payload_words):
+
+            # Figure out what word we want to grab from, on the RHS.
+            # It only matters that this is the word opposite of the word we're reading in the LHS.
+            rhs_word_index = (payload_words - i) -1
+
+            # Create the operations necessary to perform our assignment with our endian swap...
+            endian_swap_operations = [
+                self.data.word_select(i, 8)  .eq(interface.data.word_select(rhs_word_index, 8)),
+                self.ctrl[i]                 .eq(interface.ctrl[rhs_word_index])
+            ]
+
+            #... and add it to our overall list of operations.
+            operations.extend(endian_swap_operations)
+
+
+        return operations
+
+
+
+class SuperSpeedStreamArbiter(StreamArbiter):
+    """ Convenience variant of our StreamArbiter that operates SuperSpeed streams in the ``ss`` domain. """
+
+    def __init__(self):
+        super().__init__(stream_type=USBRawSuperSpeedStream, domain="ss")
+
+
+class SuperSpeedStreamInterface(StreamInterface):
+    """ Convenience variant of our StreamInterface sized to work with SuperSpeed streams. """
+
+    def __init__(self):
+        super().__init__(payload_width=32, valid_width=4)
+
+
 
 
 if __name__ == "__main__":

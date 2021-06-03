@@ -17,7 +17,7 @@ from nmigen.lib.cdc import FFSynchronizer
 
 from luna                             import top_level_cli
 
-from luna.apollo                      import ApolloDebugger, ApolloILAFrontend
+from apollo_fpga                           import ApolloDebugger, ApolloILAFrontend
 from luna.gateware.debug.ila          import SyncSerialILA
 
 

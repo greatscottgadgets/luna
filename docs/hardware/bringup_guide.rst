@@ -45,15 +45,32 @@ Build/upload Saturn-V
 
 The “recovery mode (RVM)” bootloader for LUNA boards is named
 *Saturn-V*; as it’s the first stage in “getting to LUNA”. The bootloader
-is located in the ``firmware/saturn-v`` folder.
+is located in [in its own repository](https://github.com/greatscottgadgets/saturn-v).
 
-Build the DFU bootloader by invoking ``make``. An example invocation
-might look like:
+You can clone the bootloader using `git`:
 
 .. code:: sh
 
-   $ cd firmware/saturn-v
+   $ git clone https://github.com/greatscottgadgets/saturn-v
+
+
+Build the DFU bootloader by invoking ``make``. An example invocation
+for modern LUNA hardware might look like:
+
+.. code:: sh
+
+   $ cd saturn-v
    $ make
+
+If you're building a board that predates r0.3 hardware, you'll need to specify
+the board you're building for:
+
+
+.. code:: sh
+
+   $ cd saturn-v
+   $ make BOARD=luna_d21
+
 
 The build should yield two useful build products: ``bootloader.elf`` and
 ``bootloader.bin``; your SWD programmer will likely consume one of these
@@ -107,8 +124,16 @@ Build/upload Apollo
 
 The next bringup step is to upload the *Apollo* Debug Controller
 firmware, which will provide an easy way to interface with the board’s
-FPGA and any gateware running on it. The Apollo firmware is located in
-``firmware/apollo``.
+FPGA and any gateware running on it. The Apollo source is located
+[in its own repository](https://github.com/greatscottgadgets/apollo).
+
+You can clone the bootloader using `git`:
+
+.. code:: sh
+
+   $ git clone https://github.com/greatscottgadgets/apollo
+
+
 
 You can build and run the firmware in one step by invoking ``make``. In
 order to ensure your firmware matches the hardware it’s running on,
@@ -142,12 +167,12 @@ development environment. See [[Setting up the development environment]]
 to get your environment set up.
 
 Next, we can check to make sure your LUNA board is recognized by the
-LUNA toolchain. Running the ``luna-dev info`` command will list any
+LUNA toolchain. Running the ``apollo info`` command will list any
 detected devices:
 
 .. code:: sh
 
-   $ luna-dev info
+   $ apollo info
    Detected a LUNA device!
        Hardware: LUNA r0.2
        Serial number: <snip>
@@ -172,7 +197,7 @@ submodules. You can pull down the relevant submodules using ``git``:
 
    $ git submodule update --init --recursive
 
-**Issue: the luna-dev info command doesn't see a connected board.**
+**Issue: the ``apollo info`` command doesn't see a connected board.**
 
 On Linux, this can be caused by a permissions issue. Check first for the
 presence of your device using ``lsusb``; if you see a device with the
