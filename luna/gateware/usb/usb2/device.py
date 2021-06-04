@@ -177,13 +177,10 @@ class USBDevice(Elaboratable):
         return control_endpoint
 
 
-    def add_standard_control_endpoint(self, descriptors: DeviceDescriptorCollection):
+    def add_standard_control_endpoint(self, descriptors: DeviceDescriptorCollection, **kwargs):
         """ Adds a control endpoint with standard request handlers to the device.
 
-        Parameters
-        ----------
-        descriptors: DeviceDescriptorCollection
-            The descriptors to use for this device.
+        Parameters will be passed on to StandardRequestHandler.
 
         Return value
         ------------
@@ -192,7 +189,7 @@ class USBDevice(Elaboratable):
 
         # Create our endpoint, and add standard descriptors to it.
         control_endpoint = USBControlEndpoint(utmi=self.utmi)
-        control_endpoint.add_standard_request_handlers(descriptors)
+        control_endpoint.add_standard_request_handlers(descriptors, **kwargs)
         self.add_endpoint(control_endpoint)
 
         return control_endpoint
