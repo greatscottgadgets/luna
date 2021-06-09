@@ -157,7 +157,7 @@ class SimpleSoC(CPUSoC, Elaboratable):
         self._auto_debug = True
 
 
-    def add_bios_and_peripherals(self, uart_pins, uart_baud_rate=115200):
+    def add_bios_and_peripherals(self, uart_pins, uart_baud_rate=115200, fixed_addresses=False):
         """ Adds a simple BIOS that allows loading firmware, and the requisite peripherals.
 
         Automatically adds the following peripherals:
@@ -180,19 +180,23 @@ class SimpleSoC(CPUSoC, Elaboratable):
         # Here, we're using SRAMPeripherals instead of our more flexible ones,
         # as that's what the lambdasoc BIOS expects. These are effectively internal.
         #
+        addr = 0x0000_0000 if fixed_addresses else None
         self.rom = SRAMPeripheral(size=0x4000, writable=False)
-        self.add_peripheral(self.rom)
+        self.add_peripheral(self.rom, addr=addr)
 
+        addr = 0x0001_0000 if fixed_addresses else None
         self.ram = SRAMPeripheral(size=0x1000)
-        self.add_peripheral(self.ram)
+        self.add_peripheral(self.ram, addr=addr)
 
         # Add our UART and Timer.
         # Again, names are fixed.
+        addr = 0x0002_0000 if fixed_addresses else None
         self.timer = TimerPeripheral(width=32)
-        self.add_peripheral(self.timer)
+        self.add_peripheral(self.timer, addr=addr)
 
+        addr = 0x0003_0000 if fixed_addresses else None
         self.uart = AsyncSerialPeripheral(divisor=int(self.clk_freq // uart_baud_rate), pins=uart_pins)
-        self.add_peripheral(self.uart)
+        self.add_peripheral(self.uart, addr=addr)
 
 
 
