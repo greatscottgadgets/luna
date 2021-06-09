@@ -50,7 +50,6 @@ class LEDPeripheral(Peripheral, Elaboratable):
         return m
 
 
-
 class LunaCPUExample(Elaboratable):
     """ Simple example of building a simple SoC around LUNA. """
 
@@ -81,9 +80,13 @@ class LunaCPUExample(Elaboratable):
         # Connect up our UART.
         uart_io = platform.request("uart", 0)
         m.d.comb += [
-            uart_io.tx         .eq(self.uart_pins.tx),
+            uart_io.tx.o       .eq(self.uart_pins.tx),
             self.uart_pins.rx  .eq(uart_io.rx)
         ]
+
+        if hasattr(uart_io.tx, 'oe'):
+            m.d.comb += uart_io.tx.oe.eq(~self.soc.uart._phy.tx.rdy),
+
 
         return m
 
