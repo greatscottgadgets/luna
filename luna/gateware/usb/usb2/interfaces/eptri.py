@@ -50,6 +50,7 @@ class SetupFIFOInterface(Peripheral, Elaboratable):
         #
 
         regs = self.csr_bank()
+
         self.data = regs.csr(8, "r", desc="""
             A FIFO that returns the bytes from the most recently captured SETUP packet.
             Reading a byte from this register advances the FIFO. The first eight bytes read
@@ -71,6 +72,12 @@ class SetupFIFOInterface(Peripheral, Elaboratable):
             received. Automatically ressets back to zero on a USB reset.
         """)
 
+        #
+        # IRQ / Events
+        #
+        self.setup_received = self.event(desc="""
+            Interrupt that triggers when a new SETUP packet is ready to be read.
+        """)
 
         #
         # I/O port
@@ -84,6 +91,7 @@ class SetupFIFOInterface(Peripheral, Elaboratable):
         # Act as a Wishbone peripheral.
         self._bridge    = self.bridge(data_width=32, granularity=8, alignment=2)
         self.bus        = self._bridge.bus
+        self.irq        = self._bridge.irq
 
 
     def elaborate(self, platform):
@@ -108,19 +116,23 @@ class SetupFIFOInterface(Peripheral, Elaboratable):
 
             # We'll write to the active FIFO whenever the last received token is a SETUP
             # token, and we have incoming data; and we'll always write the data received
-            fifo.w_en         .eq(token.is_setup & rx.valid & rx.next),
-            fifo.w_data       .eq(rx.payload),
+            fifo.w_en                .eq(token.is_setup & rx.valid & rx.next),
+            fifo.w_data              .eq(rx.payload),
 
             # We'll advance the FIFO whenever our CPU reads from the data CSR;
             # and we'll always read our data from the FIFO.
-            fifo.r_en         .eq(self.data.r_stb),
-            self.data.r_data  .eq(fifo.r_data),
+            fifo.r_en                .eq(self.data.r_stb),
+            self.data.r_data         .eq(fifo.r_data),
 
             # Pass the FIFO status on to our CPU.
-            self.have.r_data  .eq(fifo.r_rdy),
+            self.have.r_data         .eq(fifo.r_rdy),
 
             # Always acknowledge SETUP packets as they arrive.
-            handshakes_out.ack  .eq(token.is_setup & interface.rx_ready_for_response)
+            handshakes_out.ack       .eq(token.is_setup & interface.rx_ready_for_response),
+
+            # Trigger a SETUP interrupt as we ACK the setup packet, since that's also the point
+            # where we know we're done receiving data.
+            self.setup_received.stb  .eq(handshakes_out.ack)
         ]
 
         #
@@ -215,10 +227,17 @@ class InFIFOInterface(Peripheral, Elaboratable):
         self.have = regs.csr(1, "r", desc="This value is `1` if data is present in the transmit FIFO.")
         self.pend = regs.csr(1, "r", desc="`1` iff an interrupt is pending")
 
-
         # TODO: remove this, and replace this with manual data-toggle tracking.
         self.pid  = regs.csr(1, "rw", desc="Contains the current PID toggle bit for the given endpoint.")
 
+        #
+        # Interrupts
+        #
+
+        self._done_irq = self.event(name="done", desc="""
+            Indicates that the host has successfully transferred an ``IN`` packet,
+            and that the FIFO is now empty.
+        """)
 
         #
         # I/O port
@@ -232,6 +251,7 @@ class InFIFOInterface(Peripheral, Elaboratable):
         # Act as a Wishbone peripheral.
         self._bridge    = self.bridge(data_width=32, granularity=8, alignment=2)
         self.bus        = self._bridge.bus
+        self.irq        = self._bridge.irq
 
 
 
@@ -295,8 +315,7 @@ class InFIFOInterface(Peripheral, Elaboratable):
         with m.If(token.is_setup & token.new_token):
             m.d.usb += endpoint_stalled[token.endpoint].eq(0)
 
-        # Manual data toggle control.
-        # TODO: Remove this in favor of automated tracking?
+        # Manual data toggle control. This allows the controller to override our transmit PID.
         m.d.comb += self.interface.tx_pid_toggle.eq(self.pid.r_data)
         with m.If(self.pid.w_stb):
             m.d.usb += self.pid.r_data.eq(self.pid.w_data)
@@ -377,6 +396,7 @@ class InFIFOInterface(Peripheral, Elaboratable):
                     tx.valid  .eq(1),
                     tx.last   .eq(1)
                 ]
+                m.d.comb += self._done_irq.stb.eq(1)
                 m.next = 'IDLE'
 
             # SEND_DATA -- we're now ready to respond to an IN token to our endpoint.
@@ -401,6 +421,8 @@ class InFIFOInterface(Peripheral, Elaboratable):
 
                 # Once we transmit our last packet, we're done transmitting. Move back to IDLE.
                 with m.If(last_packet & tx.ready):
+                    # Trigger our DONE interrupt.
+                    m.d.comb += self._done_irq.stb.eq(1)
                     m.next = 'IDLE'
 
         return DomainRenamer({"sync": "usb"})(m)
@@ -468,6 +490,16 @@ class OutFIFOInterface(Peripheral, Elaboratable):
             received. Automatically ressets back to zero on a USB reset.
         """)
 
+        #
+        # Interrupts.
+        #
+
+        self._done_irq = self.event(name="done", desc="""
+            Indicates that an ``OUT`` packet has successfully been transferred
+            from the host.  This bit must be cleared in order to receive
+            additional packets.
+        """)
+
 
         #
         # I/O port
@@ -481,6 +513,7 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         # Act as a Wishbone peripheral.
         self._bridge    = self.bridge(data_width=32, granularity=8, alignment=2)
         self.bus        = self._bridge.bus
+        self.irq        = self._bridge.irq
 
 
     def elaborate(self, platform):
@@ -533,8 +566,19 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         #  - We're not stalled.
         stalled          = token.is_out & endpoint_stalled[token.endpoint]
         endpoint_matches = (token.endpoint == self.epno.r_data)
-        allow_receive    = endpoint_matches & self.enable.r_data & token.is_out & ~stalled
-        nak_receives     = token.is_out & ~allow_receive & ~stalled
+        ready_to_receive = endpoint_matches & self.enable.r_data & ~stalled
+        allow_receive    = token.is_out & ready_to_receive
+        nak_receives     = token.is_out & ~ready_to_receive & ~stalled
+
+        # Shortcut conditions under which we'll ACK and NAK a receive.
+        ack_receive      = allow_receive & interface.rx_ready_for_response
+        nak_receive      = nak_receives  & interface.rx_ready_for_response
+
+        # Conditions under which we'll ACK or NAK a ping.
+        ack_ping         = ready_to_receive  & token.is_ping & token.new_token
+        nak_ping         = ~ready_to_receive & token.is_ping & token.new_token
+
+
 
         m.d.comb += [
 
@@ -551,13 +595,16 @@ class OutFIFOInterface(Peripheral, Elaboratable):
             self.have.r_data  .eq(fifo.r_rdy),
 
             # If we've just finished an allowed receive, ACK.
-            handshakes_out.ack    .eq(allow_receive & interface.rx_ready_for_response),
+            handshakes_out.ack    .eq(ack_receive | ack_ping),
+
+            # Trigger our DONE interrupt once we ACK a received/allowed packet.
+            self._done_irq.stb    .eq(ack_receive),
 
             # If we were stalled, stall.
             handshakes_out.stall  .eq(stalled & interface.rx_ready_for_response),
 
             # If we're not ACK'ing or STALL'ing, NAK all packets.
-            handshakes_out.nak    .eq(nak_receives & interface.rx_ready_for_response)
+            handshakes_out.nak    .eq(nak_receive | nak_ping)
         ]
 
 

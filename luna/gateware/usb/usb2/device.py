@@ -641,7 +641,8 @@ try:
             #
             # I/O port
             #
-            self.connect = Signal(reset=1)
+            self.connect   = Signal(reset=1)
+            self.bus_reset = Signal()
 
 
             #
@@ -653,9 +654,14 @@ try:
                 Set this bit to '1' to allow the associated USB device to connect to a host.
             """)
 
+            self._reset_irq = self.event(name="reset", desc="""
+                Interrupt that occurs when a USB bus reset is received.
+            """)
+
             # Wishbone connection.
             self._bridge    = self.bridge(data_width=32, granularity=8, alignment=2)
             self.bus        = self._bridge.bus
+            self.irq        = self._bridge.irq
 
 
         def attach(self, device: USBDevice):
@@ -671,7 +677,8 @@ try:
                 The :class:`USBDevice` object to be controlled.
             """
             return [
-                device.connect  .eq(self.connect)
+                device.connect  .eq(self.connect),
+                self.bus_reset  .eq(device.reset_detected)
             ]
 
 
@@ -683,6 +690,9 @@ try:
             m.d.comb += self.connect.eq(self._connect.r_data)
             with m.If(self._connect.w_stb):
                 m.d.usb += self._connect.r_data.eq(self._connect.w_data)
+
+            # Reset-detection event.
+            m.d.comb += self._reset_irq.stb.eq(self.bus_reset)
 
             return m
 

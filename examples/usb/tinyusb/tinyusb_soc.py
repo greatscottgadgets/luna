@@ -90,18 +90,18 @@ class TinyUSBSoC(Elaboratable):
         soc.add_ram(self.RAM_SIZE, addr=self.RAM_ADDRESS)
 
         # ... a core USB controller ...
-        self.controller = USBDeviceController()
-        soc.add_peripheral(self.controller, addr=self.USB_CORE_ADDRESS)
+        self.usb_device_controller = USBDeviceController()
+        soc.add_peripheral(self.usb_device_controller, addr=self.USB_CORE_ADDRESS)
 
         # ... our eptri peripherals.
-        self.setup = SetupFIFOInterface()
-        soc.add_peripheral(self.setup, as_submodule=False, addr=self.USB_SETUP_ADDRESS)
+        self.usb_setup = SetupFIFOInterface()
+        soc.add_peripheral(self.usb_setup, as_submodule=False, addr=self.USB_SETUP_ADDRESS)
 
-        self.in_ep = InFIFOInterface()
-        soc.add_peripheral(self.in_ep, as_submodule=False, addr=self.USB_IN_ADDRESS)
+        self.usb_in_ep = InFIFOInterface()
+        soc.add_peripheral(self.usb_in_ep, as_submodule=False, addr=self.USB_IN_ADDRESS)
 
-        self.out_ep = OutFIFOInterface()
-        soc.add_peripheral(self.out_ep, as_submodule=False, addr=self.USB_OUT_ADDRESS)
+        self.usb_out_ep = OutFIFOInterface()
+        soc.add_peripheral(self.usb_out_ep, as_submodule=False, addr=self.USB_OUT_ADDRESS)
 
         # ... and our LED peripheral, for simple output.
         leds = LEDPeripheral()
@@ -130,12 +130,12 @@ class TinyUSBSoC(Elaboratable):
         m.submodules.usb = usb = USBDevice(bus=ulpi)
 
         # Connect up our device controller.
-        m.d.comb += self.controller.attach(usb)
+        m.d.comb += self.usb_device_controller.attach(usb)
 
         # Add our eptri endpoint handlers.
-        usb.add_endpoint(self.setup)
-        usb.add_endpoint(self.in_ep)
-        usb.add_endpoint(self.out_ep)
+        usb.add_endpoint(self.usb_setup)
+        usb.add_endpoint(self.usb_in_ep)
+        usb.add_endpoint(self.usb_out_ep)
         return m
 
 

@@ -173,7 +173,7 @@ class Peripheral:
         self._windows.append((window, addr, sparse))
         return window
 
-    def event(self, *, mode="level", name=None, src_loc_at=0):
+    def event(self, *, mode="level", name=None, src_loc_at=0, desc=None):
         """Request an event source.
 
         See :class:`EventSource` for details.
