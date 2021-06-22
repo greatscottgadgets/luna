@@ -63,7 +63,7 @@ class SetupFIFOInterface(Peripheral, Elaboratable):
         # TODO: figure out where this should actually go to match ValentyUSB as much as possible
         self._address = regs.csr(8, "rw", desc="""
             Controls the current device's USB address. Should be written after a SET_ADDRESS request is
-            received. Automatically ressets back to zero on a USB reset.
+            received. Automatically resets back to zero on a USB reset.
         """)
 
         #
@@ -327,7 +327,7 @@ class InFIFOInterface(Peripheral, Elaboratable):
         # Data toggle control.
         #
         endpoint_matches = (token.endpoint == self.epno.r_data)
-        packet_complete  = self.interface.rx_complete & token.is_in & endpoint_matches
+        packet_complete  = self.interface.handshakes_in.ack & token.is_in & endpoint_matches
 
         # Always drive the DATA pid we're transmitting with our current data pid.
         m.d.comb += self.interface.tx_pid_toggle.eq(endpoint_data_pid[token.endpoint])
@@ -495,12 +495,13 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         self.have = regs.csr(1, "r", desc="`1` iff data is available in the FIFO.")
         self.pend = regs.csr(1, "r", desc="`1` iff an interrupt is pending")
 
-
         # TODO: figure out where this should actually go to match ValentyUSB as much as possible
         self._address = regs.csr(8, "rw", desc="""
             Controls the current device's USB address. Should be written after a SET_ADDRESS request is
-            received. Automatically ressets back to zero on a USB reset.
+            received. Automatically resets back to zero on a USB reset.
         """)
+
+        self.pid  = regs.csr(1, "rw", desc="Contains the current PID toggle bit for the given endpoint.")
 
         #
         # Interrupts.
@@ -547,7 +548,10 @@ class OutFIFOInterface(Peripheral, Elaboratable):
             m.d.usb += self.epno.r_data.eq(self.epno.w_data)
 
         # Keep track of which endpoints are stalled.
-        endpoint_stalled = Array(Signal() for _ in range(16))
+        endpoint_stalled  = Array(Signal() for _ in range(16))
+
+        # Keep track of the PIDs for each endpoint, which we'll toggle automatically.
+        endpoint_data_pid = Array(Signal() for _ in range(16))
 
         # Allow the CPU to set our enable bit.
         with m.If(self.enable.w_stb):
@@ -561,9 +565,18 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         with m.If(self.stall.w_stb):
             m.d.usb += endpoint_stalled[self.epno.r_data].eq(self.stall.w_data)
 
-        # ... but clear our endpoint `stall` when we get a SETUP packet.
+        # Allow our controller to override our DATA pid, selectively.
+        with m.If(self.pid.w_stb):
+            m.d.usb += endpoint_data_pid[self.epno.r_data].eq(self.pid.w_data)
+
+        # Clear our endpoint `stall` when we get a SETUP packet, and reset the endpoint's
+        # data PID to DATA1, as per [USB2.0: 8.5.3], the first packet of the DATA or STATUS
+        # phase always carries a DATA1 PID.
         with m.If(token.is_setup & token.new_token):
-            m.d.usb += endpoint_stalled[token.endpoint].eq(0)
+            m.d.usb += [
+                endpoint_stalled[token.endpoint]   .eq(0),
+                endpoint_data_pid[token.endpoint]  .eq(1)
+            ]
 
         #
         # Core FIFO.
@@ -581,18 +594,24 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         allow_receive    = token.is_out & ready_to_receive
         nak_receives     = token.is_out & ~ready_to_receive & ~stalled
 
+        # Shortcut for when we have a "redundant"/incorrect PID. In these cases, we'll assume
+        # the host missed our ACK, and per the USB spec, implicitly ACK the packet.
+        is_redundant_pid    = (interface.rx_pid_toggle != endpoint_data_pid[token.endpoint])
+        is_redundant_packet = endpoint_matches & token.is_out & is_redundant_pid
+
         # Shortcut conditions under which we'll ACK and NAK a receive.
-        ack_receive      = allow_receive & interface.rx_ready_for_response
-        nak_receive      = nak_receives  & interface.rx_ready_for_response
+        ack_redundant_packet = (is_redundant_packet & interface.rx_ready_for_response)
+        ack_receive          = allow_receive & interface.rx_ready_for_response
+        nak_receive          = nak_receives  & interface.rx_ready_for_response & ~ack_redundant_packet
 
         # Conditions under which we'll ACK or NAK a ping.
         ack_ping         = ready_to_receive  & token.is_ping & token.ready_for_response
         nak_ping         = ~ready_to_receive & token.is_ping & token.ready_for_response
 
-        m.d.comb += [
 
-            # We'll write to the endpoint iff we have a primed
-            fifo.w_en         .eq(allow_receive & rx.valid & rx.next),
+        m.d.comb += [
+            # We'll write to the endpoint iff we've valid data, and we're allowed receive.
+            fifo.w_en         .eq(allow_receive & rx.valid & rx.next & ~is_redundant_packet),
             fifo.w_data       .eq(rx.payload),
 
             # We'll advance the FIFO whenever our CPU reads from the data CSR;
@@ -604,7 +623,7 @@ class OutFIFOInterface(Peripheral, Elaboratable):
             self.have.r_data  .eq(fifo.r_rdy),
 
             # If we've just finished an allowed receive, ACK.
-            handshakes_out.ack    .eq(ack_receive | ack_ping),
+            handshakes_out.ack    .eq(ack_receive | ack_ping | ack_redundant_packet),
 
             # Trigger our DONE interrupt once we ACK a received/allowed packet.
             self._done_irq.stb    .eq(ack_receive),
@@ -613,8 +632,16 @@ class OutFIFOInterface(Peripheral, Elaboratable):
             handshakes_out.stall  .eq(stalled & interface.rx_ready_for_response),
 
             # If we're not ACK'ing or STALL'ing, NAK all packets.
-            handshakes_out.nak    .eq(nak_receive | nak_ping)
+            handshakes_out.nak    .eq(nak_receive | nak_ping),
+
+            # Always indicate the current DATA PID in the PID register.
+            self.pid.r_data       .eq(endpoint_data_pid[self.epno.r_data])
         ]
+
+        # Whenever we ACK a non-redundant receive, toggle our DATA PID
+        # (unless the user happens to be overriding it by writing to the PID register).
+        with m.If(ack_receive & ~is_redundant_packet & ~self.pid.w_stb):
+            m.d.usb += endpoint_data_pid[token.endpoint].eq(~endpoint_data_pid[token.endpoint])
 
 
         #
