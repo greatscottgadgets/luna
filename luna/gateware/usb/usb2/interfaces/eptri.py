@@ -542,9 +542,8 @@ class OutFIFOInterface(Peripheral, Elaboratable):
             m.d.usb += self.enable.r_data.eq(self.enable.w_data)
 
         # If we've just ACK'd a receive, clear our enable.
-        with m.If(interface.handshakes_out.ack):
+        with m.If(interface.handshakes_out.ack & token.is_out):
             m.d.usb += self.enable.r_data.eq(0)
-
 
         # Set the value of our endpoint `stall` based on our `stall` register...
         with m.If(self.stall.w_stb):
@@ -575,10 +574,8 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         nak_receive      = nak_receives  & interface.rx_ready_for_response
 
         # Conditions under which we'll ACK or NAK a ping.
-        ack_ping         = ready_to_receive  & token.is_ping & token.new_token
-        nak_ping         = ~ready_to_receive & token.is_ping & token.new_token
-
-
+        ack_ping         = ready_to_receive  & token.is_ping & token.ready_for_response
+        nak_ping         = ~ready_to_receive & token.is_ping & token.ready_for_response
 
         m.d.comb += [
 

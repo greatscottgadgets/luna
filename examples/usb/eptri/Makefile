@@ -61,4 +61,4 @@ soc.bit: $(SOC) $(TARGET).bin
 
 # Load our SoC onto the FPGA...
 program: soc.bit
-	luna-dev configure soc.bit
+	apollo configure soc.bit
