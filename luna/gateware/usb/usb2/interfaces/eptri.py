@@ -6,18 +6,12 @@
 
 """ Implementation of a Triple-FIFO endpoint manager.
 
-Intended to be mostly-compatible with ValentyUSB's `eptri` to enable code re-use.
+Equivalent (but not binary-compatbile) implementation of ValentyUSB's ``eptri``.
 
-***WARNING**: This isn't a final interface!
-This interface is intended to become binary-compatible with `eptri`; though it is currently not.
-
-This will change as the `nmigen-soc` CSR support develops. Currently, the lack of easy composite fields
-limits what we can do cleanly.
-
-For an example, see ``examples/usb/eptri``.
+For an example, see ``examples/usb/eptri`` or TinyUSB's ``luna/dcd_eptri.c``.
 """
 
-from nmigen             import Elaboratable, Module, Array, Signal
+from nmigen             import *
 from nmigen.lib.fifo    import SyncFIFOBuffered
 from nmigen.hdl.xfrm    import ResetInserter, DomainRenamer
 
@@ -222,12 +216,9 @@ class InFIFOInterface(Peripheral, Elaboratable):
             For EP0, this register will automatically be cleared when a new SETUP token is received.
         """)
 
-
         self.idle = regs.csr(1, "r", desc="This value is `1` if no packet is actively being transmitted.")
         self.have = regs.csr(1, "r", desc="This value is `1` if data is present in the transmit FIFO.")
         self.pend = regs.csr(1, "r", desc="`1` iff an interrupt is pending")
-
-        # TODO: remove this, and replace this with manual data-toggle tracking.
         self.pid  = regs.csr(1, "rw", desc="Contains the current PID toggle bit for the given endpoint.")
 
         #
@@ -305,28 +296,50 @@ class InFIFOInterface(Peripheral, Elaboratable):
             m.d.usb += self.epno.r_data.eq(self.epno.w_data)
 
         # Keep track of which endpoints are stalled.
-        endpoint_stalled = Array(Signal() for _ in range(16))
+        endpoint_stalled  = Array(Signal() for _ in range(16))
+
+        # Keep track of the current DATA pid for each endpoint.
+        endpoint_data_pid = Array(Signal() for _ in range(16))
 
         # Set the value of our endpoint `stall` based on our `stall` register...
         with m.If(self.stall.w_stb):
             m.d.usb += endpoint_stalled[self.epno.r_data].eq(self.stall.w_data)
 
-        # ... but clear our endpoint `stall` when we get a SETUP packet.
+        # Clear our endpoint `stall` when we get a SETUP packet, and reset the endpoint's
+        # data PID to DATA1, as per [USB2.0: 8.5.3], the first packet of the DATA or STATUS
+        # phase always carries a DATA1 PID.
         with m.If(token.is_setup & token.new_token):
-            m.d.usb += endpoint_stalled[token.endpoint].eq(0)
-
-        # Manual data toggle control. This allows the controller to override our transmit PID.
-        m.d.comb += self.interface.tx_pid_toggle.eq(self.pid.r_data)
-        with m.If(self.pid.w_stb):
-            m.d.usb += self.pid.r_data.eq(self.pid.w_data)
+            m.d.usb += [
+                endpoint_stalled[token.endpoint]   .eq(0),
+                endpoint_data_pid[token.endpoint]  .eq(1)
+            ]
 
 
         #
         # Status registers.
         #
         m.d.comb += [
-            self.have.r_data  .eq(fifo.r_rdy)
+            self.have.r_data  .eq(fifo.r_rdy),
+            self.pid.r_data   .eq(endpoint_data_pid[self.epno.r_data])
         ]
+
+        #
+        # Data toggle control.
+        #
+        endpoint_matches = (token.endpoint == self.epno.r_data)
+        packet_complete  = self.interface.rx_complete & token.is_in & endpoint_matches
+
+        # Always drive the DATA pid we're transmitting with our current data pid.
+        m.d.comb += self.interface.tx_pid_toggle.eq(endpoint_data_pid[token.endpoint])
+
+        # If our controller is overriding the data PID, accept the override.
+        with m.If(self.pid.w_stb):
+            m.d.usb += endpoint_data_pid[self.epno.r_data].eq(self.pid.w_data)
+
+        # Otherwise, toggle our expected DATA PID once we receive a complete packet.
+        with m.Elif(packet_complete):
+            m.d.usb += endpoint_data_pid[token.endpoint].eq(~endpoint_data_pid[token.endpoint])
+
 
         #
         # Control logic.
@@ -334,7 +347,6 @@ class InFIFOInterface(Peripheral, Elaboratable):
 
         # Logic shorthand.
         new_in_token     = (token.is_in & token.ready_for_response)
-        endpoint_matches = (token.endpoint == self.epno.r_data)
         stalled          = endpoint_stalled[token.endpoint]
 
         with m.FSM(domain='usb') as f:
@@ -402,11 +414,11 @@ class InFIFOInterface(Peripheral, Elaboratable):
             # SEND_DATA -- we're now ready to respond to an IN token to our endpoint.
             # Send our response.
             with m.State("SEND_DATA"):
-                last_packet = (bytes_in_fifo == 1)
+                last_byte = (bytes_in_fifo == 1)
 
                 m.d.comb += [
                     tx.valid    .eq(1),
-                    tx.last     .eq(last_packet),
+                    tx.last     .eq(last_byte),
 
                     # Drive our transmit data directly from our FIFO...
                     tx.payload  .eq(fifo.r_data),
@@ -420,7 +432,7 @@ class InFIFOInterface(Peripheral, Elaboratable):
                     m.d.usb += tx.first.eq(0)
 
                 # Once we transmit our last packet, we're done transmitting. Move back to IDLE.
-                with m.If(last_packet & tx.ready):
+                with m.If(last_byte & tx.ready):
                     # Trigger our DONE interrupt.
                     m.d.comb += self._done_irq.stb.eq(1)
                     m.next = 'IDLE'
