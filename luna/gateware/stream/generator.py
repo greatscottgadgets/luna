@@ -626,8 +626,7 @@ class StreamSerializer(Elaboratable):
     def __init__(self, data_length, domain="sync", data_width=8, stream_type=StreamInterface, max_length_width=None):
         """
         Parameters:
-            constant_data      -- The constant data for the stream to be generated.
-                                  Should be an array of integers; or, if data_width=8, a bytes-like object.
+            data_length        -- The length of the data to be transmitted.
             domain             -- The clock domain this generator should belong to. Defaults to 'sync'.
             data_width         -- The width of the constant payload
             stream_type        -- The type of stream we'll be multiplexing. Must be a subclass of StreamInterface.

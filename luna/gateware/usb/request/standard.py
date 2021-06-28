@@ -6,20 +6,24 @@
 """ Standard, full-gateware control request handlers. """
 
 import os
+import operator
 import unittest
+import functools
+from typing import Iterable, Callable
 
 from luna.gateware.test import utils
 
-from nmigen                 import Module, Elaboratable, Cat
+from nmigen                 import *
+from nmigen.hdl.ast         import Value, Const
 from usb_protocol.types     import USBStandardRequests, USBRequestType
 from usb_protocol.emitters  import DeviceDescriptorCollection
-
 
 from ..usb2.request         import RequestHandlerInterface, USBRequestHandler
 from ..usb2.descriptor      import GetDescriptorHandlerDistributed, GetDescriptorHandlerBlock
 from ..stream               import USBInStreamInterface
 from ...stream.generator    import StreamSerializer
 from luna.gateware.usb.usb2 import descriptor
+from .                      import SetupPacket
 
 
 class StandardRequestHandler(USBRequestHandler):
@@ -31,18 +35,18 @@ class StandardRequestHandler(USBRequestHandler):
         The DeviceDescriptorCollection that contains our descriptors.
     max_packet_size: int, optional
         The maximum packet size for the endpoint associated with this handler.
-
+    blacklist:  iterable of functions that accept a SetupPacket and return a boolean
+        Collection of functions that determine if a given packet will be handled by this request handler.
     avoid_blockram: int, optional
+        If True, placing data into block RAM will be avoided.
 
      """
 
-    def __init__(self, descriptors: DeviceDescriptorCollection, max_packet_size=64, avoid_blockram=None):
-        """
-        Parameters:
-        """
+    def __init__(self, descriptors: DeviceDescriptorCollection, max_packet_size=64, avoid_blockram=None, blacklist: Iterable[Callable[[SetupPacket], Value]] = ()):
         self.descriptors      = descriptors
         self._max_packet_size = max_packet_size
         self._avoid_blockram  = avoid_blockram
+        self._blacklist = blacklist
 
         # If we don't have a value for avoiding blockrams; defer to the environment.
         if self._avoid_blockram is None:
@@ -159,21 +163,25 @@ class StandardRequestHandler(USBRequestHandler):
                     # If we've received a new setup packet, handle it.
                     with m.If(setup.received):
 
-                        # Select which standard packet we're going to handler.
-                        with m.Switch(setup.request):
+                        # Only handle setup packet if not blacklisted
+                        blacklisted = functools.reduce(operator.__or__, (f(setup) for f in self._blacklist), Const(0))
+                        with m.If(~blacklisted):
 
-                            with m.Case(USBStandardRequests.GET_STATUS):
-                                m.next = 'GET_STATUS'
-                            with m.Case(USBStandardRequests.SET_ADDRESS):
-                                m.next = 'SET_ADDRESS'
-                            with m.Case(USBStandardRequests.SET_CONFIGURATION):
-                                m.next = 'SET_CONFIGURATION'
-                            with m.Case(USBStandardRequests.GET_DESCRIPTOR):
-                                m.next = 'GET_DESCRIPTOR'
-                            with m.Case(USBStandardRequests.GET_CONFIGURATION):
-                                m.next = 'GET_CONFIGURATION'
-                            with m.Case():
-                                m.next = 'UNHANDLED'
+                            # Select which standard packet we're going to handler.
+                            with m.Switch(setup.request):
+
+                                with m.Case(USBStandardRequests.GET_STATUS):
+                                    m.next = 'GET_STATUS'
+                                with m.Case(USBStandardRequests.SET_ADDRESS):
+                                    m.next = 'SET_ADDRESS'
+                                with m.Case(USBStandardRequests.SET_CONFIGURATION):
+                                    m.next = 'SET_CONFIGURATION'
+                                with m.Case(USBStandardRequests.GET_DESCRIPTOR):
+                                    m.next = 'GET_DESCRIPTOR'
+                                with m.Case(USBStandardRequests.GET_CONFIGURATION):
+                                    m.next = 'GET_CONFIGURATION'
+                                with m.Case():
+                                    m.next = 'UNHANDLED'
 
 
                 # GET_STATUS -- Fetch the device's status.
