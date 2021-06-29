@@ -139,6 +139,7 @@ class USBDevice(Elaboratable):
         self.new_frame         = Signal()
         self.reset_detected    = Signal()
 
+        self.speed             = Signal(2)
         self.suspended         = Signal()
         self.tx_activity_led   = Signal()
         self.rx_activity_led   = Signal()
@@ -401,13 +402,11 @@ class USBDevice(Elaboratable):
                 m.d.usb += self.microframe_number.eq(self.microframe_number + 1)
 
 
-
-
         #
         # Device-state outputs.
         #
-
         m.d.comb += [
+            self.speed            .eq(reset_sequencer.current_speed),
             self.suspended        .eq(reset_sequencer.suspended),
 
             self.sof_detected     .eq(token_detector.interface.new_frame),
@@ -653,6 +652,11 @@ try:
                 Set this bit to '1' to allow the associated USB device to connect to a host.
             """)
 
+            self._speed = regs.csr(2, "r", desc="""
+                Indicates the current speed of the USB device. 0 indicates High; 1 => Full,
+                2 => Low, and 3 => SuperSpeed (incl SuperSpeed+).
+            """)
+
             self._reset_irq = self.event(name="reset", desc="""
                 Interrupt that occurs when a USB bus reset is received.
             """)
@@ -676,8 +680,9 @@ try:
                 The :class:`USBDevice` object to be controlled.
             """
             return [
-                device.connect  .eq(self.connect),
-                self.bus_reset  .eq(device.reset_detected)
+                device.connect      .eq(self.connect),
+                self.bus_reset      .eq(device.reset_detected),
+                self._speed.r_data  .eq(device.speed)
             ]
 
 

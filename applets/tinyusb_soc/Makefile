@@ -6,6 +6,7 @@ SOC = tinyusb_soc.py
 
 # By default, build our SDK.
 all: soc.bit soc.ld resources.h
+
 .PHONY: clean program reprogram flash-soc configure
 
 #

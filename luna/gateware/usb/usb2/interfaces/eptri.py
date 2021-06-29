@@ -18,6 +18,7 @@ from nmigen.hdl.xfrm    import ResetInserter, DomainRenamer
 
 from ..endpoint         import EndpointInterface
 from ....soc.peripheral import Peripheral
+from luna.gateware.usb.usb2 import endpoint
 
 
 class SetupFIFOInterface(Peripheral, Elaboratable):
@@ -99,12 +100,14 @@ class SetupFIFOInterface(Peripheral, Elaboratable):
         handshakes_out = self.interface.handshakes_out
 
         # Logic condition for getting a new setup packet.
-        new_setup = token.new_token & token.is_setup
+        new_setup       = token.new_token & token.is_setup
+        reset_requested = self.reset.w_stb & self.reset.w_data
+        clear_fifo      = new_setup | reset_requested
 
         #
         # Core FIFO.
         #
-        m.submodules.fifo = fifo = ResetInserter(new_setup)(SyncFIFOBuffered(width=8, depth=10))
+        m.submodules.fifo = fifo = ResetInserter(clear_fifo)(SyncFIFOBuffered(width=8, depth=8))
 
         m.d.comb += [
 
@@ -173,7 +176,7 @@ class InFIFOInterface(Peripheral, Elaboratable):
     """
 
 
-    def __init__(self, max_packet_size=64):
+    def __init__(self, max_packet_size=512):
         """
         Parameters
         ----------
@@ -184,7 +187,7 @@ class InFIFOInterface(Peripheral, Elaboratable):
 
         super().__init__()
 
-        self.max_packet_size = max_packet_size
+        self._max_packet_size = max_packet_size
 
         #
         # Registers
@@ -261,8 +264,9 @@ class InFIFOInterface(Peripheral, Elaboratable):
 
 
         # Create our FIFO; and set it to be cleared whenever the user requests.
-        m.submodules.fifo = fifo = \
-             ResetInserter(self.reset.w_stb)(SyncFIFOBuffered(width=8, depth=self.max_packet_size))
+        m.submodules.fifo = fifo = ResetInserter(self.reset.w_stb)(
+            SyncFIFOBuffered(width=8, depth=self._max_packet_size)
+        )
 
         m.d.comb += [
             # Whenever the user DATA register is written to, add the relevant data to our FIFO.
@@ -271,7 +275,7 @@ class InFIFOInterface(Peripheral, Elaboratable):
         ]
 
         # Keep track of the amount of data in our FIFO.
-        bytes_in_fifo = Signal(range(0, self.max_packet_size + 1))
+        bytes_in_fifo = Signal(range(0, self._max_packet_size + 1))
 
         # If we're clearing the whole FIFO, reset our data count.
         with m.If(self.reset.w_stb):
@@ -300,6 +304,15 @@ class InFIFOInterface(Peripheral, Elaboratable):
 
         # Keep track of the current DATA pid for each endpoint.
         endpoint_data_pid = Array(Signal() for _ in range(16))
+
+        # Clear our system state on reset.
+        with m.If(self.reset.w_stb):
+            for i in range(16):
+                m.d.usb += [
+                    endpoint_stalled[i]   .eq(0),
+                    endpoint_data_pid[i]  .eq(0),
+                ]
+
 
         # Set the value of our endpoint `stall` based on our `stall` register...
         with m.If(self.stall.w_stb):
@@ -375,6 +388,10 @@ class InFIFOInterface(Peripheral, Elaboratable):
                 with m.If(self.epno.w_stb & ~stalled):
                     m.next = "PRIMED"
 
+                # Always return to IDLE on reset.
+                with m.If(self.reset.w_stb):
+                    m.next = "IDLE"
+
             # PRIMED -- our CPU has provided data, but we haven't been sent an IN token, yet.
             # Await that IN token.
             with m.State("PRIMED"):
@@ -400,6 +417,10 @@ class InFIFOInterface(Peripheral, Elaboratable):
                     # Otherwise, we don't have a response; NAK the packet.
                     with m.Else():
                         m.d.comb += handshakes_out.nak.eq(1)
+
+                # Always return to IDLE on reset.
+                with m.If(self.reset.w_stb):
+                    m.next = "IDLE"
 
             # SEND_ZLP -- we're now now ready to respond to an IN token with a ZLP.
             # Send our response.
@@ -437,6 +458,10 @@ class InFIFOInterface(Peripheral, Elaboratable):
                     m.d.comb += self._done_irq.stb.eq(1)
                     m.next = 'IDLE'
 
+                # Always return to IDLE on reset.
+                with m.If(self.reset.w_stb):
+                    m.next = "IDLE"
+
         return DomainRenamer({"sync": "usb"})(m)
 
 
@@ -453,8 +478,10 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         Our primary interface to the core USB device hardware.
     """
 
-    def __init__(self):
+    def __init__(self, max_packet_size=512):
         super().__init__()
+
+        self._max_packet_size = max_packet_size
 
         #
         # Registers
@@ -464,6 +491,10 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         self.data = regs.csr(8, "r", desc="""
             A FIFO that returns the bytes from the most recently captured OUT transaction.
             Reading a byte from this register advances the FIFO.
+        """)
+        self.data_ep = regs.csr(4, "r", desc="""
+            Register that contains the endpoint number associated with the data in the FIFO -- that is,
+            the endpoint number on which the relevant data was received.
         """)
 
         self.reset = regs.csr(1, "w", desc="""
@@ -476,11 +507,21 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         """)
 
         self.enable = regs.csr(1, "rw", desc="""
-            Controls "priming" an out endpoint. To receive data on any endpoint, the CPU must first select
-            the endpoint with the `epno` register; and then write a '1' into the enable register. This prepares
-            our FIFO to receive data; and the next OUT transaction will be captured into this FIFO.
+            Controls whether any data can be received on any primed OUT endpoint. This bit is automatically cleared
+            on receive in order to give the controller time to read data from the FIFO. It must be re-enabled once
+            the FIFO has been emptied.
+        """)
 
-            Only one transaction / data packet is captured per `enable` write; repeated priming is necessary
+        self.prime = regs.csr(1, "w", desc="""
+            Controls "priming" an out endpoint. To receive data on any endpoint, the CPU must first select
+            the endpoint with the `epno` register; and then write a '1' into the prime and enable register.
+            This prepares our FIFO to receive data; and the next OUT transaction will be captured into the FIFO.
+
+            When a transaction is complete, the `enable` bit is reset; the `prime` is not. This effectively means
+            that `enable` controls receiving on _any_ of the primed endpoints; while `prime` can be used to build
+            a collection of endpoints willing to participate in receipt.
+
+            Only one transaction / data packet is captured per `enable` write; repeated enabling is necessary
             to capture multiple packets.
         """)
 
@@ -547,19 +588,29 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         with m.If(self.epno.w_stb):
             m.d.usb += self.epno.r_data.eq(self.epno.w_data)
 
+        # Keep track of which endpoints are primed.
+        endpoint_primed   = Array(Signal() for _ in range(16))
+
         # Keep track of which endpoints are stalled.
         endpoint_stalled  = Array(Signal() for _ in range(16))
 
         # Keep track of the PIDs for each endpoint, which we'll toggle automatically.
         endpoint_data_pid = Array(Signal() for _ in range(16))
 
-        # Allow the CPU to set our enable bit.
+        # Keep track of whether we're enabled.
         with m.If(self.enable.w_stb):
             m.d.usb += self.enable.r_data.eq(self.enable.w_data)
 
-        # If we've just ACK'd a receive, clear our enable.
+        # If Prime is written to, mark the relevant endpoint as primed.
+        with m.If(self.prime.w_stb):
+            m.d.usb += endpoint_primed[self.epno.r_data].eq(self.prime.w_data)
+
+        # If we've just ACK'd a receive, clear our enable and un-prime the given endpoint.
         with m.If(interface.handshakes_out.ack & token.is_out):
-            m.d.usb += self.enable.r_data.eq(0)
+            m.d.usb += [
+                self.enable.r_data                .eq(0),
+                endpoint_primed[token.endpoint]   .eq(0),
+            ]
 
         # Set the value of our endpoint `stall` based on our `stall` register...
         with m.If(self.stall.w_stb):
@@ -581,7 +632,9 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         #
         # Core FIFO.
         #
-        m.submodules.fifo = fifo = ResetInserter(self.reset.w_stb)(SyncFIFOBuffered(width=8, depth=10))
+        m.submodules.fifo = fifo = ResetInserter(self.reset.w_stb)(
+            SyncFIFOBuffered(width=8, depth=self._max_packet_size)
+        )
 
         # Shortcut for when we should allow a receive. We'll read when:
         #  - Our `epno` register matches the target register; and
@@ -589,15 +642,15 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         #  - Our most recent token is an OUT.
         #  - We're not stalled.
         stalled          = token.is_out & endpoint_stalled[token.endpoint]
-        endpoint_matches = (token.endpoint == self.epno.r_data)
-        ready_to_receive = endpoint_matches & self.enable.r_data & ~stalled
+        endpoint_primed  = endpoint_primed[token.endpoint]
+        ready_to_receive = endpoint_primed & self.enable.r_data & ~stalled
         allow_receive    = token.is_out & ready_to_receive
         nak_receives     = token.is_out & ~ready_to_receive & ~stalled
 
         # Shortcut for when we have a "redundant"/incorrect PID. In these cases, we'll assume
         # the host missed our ACK, and per the USB spec, implicitly ACK the packet.
         is_redundant_pid    = (interface.rx_pid_toggle != endpoint_data_pid[token.endpoint])
-        is_redundant_packet = endpoint_matches & token.is_out & is_redundant_pid
+        is_redundant_packet = endpoint_primed & token.is_out & is_redundant_pid
 
         # Shortcut conditions under which we'll ACK and NAK a receive.
         ack_redundant_packet = (is_redundant_packet & interface.rx_ready_for_response)
@@ -607,7 +660,6 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         # Conditions under which we'll ACK or NAK a ping.
         ack_ping         = ready_to_receive  & token.is_ping & token.ready_for_response
         nak_ping         = ~ready_to_receive & token.is_ping & token.ready_for_response
-
 
         m.d.comb += [
             # We'll write to the endpoint iff we've valid data, and we're allowed receive.
@@ -638,7 +690,12 @@ class OutFIFOInterface(Peripheral, Elaboratable):
             self.pid.r_data       .eq(endpoint_data_pid[self.epno.r_data])
         ]
 
-        # Whenever we ACK a non-redundant receive, toggle our DATA PID
+        # Whenever we capture data, update our associated endpoint number
+        # to match the endpoint on which we received the relevant data.
+        with m.If(fifo.w_en):
+            m.d.usb += self.data_ep.r_data.eq(token.endpoint)
+
+        # Whenever we ACK a non-redundant receive, toggle our DATA PID.
         # (unless the user happens to be overriding it by writing to the PID register).
         with m.If(ack_receive & ~is_redundant_packet & ~self.pid.w_stb):
             m.d.usb += endpoint_data_pid[token.endpoint].eq(~endpoint_data_pid[token.endpoint])
