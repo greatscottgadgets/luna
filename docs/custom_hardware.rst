@@ -123,7 +123,7 @@ An I/O resource with the following subsignals is required:
       - 1
       - bidirectional
       - The raw USB D+ line; must be on a 3.3V logic bank.
-    * - ``d_m``
+    * - ``d_n``
       - 1
       - bidirectional
       - The raw USB D- line; must be on a 3.3V logic bank.
@@ -134,7 +134,7 @@ An I/O resource with the following subsignals is required:
     * - ``vbus_valid``
       - 1
       - input
-      - *Optional*. If provided, this signal will be used for VBUS detection logic; should be asserted whenever 
+      - *Optional*. If provided, this signal will be used for VBUS detection logic; should be asserted whenever
         VBUS is present. Many devices are "bus-powered" (receive their power from USB), and thus have no need
         for VBUS detection, in which case this signal can be omitted.
 
