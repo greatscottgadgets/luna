@@ -110,6 +110,7 @@ class HyperRAMInterface(Elaboratable):
         else:
             data_in = self.bus.dq.i
 
+        data_oe = self.bus.dq.oe
         if self.out_skew is not None:
             data_out = Signal.like(self.bus.dq.o)
             delay(m, data_out, self.out_skew, out=self.bus.dq.o)
@@ -164,7 +165,6 @@ class HyperRAMInterface(Elaboratable):
         # Create a sync-domain version of our 'new data ready' signal.
         new_data_ready = self.new_data_ready
 
-
         #
         # Core operation FSM.
         #
@@ -193,10 +193,10 @@ class HyperRAMInterface(Elaboratable):
                     m.next = 'LATCH_RWDS'
 
                     m.d.sync += [
-                        is_read          .eq(~self.perform_write),
-                        is_register      .eq(self.register_space),
-                        is_multipage     .eq(~self.single_page),
-                        current_address  .eq(self.address),
+                        is_read             .eq(~self.perform_write),
+                        is_register         .eq(self.register_space),
+                        is_multipage        .eq(~self.single_page),
+                        current_address     .eq(self.address),
                     ]
 
                 with m.Else():
@@ -239,8 +239,8 @@ class HyperRAMInterface(Elaboratable):
 
                 # Output our first byte of our command.
                 m.d.sync += [
-                    data_out       .eq(command_byte),
-                    self.bus.dq.oe .eq(1)
+                    data_out  .eq(command_byte),
+                    data_oe   .eq(1)
                 ]
 
             # Note: it's felt that this is more readable with each of these
@@ -250,36 +250,36 @@ class HyperRAMInterface(Elaboratable):
 
             with m.State('SHIFT_COMMAND1'):
                 m.d.sync += [
-                    data_out         .eq(current_address[19:27]),
-                    self.bus.dq.oe   .eq(1)
+                    data_out  .eq(current_address[19:27]),
+                    data_oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND2'
 
             with m.State('SHIFT_COMMAND2'):
                 m.d.sync += [
-                    data_out         .eq(current_address[11:19]),
-                    self.bus.dq.oe   .eq(1)
+                    data_out  .eq(current_address[11:19]),
+                    data_oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND3'
 
             with m.State('SHIFT_COMMAND3'):
                 m.d.sync += [
-                    data_out         .eq(current_address[ 3:16]),
-                    self.bus.dq.oe   .eq(1)
+                    data_out  .eq(current_address[ 3:16]),
+                    data_oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND4'
 
             with m.State('SHIFT_COMMAND4'):
                 m.d.sync += [
-                    data_out         .eq(0),
-                    self.bus.dq.oe   .eq(1)
+                    data_out  .eq(0),
+                    data_oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND5'
 
             with m.State('SHIFT_COMMAND5'):
                 m.d.sync += [
-                    data_out         .eq(current_address[0:3]),
-                    self.bus.dq.oe   .eq(1)
+                    data_out  .eq(current_address[0:3]),
+                    data_oe   .eq(1)
                 ]
 
                 # If we have a register write, we don't need to handle
@@ -340,6 +340,37 @@ class HyperRAMInterface(Elaboratable):
                         m.next = 'RECOVERY'
 
 
+            # WRITE_DATA_MSB -- write the first of our two bytes of data to the to the PSRAM
+            with m.State("WRITE_DATA_MSB"):
+                m.d.sync += [
+                    data_out  .eq(self.write_data[8:16]),
+                    data_oe   .eq(1),
+                ]
+                m.next = "WRITE_DATA_LSB"
+
+
+            # WRITE_DATA_LSB -- write the first of our two bytes of data to the to the PSRAM
+            with m.State("WRITE_DATA_LSB"):
+                m.d.sync += [
+                    data_out  .eq(self.write_data[0:8]),
+                    data_oe   .eq(1),
+                ]
+                m.next = "WRITE_DATA_LSB"
+
+                # If we just finished a register write, we're done -- there's no need for recovery.
+                with m.If(is_register):
+                    m.next = 'IDLE'
+                    m.d.sync += advance_clock.eq(0)
+
+                with m.Elif(self.final_word):
+                    m.next = 'RECOVERY'
+                    m.d.sync += advance_clock.eq(0)
+
+                with m.Else():
+                    #m.next = 'READ_DATA_MSB'
+                    m.next = 'RECOVERY'
+
+
             # RECOVERY state: wait for the required period of time before a new transaction
             with m.State('RECOVERY'):
                 m.d.sync += [
@@ -350,10 +381,7 @@ class HyperRAMInterface(Elaboratable):
                 # TODO: implement recovery
                 m.next = 'IDLE'
 
-            # TODO: implement write shift states
 
-            with m.State("WRITE_DATA_MSB"):
-                pass
 
         return m
 
@@ -383,6 +411,85 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
             self.assertEqual((yield self.ram_signals.clk), 1)
             yield
             self.assertEqual((yield self.ram_signals.clk), 0)
+
+
+    @sync_test_case
+    def test_register_write(self):
+
+        # Before we transact, CS should be de-asserted, and RWDS and DQ should be undriven.
+        yield
+        self.assertEqual((yield self.ram_signals.cs),      0)
+        self.assertEqual((yield self.ram_signals.dq.oe),   0)
+        self.assertEqual((yield self.ram_signals.rwds.oe), 0)
+
+        yield from self.advance_cycles(10)
+        self.assertEqual((yield self.ram_signals.cs),      0)
+
+        # Request a register write to ID register 0.
+        yield self.dut.perform_write  .eq(1)
+        yield self.dut.register_space .eq(1)
+        yield self.dut.address        .eq(0x00BBCCDD)
+        yield self.dut.start_transfer .eq(1)
+        yield self.dut.final_word     .eq(1)
+        yield self.dut.write_data     .eq(0xBEEF)
+
+        # Simulate the RAM requesting a extended latency.
+        yield self.ram_signals.rwds.i .eq(1)
+        yield
+
+        # Ensure that upon requesting, CS goes high, and our clock starts low.
+        yield
+        self.assertEqual((yield self.ram_signals.cs),  1)
+        self.assertEqual((yield self.ram_signals.clk), 0)
+
+        # Drop our "start request" line somewhere during the transaction;
+        # so we don't immediately go into the next transfer.
+        yield self.dut.start_transfer.eq(0)
+
+        # We should then move to shifting out our first command word,
+        # which means we're driving DQ with the first word of our command.
+        yield
+        yield
+        self.assertEqual((yield self.ram_signals.cs),       1)
+        self.assertEqual((yield self.ram_signals.clk),      1)
+        self.assertEqual((yield self.ram_signals.dq.oe),    1)
+        self.assertEqual((yield self.ram_signals.dq.o),  0x60)
+
+        # Next, on the falling edge of our clock, the next byte should be presented.
+        yield
+        self.assertEqual((yield self.ram_signals.clk),      0)
+        self.assertEqual((yield self.ram_signals.dq.o),  0x17)
+
+        # This should continue until we've shifted out a full command.
+        yield
+        self.assertEqual((yield self.ram_signals.clk),      1)
+        self.assertEqual((yield self.ram_signals.dq.o),  0x79)
+        yield
+        self.assertEqual((yield self.ram_signals.clk),      0)
+        self.assertEqual((yield self.ram_signals.dq.o),  0x9B)
+        yield
+        self.assertEqual((yield self.ram_signals.clk),      1)
+        self.assertEqual((yield self.ram_signals.dq.o),  0x00)
+        yield
+        self.assertEqual((yield self.ram_signals.clk),      0)
+        self.assertEqual((yield self.ram_signals.dq.o),  0x05)
+
+        # Check that we've been driving our output this whole time,
+        # and haven't been driving RWDS.
+        self.assertEqual((yield self.ram_signals.dq.oe),    1)
+        self.assertEqual((yield self.ram_signals.rwds.oe),  0)
+        yield
+
+        # For a _register_ write, there shouldn't be latency period.
+        # This means we should continue driving DQ...
+        self.assertEqual((yield self.ram_signals.dq.oe),    1)
+        self.assertEqual((yield self.ram_signals.rwds.oe),  0)
+
+        self.assertEqual((yield self.ram_signals.clk),      1)
+        self.assertEqual((yield self.ram_signals.dq.o),  0xBE)
+        yield
+        self.assertEqual((yield self.ram_signals.clk),      0)
+        self.assertEqual((yield self.ram_signals.dq.o),  0xEF)
 
 
 
@@ -492,7 +599,6 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
         self.assertEqual((yield self.ram_signals.clk),     0)
 
         # TODO: test recovery time
-
 
 if __name__ == "__main__":
     unittest.main()
