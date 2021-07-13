@@ -7,15 +7,34 @@ PORT   ?= /dev/ttyACM0
 
 CROSS  ?= riscv64-unknown-elf-
 
-CC      = $(CROSS)gcc
+CC      = python -m ziglang cc
+LLD     = python -m ziglang ld.lld
 OBJCOPY = $(CROSS)objcopy
 
-CFLAGS  = -march=rv32i -mabi=ilp32 -g -Os -Iinclude -ffreestanding -ffunction-sections -fdata-sections
-LDFLAGS = -Tsoc.ld -T$(TARGET).ld -nostartfiles -ffreestanding -Wl,--gc-sections
+CFLAGS  = \
+	-target riscv32-freestanding-eabi \
+	-march=generic_rv32 \
+	-mabi=ilp32 \
+	-g \
+	-Os \
+	-Iinclude \
+	-ffreestanding \
+	-nostdlib \
+	-ffunction-sections \
+	-fdata-sections \
+	-T$(TARGET).ld
 
+LLDFLAGS = \
+	 -T$(TARGET).ld \
+	 --gc-sections \
+	 --oformat binary \
+	 -nostdlib \
+	 -static
+	
 SOC = $(TARGET)_soc.py
+#ASM_SOURCES = start.S
 SOURCES = \
-	start.S \
+	start.c \
 	$(TARGET).c \
 	platform.c \
 	uart.c \
@@ -40,12 +59,12 @@ resources.h: $(SOC)
 #
 # Firmware binary.
 #
+#
+$(TARGET).o: $(SOURCES) soc.ld resources.h
+	$(CC) $(CFLAGS) $(SOURCES) -c -o $@
 
-$(TARGET).elf: $(SOURCES) soc.ld resources.h
-	$(CC) $(CFLAGS) $(LDFLAGS) $(SOURCES) -o $@
-
-$(TARGET).bin: $(TARGET).elf
-	$(OBJCOPY) -O binary $< $@
+$(TARGET).bin: $(TARGET).o
+	$(LLD) $(LLDFLAGS) $< -o $@
 
 $(TARGET).bit: $(TARGET).bin $(SOC)
 	./$(SOC) --dry-run -o $(TARGET).bit
@@ -58,7 +77,7 @@ $(TARGET).bit: $(TARGET).bin $(SOC)
 .PHONY: clean program console
 
 clean:
-	rm -f $(TARGET).elf $(TARGET).bin $(SOC).bit soc.ld resources.h
+	rm -f $(TARGET).elf $(TARGET).o $(TARGET).bin $(SOC).bit soc.ld resources.h
 
 # Loads the self-test program onto our FPGA.
 program: $(TARGET).bin $(SOC)
@@ -67,4 +86,4 @@ program: $(TARGET).bin $(SOC)
 # Loads our "Hello world" program onto the FPGA.
 run: $(TARGET).bit 
 	apollo configure $(TARGET).bit
-	miniterm.py $(PORT) 115200
+	pyserial-miniterm $(PORT) 115200

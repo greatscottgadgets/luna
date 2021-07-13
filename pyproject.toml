@@ -12,6 +12,7 @@ pyusb = "^1.1.1"
 pyvcd = "^0.2.4"
 libusb1 = "^1.9.2"
 apollo-fpga = "^0.0.4"
+ziglang = "^0.8.0"
 nmigen = {git = "https://github.com/nmigen/nmigen.git"}
 nmigen-soc = {git = "https://github.com/nmigen/nmigen-soc.git"}
 nmigen-boards = {git = "https://github.com/nmigen/nmigen-boards.git"}

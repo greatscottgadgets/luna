@@ -2,6 +2,12 @@ OUTPUT_FORMAT("elf32-littleriscv")
 OUTPUT_ARCH("riscv")
 ENTRY(_start)
 
+MEMORY
+{
+    rom : ORIGIN = 0x00000000, LENGTH = 0x00004000
+    ram : ORIGIN = 0x00004000, LENGTH = 0x00004000
+}
+
 SECTIONS
 {
 	. = 0x00000000;
@@ -24,7 +30,7 @@ SECTIONS
 	{
 		PROVIDE(__global_pointer$ = .);
 		*(.sdata) *(.sdata.*)
-	}
+	} > ram
 	.data :
 	{
 		*(.data) *(.data.*)
