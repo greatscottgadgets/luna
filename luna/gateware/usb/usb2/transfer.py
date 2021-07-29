@@ -86,6 +86,7 @@ class USBInTransferManager(Elaboratable):
         # Note: we'll start with DATA1 in our register; as we'll toggle our data PID
         # before we send.
         self.data_pid         = Signal(2, reset=1)
+        self.buffer_toggle    = Signal()
 
         self.tokenizer        = TokenDetectorInterface()
         self.handshakes_in    = HandshakeExchangeInterface(is_detector=True)
@@ -126,8 +127,6 @@ class USBInTransferManager(Elaboratable):
         #
 
         # We'll create two buffers; so we can fill one as we empty the other.
-        # Since each buffer will be used for every other transaction, and our PID toggle flips every other transcation,
-        # we'll identify which buffer we're targeting by the current PID toggle.
         buffer = Array(Memory(width=8, depth=self._max_packet_size, name=f"transmit_buffer_{i}") for i in range(2))
         buffer_write_ports = Array(buffer[i].write_port(domain="usb") for i in range(2))
         buffer_read_ports  = Array(buffer[i].read_port(domain="usb") for i in range(2))
@@ -137,8 +136,8 @@ class USBInTransferManager(Elaboratable):
 
         # Create values equivalent to the buffer numbers for our read and write buffer; which switch
         # whenever we swap our two buffers.
-        write_buffer_number =  self.data_pid[0]
-        read_buffer_number  = ~self.data_pid[0]
+        write_buffer_number =  self.buffer_toggle
+        read_buffer_number  = ~self.buffer_toggle
 
         # Create a shorthand that refers to the buffer to be filled; and the buffer to send from.
         # We'll call these the Read and Write buffers.
@@ -227,6 +226,7 @@ class USBInTransferManager(Elaboratable):
 
                             # We're now ready to take the data we've captured and _transmit_ it.
                             # We'll swap our read and write buffers, and toggle our data PID.
+                            self.buffer_toggle  .eq(~self.buffer_toggle),
                             self.data_pid[0]    .eq(~self.data_pid[0]),
 
                             # Mark our current stream as no longer having ended.
@@ -309,6 +309,7 @@ class USBInTransferManager(Elaboratable):
                     # If we're following up with a ZLP, move back to our "wait to send" state.
                     # Since we've now cleared our fill count; this next go-around will emit a ZLP.
                     with m.If(follow_up_with_zlp):
+                        m.d.usb += self.data_pid[0].eq(~self.data_pid[0]),
                         m.next = "WAIT_TO_SEND"
 
                     # Otherwise, there's a possibility we already have a packet-worth of data waiting
@@ -319,6 +320,7 @@ class USBInTransferManager(Elaboratable):
                     with m.Elif(~in_stream.ready | packet_completing):
                         m.next = "WAIT_TO_SEND"
                         m.d.usb += [
+                            self.buffer_toggle .eq(~self.buffer_toggle),
                             self.data_pid[0]   .eq(~self.data_pid[0]),
                             read_stream_ended  .eq(0)
                         ]
@@ -483,6 +485,7 @@ class USBInTransferManagerTest(LunaGatewareTestCase):
         for value in [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]:
             self.assertEqual((yield packet_stream.payload), value)
             yield
+        yield self.assertEqual((yield dut.data_pid), 0)
         yield from self.pulse(dut.handshakes_in.ack)
 
 
@@ -505,11 +508,13 @@ class USBInTransferManagerTest(LunaGatewareTestCase):
         for value in [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]:
             self.assertEqual((yield packet_stream.payload), value)
             yield
+        self.assertEqual((yield dut.data_pid), 1)
         yield from self.pulse(dut.handshakes_in.ack)
 
         # ... followed by a ZLP.
         yield from self.pulse(dut.tokenizer.ready_for_response, step_after=False)
         self.assertEqual((yield packet_stream.last), 1)
+        self.assertEqual((yield dut.data_pid), 0)
         yield from self.pulse(dut.handshakes_in.ack)
 
 
@@ -531,6 +536,7 @@ class USBInTransferManagerTest(LunaGatewareTestCase):
             self.assertEqual((yield packet_stream.payload), value)
             yield
         yield from self.pulse(dut.handshakes_in.ack)
+        self.assertEqual((yield dut.data_pid), 1)
 
 
         # ... and we shouldn't emit a ZLP; meaning we should be ready to receive new data.
