@@ -215,9 +215,6 @@ class USBDevice(Elaboratable):
         # Stores the device's current configuration. Defaults to unconfigured.
         configuration = Signal(8, reset=0)
 
-        # Stores the device's current speed (a USBSpeed value).
-        speed         = Signal(2, reset=USBSpeed.FULL)
-
 
         #
         # Internal interconnections.
@@ -269,8 +266,8 @@ class USBDevice(Elaboratable):
             data_crc.rx_valid       .eq(self.utmi.rx_valid),
 
             # Connect our state signals to our subordinate components.
-            token_detector.speed    .eq(speed),
-            timer.speed             .eq(speed)
+            token_detector.speed    .eq(self.speed),
+            timer.speed             .eq(self.speed)
         ]
 
         #
@@ -291,7 +288,7 @@ class USBDevice(Elaboratable):
             handshake_detector.detected                .connect(endpoint_collection.handshakes_in),
 
             # Device state.
-            endpoint_collection.speed                  .eq(speed),
+            endpoint_collection.speed                  .eq(self.speed),
             endpoint_collection.active_config          .eq(configuration),
             endpoint_collection.active_address         .eq(address),
 
