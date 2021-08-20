@@ -485,7 +485,7 @@ class USBInTransferManagerTest(LunaGatewareTestCase):
         for value in [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]:
             self.assertEqual((yield packet_stream.payload), value)
             yield
-        yield self.assertEqual((yield dut.data_pid), 0)
+        self.assertEqual((yield dut.data_pid), 0)
         yield from self.pulse(dut.handshakes_in.ack)
 
 
