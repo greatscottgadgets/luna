@@ -43,6 +43,7 @@ class USBAnalyzer(Elaboratable):
         The UTMI interface that carries the data to be analyzed.
     mem_depth: int, default=8192
         The depth of the analyzer's local ringbuffer, in bytes.
+        Must be a power of 2.
     """
 
     # Current, we'll provide a packet header of 16 bits.
@@ -59,6 +60,8 @@ class USBAnalyzer(Elaboratable):
         """
 
         self.utmi = utmi_interface
+
+        assert (mem_depth % 2) == 0, "mem_depth must be a power of 2"
 
         # Internal storage memory.
         self.mem = Memory(width=8, depth=mem_depth, name="analysis_ringbuffer")
