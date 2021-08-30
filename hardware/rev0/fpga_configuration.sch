@@ -857,8 +857,7 @@ F 1 "10K" V 6950 5350 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 6880 5350 50  0001 C CNN
 F 3 "~" H 6950 5350 50  0001 C CNN
 F 4 "GENERIC-RES-0402-10K" H 6950 5350 50  0001 C CNN "Part Number"
-F 5 "DNP" V 6850 5350 50  0000 C CNN "Note"
-F 6 "any equivalent" H 6950 5350 50  0001 C CNN "Substitution"
+F 5 "any equivalent" H 6950 5350 50  0001 C CNN "Substitution"
 	1    6950 5350
 	1    0    0    -1  
 $EndComp
@@ -873,13 +872,12 @@ F 1 "2.2K" V 6700 5600 50  0000 C CNN
 F 2 "Resistor_SMD:R_0402_1005Metric" V 6630 5600 50  0001 C CNN
 F 3 "~" H 6700 5600 50  0001 C CNN
 F 4 "GENERIC-RES-0402-2.2K" H 6700 5600 50  0001 C CNN "Part Number"
-F 5 "DNP" V 6600 5600 50  0000 C CNN "Note"
-F 6 "any equivalent" H 6700 5600 50  0001 C CNN "Substitution"
+F 5 "any equivalent" H 6700 5600 50  0001 C CNN "Substitution"
 	1    6700 5600
 	0    1    1    0   
 $EndComp
-Text Notes 5900 5450 0    44   ~ 0
-Populate R5 and R6 to\nallow FPGA to trigger its\nown programming\n(not required unless U6\nis unpopulated).
+Text Notes 5850 5450 0    44   ~ 0
+R5 and R6 allow FPGA to\ntrigger its own programming
 Text HLabel 6450 5600 0    50   Input ~ 0
 ~FPGA_SELF_PROGRAM
 $Comp
