@@ -587,6 +587,9 @@ F 0 "J11" H 5150 6650 50  0000 C CNN
 F 1 "PMOD_B" H 5150 6550 50  0000 C CNN
 F 2 "luna:PinSocket_2x06_P2.54mm_PMOD" H 5100 7050 50  0001 C CNN
 F 3 "~" H 5100 7050 50  0001 C CNN
+F 4 "PPPC062LJBN-RC" H 5100 7050 50  0001 C CNN "Part Number"
+F 5 "Sullins Connector Solutions" H 5100 7050 50  0001 C CNN "Manufacturer"
+F 6 "CONN HDR 12POS 0.1 GOLD PCB R/A" H 5100 7050 50  0001 C CNN "Description"
 	1    5100 7050
 	1    0    0    -1  
 $EndComp
@@ -686,6 +689,9 @@ F 0 "J7" H 3600 6650 50  0000 C CNN
 F 1 "PMOD_A" H 3600 6550 50  0000 C CNN
 F 2 "luna:PinSocket_2x06_P2.54mm_PMOD" H 3550 7050 50  0001 C CNN
 F 3 "~" H 3550 7050 50  0001 C CNN
+F 4 "PPPC062LJBN-RC" H 3550 7050 50  0001 C CNN "Part Number"
+F 5 "Sullins Connector Solutions" H 3550 7050 50  0001 C CNN "Manufacturer"
+F 6 "CONN HDR 12POS 0.1 GOLD PCB R/A" H 3550 7050 50  0001 C CNN "Description"
 	1    3550 7050
 	1    0    0    -1  
 $EndComp
