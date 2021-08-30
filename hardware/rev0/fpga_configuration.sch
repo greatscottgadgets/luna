@@ -539,6 +539,7 @@ F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-42363-SAM-D11_Datashe
 F 4 "IC MCU 32BIT 16KB FLASH 24QFN" H 3650 3150 50  0001 C CNN "Description"
 F 5 "Microchip" H 3650 3150 50  0001 C CNN "Manufacturer"
 F 6 "ATSAMD11D14A-MUT" H 3650 3150 50  0001 C CNN "Part Number"
+F 7 "ATSAMD11D14A-MNT" H 3650 3150 50  0001 C CNN "Substitution"
 	1    3650 3150
 	1    0    0    -1  
 $EndComp
