@@ -357,6 +357,7 @@ F 3 "http://infocenter.arm.com/help/topic/com.arm.doc.ddi0314h/DDI0314H_coresigh
 F 4 "CONN HEADER VERT 10POS 1.27MM" H 2500 6750 50  0001 C CNN "Description"
 F 5 "Samtec" H 2500 6750 50  0001 C CNN "Manufacturer"
 F 6 "FTSH-105-01-F-D-K" H 2500 6750 50  0001 C CNN "Part Number"
+F 7 "DNP" H 2100 7550 50  0000 L CNN "Note"
 	1    2500 6750
 	-1   0    0    -1  
 $EndComp
@@ -919,6 +920,7 @@ F 3 "http://infocenter.arm.com/help/topic/com.arm.doc.ddi0314h/DDI0314H_coresigh
 F 4 "CONN HEADER VERT 10POS 1.27MM" H 5350 6700 50  0001 C CNN "Description"
 F 5 "Samtec" H 5350 6700 50  0001 C CNN "Manufacturer"
 F 6 "FTSH-105-01-F-D-K" H 5350 6700 50  0001 C CNN "Part Number"
+F 7 "DNP" H 4900 7500 50  0000 L CNN "Note"
 	1    5350 6700
 	-1   0    0    -1  
 $EndComp
