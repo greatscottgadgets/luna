@@ -11,6 +11,8 @@ to your own designs; including the core :class:`USBDevice` class.
 import logging
 import unittest
 
+from luna                      import configure_default_logging
+
 from nmigen                    import Signal, Module, Elaboratable, Const
 from usb_protocol.types        import DescriptorTypes
 from usb_protocol.emitters     import DeviceDescriptorCollection
@@ -702,6 +704,10 @@ try:
 
 
 except ImportError as e:
+    # Since this exception happens so early, top_level_cli won't have set up logging yet,
+    # so call the setup here to avoid getting stuck with Python's default config.
+    configure_default_logging()
+
     logging.warning("SoC framework components could not be imported; some functionality will be unavailable.")
     logging.warning(e)
 
