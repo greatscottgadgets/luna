@@ -393,9 +393,9 @@ class GetDescriptorHandlerBlock(Elaboratable):
         #
         words_remaining = self.length - self.start_position
         with m.If(words_remaining <= self._max_packet_length):
-            m.d.comb += length.eq(words_remaining)
+            m.d.sync += length.eq(words_remaining)
         with m.Else():
-            m.d.comb += length.eq(self._max_packet_length)
+            m.d.sync += length.eq(self._max_packet_length)
 
         # Register that stores our current position in the stream.
         position_in_stream = Signal(range(descriptor_max_length))
@@ -415,7 +415,7 @@ class GetDescriptorHandlerBlock(Elaboratable):
         # Core transmit logic.
         #
 
-        with m.FSM() as fsm:
+        with m.FSM():
 
             # IDLE -- we're currently waiting to send a descriptor.
             with m.State('IDLE'):
@@ -428,20 +428,27 @@ class GetDescriptorHandlerBlock(Elaboratable):
 
                 # Once we have a request to start transmitting...
                 with m.If(self.start):
+                    m.next = 'START'
 
-                    # ... apply our start position...
-                    m.d.sync += position_in_stream.eq(self.start_position),
+            # START -- retiming state to allow construction of the length signal
+            with m.State('START'):
+                # ... and always prepare to read whatever descriptor type is requested.
+                m.d.comb += rom_read_port.addr.eq(type_number)
 
-                    is_valid_send = (length > 0)
-                    is_valid_type = (type_number <= max_type_index)
+                # ... apply our start position...
+                m.d.sync += position_in_stream.eq(self.start_position),
 
-                    # If we have a descriptor we're able to send, prepare to send it.
-                    with m.If(is_valid_send & is_valid_type):
-                        m.next = 'LOOKUP_TYPE'
+                is_valid_send = (length > 0)
+                is_valid_type = (type_number <= max_type_index)
 
-                    # Otherwise, stall the request immediately.
-                    with m.Else():
-                        m.d.comb += self.stall.eq(1)
+                # If we have a descriptor we're able to send, prepare to send it.
+                with m.If(is_valid_send & is_valid_type):
+                    m.next = 'LOOKUP_TYPE'
+
+                # Otherwise, stall the request immediately.
+                with m.Else():
+                    m.d.comb += self.stall.eq(1)
+                    m.next = 'IDLE'
 
             # LOOKUP_TYPE -- we're now ready to start sending a descriptor, but we've not yet fetched the
             # descriptor from memory. First, we'll need to find the location of the table that contains each
