@@ -85,12 +85,12 @@ if __name__ == "__main__":
     def test_id_read():
         dut.registers.register_write(REGISTER_RAM_REG_ADDR, 0x0)
         dut.registers.register_write(REGISTER_RAM_REG_ADDR, 0x0)
-        return dut.registers.register_read(REGISTER_RAM_VALUE) == 0x0c81
+        return dut.registers.register_read(REGISTER_RAM_VALUE) in (0x0c81, 0x0c86)
 
     def test_config_read():
         dut.registers.register_write(REGISTER_RAM_REG_ADDR, 0x800)
         dut.registers.register_write(REGISTER_RAM_REG_ADDR, 0x800)
-        return dut.registers.register_read(REGISTER_RAM_VALUE) == 0x8f1f
+        return dut.registers.register_read(REGISTER_RAM_VALUE) in (0x8f1f, 0x8f2f)
 
 
     # Run each of our tests.
