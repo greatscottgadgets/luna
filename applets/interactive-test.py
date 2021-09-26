@@ -188,7 +188,7 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
         # HyperRAM test connections.
         #
         ram_bus = platform.request('ram')
-        psram = HyperRAMInterface(bus=ram_bus)
+        psram = HyperRAMInterface(bus=ram_bus, **platform.ram_timings)
         m.submodules += psram
 
         psram_address_changed = Signal()
