@@ -6,17 +6,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import time
+import logging
 
 from prompt_toolkit import HTML
 from prompt_toolkit import print_formatted_text as pprint
 
-from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetInserter
-from nmigen.lib.cdc import FFSynchronizer
+from nmigen import Signal, Elaboratable, Module
 
 from luna                             import top_level_cli
-from apollo_fpga                           import ApolloDebugger, ApolloILAFrontend
-from luna.gateware.utils.cdc          import synchronize
-from luna.gateware.interface.spi      import SPIRegisterInterface, SPIMultiplexer, SPIBus
+from apollo_fpga                      import ApolloDebugger
+from luna.gateware.interface.jtag     import JTAGRegisterInterface
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 from luna.gateware.interface.psram    import HyperRAMInterface
 
@@ -37,14 +36,9 @@ class HyperRAMDiagnostic(Elaboratable):
         clocking = LunaECP5DomainGenerator()
         m.submodules.clocking = clocking
 
-        # Grab a reference to our debug-SPI bus.
-        board_spi = synchronize(m, platform.request("debug_spi"))
-
         # Create a set of registers...
-        spi_registers = SPIRegisterInterface(7, 32)
-        m.submodules.spi_registers = spi_registers
-        m.d.comb += spi_registers.spi.connect(board_spi)
-
+        registers = JTAGRegisterInterface(address_size=7, default_read_value=0xDEADBEEF)
+        m.submodules.registers = registers
 
         #
         # HyperRAM test connections.
@@ -54,9 +48,9 @@ class HyperRAMDiagnostic(Elaboratable):
         m.submodules += psram
 
         psram_address_changed = Signal()
-        psram_address = spi_registers.add_register(REGISTER_RAM_REG_ADDR, write_strobe=psram_address_changed)
+        psram_address = registers.add_register(REGISTER_RAM_REG_ADDR, write_strobe=psram_address_changed)
 
-        spi_registers.add_sfr(REGISTER_RAM_VALUE, read=psram.read_data)
+        registers.add_sfr(REGISTER_RAM_VALUE, read=psram.read_data)
 
         # Hook up our PSRAM.
         m.d.comb += [
@@ -77,9 +71,10 @@ if __name__ == "__main__":
     test = top_level_cli(HyperRAMDiagnostic)
 
     # Create a debug and ILA connection.
-    debugger = ApolloDebugger()
+    dut = ApolloDebugger()
+    logging.info(f"Connected to onboard dut; hardware revision r{dut.major}.{dut.minor} (s/n: {dut.serial_number}).")
 
-    print("Running basic HyperRAM diagnostics.")
+    logging.info("Running basic HyperRAM diagnostics.")
 
     iterations = 100
 
@@ -88,14 +83,15 @@ if __name__ == "__main__":
     failed_tests = set()
 
     def test_id_read():
-        debugger.spi.register_write(REGISTER_RAM_REG_ADDR, 0x0)
-        debugger.spi.register_write(REGISTER_RAM_REG_ADDR, 0x0)
-        return debugger.spi.register_read(REGISTER_RAM_VALUE) == 0x0c81
+        dut.registers.register_write(REGISTER_RAM_REG_ADDR, 0x0)
+        dut.registers.register_write(REGISTER_RAM_REG_ADDR, 0x0)
+        return dut.registers.register_read(REGISTER_RAM_VALUE) == 0x0c81
 
     def test_config_read():
-        debugger.spi.register_write(REGISTER_RAM_REG_ADDR, 0x800)
-        debugger.spi.register_write(REGISTER_RAM_REG_ADDR, 0x800)
-        return debugger.spi.register_read(REGISTER_RAM_VALUE) == 0x8f1f
+        dut.registers.register_write(REGISTER_RAM_REG_ADDR, 0x800)
+        dut.registers.register_write(REGISTER_RAM_REG_ADDR, 0x800)
+        return dut.registers.register_read(REGISTER_RAM_VALUE) == 0x8f1f
+
 
     # Run each of our tests.
     for test in (test_id_read, test_config_read):
