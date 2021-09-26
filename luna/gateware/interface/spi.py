@@ -700,23 +700,21 @@ class SPIRegisterInterface(Elaboratable):
 
         # Build the logic to select the 'to_send' value, which is selected
         # from all of our registers according to the selected register address.
+        first_item = True
         for address, connections in self.registers.items():
+            statement = m.If if first_item else m.Elif
 
-            first_item = True
-            for address, connections in self.registers.items():
-                statement = m.If if first_item else m.Elif
+            with statement(self._address == address):
 
-                with statement(self._address == address):
+                # Hook up the word-to-send signal either to the read value for the relevant
+                # register, or to the default read value.
+                if connections['read'] is not None:
+                    m.d.comb += self.interface.word_to_send.eq(connections['read'])
+                else:
+                    m.d.comb += self.interface.word_to_send.eq(self.default_read_value)
 
-                    # Hook up the word-to-send signal either to the read value for the relevant
-                    # register, or to the default read value.
-                    if connections['read'] is not None:
-                        m.d.comb += self.interface.word_to_send.eq(connections['read'])
-                    else:
-                        m.d.comb += self.interface.word_to_send.eq(self.default_read_value)
-
-                # We've already created the m.If; from now on, use m.Elif
-                first_item = False
+            # We've already created the m.If; from now on, use m.Elif
+            first_item = False
 
         # Finally, tie all non-handled register values to always respond with the default.
         with m.Else():
