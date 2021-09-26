@@ -196,8 +196,10 @@ class JTAGCommandInterface(Elaboratable):
         #
         # Instruction and data registers.
         #
-        instruction_register         = Signal(self.command_size + 1, reset=(2 ** self.command_size) - 1)
-        data_register                = Signal(self.word_size + 1, reset=(2 ** self.word_size) - 1)
+        ir_size              = self.command_size + 1
+        dr_size              = self.word_size + 1
+        instruction_register = Signal(ir_size, reset=(2 ** ir_size - 1))
+        data_register        = Signal(dr_size, reset=(2 ** dr_size - 1))
 
         #
         # JTAG interface.
@@ -233,9 +235,14 @@ class JTAGCommandInterface(Elaboratable):
         )
         m.d.comb += jtag_in_reset.eq(~jtag_not_in_reset)
 
+        # Edges on the JTAGG signals line up directly with the JTCK rising edge,
+        # so create a delayed version of the clock to sample them reliably.
+        jtag_clk_delayed = Signal()
+        m.d.sync += jtag_clk_delayed.eq(jtag_clk)
+
         # Create a clock domain clocked from our JTAG clock, for most of our internals.
         m.domains.jtag = ClockDomain(local=True)
-        m.d.comb += ClockSignal("jtag").eq(jtag_clk)
+        m.d.comb += ClockSignal("jtag").eq(jtag_clk_delayed)
 
 
         # Synchronize our data to be transmitted into the JTAG domain.
@@ -256,15 +263,17 @@ class JTAGCommandInterface(Elaboratable):
         ]
 
         # Once we're actively shifting an instruction over JTAG, capture it.
-        shifting_instruction = jtag_ce_instruction & jtag_in_shift_dr
+        shifting_instruction = Signal()
+        m.d.jtag += shifting_instruction.eq(jtag_ce_instruction & jtag_in_shift_dr)
         with m.If(jtag_in_reset):
             m.d.jtag += instruction_register.eq(instruction_register.reset)
         with m.Elif(shifting_instruction):
             m.d.jtag += instruction_register.eq(Cat(instruction_register[1:], jtag_tdi))
 
 
-        # Once we're actively shifting an instruction over JTAG, capture it.
-        shifting_data = jtag_ce_data & jtag_in_shift_dr
+        # Once we're actively shifting data over JTAG, capture it.
+        shifting_data = Signal()
+        m.d.jtag += shifting_data.eq(jtag_ce_data & jtag_in_shift_dr)
         with m.If(jtag_in_reset):
             m.d.jtag += data_register.eq(data_register.reset)
         with m.Elif(shifting_data):
