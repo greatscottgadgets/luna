@@ -449,6 +449,10 @@ class USBTokenDetector(Elaboratable):
                             # Start our interpacket-delay timer.
                             m.d.comb += timer.start.eq(1)
 
+                        # If we don't count the token, clear the state so we don't act on following packets.
+                        with m.Else():
+                            m.d.usb += self.interface.pid.eq(0)
+
 
                 # Otherwise, if we get more data, we've received a malformed
                 # token -- which we'll ignore.
