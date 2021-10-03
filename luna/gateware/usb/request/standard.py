@@ -98,7 +98,7 @@ class StandardRequestHandler(USBRequestHandler):
         # Connect our transmitter up to the output stream...
         m.d.comb += [
             transmitter.stream          .attach(self.interface.tx),
-            Cat(transmitter.data[0:1])  .eq(data),
+            Cat(transmitter.data[0:length]).eq(data),
             transmitter.max_length      .eq(length)
         ]
 
