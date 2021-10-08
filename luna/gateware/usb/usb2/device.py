@@ -599,14 +599,15 @@ class LongDescriptorTest(USBDeviceTest):
 
         dut.add_standard_control_endpoint(descriptors)
 
-
     @usb_domain_test_case
     def test_long_descriptor(self):
+        descriptor = self.descriptors.get_descriptor_bytes(DescriptorTypes.CONFIGURATION)
 
         # Read our configuration descriptor (no subordinates).
-        handshake, data = yield from self.get_descriptor(DescriptorTypes.CONFIGURATION, length=95)
+        handshake, data = yield from self.get_descriptor(DescriptorTypes.CONFIGURATION, length=len(descriptor))
         self.assertEqual(handshake, USBPacketID.ACK)
-        self.assertEqual(len(data), 95)
+        self.assertEqual(bytes(data), descriptor)
+        self.assertEqual(len(data), len(descriptor))
 
     @usb_domain_test_case
     def test_descriptor_zlp(self):
@@ -616,23 +617,15 @@ class LongDescriptorTest(USBDeviceTest):
         # length, followed by a zero-length packet to terminate the
         # transaction.
 
-        # This test is to demonstrate an apparent bug where no ZLP is returned
-        # by the device because the device thinks the transaction is over.
-        # When the host requests another IN, the device signals a STALL
-        # instead of returning a ZLP. The failure occurs even if requesting a
-        # length that is larger than the descriptor, which is... interesting.
+        descriptor = self.descriptors.get_descriptor_bytes(DescriptorTypes.CONFIGURATION)
 
-        # Try requesting a single max-sized packet.
-        request_length = self.max_packet_size_ep0
-        handshake, data = yield from self.get_descriptor(DescriptorTypes.CONFIGURATION, length=request_length)
-        self.assertEqual(handshake, USBPacketID.ACK)
-        self.assertEqual(len(data), request_length)
-
-        # Try requesting three max-sized packets.
-        request_length = self.max_packet_size_ep0 * 3
-        handshake, data = yield from self.get_descriptor(DescriptorTypes.CONFIGURATION, length=request_length)
-        self.assertEqual(handshake, USBPacketID.ACK)
-        self.assertEqual(len(data), request_length)
+        # Try requesting a single and three max-sized packet.
+        for factor in [1, 3]:
+            request_length = self.max_packet_size_ep0 * factor
+            handshake, data = yield from self.get_descriptor(DescriptorTypes.CONFIGURATION, length=request_length)
+            self.assertEqual(handshake, USBPacketID.ACK)
+            self.assertEqual(bytes(data), descriptor[0:request_length])
+            self.assertEqual(len(data), request_length)
 
 
 #
