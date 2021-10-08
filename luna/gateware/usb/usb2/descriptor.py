@@ -406,7 +406,8 @@ class GetDescriptorHandlerBlock(Elaboratable):
         descriptor_data_base_address = Signal(rom_read_port.addr.width)
 
         # Track when we're on the first and last packet.
-        on_first_packet = position_in_stream == self.start_position
+        on_first_packet = (position_in_stream == self.start_position) & \
+            (length != 0)
         on_last_packet = \
             (position_in_stream == (descriptor_length - 1)) | \
             (bytes_sent + 1 >= length)
@@ -438,7 +439,7 @@ class GetDescriptorHandlerBlock(Elaboratable):
                 # ... apply our start position...
                 m.d.sync += position_in_stream.eq(self.start_position),
 
-                is_valid_send = (length > 0)
+                is_valid_send = (length > 0) | (self.start_position > 0)
                 is_valid_type = (type_number <= max_type_index)
 
                 # If we have a descriptor we're able to send, prepare to send it.
@@ -507,8 +508,8 @@ class GetDescriptorHandlerBlock(Elaboratable):
                     self.tx.last        .eq(on_last_packet)
                 ]
 
-                # Once a given word is accepted, we're ready to move on.
-                with m.If(self.tx.ready):
+                # Once a given word is accepted or no data is requested, we're ready to move on.
+                with m.If(self.tx.ready ^ (length == 0)):
 
                     # If we're not yet done, move to the next byte in the stream.
                     with m.If(~on_last_packet):
