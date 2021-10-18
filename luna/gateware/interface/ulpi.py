@@ -235,8 +235,22 @@ class ULPIRegisterWindow(Elaboratable):
                 with m.Elif(self.ulpi_next):
                     m.d.usb += [
                         self.ulpi_data_out.eq(0),
-                        self.ulpi_out_req.eq(0),
                         self.ulpi_stop.eq(1),
+                    ]
+                    m.next = 'STOPPING'
+
+            with m.State('STOPPING'):
+                m.d.usb += self.ulpi_stop.eq(0)
+
+                # Check again for interruption since DIR may have
+                # been asserted during the previous cycle.
+                with m.If(self.ulpi_dir):
+                    m.next = 'START_WRITE'
+                    m.d.usb += self.ulpi_out_req.eq(0)
+
+                with m.Else():
+                    m.d.usb += [
+                        self.ulpi_out_req.eq(0),
                         self.done.eq(1)
                     ]
                     m.next = 'IDLE'
