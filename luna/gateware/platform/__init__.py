@@ -92,6 +92,11 @@ def get_appropriate_platform() -> LatticeECP5Platform:
         # only works if we're programming a connected device; otherwise, we'll
         # need to use the custom-platform environment variables.)
         platform.device = debugger.get_fpga_type()
+
+        # Explicitly close the debugger connection, as Windows doesn't allow you to
+        # re-claim the USB device if it's still open.
+        debugger.close()
+
         return platform
 
 
