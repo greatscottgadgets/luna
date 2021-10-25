@@ -205,6 +205,9 @@ class StandardRequestHandler(USBRequestHandler):
 
                 # GET_DESCRIPTOR -- The host is asking for a USB descriptor -- for us to "self describe".
                 with m.State('GET_DESCRIPTOR'):
+                    # Keep track of whether we've sent a packet we're expecting an ACK to.
+                    expecting_ack = Signal()
+
                     m.d.comb += [
                         get_descriptor_handler.tx  .attach(tx),
                         handshake_generator.stall  .eq(get_descriptor_handler.stall)
@@ -213,10 +216,11 @@ class StandardRequestHandler(USBRequestHandler):
                     # Respond to our data stage with a descriptor...
                     with m.If(interface.data_requested):
                         m.d.comb += get_descriptor_handler.start.eq(1)
+                        m.d.usb += expecting_ack.eq(1)
 
                     # Each time we receive an ACK, advance in our descriptor.
                     # This allows us to send descriptors with >64B of content.
-                    with m.If(interface.handshakes_in.ack):
+                    with m.If(interface.handshakes_in.ack & expecting_ack):
 
                         # NOTE: this logic might need to be scaled by bytes-per-word for USB3, if it's ever used.
                         # For now, we're not using it on USB3 at all, since we assume descriptors always fit in a
@@ -229,7 +233,10 @@ class StandardRequestHandler(USBRequestHandler):
                             get_descriptor_handler.start_position  .eq(next_start_position),
 
                             # ... and toggle our data PID.
-                            self.interface.tx_data_pid             .eq(~self.interface.tx_data_pid)
+                            self.interface.tx_data_pid             .eq(~self.interface.tx_data_pid),
+
+                            # We've got the ACK we expected.
+                            expecting_ack                          .eq(0),
                         ]
 
                     # ... and ACK our status stage.
