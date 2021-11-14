@@ -61,7 +61,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement at
-ktemkin@greatscottgadgets.com.
+straithe@greatscottgadgets.com.
 
 ## Attribution
 
