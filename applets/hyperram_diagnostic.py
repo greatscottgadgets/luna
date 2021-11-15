@@ -12,6 +12,7 @@ from prompt_toolkit import HTML
 from prompt_toolkit import print_formatted_text as pprint
 
 from amaranth import Signal, Elaboratable, Module
+from amaranth.lib.fifo import SyncFIFO
 
 from luna                             import top_level_cli
 from apollo_fpga                      import ApolloDebugger
@@ -19,8 +20,9 @@ from luna.gateware.interface.jtag     import JTAGRegisterInterface
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 from luna.gateware.interface.psram    import HyperRAMInterface
 
-REGISTER_RAM_REG_ADDR   = 2
-REGISTER_RAM_VALUE      = 3
+REGISTER_RAM_ADDR   = 2
+REGISTER_RAM_FIFO   = 3
+REGISTER_RAM_START  = 4
 
 
 class HyperRAMDiagnostic(Elaboratable):
@@ -47,20 +49,35 @@ class HyperRAMDiagnostic(Elaboratable):
         psram = HyperRAMInterface(bus=ram_bus, **platform.ram_timings)
         m.submodules += psram
 
-        psram_address_changed = Signal()
-        psram_address = registers.add_register(REGISTER_RAM_REG_ADDR, write_strobe=psram_address_changed)
+        psram_address = registers.add_register(REGISTER_RAM_ADDR)
 
-        registers.add_sfr(REGISTER_RAM_VALUE, read=psram.read_data)
+        m.submodules.read_fifo  = read_fifo  = SyncFIFO(width=16, depth=32)
+        m.submodules.write_fifo = write_fifo = SyncFIFO(width=16, depth=32)
+
+        registers.add_sfr(REGISTER_RAM_FIFO,
+            read=read_fifo.r_data,
+            read_strobe=read_fifo.r_en,
+            write_signal=write_fifo.w_data,
+            write_strobe=write_fifo.w_en)
+
+        start_read = Signal()
+        start_write = Signal()
+        registers.add_sfr(REGISTER_RAM_START,
+            read_strobe=start_read,
+            write_strobe=start_write)
 
         # Hook up our PSRAM.
         m.d.comb += [
             ram_bus.reset          .eq(0),
             psram.single_page      .eq(0),
-            psram.perform_write    .eq(0),
             psram.register_space   .eq(1),
             psram.final_word       .eq(1),
-            psram.start_transfer   .eq(psram_address_changed),
+            psram.perform_write    .eq(start_write),
+            psram.start_transfer   .eq(start_read | start_write),
             psram.address          .eq(psram_address),
+            psram.write_data       .eq(write_fifo.r_data),
+            read_fifo.w_data       .eq(psram.read_data),
+            read_fifo.w_en         .eq(psram.new_data_ready),
         ]
 
         # Return our elaborated module.
@@ -82,16 +99,16 @@ if __name__ == "__main__":
     failures = 0
     failed_tests = set()
 
+    def read_hyperram_register(addr):
+        dut.registers.register_write(REGISTER_RAM_ADDR, addr)
+        dut.registers.register_read(REGISTER_RAM_START)
+        return dut.registers.register_read(REGISTER_RAM_FIFO)
+
     def test_id_read():
-        dut.registers.register_write(REGISTER_RAM_REG_ADDR, 0x0)
-        dut.registers.register_write(REGISTER_RAM_REG_ADDR, 0x0)
-        return dut.registers.register_read(REGISTER_RAM_VALUE) in (0x0c81, 0x0c86)
+        return read_hyperram_register(0x0) in (0x0c81, 0x0c86)
 
     def test_config_read():
-        dut.registers.register_write(REGISTER_RAM_REG_ADDR, 0x800)
-        dut.registers.register_write(REGISTER_RAM_REG_ADDR, 0x800)
-        return dut.registers.register_read(REGISTER_RAM_VALUE) in (0x8f1f, 0x8f2f)
-
+        return read_hyperram_register(0x800) in (0x8f1f, 0x8f2f)
 
     # Run each of our tests.
     for test in (test_id_read, test_config_read):
