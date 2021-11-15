@@ -438,11 +438,10 @@ class GetDescriptorHandlerBlock(Elaboratable):
                 # ... apply our start position...
                 m.d.sync += position_in_stream.eq(self.start_position),
 
-                is_valid_send = (length > 0)
                 is_valid_type = (type_number <= max_type_index)
 
                 # If we have a descriptor we're able to send, prepare to send it.
-                with m.If(is_valid_send & is_valid_type):
+                with m.If(is_valid_type):
                     m.next = 'LOOKUP_TYPE'
 
                 # Otherwise, stall the request immediately.
@@ -467,7 +466,10 @@ class GetDescriptorHandlerBlock(Elaboratable):
                 # Otherwise, look up the type data in the ROM; and then move on to finding the descriptor itself.
                 with m.Else():
                     m.d.comb += rom_read_port.addr.eq(rom_element_pointer + index)
-                    m.next = 'LOOKUP_DESCRIPTOR'
+                    with m.If(length == 0):
+                        m.next = 'SEND_ZLP'
+                    with m.Else():
+                        m.next = 'LOOKUP_DESCRIPTOR'
 
 
             # LOOKUP_DESCRIPTOR -- we've now fetched from ROM the location of the descriptor in memory.
@@ -526,6 +528,16 @@ class GetDescriptorHandlerBlock(Elaboratable):
                             descriptor_data_base_address  .eq(0)
                         ]
                         m.next = 'IDLE'
+
+            # SEND_ZLP -- we've had an empty descriptor request, or a request that ended on a packet boundary.
+            # Send a zero-length packet to end the transaction.
+            with m.State('SEND_ZLP'):
+                m.d.comb += [
+                    # Pulse `last` without `first` to indicate a ZLP.
+                    self.tx.valid.eq(1),
+                    self.tx.last .eq(1),
+                ]
+                m.next = 'IDLE'
 
 
         # Convert our sync domain to the domain requested by the user, if necessary.
@@ -604,13 +616,21 @@ class GetDescriptorHandlerBlockTest(LunaUSBGatewareTestCase):
         expected_data = raw_descriptor[start_position:]
         expected_bytes = min(len(expected_data), max_length-start_position, max_packet_length)
 
-        for i in range(expected_bytes):
-            self.assertEqual((yield self.dut.tx.first),   1 if (i == 0) else 0)
-            self.assertEqual((yield self.dut.tx.last),    1 if (i == expected_bytes - 1) else 0)
-            self.assertEqual((yield self.dut.tx.valid),   1)
-            self.assertEqual((yield self.dut.tx.payload), expected_data[i])
-            self.assertEqual((yield self.dut.stall),      0)
+        if expected_bytes == 0:
+            self.assertEqual((yield self.dut.tx.first), 0)
+            self.assertEqual((yield self.dut.tx.last),  1)
+            self.assertEqual((yield self.dut.tx.valid), 1)
+            self.assertEqual((yield self.dut.stall),    0)
             yield
+
+        else:
+            for i in range(expected_bytes):
+                self.assertEqual((yield self.dut.tx.first),   1 if (i == 0) else 0)
+                self.assertEqual((yield self.dut.tx.last),    1 if (i == expected_bytes - 1) else 0)
+                self.assertEqual((yield self.dut.tx.valid),   1)
+                self.assertEqual((yield self.dut.tx.payload), expected_data[i])
+                self.assertEqual((yield self.dut.stall),      0)
+                yield
 
         self.assertEqual((yield self.dut.tx.valid), 0)
 
@@ -666,7 +686,7 @@ class GetDescriptorHandlerBlockTest(LunaUSBGatewareTestCase):
     @usb_domain_test_case
     def test_all_descriptors_with_zero_length(self):
         for type_number, index, raw_descriptor in self.descriptors:
-            yield from self._test_stall(type_number, index, 0, 0)
+            yield from self._test_descriptor(type_number, index, raw_descriptor, 0, 0)
 
     @usb_domain_test_case
     def test_unavailable_descriptor(self):
