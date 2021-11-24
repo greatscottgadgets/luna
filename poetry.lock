@@ -1,6 +1,6 @@
 [[package]]
 name = "apollo-fpga"
-version = "0.0.4"
+version = "0.0.5"
 description = "host tools for Apollo FPGA debug controllers"
 category = "main"
 optional = false
@@ -451,8 +451,8 @@ content-hash = "a7e3be7a38aecfbc1d3969d6e7c976f0870a6778aeba9062ba84ddeaf7bce8d0
 
 [metadata.files]
 apollo-fpga = [
-    {file = "apollo-fpga-0.0.4.tar.gz", hash = "sha256:77c87c1b1c96ad84c8729df55942dcab0f4951c010cc032b35957043831d64ab"},
-    {file = "apollo_fpga-0.0.4-py3-none-any.whl", hash = "sha256:e9132f86c7890ec52f5c0fb92040059a3c7b43a2c486c2f365841fd07f891dbb"},
+    {file = "apollo-fpga-0.0.5.tar.gz", hash = "sha256:8cc008a36cb07734470e8c49e9e17fd64944478fb9cfec7211e257ea575eed7d"},
+    {file = "apollo_fpga-0.0.5-py3-none-any.whl", hash = "sha256:9b9dcf16646ec0a92581fb95902ddecc6156fc6a552d12ba740e39ed9974a72b"},
 ]
 "backports.entry-points-selectable" = [
     {file = "backports.entry_points_selectable-1.1.0-py2.py3-none-any.whl", hash = "sha256:a6d9a871cde5e15b4c4a53e3d43ba890cc6861ec1332c9c2428c92f977192acc"},
