@@ -59,8 +59,8 @@ class HyperRAMInterface(Elaboratable):
         O: new_data_ready   -- Strobe that indicates when new data is ready for reading
     """
 
-    LOW_LATENCY_EDGES  = 6
-    HIGH_LATENCY_EDGES = 14
+    LOW_LATENCY_EDGES  = 12
+    HIGH_LATENCY_EDGES = 26
 
     def __init__(self, *, bus, in_skew=None, out_skew=None, clock_skew=None):
         """
@@ -96,6 +96,8 @@ class HyperRAMInterface(Elaboratable):
         # Data signals.
         self.read_data        = Signal(16)
         self.write_data       = Signal(16)
+
+        self.clk = Signal()
 
 
     def elaborate(self, platform):
@@ -134,7 +136,7 @@ class HyperRAMInterface(Elaboratable):
             m.d.sync += out_clock.eq(0)
         with m.Elif(advance_clock):
             m.d.sync += out_clock.eq(~out_clock)
-
+        m.d.comb += self.clk.eq(out_clock)
 
         #
         # Latched control/addressing signals.
@@ -294,9 +296,9 @@ class HyperRAMInterface(Elaboratable):
                     m.next = "HANDLE_LATENCY"
 
                     with m.If(extra_latency):
-                        m.d.sync += latency_edges_remaining.eq(self.HIGH_LATENCY_EDGES)
+                        m.d.sync += latency_edges_remaining.eq(self.HIGH_LATENCY_EDGES-1)
                     with m.Else():
-                        m.d.sync += latency_edges_remaining.eq(self.LOW_LATENCY_EDGES)
+                        m.d.sync += latency_edges_remaining.eq(self.LOW_LATENCY_EDGES-1)
 
 
             # HANDLE_LATENCY -- applies clock edges until our latency period is over.
@@ -343,8 +345,10 @@ class HyperRAMInterface(Elaboratable):
             # WRITE_DATA_MSB -- write the first of our two bytes of data to the to the PSRAM
             with m.State("WRITE_DATA_MSB"):
                 m.d.sync += [
-                    data_out  .eq(self.write_data[8:16]),
-                    data_oe   .eq(1),
+                    data_out         .eq(self.write_data[8:16]),
+                    data_oe          .eq(1),
+                    self.bus.rwds.oe .eq(~is_register),
+                    self.bus.rwds.o  .eq(0),
                 ]
                 m.next = "WRITE_DATA_LSB"
 
@@ -352,8 +356,10 @@ class HyperRAMInterface(Elaboratable):
             # WRITE_DATA_LSB -- write the first of our two bytes of data to the to the PSRAM
             with m.State("WRITE_DATA_LSB"):
                 m.d.sync += [
-                    data_out  .eq(self.write_data[0:8]),
-                    data_oe   .eq(1),
+                    data_out         .eq(self.write_data[0:8]),
+                    data_oe          .eq(1),
+                    self.bus.rwds.oe .eq(~is_register),
+                    self.bus.rwds.o  .eq(0),
                 ]
                 m.next = "WRITE_DATA_LSB"
 
