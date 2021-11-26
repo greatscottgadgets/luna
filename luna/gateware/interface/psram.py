@@ -8,7 +8,7 @@
 
 import unittest
 
-from amaranth import Signal, Module, Cat, Elaboratable, Record, ClockDomain, ClockSignal
+from amaranth import Const, Signal, Module, Cat, Elaboratable, Record
 from amaranth.hdl.rec import DIR_FANIN, DIR_FANOUT
 
 from ..utils.io   import delay
@@ -182,6 +182,28 @@ class HyperRAMInterface(Elaboratable):
             self.bus.dq.oe      .eq(0),
         ]
 
+        # Commands, in order of bytes sent:
+        #   - WRBAAAAA
+        #     W         => selects read or write; 1 = read, 0 = write
+        #      R        => selects register or memory; 1 = register, 0 = memory
+        #       B       => selects burst behavior; 0 = wrapped, 1 = linear
+        #        AAAAA  => address bits [27:32]
+        #
+        #   - AAAAAAAA  => address bits [19:27]
+        #   - AAAAAAAA  => address bits [11:19]
+        #   - AAAAAAAA  => address bits [ 3:16]
+        #   - 00000000  => [reserved]
+        #   - 00000AAA  => address bits [ 0: 3]
+        ca = Signal(48)
+        m.d.comb += ca.eq(Cat(
+            current_address[0:3],
+            Const(0, 13),
+            current_address[3:32],
+            is_multipage,
+            is_register,
+            is_read
+        ))
+
         with m.FSM() as fsm:
 
             # IDLE state: waits for a transaction request
@@ -214,36 +236,14 @@ class HyperRAMInterface(Elaboratable):
                 m.next="SHIFT_COMMAND0"
 
 
-            # Commands, in order of bytes sent:
-            #   - WRBAAAAA
-            #     W         => selects read or write; 1 = read, 0 = write
-            #      R        => selects register or memory; 1 = register, 0 = memory
-            #       B       => selects burst behavior; 0 = wrapped, 1 = linear
-            #        AAAAA  => address bits [27:32]
-            #
-            #   - AAAAAAAA  => address bits [19:27]
-            #   - AAAAAAAA  => address bits [11:19]
-            #   - AAAAAAAA  => address bits [ 3:16]
-            #   - 00000000  => [reserved]
-            #   - 00000AAA  => address bits [ 0: 3]
-
             # SHIFT_COMMANDx -- shift each of our command bytes out
             with m.State('SHIFT_COMMAND0'):
-                m.next = 'SHIFT_COMMAND1'
-
-                # Build our composite command byte.
-                command_byte = Cat(
-                    current_address[27:32],
-                    is_multipage,
-                    is_register,
-                    is_read
-                )
-
                 # Output our first byte of our command.
                 m.d.sync += [
-                    data_out  .eq(command_byte),
+                    data_out  .eq(ca[40:48]),
                     data_oe   .eq(1)
                 ]
+                m.next = 'SHIFT_COMMAND1'
 
             # Note: it's felt that this is more readable with each of these
             # states defined explicitly. If you strongly disagree, feel free
@@ -252,35 +252,35 @@ class HyperRAMInterface(Elaboratable):
 
             with m.State('SHIFT_COMMAND1'):
                 m.d.sync += [
-                    data_out  .eq(current_address[19:27]),
+                    data_out  .eq(ca[32:40]),
                     data_oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND2'
 
             with m.State('SHIFT_COMMAND2'):
                 m.d.sync += [
-                    data_out  .eq(current_address[11:19]),
+                    data_out  .eq(ca[24:32]),
                     data_oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND3'
 
             with m.State('SHIFT_COMMAND3'):
                 m.d.sync += [
-                    data_out  .eq(current_address[ 3:16]),
+                    data_out  .eq(ca[16:24]),
                     data_oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND4'
 
             with m.State('SHIFT_COMMAND4'):
                 m.d.sync += [
-                    data_out  .eq(0),
+                    data_out  .eq(ca[8:16]),
                     data_oe   .eq(1)
                 ]
                 m.next = 'SHIFT_COMMAND5'
 
             with m.State('SHIFT_COMMAND5'):
                 m.d.sync += [
-                    data_out  .eq(current_address[0:3]),
+                    data_out  .eq(ca[0:8]),
                     data_oe   .eq(1)
                 ]
 
