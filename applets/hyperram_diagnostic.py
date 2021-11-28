@@ -18,7 +18,7 @@ from luna                             import top_level_cli
 from apollo_fpga                      import ApolloDebugger
 from luna.gateware.interface.jtag     import JTAGRegisterInterface
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator
-from luna.gateware.interface.psram    import HyperRAMInterface
+from luna.gateware.interface.psram    import HyperRAMPHY, HyperRAMInterface
 
 REGISTER_RAM_ADDR           = 2
 REGISTER_RAM_FIFO           = 3
@@ -47,14 +47,14 @@ class HyperRAMDiagnostic(Elaboratable):
         # HyperRAM test connections.
         #
         ram_bus = platform.request('ram')
-        psram = HyperRAMInterface(bus=ram_bus, **platform.ram_timings)
-        m.submodules += psram
+        psram_phy = HyperRAMPHY(bus=ram_bus)
+        psram = HyperRAMInterface(phy=psram_phy.phy)
+        m.submodules += [psram_phy, psram]
 
         psram_address = registers.add_register(REGISTER_RAM_ADDR)
 
         m.submodules.read_fifo  = read_fifo  = SyncFIFO(width=16, depth=32)
         m.submodules.write_fifo = write_fifo = SyncFIFO(width=16, depth=32)
-
         registers.add_sfr(REGISTER_RAM_FIFO,
             read=read_fifo.r_data,
             read_strobe=read_fifo.r_en,
