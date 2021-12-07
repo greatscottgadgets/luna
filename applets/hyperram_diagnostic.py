@@ -101,7 +101,7 @@ class HyperRAMDiagnostic(Elaboratable):
             psram.address          .eq(psram_address),
             psram.write_data       .eq(write_fifo.r_data),
             read_fifo.w_data       .eq(psram.read_data),
-            read_fifo.w_en         .eq(psram.new_data_ready),
+            read_fifo.w_en         .eq(psram.read_ready),
             write_fifo.r_en        .eq(psram.write_ready),
         ]
 

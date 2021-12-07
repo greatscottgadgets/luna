@@ -77,7 +77,7 @@ class HyperRAMInterface(Elaboratable):
         I: write_data[16]   -- word that accepts the data to output during this transaction
 
         O: idle             -- High whenever the transmitter is idle (and thus we can start a new piece of data.)
-        O: new_data_ready   -- Strobe that indicates when new data is ready for reading
+        O: read_ready       -- Strobe that indicates when new data is ready for reading
         O: write_ready      -- Strobe that indicates `write_data` has been latched and is ready for new data
     """
 
@@ -106,7 +106,7 @@ class HyperRAMInterface(Elaboratable):
 
         # Status signals.
         self.idle             = Signal()
-        self.new_data_ready   = Signal()
+        self.read_ready       = Signal()
         self.write_ready      = Signal()
 
         # Data signals.
@@ -152,7 +152,7 @@ class HyperRAMInterface(Elaboratable):
         # Provide defaults for our control/status signals.
         m.d.sync += [
             self.phy.clk_en     .eq(1),
-            self.new_data_ready .eq(0),
+            self.read_ready     .eq(0),
 
 
             self.phy.cs         .eq(1),
@@ -273,7 +273,7 @@ class HyperRAMInterface(Elaboratable):
                 with m.If(self.phy.rwds.i == 0b10):
                     m.d.sync += [
                         self.read_data.eq(self.phy.dq.i),
-                        self.new_data_ready.eq(1)
+                        self.read_ready    .eq(1)
                     ]
 
                     # If our controller is done with the transcation, end it.
@@ -476,7 +476,7 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
 
         # Once this finished, we should have a result on our data out.
         self.assertEqual((yield self.dut.read_data),      0xCAFE)
-        self.assertEqual((yield self.dut.new_data_ready), 1)
+        self.assertEqual((yield self.dut.read_ready    ), 1)
 
         yield
         self.assertEqual((yield self.ram_signals.cs),     0)
