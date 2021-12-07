@@ -21,9 +21,10 @@ from luna.gateware.interface.jtag     import JTAGRegisterInterface
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 from luna.gateware.interface.psram    import HyperRAMPHY, HyperRAMInterface
 
+REGISTER_RAM_REGISTER_SPACE = 1
 REGISTER_RAM_ADDR           = 2
-REGISTER_RAM_FIFO           = 3
-REGISTER_RAM_REGISTER_SPACE = 4
+REGISTER_RAM_READ_LENGTH    = 3
+REGISTER_RAM_FIFO           = 4
 REGISTER_RAM_START          = 5
 
 
@@ -53,6 +54,7 @@ class HyperRAMDiagnostic(Elaboratable):
         m.submodules += [psram_phy, psram]
 
         psram_address = registers.add_register(REGISTER_RAM_ADDR)
+        read_length   = registers.add_register(REGISTER_RAM_READ_LENGTH, reset=1)
 
         m.submodules.read_fifo  = read_fifo  = SyncFIFO(width=16, depth=32)
         m.submodules.write_fifo = write_fifo = SyncFIFO(width=16, depth=32)
@@ -70,17 +72,22 @@ class HyperRAMDiagnostic(Elaboratable):
             read_strobe=start_read,
             write_strobe=start_write)
 
+        read_counter = Signal.like(read_length)
         final_word = Signal()
         m.d.comb += final_word.eq(1)
         with m.FSM() as fsm:
             with m.State("IDLE"):
                 with m.If(start_read):
+                    m.d.sync += read_counter.eq(read_length)
                     m.next = "READ"
 
                 with m.If(start_write):
                     m.next = "WRITE"
 
             with m.State("READ"):
+                m.d.comb += final_word.eq(read_counter == 1)
+                with m.If(psram.read_ready):
+                    m.d.sync += read_counter.eq(read_counter - 1)
                 with m.If(psram.idle):
                     m.next = "IDLE"
 
@@ -150,15 +157,14 @@ if __name__ == "__main__":
         dut.registers.register_write(REGISTER_RAM_ADDR, 0)
         dut.registers.register_write(REGISTER_RAM_START, 1)
 
-        for addr in range(len(data)):
-            # Set address.
-            dut.registers.register_write(REGISTER_RAM_ADDR, addr)
+        # Set read length & initiate read.
+        dut.registers.register_write(REGISTER_RAM_READ_LENGTH, 10)
+        dut.registers.register_read(REGISTER_RAM_START)
 
-            # Read data
-            dut.registers.register_read(REGISTER_RAM_START)
-            time.sleep(0.1)
+        for addr in range(len(data)):
             result = dut.registers.register_read(REGISTER_RAM_FIFO)
             print(f"{result=:x} {data[addr]=:x} {addr=}")
+
 
         return True
 

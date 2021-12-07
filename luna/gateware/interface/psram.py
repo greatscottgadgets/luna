@@ -280,10 +280,6 @@ class HyperRAMInterface(Elaboratable):
                     with m.If(self.final_word):
                         m.next = 'RECOVERY'
 
-                    with m.Else():
-                        #m.next = 'READ_DATA_MSB'
-                        m.next = 'RECOVERY'
-
 
             # WRITE_DATA_LSB -- write the first of our two bytes of data to the to the PSRAM
             with m.State("WRITE_DATA"):
