@@ -81,6 +81,7 @@ class HyperRAMDiagnostic(Elaboratable):
             psram.write_data       .eq(write_fifo.r_data),
             read_fifo.w_data       .eq(psram.read_data),
             read_fifo.w_en         .eq(psram.new_data_ready),
+            write_fifo.r_en        .eq(psram.write_ready),
         ]
 
         # Return our elaborated module.

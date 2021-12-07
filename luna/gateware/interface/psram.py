@@ -78,6 +78,7 @@ class HyperRAMInterface(Elaboratable):
 
         O: idle             -- High whenever the transmitter is idle (and thus we can start a new piece of data.)
         O: new_data_ready   -- Strobe that indicates when new data is ready for reading
+        O: write_ready      -- Strobe that indicates `write_data` has been latched and is ready for new data
     """
 
     LOW_LATENCY_CLOCKS  = 7
@@ -106,6 +107,7 @@ class HyperRAMInterface(Elaboratable):
         # Status signals.
         self.idle             = Signal()
         self.new_data_ready   = Signal()
+        self.write_ready      = Signal()
 
         # Data signals.
         self.read_data        = Signal(16)
@@ -152,10 +154,12 @@ class HyperRAMInterface(Elaboratable):
             self.phy.clk_en     .eq(1),
             self.new_data_ready .eq(0),
 
+
             self.phy.cs         .eq(1),
             self.phy.rwds.e     .eq(0),
             self.phy.dq.e       .eq(0),
         ]
+        m.d.comb += self.write_ready.eq(0),
 
         # Commands, in order of bytes sent:
         #   - WRBAAAAA
@@ -289,6 +293,7 @@ class HyperRAMInterface(Elaboratable):
                     self.phy.rwds.e  .eq(~is_register),
                     self.phy.rwds.o  .eq(0),
                 ]
+                m.d.comb += self.write_ready.eq(1),
 
                 # If we just finished a register write, we're done -- there's no need for recovery.
                 with m.If(is_register):
