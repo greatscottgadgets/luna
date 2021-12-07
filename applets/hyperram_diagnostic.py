@@ -7,6 +7,7 @@
 
 import time
 import logging
+import random
 
 from prompt_toolkit import HTML
 from prompt_toolkit import print_formatted_text as pprint
@@ -69,12 +70,32 @@ class HyperRAMDiagnostic(Elaboratable):
             read_strobe=start_read,
             write_strobe=start_write)
 
+        final_word = Signal()
+        m.d.comb += final_word.eq(1)
+        with m.FSM() as fsm:
+            with m.State("IDLE"):
+                with m.If(start_read):
+                    m.next = "READ"
+
+                with m.If(start_write):
+                    m.next = "WRITE"
+
+            with m.State("READ"):
+                with m.If(psram.idle):
+                    m.next = "IDLE"
+
+            with m.State("WRITE"):
+                m.d.comb += final_word.eq(write_fifo.level == 1)
+                with m.If(psram.idle):
+                    m.next = "IDLE"
+
+
         # Hook up our PSRAM.
         m.d.comb += [
             ram_bus.reset          .eq(0),
             psram.single_page      .eq(0),
             psram.register_space   .eq(register_space),
-            psram.final_word       .eq(1),
+            psram.final_word       .eq(final_word),
             psram.perform_write    .eq(start_write),
             psram.start_transfer   .eq(start_read | start_write),
             psram.address          .eq(psram_address),
@@ -118,20 +139,26 @@ if __name__ == "__main__":
 
     def test_mem_readback():
         dut.registers.register_write(REGISTER_RAM_REGISTER_SPACE, 0)
-        dut.registers.register_write(REGISTER_RAM_FIFO, 0xabcd)
-        for addr in range(10):
+
+        data = [random.randint(0, int(2**16)) for _ in range(10)]
+
+        # Fill write FIFO.
+        for d in data:
+            dut.registers.register_write(REGISTER_RAM_FIFO, d)
+
+        # Initiate burst write at address 0.
+        dut.registers.register_write(REGISTER_RAM_ADDR, 0)
+        dut.registers.register_write(REGISTER_RAM_START, 1)
+
+        for addr in range(len(data)):
             # Set address.
             dut.registers.register_write(REGISTER_RAM_ADDR, addr)
-
-            # Write data
-            dut.registers.register_write(REGISTER_RAM_START, 1)
-            time.sleep(0.1)
 
             # Read data
             dut.registers.register_read(REGISTER_RAM_START)
             time.sleep(0.1)
             result = dut.registers.register_read(REGISTER_RAM_FIFO)
-            print(f"{result=:x} {addr=}")
+            print(f"{result=:x} {data[addr]=:x} {addr=}")
 
         return True
 

@@ -302,10 +302,6 @@ class HyperRAMInterface(Elaboratable):
                 with m.Elif(self.final_word):
                     m.next = 'RECOVERY'
 
-                with m.Else():
-                    #m.next = 'READ_DATA_MSB'
-                    m.next = 'RECOVERY'
-
 
             # RECOVERY state: wait for the required period of time before a new transaction
             with m.State('RECOVERY'):
