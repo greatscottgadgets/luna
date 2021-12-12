@@ -6,7 +6,7 @@
 
 import logging
 
-from nmigen      import *
+from amaranth    import *
 
 from ...usb.stream  import USBRawSuperSpeedStream
 from .lfps          import LFPSTransceiver

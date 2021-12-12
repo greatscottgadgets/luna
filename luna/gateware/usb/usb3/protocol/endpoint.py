@@ -8,7 +8,7 @@
 import operator
 import functools
 
-from nmigen import *
+from amaranth import *
 
 from .transaction import HandshakeGeneratorInterface, HandshakeReceiverInterface
 

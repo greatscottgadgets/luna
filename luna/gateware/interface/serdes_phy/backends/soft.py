@@ -17,7 +17,7 @@ into ASICs.
 from functools import reduce
 from operator import add
 
-from nmigen.compat import *
+from amaranth.compat import *
 
 
 def disparity(word, nbits):

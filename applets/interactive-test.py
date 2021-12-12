@@ -8,8 +8,8 @@
 import operator
 from functools import reduce
 
-from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetSignal
-from nmigen.lib.cdc import FFSynchronizer
+from amaranth import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetSignal
+from amaranth.lib.cdc import FFSynchronizer
 
 from luna                             import top_level_cli
 from luna.gateware.utils.cdc          import synchronize

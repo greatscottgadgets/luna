@@ -7,7 +7,7 @@
 
 import unittest
 
-from nmigen                 import *
+from amaranth               import *
 from usb_protocol.types     import USBRequestType, USBRequestRecipient
 
 from ...request             import SetupPacket
@@ -413,7 +413,7 @@ class StallOnlyRequestHandler(Elaboratable):
         """
         Parameters:
             stall_condition -- A function that accepts a SetupRequest packet, and returns
-                               an nMigen conditional indicating whether we should stall.
+                               an Amaranth conditional indicating whether we should stall.
         """
 
         self.condition = stall_condition

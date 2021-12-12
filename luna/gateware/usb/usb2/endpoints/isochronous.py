@@ -9,7 +9,7 @@ These interfaces provide interfaces for connecting memories or memory-like
 interfaces to hosts via isochronous pipes.
 """
 
-from nmigen         import Elaboratable, Module, Signal
+from amaranth       import Elaboratable, Module, Signal
 
 from ..endpoint     import EndpointInterface
 

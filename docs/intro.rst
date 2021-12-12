@@ -18,7 +18,7 @@ Some things you can use LUNA for, currently:
 - **Protocol analysis for Low, Full or High speed USB.** LUNA provides both hardware designs and gateware that
   allow passive USB monitoring. When combined with the `ViewSB <https://github.com/usb-tools/viewsb>`__ USB analyzer
   toolkit, LUNA hardware+gateware can be used as a full-featured USB analyzer.
-- **Creating your own Low, Full or High speed USB device.** LUNA provides a collection of nMigen gateware that
+- **Creating your own Low, Full or High speed USB device.** LUNA provides a collection of Amaranth gateware that
   allows you to easily create USB devices in gateware, software, or a combination of the two.
 - **Building USB functionality into a new or existing System-on-a-Chip (SoC).** LUNA is capable of generating custom
   peripherals targeting the common Wishbone bus; allowing it to easily be integrated into SoC designs; and the library

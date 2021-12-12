@@ -13,8 +13,8 @@ from typing import Iterable, Callable
 
 from luna.gateware.test import utils
 
-from nmigen                 import *
-from nmigen.hdl.ast         import Value, Const
+from amaranth               import *
+from amaranth.hdl.ast       import Value, Const
 from usb_protocol.types     import USBStandardRequests, USBRequestType
 from usb_protocol.emitters  import DeviceDescriptorCollection
 

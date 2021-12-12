@@ -10,7 +10,7 @@ These are mainly meant for use with interrupt endpoints; and allow a host to e.g
 repeatedly poll a device for status.
 """
 
-from nmigen         import Elaboratable, Module, Signal, Array
+from amaranth       import Elaboratable, Module, Signal, Array
 
 from ..endpoint     import EndpointInterface
 from ....utils.cdc  import synchronize

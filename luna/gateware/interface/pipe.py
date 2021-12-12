@@ -1,4 +1,4 @@
-# nmigen: UnusedElaboratable=no
+# amaranth: UnusedElaboratable=no
 #
 # This file is part of LUNA.
 #
@@ -6,9 +6,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ USB3 PIPE interfacing gateware. """
 
-from nmigen                     import *
-from nmigen.lib.fifo            import AsyncFIFOBuffered
-from nmigen.hdl.ast             import Past
+from amaranth                   import *
+from amaranth.lib.fifo          import AsyncFIFOBuffered
+from amaranth.hdl.ast           import Past
 
 from luna                       import top_level_cli
 from luna.gateware.platform     import NullPin

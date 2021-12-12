@@ -11,7 +11,7 @@ import logging
 from prompt_toolkit import HTML
 from prompt_toolkit import print_formatted_text as pprint
 
-from nmigen import Signal, Elaboratable, Module
+from amaranth import Signal, Elaboratable, Module
 
 from luna                             import top_level_cli
 from apollo_fpga                      import ApolloDebugger

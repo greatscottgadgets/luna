@@ -8,8 +8,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Code for USB3 physical-layer encoding. """
 
-from nmigen import *
-from nmigen.hdl.ast import Past
+from amaranth import *
+from amaranth.hdl.ast import Past
 
 from .coding   import COM, SHP, SLC, EPF, get_word_for_symbols
 from ...stream import USBRawSuperSpeedStream

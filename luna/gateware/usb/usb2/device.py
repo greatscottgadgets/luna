@@ -13,7 +13,7 @@ import unittest
 
 from luna                      import configure_default_logging
 
-from nmigen                    import Signal, Module, Elaboratable, Const
+from amaranth                  import Signal, Module, Elaboratable, Const
 from usb_protocol.types        import DescriptorTypes
 from usb_protocol.emitters     import DeviceDescriptorCollection
 

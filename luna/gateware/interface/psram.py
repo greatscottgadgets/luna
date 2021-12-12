@@ -8,8 +8,8 @@
 
 import unittest
 
-from nmigen import Signal, Module, Cat, Elaboratable, Record, ClockDomain, ClockSignal
-from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
+from amaranth import Signal, Module, Cat, Elaboratable, Record, ClockDomain, ClockSignal
+from amaranth.hdl.rec import DIR_FANIN, DIR_FANOUT
 
 from ..utils.io   import delay
 from ..test.utils import LunaGatewareTestCase, sync_test_case

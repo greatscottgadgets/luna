@@ -10,8 +10,8 @@ from enum      import Enum
 from functools import reduce
 from operator  import or_
 
-from nmigen         import Elaboratable, Record, Module, Cat, Array, Repl, Signal, Memory
-from nmigen_soc     import wishbone, memory
+from amaranth     import Elaboratable, Record, Module, Cat, Array, Repl, Signal, Memory
+from amaranth_soc import wishbone, memory
 
 
 class WishboneRAM(Elaboratable):

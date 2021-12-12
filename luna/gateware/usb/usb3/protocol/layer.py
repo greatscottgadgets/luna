@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ USB3 link-layer abstraction."""
 
-from nmigen import *
+from amaranth import *
 
 from ..link.header    import HeaderQueueArbiter, HeaderQueueDemultiplexer
 from ...stream        import USBRawSuperSpeedStream

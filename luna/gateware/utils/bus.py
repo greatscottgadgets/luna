@@ -9,8 +9,8 @@
 import operator
 import functools
 
-from nmigen            import Elaboratable, Signal, Module
-from nmigen.lib.coding import Encoder
+from amaranth            import Elaboratable, Signal, Module
+from amaranth.lib.coding import Encoder
 
 
 class OneHotMultiplexer(Elaboratable):

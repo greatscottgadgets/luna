@@ -1,4 +1,4 @@
-# nmigen: UnusedElaboratable=no
+# amaranth: UnusedElaboratable=no
 #
 # This file is part of LUNA.
 #
@@ -9,10 +9,10 @@
 
 import unittest
 
-from nmigen         import Signal, Module, Cat, Elaboratable, ClockSignal, \
+from amaranth       import Signal, Module, Cat, Elaboratable, ClockSignal, \
                            Record, ResetSignal, Const
-from nmigen.hdl.ast import Rose, Fell, Past
-from nmigen.hdl.rec import Record, DIR_FANIN, DIR_FANOUT, DIR_NONE
+from amaranth.hdl.ast import Rose, Fell, Past
+from amaranth.hdl.rec import Record, DIR_FANIN, DIR_FANOUT, DIR_NONE
 
 from ..utils.io     import delay
 from ..test         import LunaGatewareTestCase, usb_domain_test_case, sync_test_case

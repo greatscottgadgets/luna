@@ -7,9 +7,9 @@
 
 import logging
 
-from nmigen import *
-from nmigen.lib.cdc import PulseSynchronizer, FFSynchronizer
-from nmigen.hdl.ast import Rose
+from amaranth import *
+from amaranth.lib.cdc import PulseSynchronizer, FFSynchronizer
+from amaranth.hdl.ast import Rose
 
 
 class PHYResetController(Elaboratable):

@@ -9170,7 +9170,7 @@
   (gr_text "keep hacking" (at 94.442 103.748) (layer F.SilkS) (tstamp 5FD16903)
     (effects (font (size 0.762 0.6858) (thickness 0.15)))
   )
-  (gr_text "powered by\nnMigen" (at 133.1 103.3) (layer B.SilkS) (tstamp 5FDB1C3A)
+  (gr_text "powered by\nAmaranth HDL" (at 133.1 103.3) (layer B.SilkS) (tstamp 5FDB1C3A)
     (effects (font (size 1 1) (thickness 0.15)) (justify mirror))
   )
   (gr_text 2V5 (at 105.3 75.3) (layer B.SilkS) (tstamp 5FD15F2E)

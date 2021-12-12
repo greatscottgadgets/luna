@@ -8,7 +8,7 @@
 
 import unittest
 
-from nmigen            import Signal, Module, Elaboratable, Memory, Record
+from amaranth          import Signal, Module, Elaboratable, Memory, Record
 
 from ..stream          import StreamInterface
 from ..test            import LunaGatewareTestCase, usb_domain_test_case

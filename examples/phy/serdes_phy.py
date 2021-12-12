@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Incomplete example for working the SerDes-based a PIPE PHY. """
 
-from nmigen import *
+from amaranth import *
 
 from luna                          import top_level_cli
 from luna.gateware.platform        import NullPin

@@ -5,8 +5,8 @@
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
-from nmigen import *
-from nmigen.hdl.ast import Fell
+from amaranth import *
+from amaranth.hdl.ast import Fell
 
 from usb_protocol.types            import USBRequestType
 from usb_protocol.emitters         import SuperSpeedDeviceDescriptorCollection

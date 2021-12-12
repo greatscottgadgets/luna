@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import sys
-from nmigen import Signal, Module, Elaboratable, ClockDomain, ClockSignal, Cat
+from amaranth import Signal, Module, Elaboratable, ClockDomain, ClockSignal, Cat
 
 from luna                             import top_level_cli
 from luna.gateware.utils.cdc          import synchronize

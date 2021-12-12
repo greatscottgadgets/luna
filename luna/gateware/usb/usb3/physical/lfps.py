@@ -29,7 +29,7 @@ and to detect RX electrical idle.
 import unittest
 from math import ceil
 
-from nmigen         import *
+from amaranth       import *
 
 from ....test.utils  import LunaSSGatewareTestCase, ss_domain_test_case
 from ....utils       import synchronize, rising_edge_detected

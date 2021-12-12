@@ -8,7 +8,7 @@
 
 import unittest
 
-from nmigen       import *
+from amaranth     import *
 from .            import StreamInterface
 from ..test       import LunaUSBGatewareTestCase, LunaSSGatewareTestCase, ss_domain_test_case, usb_domain_test_case
 

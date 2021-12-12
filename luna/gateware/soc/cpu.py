@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from minerva.core import Minerva
-from nmigen_soc   import wishbone
+from amaranth_soc   import wishbone
 
 class Processor(Minerva):
     """ Compatibility subclass around the Minerva RISC-V (riscv32i) processor. """
@@ -18,6 +18,6 @@ class Processor(Minerva):
         # Create the basic Minerva processor...
         super().__init__(*args, **kwargs)
 
-        # ... and replace its Record-based busses with nMigen-soc ones.
+        # ... and replace its Record-based busses with amaranth-soc ones.
         self.ibus = wishbone.Interface(addr_width=30, data_width=32, features=self.MINERVA_BUS_FEATURES)
         self.dbus = wishbone.Interface(addr_width=30, data_width=32, features=self.MINERVA_BUS_FEATURES)

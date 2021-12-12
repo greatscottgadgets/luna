@@ -32,10 +32,10 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-from nmigen          import Elaboratable, Module, Signal, Cat, Const, ClockSignal
-from nmigen.lib.fifo import AsyncFIFOBuffered
-from nmigen.hdl.ast  import Past
-from nmigen.hdl.xfrm import ResetInserter
+from amaranth          import Elaboratable, Module, Signal, Cat, Const, ClockSignal
+from amaranth.lib.fifo import AsyncFIFOBuffered
+from amaranth.hdl.ast  import Past
+from amaranth.hdl.xfrm import ResetInserter
 
 from ...utils.cdc import synchronize
 

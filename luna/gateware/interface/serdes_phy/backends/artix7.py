@@ -8,9 +8,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ SerDes backend for the Artix7. """
 
-from nmigen import *
-from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
-from nmigen.lib.cdc import FFSynchronizer, ResetSynchronizer
+from amaranth import *
+from amaranth.hdl.rec import DIR_FANIN, DIR_FANOUT
+from amaranth.lib.cdc import FFSynchronizer, ResetSynchronizer
 
 
 from .soft                        import Encoder

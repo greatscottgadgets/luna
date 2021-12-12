@@ -3,7 +3,7 @@
 #
 """ Simple utility constructs for LUNA. """
 
-from nmigen import Module, Signal, Cat
+from amaranth import Module, Signal, Cat
 from .cdc import synchronize
 
 __all__ = [

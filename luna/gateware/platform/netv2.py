@@ -17,11 +17,11 @@ populated as R23 over to R24.
 import os
 import subprocess
 
-from nmigen import *
-from nmigen.build import *
-from nmigen.vendor.xilinx_7series import Xilinx7SeriesPlatform
+from amaranth import *
+from amaranth.build import *
+from amaranth.vendor.xilinx_7series import Xilinx7SeriesPlatform
 
-from nmigen_boards.resources import *
+from amaranth_boards.resources import *
 from ..interface.serdes_phy import SerDesPHY, LunaArtix7SerDes
 
 from .core import LUNAPlatform

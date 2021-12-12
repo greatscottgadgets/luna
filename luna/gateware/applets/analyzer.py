@@ -15,7 +15,7 @@ import errno
 import usb
 from datetime import datetime
 
-from nmigen                           import Signal, Elaboratable, Module
+from amaranth                         import Signal, Elaboratable, Module
 from usb_protocol.emitters            import DeviceDescriptorCollection
 
 from luna                             import get_appropriate_platform

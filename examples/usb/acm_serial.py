@@ -5,7 +5,7 @@
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
-from nmigen              import Elaboratable, Module
+from amaranth            import Elaboratable, Module
 
 from luna                import top_level_cli
 from luna.full_devices   import USBSerialDevice

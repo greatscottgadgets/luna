@@ -10,7 +10,7 @@ to your own designs; including the core :class:`USBSuperSpeedDevice` class.
 
 import logging
 
-from nmigen import *
+from amaranth import *
 
 from usb_protocol.emitters import DeviceDescriptorCollection
 

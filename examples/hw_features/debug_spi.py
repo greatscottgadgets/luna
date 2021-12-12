@@ -5,8 +5,8 @@
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
-from nmigen import Signal, Elaboratable, Module
-from nmigen.lib.cdc import FFSynchronizer
+from amaranth import Signal, Elaboratable, Module
+from amaranth.lib.cdc import FFSynchronizer
 
 from luna import top_level_cli
 from luna.gateware.utils.cdc import synchronize

@@ -12,8 +12,8 @@ import unittest
 
 from functools import wraps
 
-from nmigen import Signal
-from nmigen.sim import Simulator
+from amaranth import Signal
+from amaranth.sim import Simulator
 
 
 def sync_test_case(process_function, *, domain="sync"):

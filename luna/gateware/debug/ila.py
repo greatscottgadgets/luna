@@ -14,19 +14,19 @@ import unittest
 import tempfile
 import subprocess
 
-from abc             import ABCMeta, abstractmethod
+from abc               import ABCMeta, abstractmethod
 
-from nmigen          import Signal, Module, Cat, Elaboratable, Memory, ClockDomain, DomainRenamer
-from nmigen.hdl.ast  import Rose
-from nmigen.lib.cdc  import FFSynchronizer
-from nmigen.lib.fifo import AsyncFIFOBuffered
-from vcd             import VCDWriter
-from vcd.gtkw        import GTKWSave
+from amaranth          import Signal, Module, Cat, Elaboratable, Memory, ClockDomain, DomainRenamer
+from amaranth.hdl.ast  import Rose
+from amaranth.lib.cdc  import FFSynchronizer
+from amaranth.lib.fifo import AsyncFIFOBuffered
+from vcd               import VCDWriter
+from vcd.gtkw          import GTKWSave
 
-from ..stream         import StreamInterface
-from ..interface.uart import UARTMultibyteTransmitter
-from ..interface.spi  import SPIDeviceInterface, SPIBus, SPIGatewareTestCase
-from ..test.utils     import LunaGatewareTestCase, sync_test_case
+from ..stream          import StreamInterface
+from ..interface.uart  import UARTMultibyteTransmitter
+from ..interface.spi   import SPIDeviceInterface, SPIBus, SPIGatewareTestCase
+from ..test.utils      import LunaGatewareTestCase, sync_test_case
 
 
 class IntegratedLogicAnalyzer(Elaboratable):

@@ -8,9 +8,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ SerDes stream word alignment code. """
 
-from nmigen import *
-from nmigen.lib.fifo import AsyncFIFOBuffered
-from nmigen.hdl.ast  import Past
+from amaranth import *
+from amaranth.lib.fifo import AsyncFIFOBuffered
+from amaranth.hdl.ast  import Past
 
 from ...usb.stream import USBRawSuperSpeedStream
 from ...usb.usb3.physical.coding import COM

@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ U0 link-maintenance timers. """
 
-from nmigen import *
+from amaranth import *
 
 
 class LinkMaintenanceTimers(Elaboratable):

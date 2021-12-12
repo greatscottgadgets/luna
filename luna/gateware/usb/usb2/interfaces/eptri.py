@@ -11,9 +11,9 @@ Equivalent (but not binary-compatbile) implementation of ValentyUSB's ``eptri``.
 For an example, see ``examples/usb/eptri`` or TinyUSB's ``luna/dcd_eptri.c``.
 """
 
-from nmigen             import *
-from nmigen.lib.fifo    import SyncFIFOBuffered
-from nmigen.hdl.xfrm    import ResetInserter, DomainRenamer
+from amaranth           import *
+from amaranth.lib.fifo  import SyncFIFOBuffered
+from amaranth.hdl.xfrm  import ResetInserter, DomainRenamer
 
 
 from ..endpoint         import EndpointInterface

@@ -15,9 +15,9 @@ This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM va
 import os
 import subprocess
 
-from nmigen import Elaboratable, ClockDomain, Module, ClockSignal, Instance, Signal, Const, ResetSignal
-from nmigen.build import Resource, Subsignal, Pins, Attrs, Clock, Connector, PinsN
-from nmigen_boards.tinyfpga_bx import TinyFPGABXPlatform as _TinyFPGABXPlatform
+from amaranth import Elaboratable, ClockDomain, Module, ClockSignal, Instance, Signal, Const, ResetSignal
+from amaranth.build import Resource, Subsignal, Pins, Attrs, Clock, Connector, PinsN
+from amaranth_boards.tinyfpga_bx import TinyFPGABXPlatform as _TinyFPGABXPlatform
 
 from .core import LUNAPlatform
 

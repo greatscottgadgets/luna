@@ -9,7 +9,7 @@
 import logging
 
 from abc import ABCMeta, abstractmethod
-from nmigen import Signal, Module, ClockDomain, ClockSignal, Elaboratable, Instance, ResetSignal
+from amaranth import Signal, Module, ClockDomain, ClockSignal, Elaboratable, Instance, ResetSignal
 
 from ..utils.cdc import stretch_strobe_signal
 from ..test      import LunaGatewareTestCase, usb_domain_test_case, sync_test_case
@@ -396,6 +396,6 @@ class LunaECP5DomainGenerator(LunaDomainGenerator):
         Works for any chosen frequency in which f(usb) < f(sync).
         """
 
-        # TODO: replace with nMigen's pulsesynchronizer?
+        # TODO: replace with Amaranth's pulsesynchronizer?
         to_cycles = self.clock_frequencies['sync'] // self.clock_frequencies['usb']
         return stretch_strobe_signal(m, strobe, output=output, to_cycles=to_cycles, allow_delay=allow_delay)

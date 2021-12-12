@@ -4,9 +4,9 @@
 
 import os
 
-from nmigen.build import *
-from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
-from nmigen_boards.resources import *
+from amaranth.build import *
+from amaranth.vendor.lattice_ecp5 import LatticeECP5Platform
+from amaranth_boards.resources import *
 
 from .core import LUNAPlatform
 from ..architecture.car import LunaECP5DomainGenerator

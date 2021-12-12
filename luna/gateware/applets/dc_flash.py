@@ -7,8 +7,8 @@
 import operator
 from functools import reduce
 
-from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetInserter
-from nmigen.lib.cdc import FFSynchronizer
+from amaranth import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetInserter
+from amaranth.lib.cdc import FFSynchronizer
 
 from luna.gateware.utils.cdc       import synchronize
 from luna.gateware.interface.spi   import SPIRegisterInterface

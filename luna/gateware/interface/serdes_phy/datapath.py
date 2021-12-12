@@ -13,10 +13,10 @@ See also the FPGA family-specific SerDes backends located in the `backends` subf
 
 import unittest
 
-from nmigen import *
-from nmigen.lib.cdc  import FFSynchronizer, PulseSynchronizer, ResetSynchronizer
-from nmigen.lib.fifo import AsyncFIFOBuffered
-from nmigen.hdl.ast  import Past
+from amaranth import *
+from amaranth.lib.cdc  import FFSynchronizer, PulseSynchronizer, ResetSynchronizer
+from amaranth.lib.fifo import AsyncFIFOBuffered
+from amaranth.hdl.ast  import Past
 
 from ...test.utils import LunaGatewareTestCase, sync_test_case
 from ...usb.stream import USBRawSuperSpeedStream

@@ -8,7 +8,7 @@
 
 import unittest
 
-from nmigen                import *
+from amaranth              import *
 
 from .                     import USBSpeed
 from ...interface.utmi     import UTMITransmitInterface, UTMIOperatingMode, UTMITerminationSelect

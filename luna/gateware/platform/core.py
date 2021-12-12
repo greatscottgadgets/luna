@@ -8,8 +8,8 @@
 
 import logging
 
-from nmigen import Signal, Record
-from nmigen.build.res import ResourceError, Subsignal, Resource, Pins
+from amaranth import Signal, Record
+from amaranth.build.res import ResourceError, Subsignal, Resource, Pins
 
 
 class NullPin(Record):
@@ -24,7 +24,7 @@ class NullPin(Record):
 
 
 class LUNAPlatform:
-    """ Mixin that extends nMigen platforms with extra functionality."""
+    """ Mixin that extends Amaranth platforms with extra functionality."""
 
     name = "unnamed platform"
 

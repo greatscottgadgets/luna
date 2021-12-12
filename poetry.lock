@@ -109,14 +109,14 @@ i18n = ["Babel (>=0.8)"]
 [[package]]
 name = "lambdasoc"
 version = "0.1.dev27+gefd5442"
-description = "A framework for building SoCs with nMigen"
+description = "A framework for building SoCs with Amaranth HDL"
 category = "dev"
 optional = false
 python-versions = "*"
 develop = false
 
 [package.dependencies]
-nmigen = "*"
+amaranth = "*"
 
 [package.extras]
 sfl = ["asyncserial"]
@@ -153,7 +153,7 @@ python-versions = "~=3.6"
 develop = false
 
 [package.dependencies]
-nmigen = ">=0.1,<0.5"
+amaranth = ">=0.1,<0.5"
 
 [package.extras]
 debug = ["jtagtap"]
@@ -165,7 +165,7 @@ reference = "master"
 resolved_reference = "6e800e7b0add6faa13677857e2d3e2ef57aed4dc"
 
 [[package]]
-name = "nmigen"
+name = "amaranth"
 version = "0.3.dev255+ge974a31"
 description = "Python toolbox for building complex digital hardware"
 category = "main"
@@ -180,19 +180,19 @@ Jinja2 = ">=2.11,<3.0"
 pyvcd = ">=0.2.2,<0.3.0"
 
 [package.extras]
-builtin-yosys = ["nmigen-yosys (>=0.9.post3527)"]
+builtin-yosys = ["amaranth-yosys (>=0.9.post3527)"]
 remote-build = ["paramiko (>=2.7,<3.0)"]
 
 [package.source]
 type = "git"
-url = "https://github.com/nmigen/nmigen.git"
-reference = "master"
+url = "https://github.com/amaranth-lang/amaranth.git"
+reference = "main"
 resolved_reference = "e974a31022d8ba1ee67bd49c82a11fa7a0a71145"
 
 [[package]]
-name = "nmigen-boards"
+name = "amaranth-boards"
 version = "0.1.dev186+g9d24c51"
-description = "Board and connector definitions for nMigen"
+description = "Board and connector definitions for Amaranth HDL"
 category = "main"
 optional = false
 python-versions = "*"
@@ -200,48 +200,48 @@ develop = false
 
 [package.dependencies]
 importlib-metadata = {version = "*", markers = "python_version < \"3.8\""}
-nmigen = ">=0.2,<0.4"
+amaranth = ">=0.2,<0.4"
 
 [package.source]
 type = "git"
-url = "https://github.com/nmigen/nmigen-boards.git"
-reference = "master"
+url = "https://github.com/amaranth-lang/amaranth-boards.git"
+reference = "main"
 resolved_reference = "9d24c51197fdc176dcaeaa0a2156b1cdc75bf1ac"
 
 [[package]]
-name = "nmigen-soc"
+name = "amaranth-soc"
 version = "0.1.dev43+gecfad4d"
-description = "System on Chip toolkit for nMigen"
+description = "System on Chip toolkit for Amaranth HDL"
 category = "main"
 optional = false
 python-versions = "*"
 develop = false
 
 [package.dependencies]
-nmigen = ">=0.2,<0.5"
+amaranth = ">=0.2,<0.5"
 
 [package.source]
 type = "git"
-url = "https://github.com/nmigen/nmigen-soc.git"
-reference = "master"
+url = "https://github.com/amaranth-lang/amaranth-soc.git"
+reference = "main"
 resolved_reference = "ecfad4d9abacf903a525f0a252c38844eda0d2dd"
 
 [[package]]
-name = "nmigen-stdio"
+name = "amaranth-stdio"
 version = "0.1.dev9+g01eb8fd"
-description = "Industry standard I/O for nMigen"
+description = "Industry standard I/O for Amaranth HDL"
 category = "dev"
 optional = false
 python-versions = "*"
 develop = false
 
 [package.dependencies]
-nmigen = ">=0.1,<0.5"
+amaranth = ">=0.1,<0.5"
 
 [package.source]
 type = "git"
-url = "https://github.com/nmigen/nmigen-stdio.git"
-reference = "master"
+url = "https://github.com/amaranth-lang/amaranth-stdio.git"
+reference = "main"
 resolved_reference = "01eb8fd32046d7b4726a7df2cc8e811409ba453c"
 
 [[package]]
@@ -532,10 +532,10 @@ markupsafe = [
     {file = "MarkupSafe-2.0.1.tar.gz", hash = "sha256:594c67807fb16238b30c44bdf74f36c02cdf22d1c8cda91ef8a0ed8dabf5620a"},
 ]
 minerva = []
-nmigen = []
-nmigen-boards = []
-nmigen-soc = []
-nmigen-stdio = []
+amaranth = []
+amaranth-boards = []
+amaranth-soc = []
+amaranth-stdio = []
 packaging = [
     {file = "packaging-21.0-py3-none-any.whl", hash = "sha256:c86254f9220d55e31cc94d69bade760f0847da8000def4dfe1c6b872fd14ff14"},
     {file = "packaging-21.0.tar.gz", hash = "sha256:7dc96269f53a4ccec5c0670940a4281106dd0bb343f47b7471f779df49c2fbe7"},

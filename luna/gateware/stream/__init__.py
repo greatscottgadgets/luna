@@ -6,8 +6,8 @@
 
 """ Core stream definitions. """
 
-from nmigen         import Elaboratable, Signal, Module
-from nmigen.hdl.rec import Record, DIR_FANIN, DIR_FANOUT
+from amaranth         import Elaboratable, Signal, Module
+from amaranth.hdl.rec import Record, DIR_FANIN, DIR_FANOUT
 
 
 class StreamInterface(Record):

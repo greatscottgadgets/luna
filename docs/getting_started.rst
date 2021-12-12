@@ -20,10 +20,7 @@ Prerequisites
    `NextPNR <https://github.com/YosysHQ/nextpnr>`__ place-and-route
    tool. All of these tools must be built from ``master``.
 -  A working installation of
-   `nMigen <https://github.com/nmigen/nmigen>`__. Note that only the
-   official toolchain from `@nmigen <https://github.com/nmigen>` is
-   supported; the `@m-labs <https://github.com/m-labs>` derivative is
-   not.
+   `Amaranth HDL <https://github.com/amaranth-lang/amaranth>`__.
 
 Installation
 ------------
@@ -59,7 +56,7 @@ Testing
 
 The easiest way to test your installation is to build one of the test
 applets. These applets are just Python scripts that construct and
-program gateware using nMigen; so they can be run like any other script:
+program gateware using Amaranth HDL; so they can be run like any other script:
 
 .. code:: sh
 

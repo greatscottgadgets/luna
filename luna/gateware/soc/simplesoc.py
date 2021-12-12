@@ -10,8 +10,8 @@ import os
 import datetime
 import logging
 
-from nmigen                  import Elaboratable, Module
-from nmigen_soc              import wishbone
+from amaranth                import Elaboratable, Module
+from amaranth_soc            import wishbone
 
 from lambdasoc.soc.cpu       import CPUSoC
 from lambdasoc.cpu.minerva   import MinervaCPU
@@ -28,13 +28,13 @@ class SimpleSoC(CPUSoC, Elaboratable):
     """ Class used for building simple, example system-on-a-chip architectures.
 
     Intended to facilitate demonstrations (and very simple USB devices) by providing
-    a wrapper that can be updated as the nMigen-based-SoC landscape changes. Hopefully,
-    this will eventually be filled by e.g. nMigen-compatible-LiteX. :)
+    a wrapper that can be updated as the Amaranth-based-SoC landscape changes. Hopefully,
+    this will eventually be filled by e.g. Amaranth-compatible-LiteX. :)
 
     SimpleSoC devices intergrate:
         - A simple riscv32i processor.
         - One or more read-only or read-write memories.
-        - A number of nmigen-soc peripherals.
+        - A number of amaranth-soc peripherals.
 
 
     The current implementation uses a single, 32-bit wide Wishbone bus
@@ -281,7 +281,7 @@ class SimpleSoC(CPUSoC, Elaboratable):
 
         Parmeters:
             name      -- The name for the SoC design.
-            build_dir -- The directory where our main nMigen build is being performed.
+            build_dir -- The directory where our main Amaranth build is being performed.
                          We'll build in a subdirectory of it.
         """
 

@@ -8,8 +8,8 @@
 
 import unittest
 
-from nmigen     import Elaboratable, Module, Signal, Cat
-from nmigen_soc import wishbone, memory
+from amaranth   import Elaboratable, Module, Signal, Cat
+from amaranth_soc import wishbone, memory
 
 
 from ..stream       import StreamInterface

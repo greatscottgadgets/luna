@@ -6,8 +6,8 @@
 
 import os
 
-from nmigen.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock, DiffPairs, Connector
-from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
+from amaranth.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock, DiffPairs, Connector
+from amaranth.vendor.lattice_ecp5 import LatticeECP5Platform
 
 from .core import LUNAApolloPlatform
 from ..architecture.car import LunaECP5DomainGenerator

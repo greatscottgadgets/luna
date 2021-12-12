@@ -19,7 +19,7 @@ It's up to us to insert and remove additional ordered sets.
 
 import unittest
 
-from nmigen import *
+from amaranth import *
 
 from .coding import SKP, stream_word_matches_symbol
 from ...stream import USBRawSuperSpeedStream
@@ -113,7 +113,7 @@ class CTCSkipRemover(Elaboratable):
                     ctrl_fragments = []
 
                     # We'll iterate over each of our possible positions, and gather
-                    # the nMigen signals associated with the non-skip values in the
+                    # the Amaranth signals associated with the non-skip values in the
                     # relevant position.
                     for position in range(bytes_in_stream):
 

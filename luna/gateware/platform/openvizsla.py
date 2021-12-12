@@ -11,11 +11,11 @@ This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM va
     > export LUNA_PLATFORM="luna.gateware.platform.openvizsla:OpenVizslaPlatform
 """
 
-from nmigen import *
-from nmigen.build import *
-from nmigen.vendor.xilinx_spartan_3_6 import XilinxSpartan6Platform
+from amaranth import *
+from amaranth.build import *
+from amaranth.vendor.xilinx_spartan_3_6 import XilinxSpartan6Platform
 
-from nmigen_boards.resources import *
+from amaranth_boards.resources import *
 from .core import LUNAPlatform
 
 __all__ = ["OpenVizslaPlatform"]

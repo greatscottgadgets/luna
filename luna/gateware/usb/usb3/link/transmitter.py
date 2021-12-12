@@ -5,8 +5,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Packet transmission handling gateware. """
 
-from nmigen                        import *
-from nmigen.hdl.ast                import Fell
+from amaranth                      import *
+from amaranth.hdl.ast              import Fell
 from usb_protocol.types.superspeed import LinkCommand, HeaderPacketType
 
 from .header                       import HeaderPacket, HeaderQueue

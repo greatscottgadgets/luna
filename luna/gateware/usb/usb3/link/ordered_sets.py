@@ -13,7 +13,7 @@ as this makes the test sets match the standard. This is handled automatically
 by the link layer gateware.
 """
 
-from nmigen import *
+from amaranth import *
 
 from ..physical.coding import D, COM
 from ...stream         import USBRawSuperSpeedStream

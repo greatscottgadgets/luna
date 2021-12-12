@@ -6,7 +6,7 @@
 
 """ Pre-made gateware that implements CDC-ACM serial. """
 
-from nmigen                            import Elaboratable, Module, Signal
+from amaranth                          import Elaboratable, Module, Signal
 
 from ...stream                         import StreamInterface
 from ..usb2.device                     import USBDevice

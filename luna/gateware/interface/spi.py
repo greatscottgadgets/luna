@@ -8,9 +8,9 @@
 
 import unittest
 
-from nmigen import Signal, Module, Cat, Elaboratable, Record
-from nmigen.hdl.ast import Rose, Fell
-from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
+from amaranth import Signal, Module, Cat, Elaboratable, Record
+from amaranth.hdl.ast import Rose, Fell
+from amaranth.hdl.rec import DIR_FANIN, DIR_FANOUT
 
 from ..test.utils import LunaGatewareTestCase, sync_test_case
 

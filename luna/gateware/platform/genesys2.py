@@ -17,12 +17,12 @@ it is labeled "OTG on the relevant board."
 import os
 import logging
 
-from nmigen import *
-from nmigen.build import *
-from nmigen.vendor.xilinx_7series import Xilinx7SeriesPlatform
+from amaranth import *
+from amaranth.build import *
+from amaranth.vendor.xilinx_7series import Xilinx7SeriesPlatform
 
-from nmigen_boards.genesys2 import Genesys2Platform as _CoreGenesys2Platform
-from nmigen_boards.resources import *
+from amaranth_boards.genesys2 import Genesys2Platform as _CoreGenesys2Platform
+from amaranth_boards.resources import *
 
 from ..architecture.car import PHYResetController
 from ..interface.pipe   import GearedPIPEInterface

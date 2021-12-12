@@ -7,7 +7,7 @@
 """ Simple gateware debug console for LUNA. """
 
 
-from nmigen          import Signal, Module, Cat, Elaboratable, Array
+from amaranth        import Signal, Module, Cat, Elaboratable, Array
 from ..test.utils    import LunaGatewareTestCase, sync_test_case
 
 

@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Clock Tolerance Compensation (CTC) gateware. """
 
-from nmigen import *
+from amaranth import *
 
 from ...usb.usb3.physical.coding import SKP, stream_word_matches_symbol
 from ...usb.stream               import USBRawSuperSpeedStream
@@ -85,7 +85,7 @@ class CTCReceiveBuffer(Elaboratable):
                     ctrl_fragments = []
 
                     # We'll iterate over each of our possible positions, and gather
-                    # the nMigen signals associated with the non-skip values in the
+                    # the Amaranth signals associated with the non-skip values in the
                     # relevant position.
                     for position in range(bytes_in_stream):
 

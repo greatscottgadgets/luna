@@ -11,8 +11,8 @@
 
 import time
 
-from nmigen import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetInserter
-from nmigen.lib.cdc import FFSynchronizer
+from amaranth import Signal, Elaboratable, Module, Cat, ClockDomain, ClockSignal, ResetInserter
+from amaranth.lib.cdc import FFSynchronizer
 
 from luna                          import top_level_cli
 from apollo_fpga                        import ApolloDebugger, ApolloILAFrontend

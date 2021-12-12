@@ -10,10 +10,10 @@
 """ Peripheral interrupt helpers for LUNA devices. """
 
 
-from nmigen import Signal, Elaboratable, Module
-from nmigen import tracer
+from amaranth import Signal, Elaboratable, Module
+from amaranth import tracer
 
-from nmigen_soc import csr
+from amaranth_soc import csr
 
 from lambdasoc.periph.event import IRQLine
 
