@@ -7,7 +7,7 @@ The LUNA architecture separates gateware into two distinct groups: the *core dev
 low-level communications common to all devices, and *endpoint interfaces*, which perform high-level communications,
 and which are often responsible for tailoring each device for its intended application:
 
-.. figure:: USBDevice.svg
+.. figure:: ../images/USBDevice.svg
 
 Every useful LUNA device features at least one endpoint interface capable of at least handling enumeration. Many
 devices will provide multiple endpoint interfaces -- often one for each endpoint -- but this is not a requirement.
@@ -30,15 +30,6 @@ result is undefined; and often will result in undesirable output. Accordingly, i
 delineation of responsibility" across endpoint interfaces. This is often accomplished by ensuring only one endpoint
 interface handles a given endpoint or request type.
 
-
-``usb2.endpoint`` Components
-----------------------------
-
-.. automodule :: luna.gateware.usb.usb2.endpoint
-  :members:
-  :show-inheritance:
-
-
 Provided Endpoint Interfaces
 ----------------------------
 
@@ -50,36 +41,3 @@ The LUNA library ships with a few provided endpoint interfaces. These include:
 - The ``FIFOInterface`` classes, which implement simple, FIFO-based software interfaces. These lightweight
   interfaces are meant to allow simple CPU control over one or more endpoints. These are based off of the
   ValentyUSB ``eptri`` interface; and will eventually be binary-compatible with existing ``eptri`` code.
-
-
-``usb2.control`` Components
----------------------------
-
-.. automodule :: luna.gateware.usb.usb2.control
-  :members:
-  :show-inheritance:
-
-
-
-``usb2.interfaces.eptri`` Components
-------------------------------------
-
-.. automodule :: luna.gateware.usb.usb2.interfaces.eptri
-  :members:
-  :show-inheritance:
-
-
-Bulk Endpoint Helpers / ``usb2.endpoints.stream`` Components
-------------------------------------------------------------
-
-.. automodule :: luna.gateware.usb.usb2.endpoints.stream
-  :members:
-  :show-inheritance:
-
-
-Interrupt Endpoint Helpers / ``usb2.endpoints.status`` Components
------------------------------------------------------------------
-
-.. automodule :: luna.gateware.usb.usb2.endpoints.status
-  :members:
-  :show-inheritance:
