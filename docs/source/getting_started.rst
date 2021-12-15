@@ -9,6 +9,8 @@ This guide highlights the installation / setup process for the ``luna``
 gateware library. It focuses on getting the Python module (and
 prerequisites) up and running.
 
+
+
 Prerequisites
 -------------
 
@@ -20,10 +22,11 @@ Prerequisites
    `NextPNR <https://github.com/YosysHQ/nextpnr>`__ place-and-route
    tool. All of these tools must be built from ``master``.
 -  A working installation of
-   `nMigen <https://github.com/nmigen/nmigen>`__. Note that only the
-   official toolchain from `@nmigen <https://github.com/nmigen>` is
-   supported; the `@m-labs <https://github.com/m-labs>` derivative is
-   not.
+   `Amaranth HDL <https://github.com/amaranth-lang/amaranth>`__. Note that only the
+   official toolchain from `@amaranth-lang <https://github.com/amaranth-lang>`__ is
+   supported.
+
+
 
 Installation
 ------------
@@ -54,12 +57,13 @@ using the following single command:
    pip3 install . --user
 
 
+
 Testing
 -------
 
 The easiest way to test your installation is to build one of the test
 applets. These applets are just Python scripts that construct and
-program gateware using nMigen; so they can be run like any other script:
+program gateware using Amaranth HDL; so they can be run like any other script:
 
 .. code:: sh
 
@@ -70,6 +74,7 @@ program gateware using nMigen; so they can be run like any other script:
    # Without LUNA hardware connected, we'll only build the applet, to exercise
    # our toolchain.
    poetry run applets/interactive-test.py --dry-run
+
 
 
 The ``apollo`` utility.
