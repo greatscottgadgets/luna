@@ -15,7 +15,7 @@ Prerequisites
 -  Python 3.7, or later.
 -  A working FPGA toolchain. We only officially support a toolchain
    composed of the `Project
-   Trellis <https://github.com/SymbiFlow/prjtrellis>`__ ECP5 tools, the
+   Trellis <https://github.com/YosysHQ/prjtrellis>`__ ECP5 tools, the
    `yosys <https://github.com/YosysHQ/yosys>`__ synthesis suite, and the
    `NextPNR <https://github.com/YosysHQ/nextpnr>`__ place-and-route
    tool. All of these tools must be built from ``master``.
