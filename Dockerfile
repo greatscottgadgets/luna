@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     python-is-python3 \
     tcl \
+    tcl-dev \
     zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --user --upgrade capablerobot_usbhub poetry amaranth
