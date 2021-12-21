@@ -7,7 +7,7 @@
 
 import unittest
 
-from nmigen                   import *
+from amaranth                 import *
 
 from usb_protocol.types       import USBStandardRequests, USBRequestType
 from usb_protocol.emitters    import DeviceDescriptorCollection
@@ -72,9 +72,9 @@ class StandardRequestHandler(Elaboratable):
         ----------
         tx_stream: StreamInterface
             The transmit stream to drive.
-        data: nMigen value, or equivalent, up to 32b
+        data: Amaranth value, or equivalent, up to 32b
             The data to be transmitted.
-        valid_mask: nMigen value, or equivalent, up to 4b
+        valid_mask: Amaranth value, or equivalent, up to 4b
             The valid mask for the data to be transmitted. Should be 0b0001, 0b0011, 0b0111, or 0b1111.
         """
 

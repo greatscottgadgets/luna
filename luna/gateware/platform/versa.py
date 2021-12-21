@@ -11,12 +11,12 @@ This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM va
     > export LUNA_PLATFORM="luna.gateware.platform.versa:ECP5Versa_5G_Platform"
 """
 
-from nmigen import *
-from nmigen.build import *
-from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
+from amaranth import *
+from amaranth.build import *
+from amaranth.vendor.lattice_ecp5 import LatticeECP5Platform
 
-from nmigen_boards.versa_ecp5_5g import VersaECP55GPlatform as _VersaECP55G
-from nmigen_boards.resources import *
+from amaranth_boards.versa_ecp5_5g import VersaECP55GPlatform as _VersaECP55G
+from amaranth_boards.resources import *
 
 from .core import LUNAPlatform
 from ..interface.serdes_phy import SerDesPHY, LunaECP5SerDes

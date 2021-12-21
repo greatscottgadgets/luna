@@ -6,7 +6,7 @@
 
 """ Interfaces for working with an ECP5 MSPI configuration flash. """
 
-from nmigen import Signal, Module, Cat, Elaboratable, Instance
+from amaranth import Signal, Module, Cat, Elaboratable, Instance
 
 
 class ECP5ConfigurationFlashInterface(Elaboratable):

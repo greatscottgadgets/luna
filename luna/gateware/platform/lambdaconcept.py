@@ -17,10 +17,10 @@ or
 import os
 import subprocess
 
-from nmigen import Elaboratable, ClockDomain, Module, ResetSignal
-from nmigen.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock, DiffPairs, Connector
-from nmigen.vendor.xilinx_7series import Xilinx7SeriesPlatform
-from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
+from amaranth import Elaboratable, ClockDomain, Module, ResetSignal
+from amaranth.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock, DiffPairs, Connector
+from amaranth.vendor.xilinx_7series import Xilinx7SeriesPlatform
+from amaranth.vendor.lattice_ecp5 import LatticeECP5Platform
 
 from .core import LUNAPlatform
 from ..architecture.car import PHYResetController

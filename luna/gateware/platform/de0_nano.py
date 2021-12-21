@@ -17,11 +17,11 @@ import os
 import logging
 import subprocess
 
-from nmigen import *
-from nmigen.build import *
-from nmigen.vendor.intel import IntelPlatform
+from amaranth import *
+from amaranth.build import *
+from amaranth.vendor.intel import IntelPlatform
 
-from nmigen_boards.resources import *
+from amaranth_boards.resources import *
 
 from .core import LUNAPlatform
 from ..architecture.car import PHYResetController
@@ -68,7 +68,7 @@ class DE0NanoClockAndResetController(Elaboratable):
         ]
 
         # Use a blinky to see if the clock signal works
-        # from nmigen_boards.test.blinky import Blinky
+        # from amaranth_boards.test.blinky import Blinky
         # m.submodules += Blinky()
 
         return m

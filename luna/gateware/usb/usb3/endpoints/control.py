@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Low-level USB3 transciever gateware -- control transfer components. """
 
-from nmigen import *
+from amaranth import *
 
 from usb_protocol.emitters    import DeviceDescriptorCollection
 from usb_protocol.types       import USBRequestType, USBDirection

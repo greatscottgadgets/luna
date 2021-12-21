@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ USB3 link-layer abstraction."""
 
-from nmigen import *
+from amaranth import *
 
 from ...stream          import USBRawSuperSpeedStream, SuperSpeedStreamArbiter, SuperSpeedStreamInterface
 from ..physical.coding  import IDL

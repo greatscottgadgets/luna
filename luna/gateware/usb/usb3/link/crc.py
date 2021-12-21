@@ -10,7 +10,7 @@ import unittest
 import operator
 import functools
 
-from nmigen import *
+from amaranth import *
 
 from ....test import LunaSSGatewareTestCase, ss_domain_test_case
 

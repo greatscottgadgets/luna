@@ -29,9 +29,9 @@ and to detect RX electrical idle.
 import unittest
 from math import ceil
 
-from nmigen         import *
-from nmigen.lib.cdc import FFSynchronizer
-from nmigen.hdl.ast import Rose, Past
+from amaranth       import *
+from amaranth.lib.cdc import FFSynchronizer
+from amaranth.hdl.ast import Rose, Past
 
 from ...test.utils  import LunaSSGatewareTestCase, ss_domain_test_case
 from ...utils.cdc   import synchronize

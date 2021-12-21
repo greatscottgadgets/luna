@@ -7,7 +7,7 @@
 
 import unittest
 
-from nmigen import *
+from amaranth import *
 
 from usb_protocol.types import USBDirection
 from usb_protocol.types.superspeed import HeaderPacketType

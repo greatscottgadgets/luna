@@ -15,11 +15,11 @@ import os
 import logging
 import subprocess
 
-from nmigen import *
-from nmigen.build import *
+from amaranth import *
+from amaranth.build import *
 
-from nmigen_boards.arty_a7   import ArtyA7Platform as _CoreArtyA7Platform
-from nmigen_boards.resources import *
+from amaranth_boards.arty_a7   import ArtyA7Platform as _CoreArtyA7Platform
+from amaranth_boards.resources import *
 
 from .core import LUNAPlatform
 

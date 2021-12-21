@@ -5,8 +5,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Request components shared between USB2 and USB3. """
 
-from nmigen         import *
-from nmigen.hdl.rec import DIR_FANOUT
+from amaranth       import *
+from amaranth.hdl.rec import DIR_FANOUT
 
 
 class SetupPacket(Record):

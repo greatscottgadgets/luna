@@ -14,13 +14,13 @@ This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM va
 import os
 import subprocess
 
-from nmigen import *
-from nmigen.build import *
-from nmigen.vendor.lattice_ice40 import LatticeICE40Platform
+from amaranth import *
+from amaranth.build import *
+from amaranth.vendor.lattice_ice40 import LatticeICE40Platform
 
-from nmigen_boards.fomu_hacker import FomuHackerPlatform as _FomuHackerPlatform
-from nmigen_boards.fomu_pvt import FomuPVTPlatform as _FomuPVTPlatform
-from nmigen_boards.resources import *
+from amaranth_boards.fomu_hacker import FomuHackerPlatform as _FomuHackerPlatform
+from amaranth_boards.fomu_pvt import FomuPVTPlatform as _FomuPVTPlatform
+from amaranth_boards.resources import *
 
 from .core import LUNAPlatform
 

@@ -10,7 +10,7 @@ The endpoint interfaces in this module provide endpoint interfaces suitable for
 connecting streams to USB endpoints.
 """
 
-from nmigen import *
+from amaranth import *
 from usb_protocol.types import USBDirection
 
 from ...stream                import SuperSpeedStreamInterface

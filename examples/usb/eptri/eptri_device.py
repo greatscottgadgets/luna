@@ -9,8 +9,8 @@ import sys
 import logging
 import os.path
 
-from nmigen                                  import Elaboratable, Module, Cat
-from nmigen.hdl.rec                          import Record
+from amaranth                                import Elaboratable, Module, Cat
+from amaranth.hdl.rec                        import Record
 
 from lambdasoc.periph.serial                 import AsyncSerialPeripheral
 from lambdasoc.periph.timer                  import TimerPeripheral

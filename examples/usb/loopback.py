@@ -7,7 +7,7 @@
 
 import os
 
-from nmigen                  import Elaboratable, Module, Cat
+from amaranth                import Elaboratable, Module, Cat
 
 from usb_protocol.emitters   import DeviceDescriptorCollection
 

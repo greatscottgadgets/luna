@@ -7,7 +7,7 @@
 
 import os
 
-from nmigen                  import Elaboratable, Module, Signal
+from amaranth                import Elaboratable, Module, Signal
 from usb_protocol.types      import USBTransferType
 from usb_protocol.emitters   import DeviceDescriptorCollection
 

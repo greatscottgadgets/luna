@@ -12,9 +12,9 @@
 
 import math
 
-from nmigen import *
-from nmigen.lib.coding import Encoder
-from nmigen.lib.cdc    import PulseSynchronizer
+from amaranth import *
+from amaranth.lib.coding import Encoder
+from amaranth.lib.cdc  import PulseSynchronizer
 
 
 

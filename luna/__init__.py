@@ -9,8 +9,8 @@ import logging
 import tempfile
 import argparse
 
-from nmigen             import Elaboratable
-from nmigen._unused     import MustUse
+from amaranth           import Elaboratable
+from amaranth._unused   import MustUse
 
 from .gateware.platform import get_appropriate_platform
 

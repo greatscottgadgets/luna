@@ -7,8 +7,8 @@
 
 import unittest
 
-from nmigen                        import *
-from nmigen.hdl.ast                import Fell
+from amaranth                      import *
+from amaranth.hdl.ast              import Fell
 
 from usb_protocol.types.superspeed import LinkCommand
 

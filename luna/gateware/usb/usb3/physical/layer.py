@@ -7,8 +7,8 @@
 
 import logging
 
-from nmigen import *
-from nmigen.lib.fifo import AsyncFIFOBuffered
+from amaranth import *
+from amaranth.lib.fifo import AsyncFIFOBuffered
 from ...stream  import USBRawSuperSpeedStream
 
 from .lfps       import LFPSTransceiver

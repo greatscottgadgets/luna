@@ -10,8 +10,8 @@ This module contains definitions of memory units that work well for USB applicat
 
 import unittest
 
-from nmigen import Elaboratable, Module, Signal, Memory
-from nmigen.hdl.xfrm import DomainRenamer
+from amaranth import Elaboratable, Module, Signal, Memory
+from amaranth.hdl.xfrm import DomainRenamer
 
 
 from .test import LunaGatewareTestCase, sync_test_case
@@ -75,7 +75,7 @@ class TransactionalizedFIFO(Elaboratable):
         The number of allowed entries in the FIFO.
     name: str
         The name of the relevant FIFO; to produce nicer debug output.
-        If not provided, nMigen will attempt auto-detection.
+        If not provided, Amaranth will attempt auto-detection.
     domain: str
         The name of the domain this module should exist in.
     """

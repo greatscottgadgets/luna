@@ -11,14 +11,14 @@ Its components facilitate data transfer longer than a single packet.
 
 import unittest
 
-from nmigen         import Signal, Elaboratable, Module, Array
-from nmigen.hdl.mem import Memory
+from amaranth         import Signal, Elaboratable, Module, Array
+from amaranth.hdl.mem import Memory
 
-from .packet        import HandshakeExchangeInterface, TokenDetectorInterface
-from ..stream       import USBInStreamInterface
-from ...stream      import StreamInterface
+from .packet          import HandshakeExchangeInterface, TokenDetectorInterface
+from ..stream         import USBInStreamInterface
+from ...stream        import StreamInterface
 
-from ...test        import LunaGatewareTestCase, usb_domain_test_case
+from ...test          import LunaGatewareTestCase, usb_domain_test_case
 
 class USBInTransferManager(Elaboratable):
     """ Sequencer that converts a long data stream (a USB *transfer*) into a burst of USB packets.

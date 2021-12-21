@@ -7,7 +7,7 @@
 
 import os
 
-from nmigen                         import Elaboratable, Module
+from amaranth                       import Elaboratable, Module
 from usb_protocol.emitters          import DeviceDescriptorCollection
 
 from luna                           import top_level_cli

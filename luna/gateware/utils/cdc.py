@@ -1,4 +1,4 @@
-# nmigen: UnusedElaboratable=no
+# amaranth: UnusedElaboratable=no
 #
 # This file is part of LUNA.
 #
@@ -11,10 +11,10 @@ import unittest
 import warnings
 
 from unittest       import TestCase
-from nmigen         import Record, Module, Signal
-from nmigen.lib.cdc import FFSynchronizer
-from nmigen.lib.io  import Pin
-from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
+from amaranth       import Record, Module, Signal
+from amaranth.lib.cdc import FFSynchronizer
+from amaranth.lib.io  import Pin
+from amaranth.hdl.rec import DIR_FANIN, DIR_FANOUT
 
 from ..test         import LunaGatewareTestCase, sync_test_case
 

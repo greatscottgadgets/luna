@@ -3,7 +3,7 @@
 LUNA On Your Own Hardware
 =========================
 
-The LUNA stack is designed to be easy to use on your own FPGA hardware -- if you can already run nMigen designs
+The LUNA stack is designed to be easy to use on your own FPGA hardware -- if you can already run Amaranth designs
 on your board, all you'll need is to set up some I/O definitions and some clock domains.
 
 The exact platform requirements depend on how you'll perform USB interfacing, and are detailed below.

@@ -12,7 +12,7 @@ import unittest
 import operator
 import functools
 
-from nmigen import *
+from amaranth import *
 
 from .coding   import COM, stream_word_matches_symbol
 from ...stream import USBRawSuperSpeedStream

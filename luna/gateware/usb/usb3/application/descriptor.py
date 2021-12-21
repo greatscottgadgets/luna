@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Utilities for building USB3 descriptors into gateware. """
 
-from nmigen                            import *
+from amaranth                          import *
 from usb_protocol.emitters.descriptors import DeviceDescriptorCollection
 
 from ...stream                         import SuperSpeedStreamInterface

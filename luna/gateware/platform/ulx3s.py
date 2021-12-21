@@ -20,9 +20,9 @@ import subprocess
 
 from abc import ABCMeta, abstractmethod
 
-from nmigen import *
-from nmigen.build import *
-import nmigen_boards.ulx3s as _ulx3s
+from amaranth import *
+from amaranth.build import *
+import amaranth_boards.ulx3s as _ulx3s
 
 from .core import LUNAPlatform
 

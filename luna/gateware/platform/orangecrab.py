@@ -15,12 +15,12 @@ This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM va
 import os
 import subprocess
 
-from nmigen import *
-from nmigen.build import *
-from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
+from amaranth import *
+from amaranth.build import *
+from amaranth.vendor.lattice_ecp5 import LatticeECP5Platform
 
-from nmigen_boards.orangecrab_r0_1 import OrangeCrabR0_1Platform as _OrangeCrabR0D1Platform
-from nmigen_boards.orangecrab_r0_2 import OrangeCrabR0_2Platform as _OrangeCrabR0D2Platform
+from amaranth_boards.orangecrab_r0_1 import OrangeCrabR0_1Platform as _OrangeCrabR0D1Platform
+from amaranth_boards.orangecrab_r0_2 import OrangeCrabR0_2Platform as _OrangeCrabR0D2Platform
 
 from .core import LUNAPlatform
 

@@ -1,4 +1,4 @@
-# nmigen: UnusedElaboratable=no
+# amaranth: UnusedElaboratable=no
 #
 # This file is part of LUNA.
 #
@@ -10,8 +10,8 @@
 import unittest
 from unittest import TestCase
 
-from nmigen import Record, Instance, Module, Signal, Cat
-from nmigen.hdl.rec import DIR_FANIN, DIR_FANOUT
+from amaranth import Record, Instance, Module, Signal, Cat
+from amaranth.hdl.rec import DIR_FANIN, DIR_FANOUT
 
 
 # FIXME: move this out of here and into an ECP5-specific set of functionality

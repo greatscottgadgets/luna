@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Code for USB3 physical-layer encoding. """
 
-from nmigen import *
+from amaranth import *
 
 def K(x, y):
     """ Converts K/control codes to bytes
@@ -37,13 +37,13 @@ class NamedSymbol:
         self.ctrl        = 0 if is_data else 1
 
     def value_const(self, *, repeat=1):
-        """ Returns this symbol's data value as an nMigen const. """
+        """ Returns this symbol's data value as an Amaranth const. """
         value = Const(self.value, 8)
         return Repl(value, repeat)
 
 
     def ctrl_const(self, *, repeat=1):
-        """ Returns this symbol's ctrl value as an nMigen const. """
+        """ Returns this symbol's ctrl value as an Amaranth const. """
         ctrl =  Const(self.ctrl, 1)
         return Repl(ctrl, repeat)
 
@@ -64,7 +64,7 @@ symbols = [SKP, SDP, EDB, SUB, COM, RSD, SHP, END, SLC, EPF]
 
 
 def get_word_for_symbols(*target_symbols):
-    """ Returns a pair of nMigen contants containing the data and ctrl values for the given symbols. """
+    """ Returns a pair of Amaranth constants containing the data and ctrl values for the given symbols. """
 
     # Create constants that match the target data/ctrl bits for the given set of symbols.
     target_data = Cat(symbol.value_const() for symbol in target_symbols)
@@ -74,7 +74,7 @@ def get_word_for_symbols(*target_symbols):
 
 
 def stream_matches_symbols(stream, *target_symbols, include_ready=False):
-    """ Returns an nMigen conditional that evaluates true when a stream contains the given four symbols.
+    """ Returns an Amaranth conditional that evaluates true when a stream contains the given four symbols.
 
     Notes:
         - The given conditional evaluates to False when ``stream.valid`` is falsey.
@@ -92,7 +92,7 @@ def stream_matches_symbols(stream, *target_symbols, include_ready=False):
 
 
 def stream_word_matches_symbol(stream, word_number, *, symbol):
-    """ Returns an nMigen conditional that evaluates true if the given word of a stream matches the given symbol. """
+    """ Returns an Amaranth conditional that evaluates true if the given word of a stream matches the given symbol. """
 
     return (
         stream.valid &

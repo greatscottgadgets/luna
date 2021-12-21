@@ -11,7 +11,7 @@ Connect to the ttyACM connection at 115200 baud, 8N1,
 and you should see "Hello World" 'typed' repeatedly.
 """
 
-from nmigen import Signal, Elaboratable, Module, Array, Cat
+from amaranth import Signal, Elaboratable, Module, Array, Cat
 
 from luna import top_level_cli
 from luna.gateware.interface.uart import UARTTransmitter

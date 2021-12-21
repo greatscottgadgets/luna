@@ -10,8 +10,8 @@ import functools
 
 from enum import IntEnum
 
-from nmigen             import *
-from nmigen.hdl.rec     import Layout
+from amaranth           import *
+from amaranth.hdl.rec   import Layout
 
 from ....stream.arbiter import StreamArbiter
 

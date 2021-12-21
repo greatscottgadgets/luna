@@ -7,7 +7,7 @@
 
 import sys
 
-from nmigen                  import *
+from amaranth                import *
 from apollo_fpga                  import create_ila_frontend
 
 from luna                    import top_level_cli

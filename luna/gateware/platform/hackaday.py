@@ -17,11 +17,11 @@ import os
 import logging
 import subprocess
 
-from nmigen import *
-from nmigen.build import *
-from nmigen.vendor.lattice_ecp5 import LatticeECP5Platform
+from amaranth import *
+from amaranth.build import *
+from amaranth.vendor.lattice_ecp5 import LatticeECP5Platform
 
-from nmigen_boards.resources import *
+from amaranth_boards.resources import *
 
 
 from .core import LUNAPlatform
@@ -120,7 +120,7 @@ class SuperconDomainGenerator(Elaboratable):
         return m
 
 #
-# This is sitting here in LUNA until it's accepted into nmigen-boards.
+# This is sitting here in LUNA until it's accepted into amaranth-boards.
 #
 class _Supercon19BadgePlatform(LatticeECP5Platform):
     device      = "LFE5U-45F"

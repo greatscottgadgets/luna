@@ -6,7 +6,7 @@
 
 """ Stream multiplexers/arbiters. """
 
-from nmigen         import *
+from amaranth       import *
 from .              import StreamInterface
 
 

@@ -10,7 +10,7 @@ The endpoint interfaces in this module provide endpoint interfaces suitable for
 connecting streams to USB endpoints.
 """
 
-from nmigen         import Elaboratable, Module, Signal
+from amaranth       import Elaboratable, Module, Signal
 
 from ..endpoint     import EndpointInterface
 from ...stream      import StreamInterface, USBOutStreamBoundaryDetector

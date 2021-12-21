@@ -13,8 +13,8 @@
 """ SerDes backend for the ECP5. """
 
 
-from nmigen import *
-from nmigen.lib.cdc import FFSynchronizer, ResetSynchronizer
+from amaranth import *
+from amaranth.lib.cdc import FFSynchronizer, ResetSynchronizer
 
 from ....usb.stream import USBRawSuperSpeedStream
 from ..datapath     import TransmitPreprocessing, ReceivePostprocessing

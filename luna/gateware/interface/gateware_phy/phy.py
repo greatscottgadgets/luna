@@ -5,8 +5,8 @@
 
 import logging
 
-from nmigen         import Signal, Module, Cat, Elaboratable, ClockSignal
-from nmigen.hdl.ast import Rose, Past
+from amaranth         import Signal, Module, Cat, Elaboratable, ClockSignal
+from amaranth.hdl.ast import Rose, Past
 
 from .receiver      import RxPipeline
 from .transmitter   import TxPipeline

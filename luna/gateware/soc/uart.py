@@ -1,7 +1,7 @@
-from nmigen import *
-from nmigen.lib.fifo import SyncFIFO
+from amaranth import *
+from amaranth.lib.fifo import SyncFIFO
 
-from nmigen_stdio.serial import AsyncSerial
+from amaranth_stdio.serial import AsyncSerial
 
 from .peripheral import Peripheral
 
@@ -10,7 +10,7 @@ __all__ = ["UARTPeripheral"]
 class UARTPeripheral(Peripheral, Elaboratable):
     """Asynchronous serial transceiver peripheral.
 
-    See :class:`nmigen_stdio.serial.AsyncSerial` for details.
+    See :class:`amaranth_stdio.serial.AsyncSerial` for details.
 
     CSR registers
     -------------
@@ -21,7 +21,7 @@ class UARTPeripheral(Peripheral, Elaboratable):
     rx_rdy : read-only
         Receiver ready. The receiver FIFO is non-empty.
     rx_err : read-only
-        Receiver error flags. See :class:`nmigen_stdio.serial.AsyncSerialRX` for layout.
+        Receiver error flags. See :class:`amaranth_stdio.serial.AsyncSerialRX` for layout.
     tx_data : write-only
         Transmitter data.
     tx_rdy : read-only
@@ -51,11 +51,11 @@ class UARTPeripheral(Peripheral, Elaboratable):
     parity : ``"none"``, ``"mark"``, ``"space"``, ``"even"``, ``"odd"``
         Parity mode.
     pins : :class:`Record`
-        Optional. UART pins. See :class:`nmigen_boards.resources.UARTResource`.
+        Optional. UART pins. See :class:`amaranth_boards.resources.UARTResource`.
 
     Attributes
     ----------
-    bus : :class:`nmigen_soc.wishbone.Interface`
+    bus : :class:`amaranth_soc.wishbone.Interface`
         Wishbone bus interface.
     irq : :class:`IRQLine`
         Interrupt request line.

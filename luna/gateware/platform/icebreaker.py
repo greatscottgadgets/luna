@@ -21,13 +21,13 @@ import logging
 import subprocess
 
 
-from nmigen import *
-from nmigen.build import *
-from nmigen.vendor.lattice_ice40 import LatticeICE40Platform
+from amaranth import *
+from amaranth.build import *
+from amaranth.vendor.lattice_ice40 import LatticeICE40Platform
 
-from nmigen_boards.resources import *
-from nmigen_boards.icebreaker import ICEBreakerPlatform as _IceBreakerPlatform
-from nmigen_boards.icebreaker_bitsy import ICEBreakerBitsyPlatform as _IceBreakerBitsyPlatform
+from amaranth_boards.resources import *
+from amaranth_boards.icebreaker import ICEBreakerPlatform as _IceBreakerPlatform
+from amaranth_boards.icebreaker_bitsy import ICEBreakerBitsyPlatform as _IceBreakerBitsyPlatform
 
 from .core import LUNAPlatform
 

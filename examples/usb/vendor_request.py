@@ -5,7 +5,7 @@
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
-from nmigen                         import Elaboratable, Module, Cat
+from amaranth                       import Elaboratable, Module, Cat
 from usb_protocol.types             import USBRequestType
 from usb_protocol.emitters          import DeviceDescriptorCollection
 

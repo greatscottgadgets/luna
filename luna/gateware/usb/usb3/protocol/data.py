@@ -10,7 +10,7 @@ the link layer; and the generation of our packets is handled by our endpoint.
 
 """
 
-from nmigen import *
+from amaranth import *
 from usb_protocol.types.superspeed import HeaderPacketType
 
 from ..link.header import HeaderQueue

@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Link Management Packet (LMP) -related gateware. """
 
-from nmigen import *
+from amaranth import *
 from usb_protocol.types.superspeed import HeaderPacketType, LinkManagementPacketSubtype
 
 from ..link.header import HeaderQueue, HeaderPacket

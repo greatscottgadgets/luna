@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "luna"
 version = "0.1.0-dev.0"
-description = "nMigen framework for FPGA-based USB solutions"
+description = "Amaranth HDL framework for FPGA-based USB solutions"
 authors = ["Katherine Temkin <k@ktemkin.com>"]
 license = "BSD"
 
@@ -13,15 +13,15 @@ pyvcd = "^0.2.4"
 libusb1 = "^1.9.2"
 apollo-fpga = "^0.0.5"
 ziglang = "^0.8.0"
-nmigen = {git = "https://github.com/nmigen/nmigen.git"}
-nmigen-soc = {git = "https://github.com/nmigen/nmigen-soc.git"}
-nmigen-boards = {git = "https://github.com/nmigen/nmigen-boards.git"}
+amaranth = {git = "https://github.com/amaranth-lang/amaranth.git", branch="main"}
+amaranth-soc = {git = "https://github.com/amaranth-lang/amaranth-soc.git", branch="main"}
+amaranth-boards = {git = "https://github.com/amaranth-lang/amaranth-boards.git", branch="main"}
 usb-protocol = {git = "https://github.com/usb-tools/python-usb-protocol"}
 
 [tool.poetry.dev-dependencies]
 tox = "^3.22.0"
 minerva = {git = "https://github.com/lambdaconcept/minerva.git"}
-nmigen-stdio = {git = "https://github.com/nmigen/nmigen-stdio.git"}
+amaranth-stdio = {git = "https://github.com/amaranth-lang/amaranth-stdio.git", branch="main"}
 lambdasoc = {git = "https://github.com/ktemkin/lambdasoc.git"}
 prompt-toolkit = "^3.0.16"
 

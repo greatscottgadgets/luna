@@ -7,7 +7,7 @@
 
 import unittest
 
-from nmigen                import Signal, Module, Elaboratable
+from amaranth              import Signal, Module, Elaboratable
 from usb_protocol.emitters import DeviceDescriptorCollection
 from usb_protocol.types    import USBRequestType
 

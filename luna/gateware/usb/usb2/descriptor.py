@@ -9,7 +9,7 @@ import struct
 import unittest
 import functools
 
-from nmigen                                  import *
+from amaranth                                import *
 from usb_protocol.emitters.descriptors       import DeviceDescriptorCollection
 from usb_protocol.types.descriptors.standard import StandardDescriptorNumbers
 
@@ -344,7 +344,7 @@ class GetDescriptorHandlerBlock(Elaboratable):
         # Chunk our ROM into a collection of entries...
         rom_entries = (rom[(element_size * i):(element_size * i) + element_size] for i in range(total_elements))
 
-        # ... and then convert that into an initializer value in the format nMigen ROMs like (integers).
+        # ... and then convert that into an initializer value in the format Amaranth ROMs like (integers).
         initializer = [struct.unpack(">I", rom_entry)[0] for rom_entry in rom_entries]
 
         return initializer, max_descriptor_size, max_type_number

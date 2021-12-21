@@ -5,8 +5,8 @@
 # Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
-from nmigen                        import *
-from nmigen.hdl.xfrm               import DomainRenamer
+from amaranth                      import *
+from amaranth.hdl.xfrm             import DomainRenamer
 
 from lambdasoc.periph              import Peripheral
 from lambdasoc.periph.timer        import TimerPeripheral

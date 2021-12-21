@@ -10,8 +10,8 @@ import unittest
 import functools
 import operator
 
-from nmigen              import Signal, Module, Elaboratable, Cat
-from nmigen.hdl.rec      import Record, DIR_FANOUT
+from amaranth            import Signal, Module, Elaboratable, Cat
+from amaranth.hdl.rec    import Record, DIR_FANOUT
 
 from .                   import USBSpeed
 from .packet             import USBTokenDetector, USBDataPacketDeserializer, USBPacketizerTest
@@ -523,7 +523,7 @@ class StallOnlyRequestHandler(Elaboratable):
         """
         Parameters:
             stall_condition -- A function that accepts a SetupRequest packet, and returns
-                               an nMigen conditional indicating whether we should stall.
+                               an Amaranth conditional indicating whether we should stall.
         """
 
         self.condition = stall_condition
