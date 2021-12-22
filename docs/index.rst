@@ -3,31 +3,23 @@
 LUNA: USB Multitool and Gateware Library
 ========================================
 
-This is the documentation for the LUNA gateware library; and the developer document for the LUNA
-USB multitool hardware and software.
+This is the documentation for the LUNA USB multitool hardware, gateware library, and software. 
 
 .. image:: images/board_readme_side.jpg
 
-Much like the LUNA hardware, gateware, and software, this documentation is a work in progress.
-Contributions are always appreciated.
+.. toctree::
+   :maxdepth: 2
+   :caption: User Documentation
+
+   intro
+   bringup_guide
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: LUNA Gateware
 
-   intro
+   custom_hardware
    features
    getting_started
-   custom_hardware
-   gateware/usb2_device
-   gateware/endpoint
-   hardware/bringup_guide
-
-
-
-Generated indices
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   usb2_device   
+   endpoint   

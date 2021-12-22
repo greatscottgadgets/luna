@@ -17,7 +17,7 @@ The ``USBDevice`` communicates with low-level transciever hardware via the FPGA-
 *Macrocell Interface* (UTMI). Translators can be used to transparently adapt the FPGA interface to other
 common bus formats; including the common ULPI low-pin-count variant of UTMI.
 
-.. figure:: USBDevice.svg
+.. figure:: /images/USBDevice.svg
    :alt: USB 2.0 architecture diagram
 
    The overall architecture of a LUNA USB 2.0 device, highlighting the ``USBDevice`` components, their
@@ -118,30 +118,3 @@ The sequencer:
 * Manages the high-speed terminations; as part of the reset-handshake and suspend protocols.
 * Detects the periods of inactivity that indicate the device is being suspended; and automatically disengages
   high-speed terminations while the device is in suspend.
-
-
-
-``usb2.device`` Components
---------------------------
-
-.. automodule :: luna.gateware.usb.usb2.device
-  :members:
-  :show-inheritance:
-
-
-``usb2.packet`` Components
---------------------------
-
-.. automodule :: luna.gateware.usb.usb2.packet
-  :members:
-  :show-inheritance:
-
-
-``usb2.reset`` Components
---------------------------
-
-.. automodule :: luna.gateware.usb.usb2.reset
-  :members:
-  :show-inheritance:
-
-

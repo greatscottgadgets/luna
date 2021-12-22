@@ -1,6 +1,6 @@
-===============
-Getting Started
-===============
+==============================================
+Getting Started with the LUNA Gateware Library
+==============================================
 
 Setting up a Build Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

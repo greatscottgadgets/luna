@@ -3,9 +3,6 @@
 Introduction
 ============
 
-	*Note: LUNA is still a work in progress; and while much of the technology is in a usable state,
-	much of its feature-set is still being built. Consider LUNA an 'unstable' library, for the time being.*
-
 Welcome to the LUNA project! LUNA is a full toolkit for working with USB using FPGA technology; and provides
 hardware, gateware, and software to enable USB applications.
 
@@ -26,7 +23,7 @@ Some things you can use LUNA for, currently:
 
 Some things you'll be able to use LUNA for in the future:
 
-- **Man-in-the-middle'ing USB communications.** The LUNA toolkit will be able to act
+- **Meddler-in-the-middle'ing USB communications.** The LUNA toolkit will be able to act
   as a *USB proxy*, transparently modifying USB data as it flows between a host and a device.
 - **USB reverse engineering and security research.** The LUNA toolkit will serve as an ideal
   backend for tools like `FaceDancer <https://github.com/usb-tools/facedancer>`__; allowing easily
