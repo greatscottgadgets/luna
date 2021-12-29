@@ -17,11 +17,13 @@ pipeline {
     }
     stages {
         stage('Build (Firmware)') {
-            sh '''#!/bin/bash
-            git clone --recursive https://github.com/greatscottgadgets/apollo
-            cd apollo/firmware/
-            make APOLLO_BOARD=luna dfu
-            cd ../..'''
+            steps {
+                sh '''#!/bin/bash
+                git clone --recursive https://github.com/greatscottgadgets/apollo
+                cd apollo/firmware/
+                make APOLLO_BOARD=luna dfu
+                cd ../..'''
+            }
         }
         stage('Build') {
             steps {
