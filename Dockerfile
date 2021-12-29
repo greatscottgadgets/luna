@@ -23,9 +23,11 @@ RUN apt-get update && apt-get install -y \
     dfu-util \
     flex \
     gawk \
+    gcc-arm-none-eabi \
     git \
     libboost-all-dev \
     libeigen3-dev \
+    libreadline-dev \
     openocd \
     pkg-config \
     python3 \
@@ -37,31 +39,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --user --upgrade capablerobot_usbhub poetry amaranth
 
-RUN git clone --recursive https://github.com/YosysHQ/prjtrellis \
-    && cd prjtrellis/libtrellis/ \
-    && cmake -DCMAKE_INSTALL_PREFIX=/usr/local . \
-    && make \
-    && make install \
-    && cd ../..
+RUN wget https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2021-12-29/oss-cad-suite-linux-x64-20211229.tgz
 
-RUN git clone --recursive https://github.com/YosysHQ/yosys.git \
-    && cd yosys/ \
-    && make config-clang \
-    && make \
-    && make install \
-    && cd ..
+RUN tar zxvf oss-cad-suite-linux-x64-20211229.tgz
 
-RUN git clone --recursive https://github.com/YosysHQ/nextpnr.git \
-    && cd nextpnr/ \
-    && cmake . -DARCH=ecp5 -DTRELLIS_INSTALL_PREFIX=/usr/local \
-    && make -j$(nproc) \
-    && make install \
-    && cd ..
-
-RUN git clone --recursive https://github.com/greatscottgadgets/apollo \
-    && cd apollo/firmware/ \
-    && make APOLLO_BOARD=luna dfu \
-    && cd ../..
+RUN export PATH="/home/jenkins/oss-cad-suite/bin:$PATH"
 
 RUN export
 
