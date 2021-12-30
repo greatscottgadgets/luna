@@ -14,6 +14,9 @@ CMD ["/bin/bash"]
 # override interactive installations
 ENV DEBIAN_FRONTEND=noninteractive 
 
+# update PATH for pip package installations
+ENV PATH="/root/.local/bin:$PATH"
+
 # Install prerequisites
 RUN apt-get update && apt-get install -y \
     bison \
@@ -39,20 +42,8 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --user --upgrade capablerobot_usbhub poetry amaranth
-
 RUN wget https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2021-12-29/oss-cad-suite-linux-x64-20211229.tgz
-
 RUN tar zxvf oss-cad-suite-linux-x64-20211229.tgz
-
-RUN export PATH="/root/.local/bin:$PATH"
-
-RUN poetry --help
-
-RUN export PATH="$HOME/jenkins/oss-cad-suite/bin:$PATH"
-
-RUN export
-
-RUN poetry --help
 
 USER jenkins
 
