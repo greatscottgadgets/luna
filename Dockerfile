@@ -46,7 +46,12 @@ RUN tar zxvf oss-cad-suite-linux-x64-20211229.tgz
 
 RUN export PATH="/root/.local/bin:$PATH"
 RUN export PATH="/home/jenkins/oss-cad-suite/bin:$PATH"
+
+RUN poetry --help
+
 RUN export
+
+RUN poetry --help
 
 USER jenkins
 
