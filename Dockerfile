@@ -44,8 +44,8 @@ RUN wget https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2021-1
 
 RUN tar zxvf oss-cad-suite-linux-x64-20211229.tgz
 
-RUN export PATH="/root/.local/bin:$PATH"
-RUN export PATH="/home/jenkins/oss-cad-suite/bin:$PATH"
+RUN export PATH="$HOME/.local/bin:$PATH"
+RUN export PATH="$HOME/jenkins/oss-cad-suite/bin:$PATH"
 
 RUN poetry --help
 
