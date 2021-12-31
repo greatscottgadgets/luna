@@ -19,22 +19,30 @@ pipeline {
         stage('Build (Firmware)') {
             steps {
                 sh '''#!/bin/bash
-                git clone --recursive https://github.com/greatscottgadgets/apollo
-                cd apollo/firmware/
-                make APOLLO_BOARD=luna dfu
-                cd ../..'''
+                    git clone --recursive https://github.com/greatscottgadgets/apollo
+                    cd apollo/firmware/
+                    make APOLLO_BOARD=luna dfu
+                    cd ../..'''
             }
         }
-        stage('Build') {
+        stage('Build (Host)') {
             steps {
-                sh 'poetry install'
+                sh '''#!/bin/bash
+                    source testing-venv/bin/activate
+                    python3 -m venv testing-venv
+                    source testing-venv/bin/activate
+                    pip3 install --user --upgrade capablerobot_usbhub poetry amaranth
+                    poetry install
+                    deactivate'''
             }
         }
         stage('Test') {
             steps {
-                sh './ci-scripts/test-hub.sh'
                 retry(3) {
-                    sh 'poetry run applets/interactive-test.py'
+                    sh '''#!/bin/bash
+                        source testing-venv/bin/activate
+                        poetry run applets/interactive-test.py
+                        deactivate'''
                 }
             }
         }
