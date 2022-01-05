@@ -43,8 +43,8 @@ RUN pip3 install --user --upgrade capablerobot_usbhub poetry amaranth
 RUN wget https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2021-12-29/oss-cad-suite-linux-x64-20211229.tgz
 RUN tar zxvf oss-cad-suite-linux-x64-20211229.tgz
 
-# add to PATH for pip package installations
-ENV PATH="/root/.local/bin:$HOME/jenkins/oss-cad-suite/bin:$PATH"
+# add to PATH for pip/source package installations
+ENV PATH="/root/.local/bin:/home/jenkins/oss-cad-suite/bin:$PATH"
 
 USER jenkins
 
