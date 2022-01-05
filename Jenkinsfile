@@ -16,21 +16,21 @@ pipeline {
         GIT_COMMITER_EMAIL = 'ci@greatscottgadgets.com'
     }
     stages {
-        stage('Build (Firmware)') {
-            steps {
-                sh '''#!/bin/bash
-                    git clone --recursive https://github.com/greatscottgadgets/apollo
-                    cd apollo/firmware/
-                    make APOLLO_BOARD=luna dfu
-                    cd ../..'''
-            }
-        }
-        stage('Build (Host)') {
+        // stage('Build (Firmware)') {
+        //     steps {
+        //         sh '''#!/bin/bash
+        //             git clone --recursive https://github.com/greatscottgadgets/apollo
+        //             cd apollo/firmware/
+        //             make APOLLO_BOARD=luna dfu
+        //             cd ../..'''
+        //     }
+        // }
+        stage('Build') {
             steps {
                 sh '''#!/bin/bash
                     python3 -m venv testing-venv
                     source testing-venv/bin/activate
-                    pip3 install --user --upgrade capablerobot_usbhub poetry amaranth
+                    pip3 install capablerobot_usbhub poetry amaranth
                     poetry install
                     deactivate'''
             }
