@@ -20,11 +20,13 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     clang \
     cmake \
+    curl \
     dfu-util \
     flex \
     gawk \
     gcc-arm-none-eabi \
     git \
+    jq \
     libboost-all-dev \
     libeigen3-dev \
     libreadline-dev \
@@ -36,12 +38,12 @@ RUN apt-get update && apt-get install -y \
     python-is-python3 \
     tcl \
     tcl-dev \
-    wget \
     zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --user --upgrade capablerobot_usbhub poetry amaranth
-RUN wget https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2021-12-29/oss-cad-suite-linux-x64-20211229.tgz
-RUN tar zxvf oss-cad-suite-linux-x64-20211229.tgz
+RUN curl -L $(curl -s "https://api.github.com/repos/YosysHQ/oss-cad-suite-build/releases/latest" \
+    | jq --raw-output '.assets[].browser_download_url' | grep "linux-x64") --output oss-cad-suite-linux-x64.tgz
+RUN tar zxvf oss-cad-suite-linux-x64.tgz
 
 # add to PATH for pip/source package installations
 ENV PATH="/root/.local/bin:/home/jenkins/oss-cad-suite/bin:$PATH"

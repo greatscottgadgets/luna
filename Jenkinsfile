@@ -16,15 +16,6 @@ pipeline {
         GIT_COMMITER_EMAIL = 'ci@greatscottgadgets.com'
     }
     stages {
-        // stage('Build (Firmware)') {
-        //     steps {
-        //         sh '''#!/bin/bash
-        //             git clone --recursive https://github.com/greatscottgadgets/apollo
-        //             cd apollo/firmware/
-        //             make APOLLO_BOARD=luna dfu
-        //             cd ../..'''
-        //     }
-        // }
         stage('Build') {
             steps {
                 sh '''#!/bin/bash
