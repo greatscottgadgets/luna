@@ -12,8 +12,6 @@ import argparse
 from amaranth           import Elaboratable
 from amaranth._unused   import MustUse
 
-from .gateware.platform import get_appropriate_platform
-
 # Log formatting strings.
 LOG_FORMAT_COLOR = "\u001b[37;1m%(levelname)-8s| \u001b[0m\u001b[1m%(module)-12s|\u001b[0m %(message)s"
 LOG_FORMAT_PLAIN = "%(levelname)-8s:n%(module)-12s>%(message)s"
@@ -31,6 +29,8 @@ def configure_default_logging(level=logging.INFO, logger=logging):
 
 
 def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
+    from .gateware.platform import get_appropriate_platform
+
     """ Runs a default CLI that assists in building and running gateware.
 
         If the user's options resulted in the board being programmed, this returns the fragment
