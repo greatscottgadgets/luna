@@ -106,7 +106,7 @@ class USBAnalyzer(Elaboratable):
         m.d.comb += [
 
             # We have data ready whenever there's data in the FIFO.
-            self.stream.valid    .eq((fifo_count != 0) & self.idle),
+            self.stream.valid    .eq((fifo_count != 0) & (self.idle | self.overrun)),
 
             # Our data_out is always the output of our read port...
             self.stream.payload  .eq(mem_read_port.data),
