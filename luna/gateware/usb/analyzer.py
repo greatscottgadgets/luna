@@ -159,6 +159,10 @@ class USBAnalyzer(Elaboratable):
                 self.capturing .eq(f.ongoing("CAPTURE")),
             ]
 
+            with m.State("START"):
+                with m.If(~self.utmi.rx_active):
+                    m.next = "IDLE"
+
             # IDLE: wait for an active receive.
             with m.State("IDLE"):
 
