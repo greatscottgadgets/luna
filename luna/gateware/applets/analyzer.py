@@ -45,6 +45,20 @@ BULK_ENDPOINT_ADDRESS = 0x80 | BULK_ENDPOINT_NUMBER
 MAX_BULK_PACKET_SIZE  = 512
 
 
+class USBAnalyzerState(Elaboratable):
+
+    def __init__(self):
+        self.current = Signal(8)
+        self.next = Signal(8)
+        self.write = Signal()
+
+    def elaborate(self, platform):
+        m = Module()
+        with m.If(self.write):
+            m.d.sync += self.current.eq(self.next)
+        return m
+
+
 class USBAnalyzerVendorRequests(IntEnum):
     GET_STATE = 0
     SET_STATE = 1
@@ -52,6 +66,9 @@ class USBAnalyzerVendorRequests(IntEnum):
 
 class USBAnalyzerVendorRequestHandler(ControlRequestHandler):
 
+    def __init__(self, state):
+        self.state = state
+        super().__init__()
 
     def elaborate(self, platform):
         m = Module()
@@ -64,13 +81,6 @@ class USBAnalyzerVendorRequestHandler(ControlRequestHandler):
         # Transmitter for small-constant-response requests
         m.submodules.transmitter = transmitter = \
             StreamSerializer(data_length=1, domain="usb", stream_type=USBInStreamInterface, max_length_width=1)
-
-        # State register
-        state = Signal(8)
-        next_state = Signal(8)
-        state_write_strobe = Signal(1)
-        with m.If(state_write_strobe == 1):
-            m.d.usb += state.eq(next_state)
 
         # Handle vendor requests
         with m.If(setup.type == USBRequestType.VENDOR):
@@ -95,11 +105,11 @@ class USBAnalyzerVendorRequestHandler(ControlRequestHandler):
 
                 # GET_STATE -- Fetch the device's state
                 with m.State('GET_STATE'):
-                    self.handle_simple_data_request(m, transmitter, state, length=1)
+                    self.handle_simple_data_request(m, transmitter, self.state.current, length=1)
 
                 # SET_STATE -- The host is trying to set our state
                 with m.State('SET_STATE'):
-                    self.handle_register_write_request(m, next_state, state_write_strobe)
+                    self.handle_register_write_request(m, self.state.next, self.state.write)
 
                 # UNHANDLED -- we've received a request we're not prepared to handle
                 with m.State('UNHANDLED'):
@@ -164,6 +174,9 @@ class USBAnalyzerApplet(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
+        # State register
+        m.submodules.state = state = USBAnalyzerState()
+
         # Generate our clock domains.
         clocking = LunaECP5DomainGenerator()
         m.submodules.clocking = clocking
@@ -202,7 +215,7 @@ class USBAnalyzerApplet(Elaboratable):
         control_endpoint = usb.add_standard_control_endpoint(descriptors)
 
         # Add our vendor request handler to the control endpoint.
-        vendor_request_handler = USBAnalyzerVendorRequestHandler()
+        vendor_request_handler = USBAnalyzerVendorRequestHandler(state)
         control_endpoint.add_request_handler(vendor_request_handler)
 
         # Add a stream endpoint to our device.
