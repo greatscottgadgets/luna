@@ -18,30 +18,21 @@ pipeline {
     stages {
         stage('Build') {
             steps {
-                sh '''#!/bin/bash
-                    python3 -m venv testing-venv
-                    source testing-venv/bin/activate
-                    pip3 install capablerobot_usbhub poetry amaranth
-                    poetry install
-                    deactivate'''
+                sh './ci-scripts/build.sh'
             }
         }
         stage('Test') {
             steps {
                 retry(3) {
-                    sh '''#!/bin/bash
-                        source testing-venv/bin/activate
-                        poetry run applets/interactive-test.py
-                        deactivate'''
+                    sh './ci-scripts/test.sh'
                 }
             }
         }
     }
     post {
         always {
-            echo 'One way or another, I have finished'
+            sh 'usbhub --hub D9D1 power state --port 3 --reset'
             sh 'rm -rf testing-venv/'
-            // Clean after build
             cleanWs(cleanWhenNotBuilt: false,
                     deleteDirs: true,
                     disableDeferredWipeout: true,
