@@ -40,7 +40,7 @@ RUN apt-get update && apt-get install -y \
     tcl-dev \
     zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
-RUN pip3 install --user --upgrade capablerobot_usbhub poetry amaranth
+RUN pip3 install capablerobot_usbhub poetry amaranth
 RUN curl -L $(curl -s "https://api.github.com/repos/YosysHQ/oss-cad-suite-build/releases/latest" \
     | jq --raw-output '.assets[].browser_download_url' | grep "linux-x64") --output oss-cad-suite-linux-x64.tgz
 RUN tar zxvf oss-cad-suite-linux-x64.tgz
