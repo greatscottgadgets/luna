@@ -23,6 +23,7 @@ pipeline {
         }
         stage('Test') {
             steps {
+                sh './ci-scripts/configure-hubs.sh --off'
                 retry(3) {
                     sh './ci-scripts/test.sh'
                 }
@@ -31,7 +32,7 @@ pipeline {
     }
     post {
         always {
-            sh 'usbhub --hub D9D1 power state --port 3 --reset'
+            sh './ci-scripts/configure-hubs.sh --reset'
             sh 'rm -rf testing-venv/'
             cleanWs(cleanWhenNotBuilt: false,
                     deleteDirs: true,
