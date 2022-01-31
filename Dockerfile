@@ -41,6 +41,7 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN pip3 install capablerobot_usbhub poetry amaranth
+ARG CACHEBUST=1
 RUN curl -L $(curl -s "https://api.github.com/repos/YosysHQ/oss-cad-suite-build/releases/latest" \
     | jq --raw-output '.assets[].browser_download_url' | grep "linux-x64") --output oss-cad-suite-linux-x64.tgz
 RUN tar zxvf oss-cad-suite-linux-x64.tgz
@@ -53,5 +54,5 @@ USER jenkins
 # Inform Docker that the container is listening on the specified port at runtime.
 EXPOSE 8080
 
-# Copy the rest of your app's source code from your host to your image filesystem.
+# Copy source code from host to image filesystem.
 COPY . .
