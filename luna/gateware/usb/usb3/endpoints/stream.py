@@ -424,13 +424,23 @@ class SuperSpeedStreamInEndpoint(Elaboratable):
                         # ready ourselves for transmit.
                         packet_completing = in_stream.valid & (write_fill_count + 4 >= self._max_packet_size)
                         with m.Elif(~in_stream.ready | packet_completing):
-                            m.next = "WAIT_TO_SEND"
                             m.d.ss += [
                                 ping_pong_toggle   .eq(~ping_pong_toggle),
                                 read_stream_ended  .eq(0),
 
                                 sequence_number    .eq(next_sequence_number)
                             ]
+
+                            with m.If(is_in_token):
+                                m.d.ss += [
+                                    send_position        .eq(0),
+                                    out_stream.first     .eq(1),
+                                    last_packet_was_zlp  .eq(0)
+                                ]
+                                m.next = "SEND_PACKET"
+
+                            with m.Else():
+                                m.next = "WAIT_TO_SEND"
 
                         # If neither of the above conditions are true; we now don't have enough data to send.
                         # We'll wait for enough data to transmit.
