@@ -25,7 +25,7 @@ resolved_reference = "02364a4fd7cf0882478fe5a42c2ce8ff59ba41cd"
 
 [[package]]
 name = "amaranth-boards"
-version = "0.1.dev204+gd3fb733"
+version = "0.1.dev205+gf50d90f"
 description = "Board and connector definitions for Amaranth HDL"
 category = "main"
 optional = false
@@ -40,7 +40,7 @@ importlib-metadata = {version = "*", markers = "python_version < \"3.8\""}
 type = "git"
 url = "https://github.com/amaranth-lang/amaranth-boards.git"
 reference = "main"
-resolved_reference = "d3fb7331b2b15e5a0221ca7de63fb2ac544809b8"
+resolved_reference = "f50d90f727948dcf73106383eadc20a1cae5e694"
 
 [[package]]
 name = "amaranth-soc"
