@@ -188,6 +188,9 @@ else:
             ulpi = platform.request(platform.default_usb_connection)
             m.submodules.usb = usb = USBDevice(bus=ulpi)
 
+            assert not usb.always_fs or os.getenv('LUNA_FULL_ONLY'), \
+                   "LUNA_FULL_ONLY must be set for devices with a full speed only PHY"
+
             # Add our standard control endpoint to the device.
             descriptors = self.create_descriptors()
             usb.add_standard_control_endpoint(descriptors)
