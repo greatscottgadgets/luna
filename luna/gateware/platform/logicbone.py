@@ -72,7 +72,7 @@ class LogicboneDomainGenerator(Elaboratable):
                 p_CLKI_DIV = 5,
                 p_CLKOP_ENABLE = "ENABLED",
                 p_CLKOP_DIV = 16,
-                p_CLKOP_CPHASE = 9,
+                p_CLKOP_CPHASE = 15,
                 p_CLKOP_FPHASE = 0,
 
                 p_CLKOS_DIV = 10,
@@ -158,7 +158,7 @@ class LogicboneDomainGenerator(Elaboratable):
                 p_CLKOS_FPHASE=0,
                 p_CLKOS_CPHASE=5,
                 p_CLKOP_FPHASE=0,
-                p_CLKOP_CPHASE=5,
+                p_CLKOP_CPHASE=19,
                 p_PLL_LOCK_MODE=0,
                 p_CLKOS_TRIM_DELAY="0",
                 p_CLKOS_TRIM_POL="FALLING",
