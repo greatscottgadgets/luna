@@ -673,13 +673,13 @@ class ECP5SerDes(Elaboratable):
             p_CHX_REQ_LVL_SET       = "0b01",
             p_CHX_RX_RATE_SEL       = "0d09",   # Equalizer  pole position
             p_CHX_RTERM_RX          = {
-                "5k-ohms":        "0b00000",
-                "80-ohms":        "0b00001",
-                "75-ohms":        "0b00100",
-                "70-ohms":        "0b00110",
-                "60-ohms":        "0b01011",
-                "50-ohms":        "0b10011",
-                "46-ohms":        "0b11001",
+                "5k-ohms":        "0d0",
+                "80-ohms":        "0d1",
+                "75-ohms":        "0d4",
+                "70-ohms":        "0d6",
+                "60-ohms":        "0d11",
+                "50-ohms":        "0d19",
+                "46-ohms":        "0d25",
                 "wizard-50-ohms": "0d22"}["wizard-50-ohms"],
             p_CHX_RXIN_CM           = "0b11",   # CMFB (wizard value used)
             p_CHX_RXTERM_CM         = "0b10",   # RX Input (wizard value used)
@@ -775,13 +775,13 @@ class ECP5SerDes(Elaboratable):
 
             p_CHX_TXAMPLITUDE       = "0d1000",  # 1000 mV
             p_CHX_RTERM_TX          = {
-                "5k-ohms":        "0b00000",
-                "80-ohms":        "0b00001",
-                "75-ohms":        "0b00100",
-                "70-ohms":        "0b00110",
-                "60-ohms":        "0b01011",
-                "50-ohms":        "0b10011",
-                "46-ohms":        "0b11001",
+                "5k-ohms":        "0d0",
+                "80-ohms":        "0d1",
+                "75-ohms":        "0d4",
+                "70-ohms":        "0d6",
+                "60-ohms":        "0d11",
+                "50-ohms":        "0d19",
+                "46-ohms":        "0d25",
                 "wizard-50-ohms": "0d19"}["50-ohms"],
 
             p_CHX_TDRV_SLICE0_CUR   = "0b011",  # 400 uA
