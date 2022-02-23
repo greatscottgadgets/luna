@@ -60,7 +60,7 @@ class LogicboneDomainGenerator(Elaboratable):
                 o_LOCK=usb2_locked,
 
                 # PLL parameters...
-                p_PLLRST_ENA="DISABLED",
+                p_PLLRST_ENA="ENABLED",
                 p_INTFB_WAKE="DISABLED",
                 p_STDBY_ENABLE="DISABLED",
                 p_DPHASE_SOURCE="DISABLED",
@@ -147,7 +147,7 @@ class LogicboneDomainGenerator(Elaboratable):
 
                 # PLL parameters...
                 p_CLKI_DIV=1,
-                p_PLLRST_ENA="DISABLED",
+                p_PLLRST_ENA="ENABLED",
                 p_INTFB_WAKE="DISABLED",
                 p_STDBY_ENABLE="DISABLED",
                 p_DPHASE_SOURCE="DISABLED",
