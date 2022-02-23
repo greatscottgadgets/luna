@@ -42,7 +42,7 @@ class ILAExample(Elaboratable):
         m.submodules.car = platform.clock_domain_generator()
 
         # Clock divider / counter.
-        m.d.usb += self.counter.eq(self.counter + 1)
+        m.d.sync += self.counter.eq(self.counter + 1)
 
         # Say "hello world" constantly over our ILA...
         letters = Array(ord(i) for i in "Hello, world! \r\n")
@@ -54,6 +54,7 @@ class ILAExample(Elaboratable):
 
         # Set our ILA to trigger each time the counter is at a random value.
         # This shows off our example a bit better than counting at zero.
+        # The trigger should be in the sampling domain (`sync` in this case).
         m.d.comb += self.ila.trigger.eq(self.counter == 227)
 
         # Return our elaborated module.
