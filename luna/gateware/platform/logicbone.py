@@ -17,6 +17,7 @@ import os
 import subprocess
 
 from amaranth import *
+from amaranth.lib.cdc import ResetSynchronizer
 from amaranth.build import *
 from amaranth.vendor.lattice_ecp5 import *
 
@@ -209,12 +210,18 @@ class LogicboneDomainGenerator(Elaboratable):
         m.d.comb += [
             ClockSignal("sync")    .eq(ClockSignal("ss")),
 
-            ResetSignal("usb")     .eq(~usb2_locked),
-            ResetSignal("usb_io")  .eq(~usb2_locked),
-            ResetSignal("ss")      .eq(~usb3_locked),
-            ResetSignal("sync")    .eq(~usb3_locked),
-            ResetSignal("fast")    .eq(~usb3_locked),
+            # ResetSignal("usb")     .eq(~usb2_locked),
+            ResetSignal("usb_io")  .eq(ResetSignal("usb")),
+            # ResetSignal("ss")      .eq(~usb3_locked),
+            ResetSignal("sync")    .eq(ResetSignal("ss")),
+            ResetSignal("fast")    .eq(ResetSignal("ss")),
         ]
+
+        # LOCK is an asynchronous output of the EXHPLL block.
+        # Reset USB 2 and USB 3 domains together to avoid issues transferring data between these domains
+        # (e.g. when the ILA is being used).
+        m.submodules += ResetSynchronizer(~usb2_locked | ~usb3_locked, domain="usb")
+        m.submodules += ResetSynchronizer(~usb2_locked | ~usb3_locked, domain="ss")
 
         return m
 
