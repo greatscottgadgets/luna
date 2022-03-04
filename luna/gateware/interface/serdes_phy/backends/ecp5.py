@@ -18,7 +18,7 @@ from amaranth.lib.cdc import FFSynchronizer, ResetSynchronizer
 
 from ....usb.stream import USBRawSuperSpeedStream
 from ..datapath     import TransmitPreprocessing, ReceivePostprocessing
-from ..lfps         import LFPSSquareWaveDetector
+from ..lfps         import LFPSSquareWaveGenerator, LFPSSquareWaveDetector
 
 
 class ECP5SerDesPLLConfiguration:
@@ -910,13 +910,9 @@ class LunaECP5SerDes(Elaboratable):
         self.rx_idle                 = Signal()   # o
         self.rx_align                = Signal()   # i
 
-        # GPIO interface.
-        self.use_tx_as_gpio          = Signal()
-        self.tx_gpio                 = Signal()
-        self.rx_gpio                 = Signal()
-
-        # LFPS detection interface.
+        # LFPS interface.
         self.lfps_signaling_detected = Signal()
+        self.send_lfps_signaling     = Signal()
 
         # Debug interface.
         self.raw_rx_data    = Signal(16)
@@ -975,9 +971,6 @@ class LunaECP5SerDes(Elaboratable):
 
             tx_datapath.sink           .stream_eq(self.sink),
             serdes.sink                .stream_eq(tx_datapath.source),
-
-            serdes.tx_gpio_en          .eq(self.use_tx_as_gpio),
-            serdes.tx_gpio             .eq(self.tx_gpio)
         ]
 
 
@@ -997,7 +990,19 @@ class LunaECP5SerDes(Elaboratable):
         ]
 
         # Pass through a synchronized version of our SerDes' rx-gpio.
-        m.submodules += FFSynchronizer(serdes.rx_gpio, self.rx_gpio, o_domain="fast")
+        rx_gpio = Signal()
+        m.submodules += FFSynchronizer(serdes.rx_gpio, rx_gpio, o_domain="fast")
+
+
+        #
+        # LFPS Generation
+        #
+        m.submodules.lfps_generator = lfps_generator = LFPSSquareWaveGenerator(self._fast_clock_frequency, 25e6)
+        m.d.comb += [
+            serdes.tx_gpio_en             .eq(lfps_generator.tx_gpio_en),
+            serdes.tx_gpio                .eq(lfps_generator.tx_gpio),
+            lfps_generator.generate       .eq(self.send_lfps_signaling),
+        ]
 
 
         #
@@ -1005,7 +1010,7 @@ class LunaECP5SerDes(Elaboratable):
         #
         m.submodules.lfps_detector = lfps_detector = LFPSSquareWaveDetector(self._fast_clock_frequency)
         m.d.comb += [
-            lfps_detector.rx_gpio         .eq(self.rx_gpio),
+            lfps_detector.rx_gpio         .eq(rx_gpio),
             self.lfps_signaling_detected  .eq(lfps_detector.present)
         ]
 
