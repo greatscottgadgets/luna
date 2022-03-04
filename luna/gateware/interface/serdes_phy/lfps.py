@@ -323,6 +323,52 @@ class LFPSDetector(Elaboratable):
         return m
 
 
+class LFPSSquareWaveGenerator(Elaboratable):
+    """Generator that outputs LFPS square-wave patterns.
+    """
+    def __init__(self, fast_clk_freq, lfps_clk_freq):
+        self._clock_frequency = fast_clk_freq
+        self._lfps_clk_freq   = lfps_clk_freq
+
+        # Validate that our frequency is within the allowed bounds.
+        assert lfps_clk_freq >= _LFPS_CLK_FREQ_MIN
+        assert lfps_clk_freq <= _LFPS_CLK_FREQ_MAX
+
+        #
+        # I/O ports
+        #
+        self.generate   = Signal()        # i
+
+        self.tx_gpio_en = Signal(reset=1) # o
+        self.tx_gpio    = Signal()        # o
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        #
+        # LFPS square-wave generator.
+        #
+        timer_max = ceil(self._clock_frequency/(2*self._lfps_clk_freq)) - 1
+
+        square_wave  = Signal()
+        period_timer = Signal(range(0, timer_max + 1))
+
+        with m.If(period_timer == 0):
+            m.d.fast += [
+                square_wave    .eq(~square_wave),
+                period_timer   .eq(timer_max - 1)
+            ]
+        with m.Else():
+            m.d.fast += period_timer.eq(period_timer - 1)
+
+        m.d.comb += [
+            self.tx_gpio_en  .eq(self.generate),
+            self.tx_gpio     .eq(square_wave),
+        ]
+
+        return m
+
 
 class LFPSBurstGenerator(Elaboratable):
     """LFPS Burst Generator
