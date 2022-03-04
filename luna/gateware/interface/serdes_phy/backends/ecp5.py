@@ -402,6 +402,9 @@ class ECP5ResetSequencer(Elaboratable):
         # I/O port
         #
 
+        # Reset in.
+        self.reset             = Signal()
+
         # Status in.
         self.rx_pll_locked     = Signal()
         self.tx_pll_locked     = Signal()
@@ -424,7 +427,7 @@ class ECP5ResetSequencer(Elaboratable):
         #    We see this as the Rx PLL locking.
         # 3. Release the PCS reset.
 
-        with m.FSM(domain="fast"):
+        with m.FSM(domain="ss"):
 
             # Hold everything in reset, initially.
             with m.State("INITIAL_RESET"):
@@ -442,7 +445,7 @@ class ECP5ResetSequencer(Elaboratable):
             with m.State("WAIT_FOR_TRANSMITTER_STARTUP"):
                 m.d.comb += [
                     self.serdes_rx_reset  .eq(1),
-                    self.pcs_reset     .eq(1),
+                    self.pcs_reset        .eq(1),
                 ]
 
                 # We know the transmitter has started up once its PLL is locked.
@@ -464,7 +467,7 @@ class ECP5ResetSequencer(Elaboratable):
                 m.d.comb += self.complete.eq(1)
 
 
-        return m
+        return ResetInserter({"ss": self.reset})(m)
 
 
 class ECP5SerDes(Elaboratable):
@@ -494,6 +497,8 @@ class ECP5SerDes(Elaboratable):
         # Core Rx and Tx lines.
         self.sink   = USBRawSuperSpeedStream(payload_words=self._io_words)
         self.source = USBRawSuperSpeedStream(payload_words=self._io_words)
+
+        self.reset                  = Signal()
 
         # TX controls
         self.tx_enable              = Signal(reset=1)
@@ -566,6 +571,7 @@ class ECP5SerDes(Elaboratable):
         # The SerDes needs to be brought up gradually; we'll do that here.
         m.submodules.reset_sequencer = reset = ECP5ResetSequencer()
         m.d.comb += [
+            reset.reset          .eq(self.reset),
             reset.tx_pll_locked  .eq(~tx_lol),
             reset.rx_pll_locked  .eq(~rx_lol)
         ]
@@ -575,7 +581,7 @@ class ECP5SerDes(Elaboratable):
         m.domains.tx = ClockDomain()
         m.d.comb    += ClockSignal("tx").eq(txoutclk)
         m.submodules += [
-            ResetSynchronizer(ResetSignal("sync"), domain="tx"),
+            ResetSynchronizer(self.reset, domain="tx"),
             FFSynchronizer(~ResetSignal("tx"), self.tx_ready)
         ]
 
@@ -583,7 +589,7 @@ class ECP5SerDes(Elaboratable):
         m.domains.rx = ClockDomain()
         m.d.comb    += ClockSignal("rx").eq(rxoutclk)
         m.submodules += [
-            ResetSynchronizer(ResetSignal("sync"), domain="rx"),
+            ResetSynchronizer(self.reset, domain="rx"),
             FFSynchronizer(~ResetSignal("rx"), self.rx_ready)
         ]
 
@@ -598,8 +604,8 @@ class ECP5SerDes(Elaboratable):
             i_D_FFC_MACROPDB        = 1,
 
             # DCU — reset
-            i_D_FFC_MACRO_RST       = ResetSignal("sync"),
-            i_D_FFC_DUAL_RST        = ResetSignal("sync"),
+            i_D_FFC_MACRO_RST       = self.reset,
+            i_D_FFC_DUAL_RST        = self.reset,
 
             # DCU — clocking
             i_D_REFCLKI             = self._pll.refclk,
@@ -890,6 +896,7 @@ class LunaECP5SerDes(Elaboratable):
         self.sink                    = USBRawSuperSpeedStream()
         self.source                  = USBRawSuperSpeedStream()
 
+        self.reset                   = Signal()
         self.enable                  = Signal(reset=1) # i
         self.ready                   = Signal()        # o
 
@@ -952,8 +959,9 @@ class LunaECP5SerDes(Elaboratable):
         )
         m.submodules.serdes = serdes
         m.d.comb += [
+            serdes.reset            .eq(self.reset),
+            self.ready              .eq(serdes.tx_ready & serdes.rx_ready),
             serdes.train_equalizer  .eq(self.train_equalizer),
-            self.ready              .eq(serdes.tx_ready & serdes.rx_ready)
         ]
 
 
