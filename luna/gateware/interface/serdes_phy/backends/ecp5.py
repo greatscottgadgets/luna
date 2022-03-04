@@ -969,7 +969,7 @@ class LunaECP5SerDes(Elaboratable):
             serdes.tx_idle             .eq(self.tx_idle),
             serdes.tx_enable           .eq(self.enable),
 
-            tx_datapath.sink           .stream_eq(self.sink),
+            tx_datapath.sink           .stream_eq(self.sink, endian_swap=True),
             serdes.sink                .stream_eq(tx_datapath.source),
         ]
 
@@ -986,7 +986,7 @@ class LunaECP5SerDes(Elaboratable):
             rx_datapath.align       .eq(self.rx_align),
 
             rx_datapath.sink        .stream_eq(serdes.source),
-            self.source             .stream_eq(rx_datapath.source)
+            self.source             .stream_eq(rx_datapath.source, endian_swap=True)
         ]
 
         # Pass through a synchronized version of our SerDes' rx-gpio.
