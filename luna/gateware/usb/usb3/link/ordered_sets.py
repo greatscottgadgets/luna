@@ -228,7 +228,6 @@ class TSEmitter(Elaboratable):
 
         # Keep track of how many ordered sets we've sent.
         sent_ordered_sets = Signal(range(self._total_to_transmit))
-        m.d.comb += self.done.eq(sent_ordered_sets == self._total_to_transmit)
 
         with m.FSM(domain="ss"):
 
