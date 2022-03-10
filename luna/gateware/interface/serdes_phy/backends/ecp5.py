@@ -787,7 +787,7 @@ class ECP5SerDes(Elaboratable):
             p_CHX_ENABLE_CG_ALIGN   = "0b1",
 
             p_CHX_UDF_COMMA_MASK    = "0x0ff",  # compare the 8 lsbs
-            p_CHX_UDF_COMMA_A       = "0x003",   # "0b0000000011", # K28.1, K28.5 and K28.7
+            p_CHX_UDF_COMMA_A       = "0x083",   # "0b0010000011", # K28.1, K28.5 and K28.7
             p_CHX_UDF_COMMA_B       = "0x07c",   # "0b0001111100", # K28.1, K28.5 and K28.7
 
 
