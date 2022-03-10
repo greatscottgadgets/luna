@@ -92,7 +92,7 @@ class SerDesPHY(Elaboratable):
         self.rx_status        = Array((Signal(3), Signal(3)))
         self.rx_polarity      = Signal()
         self.rx_elecidle      = Signal()
-        self.rx_termination   = Signal()    # not supported
+        self.rx_termination   = Signal()
         self.rx_eq_training   = Signal()
 
 
@@ -126,6 +126,7 @@ class SerDesPHY(Elaboratable):
         m.d.comb += [
             self.rx_data                      .eq(self._serdes.source.data),
             self.rx_datak                     .eq(self._serdes.source.ctrl),
+            self._serdes.rx_termination       .eq(self.rx_termination),
             self._serdes.rx_polarity          .eq(self.rx_polarity),
             self._serdes.train_equalizer      .eq(self.rx_eq_training),
         ]

@@ -118,6 +118,7 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
         self.rx_polarity = Signal()
         self.tx_idle     = Signal()
         self.tx_polarity = Signal()
+        self.rx_termination = Signal()
 
 
     def elaborate(self, platform):
@@ -217,7 +218,35 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
                     sci.dat_w.eq(data),
                 ]
                 with m.If(self.loopback):
-                    m.d.comb += sci.dat_w[0:4].eq(0b0001) # lb_ctl
+                    m.d.comb += sci.dat_w[0:6].eq(0b110010) # lb_ctl
+
+                with m.If(~first & sci.done):
+                    m.d.comb += sci.we.eq(0)
+                    m.next = "READ-CH_17"
+
+            with m.State("READ-CH_17"):
+                m.d.ss   += first.eq(0)
+                m.d.comb += [
+                    sci.chan_sel.eq(1),
+                    sci.re.eq(1),
+                    sci.adr.eq(0x17),
+                ]
+
+                with m.If(~first & sci.done):
+                    m.d.ss   += first.eq(1)
+                    m.d.comb += sci.re.eq(0)
+                    m.d.ss += data.eq(sci.dat_r)
+                    m.next = "WRITE-CH_17"
+
+            with m.State("WRITE-CH_17"):
+                m.d.ss   += first.eq(0)
+                m.d.comb += [
+                    sci.chan_sel.eq(1),
+                    sci.we.eq(1),
+                    sci.adr.eq(0x17),
+                    sci.dat_w.eq(data),
+                ]
+                m.d.comb += sci.dat_w[0:5].eq(Mux(self.rx_termination, 22, 0))
 
                 with m.If(~first & sci.done):
                     m.d.comb += sci.we.eq(0)
@@ -517,7 +546,8 @@ class ECP5SerDes(Elaboratable):
         self.rx_ready               = Signal()
         self.rx_align               = Signal(reset=1)
         self.rx_idle                = Signal()
-        self.rx_invert              = Signal()
+        self.rx_polarity            = Signal()
+        self.rx_termination         = Signal(reset=1)
         self.rx_gpio                = Signal()
 
         # Loopback
@@ -591,6 +621,13 @@ class ECP5SerDes(Elaboratable):
         m.submodules += [
             ResetSynchronizer(self.reset, domain="rx"),
             FFSynchronizer(~ResetSignal("rx"), self.rx_ready)
+        ]
+
+        m.submodules.sci = sci = ECP5SerDesConfigInterface(self)
+        m.submodules.sci_trans = sci_trans = self.sci_trans = ECP5SerDesRegisterTranslator(self, sci)
+        m.d.comb += [
+            sci_trans.rx_polarity.eq(self.rx_polarity),
+            sci_trans.rx_termination.eq(self.rx_termination),
         ]
 
         #
@@ -686,7 +723,7 @@ class ECP5SerDes(Elaboratable):
                 "60-ohms":        "0d11",
                 "50-ohms":        "0d19",
                 "46-ohms":        "0d25",
-                "wizard-50-ohms": "0d22"}["wizard-50-ohms"],
+                "wizard-50-ohms": "0d22"}["5k-ohms"],
             p_CHX_RXIN_CM           = "0b11",   # CMFB (wizard value used)
             p_CHX_RXTERM_CM         = "0b10",   # RX Input (wizard value used)
 
@@ -815,15 +852,15 @@ class ECP5SerDes(Elaboratable):
             **{"i_CHX_FF_TX_D_%d" % n: tx_bus[n] for n in range(len(tx_bus))},
 
             # SCI interface.
-            #**{"i_D_SCIWDATA%d" % n: sci.sci_wdata[n] for n in range(8)},
-            #**{"i_D_SCIADDR%d"   % n: sci.sci_addr[n] for n in range(6)},
-            #**{"o_D_SCIRDATA%d" % n: sci.sci_rdata[n] for n in range(8)},
-            #i_D_SCIENAUX  = sci.dual_sel,
-            #i_D_SCISELAUX = sci.dual_sel,
-            #i_CHX_SCIEN   = sci.chan_sel,
-            #i_CHX_SCISEL  = sci.chan_sel,
-            #i_D_SCIRD     = sci.sci_rd,
-            #i_D_SCIWSTN   = sci.sci_wrn,
+            **{"i_D_SCIWDATA%d" % n: sci.sci_wdata[n] for n in range(8)},
+            **{"i_D_SCIADDR%d"   % n: sci.sci_addr[n] for n in range(6)},
+            **{"o_D_SCIRDATA%d" % n: sci.sci_rdata[n] for n in range(8)},
+            i_D_SCIENAUX  = sci.dual_sel,
+            i_D_SCISELAUX = sci.dual_sel,
+            i_CHX_SCIEN   = sci.chan_sel,
+            i_CHX_SCISEL  = sci.chan_sel,
+            i_D_SCIRD     = sci.sci_rd,
+            i_D_SCIWSTN   = sci.sci_wrn,
 
             # Out-of-band signaling Rx support.
             p_CHX_LDR_RX2CORE_SEL     = "0b1",            # Enables low-speed out-of-band input.
@@ -909,6 +946,7 @@ class LunaECP5SerDes(Elaboratable):
         self.rx_polarity             = Signal()   # i
         self.rx_idle                 = Signal()   # o
         self.rx_align                = Signal()   # i
+        self.rx_termination          = Signal(reset=1) # i
 
         # LFPS interface.
         self.lfps_signaling_detected = Signal()
@@ -958,6 +996,8 @@ class LunaECP5SerDes(Elaboratable):
             serdes.reset            .eq(self.reset),
             self.ready              .eq(serdes.tx_ready & serdes.rx_ready),
             serdes.train_equalizer  .eq(self.train_equalizer),
+            serdes.rx_polarity      .eq(self.rx_polarity),
+            serdes.rx_termination   .eq(self.rx_termination),
         ]
 
 
