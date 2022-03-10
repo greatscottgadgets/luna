@@ -14,6 +14,7 @@ This is a non-core platform. To use it, you'll need to set your LUNA_PLATFORM va
 from amaranth import *
 from amaranth.build import *
 from amaranth.vendor.lattice_ecp5 import LatticeECP5Platform
+from amaranth.lib.cdc import ResetSynchronizer
 
 from amaranth_boards.versa_ecp5_5g import VersaECP55GPlatform as _VersaECP55G
 from amaranth_boards.resources import *
@@ -47,7 +48,7 @@ class VersaDomainGenerator(Elaboratable):
 
         # Generate the clocks we need for running our SerDes.
         feedback = Signal()
-        locked   = Signal()
+        usb3_locked = Signal()
         m.submodules.pll = Instance("EHXPLLL",
 
                 # Clock in.
@@ -59,7 +60,7 @@ class VersaDomainGenerator(Elaboratable):
                 o_CLKOS2=ClockSignal("fast"),
 
                 # Status.
-                o_LOCK=locked,
+                o_LOCK=usb3_locked,
 
                 # PLL parameters...
                 p_CLKI_DIV=1,
@@ -201,13 +202,17 @@ class VersaDomainGenerator(Elaboratable):
         m.d.comb += [
             ClockSignal("ss")      .eq(ClockSignal("sync")),
 
-            ResetSignal("ss")      .eq(~locked),
-            ResetSignal("sync")    .eq(~locked),
-            ResetSignal("fast")    .eq(~locked),
+            # ResetSignal("ss")      .eq(~usb3_locked),
+            ResetSignal("sync")    .eq(ResetSignal("ss")),
+            ResetSignal("fast")    .eq(ResetSignal("ss")),
 
-            ResetSignal("usb")     .eq(~usb2_locked),
-            ResetSignal("usb_io")  .eq(~usb2_locked),
+            # ResetSignal("usb")     .eq(~usb2_locked),
+            ResetSignal("usb_io")  .eq(ResetSignal("usb")),
         ]
+
+        # LOCK is an asynchronous output of the EXHPLL block.
+        m.submodules += ResetSynchronizer(~usb2_locked, domain="usb")
+        m.submodules += ResetSynchronizer(~usb3_locked, domain="ss")
 
         return m
 
