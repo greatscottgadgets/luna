@@ -568,7 +568,7 @@ class ECP5SerDes(Elaboratable):
         # Internal state.
         rx_los     = Signal()
         rx_lol     = Signal()
-        rx_lsm     = Signal()
+        rx_err     = Signal()
         rx_align   = Signal()
         rx_bus     = Signal(24)
 
@@ -634,6 +634,9 @@ class ECP5SerDes(Elaboratable):
         # Core SerDes instantiation.
         #
         serdes_params = dict(
+            # Note that Lattice Diamond needs these parameters in their provided bases (and string lengths!).
+            # Changing their bases will work with the open toolchain, but will make Diamond mad.
+
             # DCU — power management
             p_D_MACROPDB            = "0b1",
             p_D_IB_PWDNB            = "0b1",    # undocumented (required for RX)
@@ -777,14 +780,16 @@ class ECP5SerDes(Elaboratable):
             # CHX RX — loss of lock
             o_CHX_FFS_RLOL          = rx_lol,
 
-            # CHX RX — link state machine
-            # Note that Lattice Diamond needs these in their provided bases (and string lengths!).
-            # Changing their bases will work with the open toolchain, but will make Diamond mad.
-            i_CHX_FFC_SIGNAL_DETECT = rx_align,
-
-            o_CHX_FFS_LS_SYNC_STATUS= rx_lsm,
-
-            p_CHX_ENABLE_CG_ALIGN   = "0b1",
+            # CHX RX — comma alignment
+            # In the User Configured mode (generic 8b10b), the link state machine must be disabled
+            # using CHx_LSM_DISABLE, or the CHx_FFC_ENABLE_CGALIGN and CHx_FFC_CR_EN_BITSLIP inputs
+            # will not affect the WA and CDR.
+            p_CHX_LSM_DISABLE       = "0b1",
+            # The CHx_FFC_ENABLE_CGALIGN input is edge-sensitive; a posedge enables the word aligner,
+            # which, once it discovers a comma, configures the barrel shifter and disables itself.
+            # A constant level on this input does not affect WA; neither does the CHx_ENABLE_CG_ALIGN
+            # parameter.
+            i_CHX_FFC_ENABLE_CGALIGN= rx_align & rx_err,
 
             p_CHX_UDF_COMMA_MASK    = "0x0ff",  # compare the 8 lsbs
             p_CHX_UDF_COMMA_A       = "0x083",   # "0b0010000011", # K28.1, K28.5 and K28.7
@@ -882,6 +887,13 @@ class ECP5SerDes(Elaboratable):
         serdes.attrs["CHAN"] = "CH{}".format(self._channel)
         serdes.attrs["BEL"] = "X42/Y71/DCU"
 
+        # SerDes decodes invalid 10b symbols to 0xEE with control bit set, which is not a part
+        # of the 8b10b encoding space. We use it to drive the comma aligner.
+        m.d.comb += [
+            rx_err.eq(rx_bus[8]  & (rx_bus[ 0: 8] == 0xee) |
+                      rx_bus[20] & (rx_bus[12:20] == 0xee)),
+        ]
+
         #
         # TX and RX datapaths (SerDes <-> stream conversion)
         #
@@ -945,7 +957,7 @@ class LunaECP5SerDes(Elaboratable):
 
         self.rx_polarity             = Signal()   # i
         self.rx_idle                 = Signal()   # o
-        self.rx_align                = Signal()   # i
+        self.rx_align                = Signal(reset=1) # i
         self.rx_termination          = Signal(reset=1) # i
 
         # LFPS interface.
