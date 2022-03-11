@@ -791,9 +791,9 @@ class ECP5SerDes(Elaboratable):
             # parameter.
             i_CHX_FFC_ENABLE_CGALIGN= rx_align & rx_err,
 
-            p_CHX_UDF_COMMA_MASK    = "0x0ff",  # compare the 8 lsbs
-            p_CHX_UDF_COMMA_A       = "0x083",   # "0b0010000011", # K28.1, K28.5 and K28.7
-            p_CHX_UDF_COMMA_B       = "0x07c",   # "0b0001111100", # K28.1, K28.5 and K28.7
+            p_CHX_UDF_COMMA_MASK    = "0x3ff",  # compare all bits
+            p_CHX_UDF_COMMA_A       = "0x283",   # "0b1010000011", # K28.5
+            p_CHX_UDF_COMMA_B       = "0x17c",   # "0b0101111100", # K28.5
 
 
             p_CHX_CTC_BYPASS        = "0b1",    # bypass CTC FIFO
