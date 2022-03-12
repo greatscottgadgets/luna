@@ -402,8 +402,12 @@ class RxTrainingWordAligner(Elaboratable):
         stream_out  = self.source
 
         # Values from previous cycles.
-        previous_data = Past(stream_in.data, domain="ss")
-        previous_ctrl = Past(stream_in.ctrl, domain="ss")
+        previous_data = Signal.like(stream_in.data)
+        previous_ctrl = Signal.like(stream_in.ctrl)
+
+        with m.If(stream_in.valid):
+            m.d.ss += previous_data.eq(stream_in.data)
+            m.d.ss += previous_ctrl.eq(stream_in.ctrl)
 
         # Alignment register: stores how many words the data must be shifted by in order to
         # have correctly aligned data.
@@ -460,7 +464,7 @@ class RxTrainingWordAligner(Elaboratable):
             # We're part of a chain that always produces data (currently);
             # so for now, we'll always indicate our data is valid. This may
             # need to be changed if we add in nicer CTC.
-            stream_out.valid .eq(1),
+            stream_out.valid .eq(stream_in.valid),
 
             # Debug output.
             self.alignment_offset.eq(shift_to_apply)
