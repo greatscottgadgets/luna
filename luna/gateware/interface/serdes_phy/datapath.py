@@ -106,31 +106,30 @@ class ReceiverGearbox(Elaboratable):
         ctrl_out_halves = Array(stream_out.ctrl.word_select(i, self._ctrl_bits_in) for i in range(2))
 
         # Word select -- selects whether we're targeting the upper or lower half of the output word.
-        # Toggles every input-domain cycle.
         targeting_upper_half = Signal(reset=1 if self._flip_bytes else 0)
-        m.d.sync += targeting_upper_half.eq(~targeting_upper_half)
+        with m.If(stream_in.valid):
+            # Toggles every input-domain cycle.
+            m.d.sync += targeting_upper_half.eq(~targeting_upper_half)
 
-        # Pass through our data and control every cycle.
-        m.d.sync += [
-            data_out_halves[targeting_upper_half]  .eq(stream_in_data),
-            ctrl_out_halves[targeting_upper_half]  .eq(stream_in_ctrl),
-        ]
+            # Pass through our data and control every cycle.
+            m.d.sync += [
+                data_out_halves[targeting_upper_half]  .eq(stream_in_data),
+                ctrl_out_halves[targeting_upper_half]  .eq(stream_in_ctrl),
+            ]
 
         # Set our valid signal high only if both the current and previously captured word are valid.
         m.d.comb += [
-            stream_out.valid  .eq(stream_in.valid & Past(stream_in.valid, domain=self._input_domain))
+            stream_out.valid  .eq(stream_in.valid & targeting_upper_half)
         ]
 
         if self._input_domain != self._output_domain:
             in_domain_signals  = Cat(
                 stream_out.data,
                 stream_out.ctrl,
-                stream_out.valid
             )
             out_domain_signals = Cat(
                 self.source.data,
                 self.source.ctrl,
-                self.source.valid
             )
 
             # Create our async FIFO...
@@ -144,12 +143,12 @@ class ReceiverGearbox(Elaboratable):
             m.d.comb += [
                 # ... fill it from our in-domain stream...
                 fifo.w_data             .eq(in_domain_signals),
-                fifo.w_en               .eq(targeting_upper_half),
+                fifo.w_en               .eq(stream_out.valid),
 
                 # ... and output it into our output stream.
                 out_domain_signals      .eq(fifo.r_data),
-                self.source.valid       .eq(fifo.r_level > 2),
                 fifo.r_en               .eq(1),
+                self.source.valid       .eq(fifo.r_rdy),
             ]
 
 
