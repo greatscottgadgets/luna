@@ -195,7 +195,7 @@ class USB3PhysicalLayer(Elaboratable):
             # Connect our PHY's receive data directly to our CTC hardware.
             rx_ctc.sink.data   .eq(phy.rx_data),
             rx_ctc.sink.ctrl   .eq(phy.rx_datak),
-            rx_ctc.sink.valid  .eq(1),
+            rx_ctc.sink.valid  .eq(phy.rx_valid),
 
             # Diagnostic output.
             self.skip_removed         .eq(rx_ctc.skip_removed),

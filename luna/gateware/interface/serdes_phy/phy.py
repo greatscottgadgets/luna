@@ -126,6 +126,7 @@ class SerDesPHY(Elaboratable):
         m.d.comb += [
             self.rx_data                      .eq(self._serdes.source.data),
             self.rx_datak                     .eq(self._serdes.source.ctrl),
+            self.rx_valid                     .eq(self._serdes.source.valid),
             self._serdes.rx_termination       .eq(self.rx_termination),
             self._serdes.rx_polarity          .eq(self.rx_polarity),
             self._serdes.train_equalizer      .eq(self.rx_eq_training),
