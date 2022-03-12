@@ -752,8 +752,6 @@ class ECP5SerDes(Elaboratable):
             p_CHX_FF_RX_F_CLK_DIS   = "0b1",    # disable DIV/1 output clock
             p_CHX_SEL_SD_RX_CLK     = "0b1",    # FIFO driven by recovered clock
 
-            p_CHX_PDEN_SEL          = "0b1",    # phase detector disabled on LOS
-
             # begin undocumented (Clarity Designer values for 5 Gbps PCIe used)
             p_CHX_DCOATDCFG         = "0b00",
             p_CHX_DCOATDDLY         = "0b00",
@@ -783,12 +781,14 @@ class ECP5SerDes(Elaboratable):
             # end undocumented
 
             # CHX RX — loss of signal
+            # Undocumented values were taken from Clarity Designer output for 5 Gbps PCIe
             o_CHX_FFS_RLOS          = rx_los,
             p_CHX_RLOS_SEL          = "0b1",
-            p_CHX_RX_LOS_EN         = "0b0",
-            p_CHX_RX_LOS_LVL        = "0b101",  # Lattice "TBD" (wizard value used)
-            p_CHX_RX_LOS_CEQ        = "0b11",   # Lattice "TBD" (wizard value used)
-            p_CHX_RX_LOS_HYST_EN    = "0b1",
+            p_CHX_RX_LOS_EN         = "0b1",
+            p_CHX_RX_LOS_LVL        = "0b100",  # Values documented as "TBD"
+            p_CHX_RX_LOS_CEQ        = "0b11",   # Values documented as "TBD"
+            p_CHX_RX_LOS_HYST_EN    = "0b0",
+            p_CHX_PDEN_SEL          = "0b1",    # phase detector disabled on LOS
 
             # CHX RX — loss of lock
             o_CHX_FFS_RLOL          = rx_lol,
