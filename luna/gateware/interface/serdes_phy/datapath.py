@@ -622,8 +622,8 @@ class TransmitterGearbox(Elaboratable):
             m.d.comb += [
                 # ... fill it from our in-domain stream...
                 fifo.w_data             .eq(in_domain_signals),
-                fifo.w_en               .eq(1),
-                self.sink.ready         .eq(1),
+                fifo.w_en               .eq(self.sink.valid),
+                self.sink.ready         .eq(fifo.w_rdy),
 
                 # ... and output it into our output stream.
                 out_domain_signals      .eq(fifo.r_data),
@@ -634,7 +634,9 @@ class TransmitterGearbox(Elaboratable):
         # Otherwise, use our data-stream directly.
         else:
             stream_in = self.sink
-            m.d.comb += self.sink.ready.eq(1)
+
+            # Read from our input stream only ever other cycle.
+            m.d.tx += self.sink.ready.eq(~self.sink.ready)
 
 
         # Word select -- selects whether we're targeting the upper or lower half of the input word.
