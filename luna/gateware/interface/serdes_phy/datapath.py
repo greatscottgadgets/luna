@@ -646,8 +646,8 @@ class TransmitterGearbox(Elaboratable):
 
         # If our data has just changed, we should always be targeting the upper word.
         # This "locks" us to the data's changes.
-        data_changed = stream_in.data != Past(stream_in.data, domain="tx")
-        ctrl_changed = stream_in.ctrl != Past(stream_in.ctrl, domain="tx")
+        data_changed = stream_in.data != Past(stream_in.data, domain=self._output_domain)
+        ctrl_changed = stream_in.ctrl != Past(stream_in.ctrl, domain=self._output_domain)
         with m.If(data_changed | ctrl_changed):
             m.d.comb += targeting_upper_half  .eq(1 if self._flip_bytes else 0)
             m.d.tx   += next_half_targeted    .eq(0 if self._flip_bytes else 1)
