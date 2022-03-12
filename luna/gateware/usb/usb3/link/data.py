@@ -470,11 +470,14 @@ class DataPacketTransmitter(Elaboratable):
         direction       = Signal.like(self.direction)
 
 
-        # For now, we'll pass our data stream through unmodified.
+        # For now, we'll pass our data stream through unmodified; only buffered to improve
+        # timing.
         #
         # We'll keep this architecture; as later code is likely to want to more actively
         # control when data is passed through to the transmitter.
-        m.d.comb += data_source.stream_eq(data_sink)
+        with m.If(~data_source.valid.any() | data_source.ready):
+            m.d.ss   += data_source.stream_eq(data_sink, omit={'ready'})
+            m.d.comb += data_sink.ready.eq(1)
 
 
         with m.FSM(domain="ss"):
