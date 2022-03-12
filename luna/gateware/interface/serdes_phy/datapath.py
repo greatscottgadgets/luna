@@ -521,22 +521,22 @@ class ReceivePostprocessing(Elaboratable):
         #
         # Word aligner.
         #
-        #m.submodules.word_aligner = word_aligner = RxWordAligner()
-        m.submodules.word_aligner = word_aligner = RxTrainingWordAligner()
-        m.d.comb += [
-            #  Core outputs
-            word_aligner.align      .eq(self.align),
-            word_aligner.sink       .stream_eq(gearing.source),
-
-            # Debug output.
-            self.alignment_offset   .eq(word_aligner.alignment_offset)
-
-        ]
+        # # m.submodules.word_aligner = word_aligner = RxWordAligner()
+        # m.submodules.word_aligner = word_aligner = RxTrainingWordAligner()
+        # m.d.comb += [
+        #     #  Core outputs
+        #     word_aligner.align      .eq(self.align),
+        #     word_aligner.sink       .stream_eq(gearing.source),
+        #
+        #     # Debug output.
+        #     self.alignment_offset   .eq(word_aligner.alignment_offset)
+        #
+        # ]
 
         #
         # Final output.
         #
-        m.d.comb += self.source.stream_eq(word_aligner.source)
+        m.d.comb += self.source.stream_eq(gearing.source)
 
         return m
 
