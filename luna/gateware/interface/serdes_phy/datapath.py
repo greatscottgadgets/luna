@@ -901,20 +901,12 @@ class TransmitPreprocessing(Elaboratable):
         m = Module()
 
         #
-        # Clock tolerance compensation (& clock-domain crossing)
+        # Output gearing (& clock-domain crossing)
         #
-        m.submodules.buffer = buffer = ElasticBuffer(
-            words         = 4,
+        m.submodules.gearing = gearing = TransmitterGearbox(
             output_domain = "tx",
-            input_domain  = "ss",
-        )
-        m.d.comb += buffer.sink.stream_eq(self.sink)
-
-        #
-        # Output gearing
-        #
-        m.submodules.gearing = gearing = TransmitterGearbox()
-        m.d.comb += gearing.sink.stream_eq(buffer.source)
+            input_domain  = "ss")
+        m.d.comb += gearing.sink.stream_eq(self.sink)
 
         #
         # Final output
