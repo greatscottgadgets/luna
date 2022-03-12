@@ -821,11 +821,74 @@ class TXSKPInserter(Elaboratable):
         return m
 
 
+class ElasticBuffer(Elaboratable):
+    def __init__(self, words, output_domain="tx", input_domain="ss"):
+        self._words           = words
+        self._output_domain   = output_domain
+        self._input_domain    = input_domain
+
+        #
+        # I/O port
+        #
+        self.sink   = USBRawSuperSpeedStream(payload_words=self._words)
+        self.source = USBRawSuperSpeedStream(payload_words=self._words)
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        in_domain_signals  = Cat(
+            self.sink.data,
+            self.sink.ctrl,
+        )
+        out_domain_signals = Cat(
+            self.source.data,
+            self.source.ctrl,
+        )
+
+        m.submodules.cdc = fifo = AsyncFIFOBuffered(
+            width=len(in_domain_signals),
+            depth=16,
+            w_domain=self._input_domain,
+            r_domain=self._output_domain,
+        )
+
+        def is_skp(data_ctrl):
+            return data_ctrl == Cat(Repl(SKP.value_const(), self._words),
+                                    Repl(SKP.ctrl_const(), self._words))
+
+        half_full  = (fifo.w_level > fifo.depth // 2)
+        in_skp     = is_skp(fifo.w_data)
+        half_empty = (fifo.r_level < fifo.depth // 2)
+        out_skp    = is_skp(fifo.r_data)
+
+        underflow  = Signal(reset=1)
+        with m.If(underflow):
+            m.d[self._output_domain] += underflow.eq(fifo.r_level < fifo.depth // 2)
+        with m.Else():
+            m.d[self._output_domain] += underflow.eq(fifo.r_level == 0)
+
+        m.d.comb += [
+            fifo.w_data             .eq(in_domain_signals),
+            self.sink.ready         .eq(fifo.w_rdy),
+            fifo.w_en               .eq(self.sink.valid & ~(half_full & in_skp)),
+        ]
+
+        m.d.comb += [
+            out_domain_signals      .eq(fifo.r_data),
+            self.source.valid       .eq(~underflow & fifo.r_rdy),
+            fifo.r_en               .eq(~underflow & self.source.ready & ~(half_empty & out_skp)),
+        ]
+
+        return m
+
+
+
 class TransmitPreprocessing(Elaboratable):
     """TX Datapath
 
     This module realizes the:
-    - Clock compensation (SKP insertion).
+    - Clock compensation (SKP insertion/removal).
     - Clock domain crossing (from system clock to transceiver's TX clock).
     - Data-width adaptation (from 32-bit to transceiver's data-width).
     """
@@ -838,21 +901,20 @@ class TransmitPreprocessing(Elaboratable):
         m = Module()
 
         #
-        # Clock tolerance compensation
+        # Clock tolerance compensation (& clock-domain crossing)
         #
-        #m.submodules.skip_inserter = skip_inserter = TXSKPInserter()
-        #m.d.comb += skip_inserter.sink.stream_eq(self.sink)
-
-
-        #
-        # Output gearing (& clock-domain crossing)
-        #
-        m.submodules.gearing = gearing = TransmitterGearbox(
+        m.submodules.buffer = buffer = ElasticBuffer(
+            words         = 4,
             output_domain = "tx",
             input_domain  = "ss",
         )
-        m.d.comb += gearing.sink.stream_eq(self.sink)
-        #self.comb += gearing.sink.stream_eq(skip_inserter.source)
+        m.d.comb += buffer.sink.stream_eq(self.sink)
+
+        #
+        # Output gearing
+        #
+        m.submodules.gearing = gearing = TransmitterGearbox()
+        m.d.comb += gearing.sink.stream_eq(buffer.source)
 
         #
         # Final output
