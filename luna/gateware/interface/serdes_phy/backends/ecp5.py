@@ -666,10 +666,10 @@ class ECP5SerDes(Elaboratable):
                  1: "0b000"}[1],                # DIV/1
             p_D_BITCLK_LOCAL_EN     = "0b1",    # Use clock from local PLL
 
-
             # Clock multiplier unit configuration
-            p_D_CMUSETBIASI         = "0b00",   # begin undocumented (10BSER sample code used)
-            p_D_CMUSETI4CPP         = "0d3",
+            # begin undocumented (Clarity Designer values for 5 Gbps PCIe used)
+            p_D_CMUSETBIASI         = "0b00",
+            p_D_CMUSETI4CPP         = "0d4",
             p_D_CMUSETI4CPZ         = "0d3",
             p_D_CMUSETI4VCO         = "0b00",
             p_D_CMUSETICP4P         = "0b01",
@@ -678,21 +678,24 @@ class ECP5SerDes(Elaboratable):
             p_D_CMUSETISCL4VCO      = "0b000",
             p_D_CMUSETP1GM          = "0b000",
             p_D_CMUSETP2AGM         = "0b000",
-            p_D_CMUSETZGM           = "0b000",
-
-            p_D_SETIRPOLY_AUX       = "0b01",
-            p_D_SETICONST_AUX       = "0b01",
-            p_D_SETIRPOLY_CH        = "0b01",
-            p_D_SETICONST_CH        = "0b10",
-            p_D_SETPLLRC            = "0d1",
-            p_D_RG_EN               = "0b0",
-            p_D_RG_SET              = "0b00",
-            p_D_REQ_ISET            = "0b011",
-            p_D_PD_ISET             = "0b11",   # end undocumented
+            p_D_CMUSETZGM           = "0b100",
+            # end undocumented
 
             # DCU — FIFOs
             p_D_LOW_MARK            = "0d4",    # Clock compensation FIFO low  water mark (mean=8)
             p_D_HIGH_MARK           = "0d12",   # Clock compensation FIFO high water mark (mean=8)
+
+            # DCU — unknown
+            # begin undocumented (Clarity Designer values for 5 Gbps PCIe used)
+            p_D_PD_ISET             = "0b11",
+            p_D_RG_EN               = "0b0",
+            p_D_RG_SET              = "0b00",
+            p_D_SETICONST_AUX       = "0b01",
+            p_D_SETICONST_CH        = "0b10",
+            p_D_SETIRPOLY_AUX       = "0b10",
+            p_D_SETIRPOLY_CH        = "0b10",
+            p_D_SETPLLRC            = "0d1",
+            # end undocumented
 
             # CHX common ---------------------------------------------------------------------------
             # CHX — protocol
@@ -703,18 +706,19 @@ class ECP5SerDes(Elaboratable):
             p_CHX_DEC_BYPASS        = "0b0",    # Use the 8b10b decoder
 
             # CHX receive --------------------------------------------------------------------------
-            # CHX RX ­— power management
+            # CHX RX — power management
             p_CHX_RPWDNB            = "0b1",
             i_CHX_FFC_RXPWDNB       = 1,
 
-            # CHX RX ­— reset
+            # CHX RX — reset
             i_CHX_FFC_RRST          = ~self.rx_enable | reset.serdes_rx_reset,
             i_CHX_FFC_LANE_RX_RST   = ~self.rx_enable | reset.pcs_reset,
 
-            # CHX RX ­— input
+            # CHX RX — input
             i_CHX_HDINP             = self._rx_pads.p,
             i_CHX_HDINN             = self._rx_pads.n,
 
+            p_D_REQ_ISET            = "0b011",  # Undocumented, needs to be 010 or 011
             p_CHX_REQ_EN            = "0b1",    # Enable equalizer
             p_CHX_REQ_LVL_SET       = "0b01",
             p_CHX_RX_RATE_SEL       = "0d09",   # Equalizer  pole position
@@ -730,7 +734,7 @@ class ECP5SerDes(Elaboratable):
             p_CHX_RXIN_CM           = "0b11",   # CMFB (wizard value used)
             p_CHX_RXTERM_CM         = "0b10",   # RX Input (wizard value used)
 
-            # CHX RX ­— clocking
+            # CHX RX — clocking
             i_CHX_RX_REFCLK         = self._pll.refclk,
             o_CHX_FF_RX_PCLK        = rxoutclk,
             i_CHX_FF_RXI_CLK        = ClockSignal("rx"),
@@ -748,28 +752,37 @@ class ECP5SerDes(Elaboratable):
             p_CHX_FF_RX_F_CLK_DIS   = "0b1",    # disable DIV/1 output clock
             p_CHX_SEL_SD_RX_CLK     = "0b1",    # FIFO driven by recovered clock
 
-            p_CHX_AUTO_FACQ_EN      = "0b1",    # undocumented (wizard value used)
-            p_CHX_AUTO_CALIB_EN     = "0b1",    # undocumented (wizard value used)
-            p_CHX_PDEN_SEL          = "0b0",    # phase detector disabled on LOS
+            p_CHX_PDEN_SEL          = "0b1",    # phase detector disabled on LOS
 
-            p_CHX_DCOATDCFG         = "0b00",   # begin undocumented (sample code used)
+            # begin undocumented (Clarity Designer values for 5 Gbps PCIe used)
+            p_CHX_DCOATDCFG         = "0b00",
             p_CHX_DCOATDDLY         = "0b00",
             p_CHX_DCOBYPSATD        = "0b1",
-            p_CHX_DCOCALDIV         = "0b000",
+            p_CHX_DCOCALDIV         = "0b010",
             p_CHX_DCOCTLGI          = "0b011",
-            p_CHX_DCODISBDAVOID     = "0b0",
+            p_CHX_DCODISBDAVOID     = "0b1",
             p_CHX_DCOFLTDAC         = "0b00",
             p_CHX_DCOFTNRG          = "0b001",
             p_CHX_DCOIOSTUNE        = "0b010",
             p_CHX_DCOITUNE          = "0b00",
             p_CHX_DCOITUNE4LSB      = "0b010",
             p_CHX_DCOIUPDNX2        = "0b1",
-            p_CHX_DCONUOFLSB        = "0b100",
+            p_CHX_DCONUOFLSB        = "0b101",
             p_CHX_DCOSCALEI         = "0b01",
             p_CHX_DCOSTARTVAL       = "0b010",
-            p_CHX_DCOSTEP           = "0b11",   # end undocumented
+            p_CHX_DCOSTEP           = "0b11",
+            p_CHX_BAND_THRESHOLD    = "0d0",
+            p_CHX_AUTO_FACQ_EN      = "0b1",
+            p_CHX_AUTO_CALIB_EN     = "0b1",
+            p_CHX_CALIB_CK_MODE     = "0b1",
+            p_D_DCO_CALIB_TIME_SEL  = "0b00",
+            p_CHX_REG_BAND_OFFSET   = "0d0",
+            p_CHX_REG_BAND_SEL      = "0d0",
+            p_CHX_REG_IDAC_SEL      = "0d0",
+            p_CHX_REG_IDAC_EN       = "0b0",
+            # end undocumented
 
-            # CHX RX — loss of signal
+            # CHX RX — loss of signal
             o_CHX_FFS_RLOS          = rx_los,
             p_CHX_RLOS_SEL          = "0b1",
             p_CHX_RX_LOS_EN         = "0b0",
@@ -779,6 +792,9 @@ class ECP5SerDes(Elaboratable):
 
             # CHX RX — loss of lock
             o_CHX_FFS_RLOL          = rx_lol,
+            # USB requires the use of spread spectrum clocking, modulating the frequency from
+            # +0 to -5000 ppm of the base 5 GHz clock.
+            p_D_CDR_LOL_SET         = "0b10",   # ±4000 ppm lock, ±7000 ppm unlock
 
             # CHX RX — comma alignment
             # In the User Configured mode (generic 8b10b), the link state machine must be disabled
@@ -813,11 +829,11 @@ class ECP5SerDes(Elaboratable):
             p_CHX_TPWDNB            = "0b1",
             i_CHX_FFC_TXPWDNB       = 1,
 
-            # CHX TX ­— reset
+            # CHX TX — reset
             i_D_FFC_TRST            = ~self.tx_enable | reset.serdes_tx_reset,
             i_CHX_FFC_LANE_TX_RST   = ~self.tx_enable | reset.pcs_reset,
 
-            # CHX TX ­— output
+            # CHX TX — output
             o_CHX_HDOUTP            = self._tx_pads.p,
             o_CHX_HDOUTN            = self._tx_pads.n,
 
@@ -845,7 +861,7 @@ class ECP5SerDes(Elaboratable):
             p_CHX_TDRV_SLICE5_CUR   = "0b00",   # 800 uA
             p_CHX_TDRV_SLICE5_SEL   = "0b00",   # power down
 
-            # CHX TX ­— clocking
+            # CHX TX — clocking
             o_CHX_FF_TX_PCLK        = txoutclk,
             i_CHX_FF_TXI_CLK        = ClockSignal("tx"),
 
