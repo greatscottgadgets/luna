@@ -78,6 +78,7 @@ class LTSSMController(Elaboratable):
         self.tx_electrical_idle        = Signal()
         self.engage_terminations       = Signal()
         self.invert_rx_polarity        = Signal()
+        self.disable_scrambling        = Signal()
 
         # Receiver detection.
         self.perform_rx_detection      = Signal()
@@ -105,6 +106,7 @@ class LTSSMController(Elaboratable):
         self.send_ts2_burst            = Signal()
         self.ts_burst_complete         = Signal()
         self.request_hot_reset         = Signal()
+        self.request_no_scrambling     = Signal()
 
         # Late-stage link management; physical layer control.
         self.enable_scrambling         = Signal()
@@ -239,36 +241,39 @@ class LTSSMController(Elaboratable):
 
         # Ensure we enter Polling.Active with fresh device state.
         tasks_on_entry['Polling.Active'] = [
-            ts2_seen                 .eq(0),
-            hot_reset_seen           .eq(0),
-            loopback_seen            .eq(0),
-            disable_scrambling_seen  .eq(0),
-            burst_minimum_met        .eq(0)
+            ts2_seen                  .eq(0),
+            hot_reset_seen            .eq(0),
+            loopback_seen             .eq(0),
+            disable_scrambling_seen   .eq(0),
+            self.request_no_scrambling.eq(self.disable_scrambling),
+            burst_minimum_met         .eq(0)
         ]
 
 
         # Clear our previous training state on entering recovery.
         tasks_on_entry['Recovery.Active'] = [
-            ts2_seen                 .eq(0),
-            hot_reset_seen           .eq(0),
-            loopback_seen            .eq(0),
-            disable_scrambling_seen  .eq(0),
-            burst_minimum_met        .eq(0)
+            ts2_seen                  .eq(0),
+            hot_reset_seen            .eq(0),
+            loopback_seen             .eq(0),
+            disable_scrambling_seen   .eq(0),
+            self.request_no_scrambling.eq(self.disable_scrambling),
+            burst_minimum_met         .eq(0)
         ]
 
         # Ensure we enter our primary training sequence with a fresh view of whether we've
         # seen any of our training sets.
         tasks_on_entry['Polling.RxEQ'] = [
-            ts2_seen                 .eq(0),
-            hot_reset_seen           .eq(0),
-            disable_scrambling_seen  .eq(0),
+            ts2_seen                  .eq(0),
+            hot_reset_seen            .eq(0),
+            disable_scrambling_seen   .eq(0),
+            self.request_no_scrambling.eq(self.disable_scrambling),
         ]
 
 
         # Clear our previous training state on entering recovery.
         tasks_on_entry['Hot Reset.Active'] = [
-            ts2_seen                 .eq(0),
-            self.request_hot_reset   .eq(1)
+            ts2_seen                  .eq(0),
+            self.request_hot_reset    .eq(1)
         ]
 
 
@@ -387,7 +392,7 @@ class LTSSMController(Elaboratable):
                 # Continuously send TSEQs; these are used to perform receiver equalization training.
                 m.d.comb += self.send_tseq_burst.eq(1)
 
-                # Once we've sent a full burst of 35536 TSEQs, we can begin our link training handshake.
+                # Once we've sent a full burst of 65536 TSEQs, we can begin our link training handshake.
                 with m.If(self.ts_burst_complete):
                     transition_to_state("Polling.Active")
 
@@ -477,7 +482,7 @@ class LTSSMController(Elaboratable):
 
                 m.d.comb += [
                     # From this state onward, we have an active link, and we can thus enable data scrambling.
-                    self.enable_scrambling       .eq(~disable_scrambling_seen),
+                    self.enable_scrambling       .eq(~self.request_no_scrambling & ~disable_scrambling_seen),
 
                     # Generate our IDL handshake.
                     self.perform_idle_handshake  .eq(1)
@@ -512,7 +517,7 @@ class LTSSMController(Elaboratable):
                 m.d.comb += [
                     # We're now ready for normal operation -- we'll mark our link as ready,
                     # and keep our normal scrambling enabled.
-                    self.enable_scrambling  .eq(1),
+                    self.enable_scrambling  .eq(~self.request_no_scrambling & ~disable_scrambling_seen),
                     self.link_ready         .eq(1)
                 ]
 
@@ -561,7 +566,7 @@ class LTSSMController(Elaboratable):
 
                 m.d.comb += [
                     # From this state onward, we have an active link, and we can thus enable data scrambling.
-                    self.enable_scrambling       .eq(~disable_scrambling_seen),
+                    self.enable_scrambling       .eq(~self.request_no_scrambling & ~disable_scrambling_seen),
 
                     # Generate our IDL handshake.
                     self.perform_idle_handshake  .eq(1)
@@ -649,7 +654,7 @@ class LTSSMController(Elaboratable):
 
                 m.d.comb += [
                     # Restore scrambling, and repeat our idle handshake.
-                    self.enable_scrambling       .eq(~disable_scrambling_seen),
+                    self.enable_scrambling       .eq(~self.request_no_scrambling & ~disable_scrambling_seen),
                     self.perform_idle_handshake  .eq(1)
                 ]
 

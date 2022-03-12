@@ -77,7 +77,7 @@ class TSBurstDetector(Elaboratable):
         if self._include_config:
             self.hot_reset            = Signal()
             self.loopback_requested   = Signal()
-            self.disable_scrambling   = Signal()
+            self.scrambling_disabled  = Signal()
 
 
     def elaborate(self, platform):
@@ -158,7 +158,7 @@ class TSBurstDetector(Elaboratable):
                                 self.loopback_requested  .eq(data.word_select(2, 8)[2]),
 
                                 # Bit 3 of Symbol 5 = > Requests we not use scrambling.
-                                self.disable_scrambling  .eq(data.word_select(2, 8)[3]),
+                                self.scrambling_disabled .eq(data.word_select(2, 8)[3]),
                             ]
 
                     with m.Else():
@@ -219,7 +219,9 @@ class TSEmitter(Elaboratable):
         self.done              = Signal()
 
         if self._include_config:
-            self.request_hot_reset = Signal()
+            self.request_hot_reset      = Signal()
+            self.request_loopback       = Signal()
+            self.request_no_scrambling  = Signal()
 
 
 
@@ -254,7 +256,11 @@ class TSEmitter(Elaboratable):
                     # our control fields.
                     if self._include_config and (i == 1):
                         with m.If(self.request_hot_reset):
-                            m.d.comb += self.source.data.word_select(2, 8).eq(1)
+                            m.d.comb += self.source.data.word_select(2, 8)[0].eq(1)
+                        with m.If(self.request_loopback):
+                            m.d.comb += self.source.data.word_select(2, 8)[2].eq(1)
+                        with m.If(self.request_no_scrambling):
+                            m.d.comb += self.source.data.word_select(2, 8)[3].eq(1)
 
 
                     with m.If(self.source.ready):
@@ -307,7 +313,7 @@ class TSTransceiver(Elaboratable):
 
         self.hot_reset_requested   = Signal()
         self.loopback_requested    = Signal()
-        self.disable_scrambling    = Signal()
+        self.no_scrambling_requested = Signal()
 
         # Emitters
         self.send_tseq_burst       = Signal() # i
@@ -317,6 +323,8 @@ class TSTransceiver(Elaboratable):
         self.burst_complete        = Signal() # o
 
         self.request_hot_reset     = Signal()
+        self.request_loopback      = Signal()
+        self.request_no_scrambling = Signal()
 
 
     def elaborate(self, platform):
@@ -374,9 +382,9 @@ class TSTransceiver(Elaboratable):
             ts2_detector.sink  .tap(self.sink),
             self.ts2_detected  .eq(ts2_detector.detected),
 
-            self.hot_reset_requested  .eq(ts2_detector.hot_reset),
-            self.loopback_requested   .eq(ts2_detector.loopback_requested),
-            self.disable_scrambling   .eq(ts2_detector.loopback_requested),
+            self.hot_reset_requested    .eq(ts2_detector.hot_reset),
+            self.loopback_requested     .eq(ts2_detector.loopback_requested),
+            self.no_scrambling_requested.eq(ts2_detector.scrambling_disabled),
         ]
 
 
@@ -392,8 +400,8 @@ class TSTransceiver(Elaboratable):
         )
         with m.If(self.send_tseq_burst):
             m.d.comb += [
-                tseq_generator.start  .eq(1),
-                self.source           .stream_eq(tseq_generator.source)
+                tseq_generator.start .eq(1),
+                self.source          .stream_eq(tseq_generator.source)
             ]
 
         # TS1 generator
@@ -417,9 +425,11 @@ class TSTransceiver(Elaboratable):
         )
         with m.If(self.send_ts2_burst):
             m.d.comb += [
-                ts2_generator.start              .eq(1),
-                ts2_generator.request_hot_reset  .eq(self.request_hot_reset),
-                self.source                      .stream_eq(ts2_generator.source),
+                ts2_generator.start                 .eq(1),
+                ts2_generator.request_hot_reset     .eq(self.request_hot_reset),
+                ts2_generator.request_loopback      .eq(self.request_loopback),
+                ts2_generator.request_no_scrambling .eq(self.request_no_scrambling),
+                self.source                         .stream_eq(ts2_generator.source),
             ]
 
         #

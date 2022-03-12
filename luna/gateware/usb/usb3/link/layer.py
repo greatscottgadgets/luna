@@ -61,6 +61,9 @@ class USB3LinkLayer(Elaboratable):
         self.ready                     = Signal()
         self.in_reset                  = Signal()
 
+        # Test and debug signals.
+        self.disable_scrambling        = Signal()
+
 
     def elaborate(self, platform):
         m = Module()
@@ -130,13 +133,14 @@ class USB3LinkLayer(Elaboratable):
             ltssm.ts2_detected                   .eq(ts.ts2_detected),
             ltssm.hot_reset_requested            .eq(ts.hot_reset_requested),
             ltssm.loopback_requested             .eq(ts.loopback_requested),
-            ltssm.no_scrambling_requested        .eq(ts.disable_scrambling),
+            ltssm.no_scrambling_requested        .eq(ts.no_scrambling_requested),
 
             # Training set emitters
             ts.send_tseq_burst                   .eq(ltssm.send_tseq_burst),
             ts.send_ts1_burst                    .eq(ltssm.send_ts1_burst),
             ts.send_ts2_burst                    .eq(ltssm.send_ts2_burst),
             ts.request_hot_reset                 .eq(ltssm.request_hot_reset),
+            ts.request_no_scrambling             .eq(ltssm.request_no_scrambling),
             ltssm.ts_burst_complete              .eq(ts.burst_complete),
 
             # Scrambling control.
@@ -152,6 +156,9 @@ class USB3LinkLayer(Elaboratable):
             # Status signaling.
             self.trained                         .eq(ltssm.link_ready),
             self.in_reset                        .eq(ltssm.request_hot_reset | ltssm.in_usb_reset),
+
+            # Test and debug.
+            ltssm.disable_scrambling             .eq(self.disable_scrambling),
         ]
 
 
