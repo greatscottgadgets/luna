@@ -639,7 +639,7 @@ class ECP5SerDes(Elaboratable):
 
             # DCU — power management
             p_D_MACROPDB            = "0b1",
-            p_D_IB_PWDNB            = "0b1",    # undocumented (required for RX)
+            p_D_IB_PWDNB            = "0b1",
             p_D_TXPLL_PWDNB         = "0b1",
             i_D_FFC_MACROPDB        = 1,
 
@@ -666,7 +666,7 @@ class ECP5SerDes(Elaboratable):
                  1: "0b000"}[1],                # DIV/1
             p_D_BITCLK_LOCAL_EN     = "0b1",    # Use clock from local PLL
 
-            # Clock multiplier unit configuration
+            # DCU — clock multiplier unit
             # begin undocumented (Clarity Designer values for 5 Gbps PCIe used)
             p_D_CMUSETBIASI         = "0b00",
             p_D_CMUSETI4CPP         = "0d4",
@@ -680,10 +680,6 @@ class ECP5SerDes(Elaboratable):
             p_D_CMUSETP2AGM         = "0b000",
             p_D_CMUSETZGM           = "0b100",
             # end undocumented
-
-            # DCU — FIFOs
-            p_D_LOW_MARK            = "0d4",    # Clock compensation FIFO low  water mark (mean=8)
-            p_D_HIGH_MARK           = "0d12",   # Clock compensation FIFO high water mark (mean=8)
 
             # DCU — unknown
             # begin undocumented (Clarity Designer values for 5 Gbps PCIe used)
@@ -699,7 +695,7 @@ class ECP5SerDes(Elaboratable):
 
             # CHX common ---------------------------------------------------------------------------
             # CHX — protocol
-            p_CHX_PROTOCOL          = "10BSER",
+            p_CHX_PROTOCOL          = "G8B10B",
             p_CHX_UC_MODE           = "0b1",
 
             p_CHX_ENC_BYPASS        = "0b0",    # Use the 8b10b encoder
@@ -718,10 +714,9 @@ class ECP5SerDes(Elaboratable):
             i_CHX_HDINP             = self._rx_pads.p,
             i_CHX_HDINN             = self._rx_pads.n,
 
-            p_D_REQ_ISET            = "0b011",  # Undocumented, needs to be 010 or 011
-            p_CHX_REQ_EN            = "0b1",    # Enable equalizer
-            p_CHX_REQ_LVL_SET       = "0b01",
-            p_CHX_RX_RATE_SEL       = "0d09",   # Equalizer  pole position
+            p_CHX_LDR_RX2CORE_SEL   = "0b1",            # Enables low-speed out-of-band input.
+            o_CHX_LDR_RX2CORE       = self.rx_gpio,
+
             p_CHX_RTERM_RX          = {
                 "5k-ohms":        "0d0",
                 "80-ohms":        "0d1",
@@ -730,9 +725,15 @@ class ECP5SerDes(Elaboratable):
                 "60-ohms":        "0d11",
                 "50-ohms":        "0d19",
                 "46-ohms":        "0d25",
-                "wizard-50-ohms": "0d22"}["5k-ohms"],
-            p_CHX_RXIN_CM           = "0b11",   # CMFB (wizard value used)
-            p_CHX_RXTERM_CM         = "0b10",   # RX Input (wizard value used)
+                "wizard-50-ohms": "0d22"}["5k-ohms"], # Set via SCI
+            p_CHX_RXTERM_CM         = "0b10",   # Terminate RX to GND
+            p_CHX_RXIN_CM           = "0b11",   # Common mode feedback
+
+            # CHX RX — equalizer
+            p_D_REQ_ISET            = "0b011",  # Undocumented, needs to be 010 or 011
+            p_CHX_REQ_EN            = "0b1",    # Enable equalizer
+            p_CHX_REQ_LVL_SET       = "0b01",   # Equalizer attenuation, 9 dB
+            p_CHX_RX_RATE_SEL       = "0d09",   # Equalizer pole position, values documented as "TBD"
 
             # CHX RX — clocking
             i_CHX_RX_REFCLK         = self._pll.refclk,
@@ -752,6 +753,7 @@ class ECP5SerDes(Elaboratable):
             p_CHX_FF_RX_F_CLK_DIS   = "0b1",    # disable DIV/1 output clock
             p_CHX_SEL_SD_RX_CLK     = "0b1",    # FIFO driven by recovered clock
 
+            # CHX RX — clock and data recovery
             # begin undocumented (Clarity Designer values for 5 Gbps PCIe used)
             p_CHX_DCOATDCFG         = "0b00",
             p_CHX_DCOATDDLY         = "0b00",
@@ -808,18 +810,24 @@ class ECP5SerDes(Elaboratable):
             i_CHX_FFC_ENABLE_CGALIGN= rx_align & rx_err,
 
             p_CHX_UDF_COMMA_MASK    = "0x3ff",  # compare all bits
-            p_CHX_UDF_COMMA_A       = "0x283",   # "0b1010000011", # K28.5
-            p_CHX_UDF_COMMA_B       = "0x17c",   # "0b0101111100", # K28.5
+            p_CHX_UDF_COMMA_A       = "0x283",   # 0b1010000011, K28.5 10b code
+            p_CHX_UDF_COMMA_B       = "0x17c",   # 0b0101111100, K28.5 10b code
 
-
+            # CHX RX — clock tolerance compensation
+            # Due to spread spectrum modulation, the USB 3 word clock is, on average, 2.5% slower
+            # than the base 5 GHz line rate. Since the USB soft logic always runs at a fraction of
+            # the base line rate, SKP ordered sets only need to be removed, and RX FIFO underrun
+            # can be handled using clock enables alone.
             p_CHX_CTC_BYPASS        = "0b1",    # bypass CTC FIFO
             p_CHX_MIN_IPG_CNT       = "0b11",   # minimum interpacket gap of 4
             p_CHX_MATCH_2_ENABLE    = "0b0",    # 2 character skip matching
             p_CHX_MATCH_4_ENABLE    = "0b0",    # 4 character skip matching
-            p_CHX_CC_MATCH_1        = "0x000",
-            p_CHX_CC_MATCH_2        = "0x000",
-            p_CHX_CC_MATCH_3        = "0x000",
-            p_CHX_CC_MATCH_4        = "0x000",
+            p_CHX_CC_MATCH_1        = "0x13c",   # K28.1 1+8b code
+            p_CHX_CC_MATCH_2        = "0x13c",   # K28.1 1+8b code
+            p_CHX_CC_MATCH_3        = "0x13c",   # K28.1 1+8b code
+            p_CHX_CC_MATCH_4        = "0x13c",   # K28.1 1+8b code
+            p_D_LOW_MARK            = "0d4",    # CTC FIFO low  water mark (mean=8)
+            p_D_HIGH_MARK           = "0d12",   # CTC FIFO high water mark (mean=8)
 
             # CHX RX — data
             **{"o_CHX_FF_RX_D_%d" % n: rx_bus[n] for n in range(len(rx_bus))},
@@ -837,7 +845,10 @@ class ECP5SerDes(Elaboratable):
             o_CHX_HDOUTP            = self._tx_pads.p,
             o_CHX_HDOUTN            = self._tx_pads.n,
 
-            p_CHX_TXAMPLITUDE       = "0d1000",  # 1000 mV
+            p_CHX_LDR_CORE2TX_SEL   = "0b0",            # Uses CORE2TX_EN to enable out-of-band output.
+            i_CHX_LDR_CORE2TX       = self.tx_gpio,
+            i_CHX_FFC_LDR_CORE2TX_EN= self.tx_gpio_en,
+
             p_CHX_RTERM_TX          = {
                 "5k-ohms":        "0d0",
                 "80-ohms":        "0d1",
@@ -847,7 +858,9 @@ class ECP5SerDes(Elaboratable):
                 "50-ohms":        "0d19",
                 "46-ohms":        "0d25",
                 "wizard-50-ohms": "0d19"}["50-ohms"],
+            p_CHX_TXAMPLITUDE       = "0d1000", # 1000 mV
 
+            # CHX TX — equalization
             p_CHX_TDRV_SLICE0_CUR   = "0b011",  # 400 uA
             p_CHX_TDRV_SLICE0_SEL   = "0b01",   # main data
             p_CHX_TDRV_SLICE1_CUR   = "0b000",  # 100 uA
@@ -872,7 +885,7 @@ class ECP5SerDes(Elaboratable):
             # CHX TX — data
             **{"i_CHX_FF_TX_D_%d" % n: tx_bus[n] for n in range(len(tx_bus))},
 
-            # SCI interface.
+            # SCI interface ------------------------------------------------------------------------
             **{"i_D_SCIWDATA%d" % n: sci.sci_wdata[n] for n in range(8)},
             **{"i_D_SCIADDR%d"   % n: sci.sci_addr[n] for n in range(6)},
             **{"o_D_SCIRDATA%d" % n: sci.sci_rdata[n] for n in range(8)},
@@ -882,15 +895,6 @@ class ECP5SerDes(Elaboratable):
             i_CHX_SCISEL  = sci.chan_sel,
             i_D_SCIRD     = sci.sci_rd,
             i_D_SCIWSTN   = sci.sci_wrn,
-
-            # Out-of-band signaling Rx support.
-            p_CHX_LDR_RX2CORE_SEL     = "0b1",            # Enables low-speed out-of-band input.
-            o_CHX_LDR_RX2CORE         = self.rx_gpio,
-
-            # Out-of-band signaling Tx support.
-            p_CHX_LDR_CORE2TX_SEL     = "0b0",            # Uses CORE2TX_EN to enable out-of-band output.
-            i_CHX_LDR_CORE2TX         = self.tx_gpio,
-            i_CHX_FFC_LDR_CORE2TX_EN  = self.tx_gpio_en
         )
 
         # Translate the 'CHX' string to the correct channel name in each of our SerDes parameters,
