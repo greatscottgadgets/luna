@@ -521,8 +521,6 @@ class ECP5SerDes(Elaboratable):
         # I/O port.
         #
 
-        self.train_equalizer        = Signal()
-
         # Core Rx and Tx lines.
         self.sink   = USBRawSuperSpeedStream(payload_words=self._io_words)
         self.source = USBRawSuperSpeedStream(payload_words=self._io_words)
@@ -548,6 +546,7 @@ class ECP5SerDes(Elaboratable):
         self.rx_idle                = Signal()
         self.rx_polarity            = Signal()
         self.rx_termination         = Signal(reset=1)
+        self.rx_eq_training         = Signal()
         self.rx_gpio                = Signal()
 
         # Loopback
@@ -969,8 +968,6 @@ class LunaECP5SerDes(Elaboratable):
         self.enable                  = Signal(reset=1) # i
         self.ready                   = Signal()        # o
 
-        self.train_equalizer         = Signal()
-
         self.tx_polarity             = Signal()   # i
         self.tx_idle                 = Signal()   # i
         self.tx_pattern              = Signal(20) # i
@@ -979,6 +976,7 @@ class LunaECP5SerDes(Elaboratable):
         self.rx_idle                 = Signal()   # o
         self.rx_align                = Signal(reset=1) # i
         self.rx_termination          = Signal(reset=1) # i
+        self.rx_eq_training          = Signal()
 
         # LFPS interface.
         self.lfps_signaling_detected = Signal()
@@ -1027,9 +1025,9 @@ class LunaECP5SerDes(Elaboratable):
         m.d.comb += [
             serdes.reset            .eq(self.reset),
             self.ready              .eq(serdes.tx_ready & serdes.rx_ready),
-            serdes.train_equalizer  .eq(self.train_equalizer),
             serdes.rx_polarity      .eq(self.rx_polarity),
             serdes.rx_termination   .eq(self.rx_termination),
+            serdes.rx_eq_training   .eq(self.rx_eq_training),
         ]
 
 
