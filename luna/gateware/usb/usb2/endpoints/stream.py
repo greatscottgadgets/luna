@@ -390,7 +390,7 @@ class USBStreamOutEndpoint(Elaboratable):
             m.d.usb += overflow.eq(1)
 
         # We'll clear the overflow flag and byte counter when the packet is done.
-        with m.If(data_response_requested):
+        with m.If(fifo.write_commit | fifo.write_discard):
             m.d.usb += overflow.eq(0)
             m.d.usb += rx_cnt.eq(0)
 
