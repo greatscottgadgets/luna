@@ -115,8 +115,6 @@ class SerDesPHY(Elaboratable):
             self._serdes.sink.data            .eq(self.tx_data),
             self._serdes.sink.ctrl            .eq(self.tx_datak),
             self._serdes.sink.valid           .eq(1),
-            self._serdes.tx_polarity          .eq(0),
-            self._serdes.tx_idle              .eq(self.tx_elecidle),
         ]
 
 

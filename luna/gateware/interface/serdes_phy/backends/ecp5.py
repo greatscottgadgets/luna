@@ -689,29 +689,16 @@ class ECP5SerDes(Elaboratable):
         self.reset                  = Signal()
 
         # TX controls
-        self.tx_enable              = Signal(reset=1)
         self.tx_ready               = Signal()
-        self.tx_inhibit             = Signal() # FIXME
-        self.tx_produce_square_wave = Signal()
-        self.tx_produce_pattern     = Signal()
-        self.tx_pattern             = Signal(20)
-        self.tx_idle                = Signal()
-        self.tx_invert              = Signal()
         self.tx_gpio_en             = Signal()
         self.tx_gpio                = Signal()
 
         # RX controls
-        self.rx_enable              = Signal(reset=1)
         self.rx_ready               = Signal()
-        self.rx_align               = Signal(reset=1)
-        self.rx_idle                = Signal()
         self.rx_polarity            = Signal()
         self.rx_termination         = Signal(reset=1)
         self.rx_eq_training         = Signal()
         self.rx_gpio                = Signal()
-
-        # Loopback
-        self.loopback               = Signal() # FIXME: reconfigure lb_ctl to 0b0001 but does not seem enough
 
 
     def elaborate(self, platform):
@@ -735,24 +722,6 @@ class ECP5SerDes(Elaboratable):
         tx_lol     = Signal()
         tx_bus     = Signal(24)
 
-
-        #
-        # Clock domain crossing.
-        #
-        tx_produce_square_wave = Signal()
-        tx_produce_pattern     = Signal()
-        tx_pattern             = Signal(20)
-
-        m.submodules += [
-            # Transmit control  synchronization.
-            FFSynchronizer(self.tx_produce_square_wave, tx_produce_square_wave, o_domain="tx"),
-            FFSynchronizer(self.tx_produce_pattern, tx_produce_pattern, o_domain="tx"),
-            FFSynchronizer(self.tx_pattern, tx_pattern, o_domain="tx"),
-
-            # Receive control synchronization.
-            FFSynchronizer(self.rx_align, rx_align, o_domain="rx"),
-            FFSynchronizer(rx_los, self.rx_idle, o_domain="sync"),
-        ]
 
         #
         # Clocking / reset control.
@@ -869,8 +838,8 @@ class ECP5SerDes(Elaboratable):
             i_CHX_FFC_RXPWDNB       = 1,
 
             # CHX RX — reset
-            i_CHX_FFC_RRST          = ~self.rx_enable | reset.rx_cdr_reset,
-            i_CHX_FFC_LANE_RX_RST   = ~self.rx_enable | reset.rx_pcs_reset,
+            i_CHX_FFC_RRST          = reset.rx_cdr_reset,
+            i_CHX_FFC_LANE_RX_RST   = reset.rx_pcs_reset,
 
             # CHX RX — input
             i_CHX_HDINP             = self._rx_pads.p,
@@ -969,7 +938,7 @@ class ECP5SerDes(Elaboratable):
             # which, once it discovers a comma, configures the barrel shifter and disables itself.
             # A constant level on this input does not affect WA; neither does the CHx_ENABLE_CG_ALIGN
             # parameter.
-            i_CHX_FFC_ENABLE_CGALIGN= rx_align & rx_err,
+            i_CHX_FFC_ENABLE_CGALIGN= rx_err,
 
             p_CHX_UDF_COMMA_MASK    = "0x3ff",  # compare all bits
             p_CHX_UDF_COMMA_A       = "0x283",   # 0b1010000011, K28.5 10b code
@@ -1000,8 +969,8 @@ class ECP5SerDes(Elaboratable):
             i_CHX_FFC_TXPWDNB       = 1,
 
             # CHX TX — reset
-            i_D_FFC_TRST            = ~self.tx_enable | reset.tx_pll_reset,
-            i_CHX_FFC_LANE_TX_RST   = ~self.tx_enable | reset.tx_pcs_reset,
+            i_D_FFC_TRST            = reset.tx_pll_reset,
+            i_CHX_FFC_LANE_TX_RST   = reset.tx_pcs_reset,
 
             # CHX TX — output
             o_CHX_HDOUTP            = self._tx_pads.p,
@@ -1129,16 +1098,9 @@ class LunaECP5SerDes(Elaboratable):
         self.source                  = USBRawSuperSpeedStream()
 
         self.reset                   = Signal()
-        self.enable                  = Signal(reset=1) # i
         self.ready                   = Signal()        # o
 
-        self.tx_polarity             = Signal()   # i
-        self.tx_idle                 = Signal()   # i
-        self.tx_pattern              = Signal(20) # i
-
         self.rx_polarity             = Signal()   # i
-        self.rx_idle                 = Signal()   # o
-        self.rx_align                = Signal(reset=1) # i
         self.rx_termination          = Signal(reset=1) # i
         self.rx_eq_training          = Signal()
 
@@ -1200,9 +1162,6 @@ class LunaECP5SerDes(Elaboratable):
         #
         m.submodules.tx_datapath = tx_datapath = TransmitPreprocessing()
         m.d.comb += [
-            serdes.tx_idle             .eq(self.tx_idle),
-            serdes.tx_enable           .eq(self.enable),
-
             tx_datapath.sink           .stream_eq(self.sink, endian_swap=True),
             serdes.sink                .stream_eq(tx_datapath.source),
         ]
@@ -1213,12 +1172,6 @@ class LunaECP5SerDes(Elaboratable):
         #
         m.submodules.rx_datapath = rx_datapath = ReceivePostprocessing()
         m.d.comb += [
-            self.rx_idle            .eq(serdes.rx_idle),
-
-            serdes.rx_enable        .eq(self.enable),
-            serdes.rx_align         .eq(self.rx_align),
-            rx_datapath.align       .eq(self.rx_align),
-
             rx_datapath.sink        .stream_eq(serdes.source),
             self.source             .stream_eq(rx_datapath.source, endian_swap=True)
         ]
