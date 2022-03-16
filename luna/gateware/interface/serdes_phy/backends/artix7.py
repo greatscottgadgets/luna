@@ -538,6 +538,8 @@ class GTP(Elaboratable):
         self.sink   = USBRawSuperSpeedStream(payload_words=2)
         self.source = USBRawSuperSpeedStream(payload_words=2)
 
+        self.reset           = Signal()
+
         # TX controls
         self.tx_enable       = Signal(reset=1)
         self.tx_polarity     = Signal()
@@ -601,7 +603,7 @@ class GTP(Elaboratable):
         #
         # Transmitter bringup.
         #
-        m.submodules.tx_init = tx_init = GTPTXInit(self._ss_clock_frequency)
+        m.submodules.tx_init = tx_init = ResetInserter({"ss": self.reset})(GTPTXInit(self._ss_clock_frequency))
         m.d.comb += [
             self.tx_ready    .eq(tx_init.done),
             tx_init.restart  .eq(~self.tx_enable)
@@ -610,7 +612,7 @@ class GTP(Elaboratable):
         #
         # Receiver bringup.
         #
-        m.submodules.rx_init = rx_init = GTPRXInit(self._ss_clock_frequency)
+        m.submodules.rx_init = rx_init = ResetInserter({"ss": self.reset})(GTPRXInit(self._ss_clock_frequency))
         m.d.comb += [
             self.rx_ready.eq(rx_init.done),
             rx_init.restart.eq(~self.rx_enable)
@@ -1429,6 +1431,7 @@ class LunaArtix7SerDes(Elaboratable):
         self.sink                    = USBRawSuperSpeedStream()
         self.source                  = USBRawSuperSpeedStream()
 
+        self.reset                   = Signal()
         self.enable                  = Signal(reset=1) # i
         self.ready                   = Signal()        # o
 
@@ -1489,7 +1492,10 @@ class LunaArtix7SerDes(Elaboratable):
             rx_pads            = self._rx_pads,
             ss_clock_frequency = self._ss_clock_frequency
         )
-        m.d.comb += self.ready.eq(serdes.tx_ready & serdes.rx_ready),
+        m.d.comb += [
+            serdes.reset.eq(self.reset),
+            self.ready.eq(serdes.tx_ready & serdes.rx_ready),
+        ]
 
 
         #
