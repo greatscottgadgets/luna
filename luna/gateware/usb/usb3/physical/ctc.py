@@ -64,7 +64,7 @@ class CTCSkipRemover(Elaboratable):
         self.source          = USBRawSuperSpeedStream()
 
         self.skip_removed    = Signal()
-        self.bytes_in_buffer = Signal(range(9))
+        self.bytes_in_buffer = Signal(range(len(self.sink.ctrl) + 1))
 
 
     def elaborate(self, platform):
@@ -197,7 +197,7 @@ class CTCSkipRemover(Elaboratable):
 
         # We'll output a word each time we have enough data in our shift register toS
         # output a full word.
-        m.d.comb += source.valid.eq(bytes_in_buffer >= 4)
+        m.d.comb += source.valid.eq(bytes_in_buffer >= bytes_in_stream)
 
         # Our data ends in different places depending on how many bytes we
         # have in our shift register; so we'll need to pop it from different locations.
@@ -410,7 +410,7 @@ class CTCSkipInserter(Elaboratable):
         # SKP insertion timing.
         #
         data_bytes_elapsed = Signal(range(skip_interval_words))
-        skip_needed       = Signal()
+        skip_needed        = Signal()
 
         # Count each word of data we send...
         with m.If(sink.valid & sink.ready):
@@ -447,8 +447,8 @@ class CTCSkipInserter(Elaboratable):
             m.d.comb += self.sending_skip.eq(1)
             m.d.ss += [
                 source.valid       .eq(1),
-                source.data        .eq(Repl(SKP.value_const(), 4)),
-                source.ctrl        .eq(Repl(SKP.ctrl_const(),  4)),
+                source.data        .eq(Repl(SKP.value_const(), len(source.ctrl))),
+                source.ctrl        .eq(Repl(SKP.ctrl_const(),  len(source.ctrl))),
 
             ]
         with m.Else():
