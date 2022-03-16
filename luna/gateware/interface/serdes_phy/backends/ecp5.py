@@ -690,6 +690,7 @@ class ECP5SerDes(Elaboratable):
 
         # TX controls
         self.tx_ready               = Signal()
+        self.tx_polarity            = Signal()
         self.tx_gpio_en             = Signal()
         self.tx_gpio                = Signal()
 
@@ -757,6 +758,7 @@ class ECP5SerDes(Elaboratable):
         m.submodules.sci = sci = ECP5SerDesConfigInterface(self)
         m.submodules.sci_trans = sci_trans = self.sci_trans = ECP5SerDesRegisterTranslator(self, sci)
         m.d.comb += [
+            sci_trans.tx_polarity.eq(self.tx_polarity),
             sci_trans.rx_polarity.eq(self.rx_polarity),
             sci_trans.rx_termination.eq(self.rx_termination),
         ]
