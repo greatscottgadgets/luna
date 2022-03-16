@@ -1036,7 +1036,6 @@ class ECP5SerDes(Elaboratable):
         # Bind our SerDes to the correct location inside the FPGA.
         serdes.attrs["LOC"] = "DCU{}".format(self._dual)
         serdes.attrs["CHAN"] = "CH{}".format(self._channel)
-        serdes.attrs["BEL"] = "X42/Y71/DCU"
 
         # SerDes decodes invalid 10b symbols to 0xEE with control bit set, which is not a part
         # of the 8b10b encoding space. We use it to drive the comma aligner and reset sequencer.
