@@ -230,7 +230,11 @@ class NeTV2Platform(Xilinx7SeriesPlatform, LUNAPlatform):
             "set_property SEVERITY {Warning} [get_drc_checks REQP-49]"
         ]
 
-        overrides = { "add_constraints": "\n".join(extra_constraints) }
+        overrides = {
+            "script_before_bitstream":
+                "set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]",
+            "add_constraints": "\n".join(extra_constraints)
+        }
         return super().toolchain_prepare(fragment, name, **overrides, **kwargs)
 
 
