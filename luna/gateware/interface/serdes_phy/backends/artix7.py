@@ -592,11 +592,18 @@ class GTP(Elaboratable):
         #
         # Transciever GPIO synchronization
         #
+        tx_polarity     = Signal()
         tx_gpio_en      = Signal()
         tx_gpio         = Signal()
         m.submodules += [
-            FFSynchronizer(self.tx_gpio_en, tx_gpio_en, o_domain="tx"),
-            FFSynchronizer(self.tx_gpio, tx_gpio, o_domain="tx"),
+            FFSynchronizer(self.tx_polarity, tx_polarity, o_domain="tx"),
+            FFSynchronizer(self.tx_gpio_en,  tx_gpio_en,  o_domain="tx"),
+            FFSynchronizer(self.tx_gpio,     tx_gpio,     o_domain="tx"),
+        ]
+
+        rx_polarity     = Signal()
+        m.submodules += [
+            FFSynchronizer(self.rx_polarity, rx_polarity, o_domain="rx"),
         ]
 
 
@@ -652,11 +659,8 @@ class GTP(Elaboratable):
         rxphaligndone = Signal()
 
         # Transmitter data signals.
-        tx_enable_8b10b   = Signal()
-        tx_data           = Signal(8 * nwords)
-        tx_ctrl           = Signal(nwords)
-        tx_char_disp_mode = Signal(nwords)
-        tx_char_disp_val  = Signal(nwords)
+        tx_data       = Signal(8 * nwords)
+        tx_ctrl       = Signal(nwords)
 
         # Receiver data signals.
         rx_data       = Signal(8 * nwords)
@@ -997,7 +1001,7 @@ class GTP(Elaboratable):
             i_TXSYSCLKSEL           = 0b00 if qpll.channel == 0 else 0b11,
 
             # FPGA TX Interface Datapath Configuration
-            i_TX8B10BEN             = tx_enable_8b10b,
+            i_TX8B10BEN             = 1,
 
             # GTPE2_CHANNEL Clocking Ports
             i_PLL0CLK               = qpll.clk    if qpll.channel == 0 else 0,
@@ -1190,7 +1194,7 @@ class GTP(Elaboratable):
             i_RXELECIDLEMODE        = 0b00,
 
             # Receive Ports - RX Polarity Control Ports
-            i_RXPOLARITY            = self.rx_polarity,
+            i_RXPOLARITY            = rx_polarity,
 
             # Receive Ports -RX Initialization and Reset Ports
             o_RXRESETDONE           = rx_init.rxresetdone,
@@ -1247,8 +1251,8 @@ class GTP(Elaboratable):
 
             # Transmit Ports - TX 8B/10B Encoder Ports
             i_TX8B10BBYPASS         = 0,
-            i_TXCHARDISPMODE        = tx_char_disp_mode,
-            i_TXCHARDISPVAL         = tx_char_disp_val,
+            i_TXCHARDISPMODE        = 0,
+            i_TXCHARDISPVAL         = 0,
             i_TXCHARISK             = tx_ctrl,
 
             # Transmit Ports - TX Buffer Bypass Ports
@@ -1285,7 +1289,7 @@ class GTP(Elaboratable):
             i_TXDEEMPH              = 0,
             i_TXDIFFCTRL            = 0b1000,
             i_TXDIFFPD              = 0,
-            i_TXINHIBIT             = self.tx_inhibit,
+            i_TXINHIBIT             = self.tx_inhibit | tx_gpio_en,
             i_TXMAINCURSOR          = 0b0000000,
             i_TXPISOPD              = 0,
 
@@ -1315,7 +1319,7 @@ class GTP(Elaboratable):
             i_TXPDELECIDLEMODE      = 0,
 
             # Transmit Ports - TX Polarity Control Ports
-            i_TXPOLARITY            = self.tx_polarity,
+            i_TXPOLARITY            = tx_polarity ^ (tx_gpio_en & tx_gpio),
 
             # Transmit Ports - TX Receiver Detection Ports
             i_TXDETECTRX            = 0,
@@ -1360,31 +1364,11 @@ class GTP(Elaboratable):
         # We're always ready to accept data, since our inner SerDes spews out data at a fixed rate.
         m.d.comb += self.sink.ready.eq(1)
 
-        # If we're in Tx-GPIO mode, we'll allow the user to drive a value directly onto the
-        # Tx output buffer. This is necessary to allow LFPS signaling.
-        with m.If(tx_gpio_en):
-            m.d.comb += [
-                # Disable 8B10B drive, so we can control our transmit value directly.
-                tx_enable_8b10b   .eq(0),
-
-                # Constantly drive a full bus of our Tx GPIO value, so we scan out its value,
-                # effectively driving the Tx lines to that value.
-                tx_data           .eq(Repl(tx_gpio, len(tx_data))),
-                tx_ctrl           .eq(0),
-                tx_char_disp_mode .eq(Repl(tx_gpio, len(tx_char_disp_mode))),
-                tx_char_disp_val  .eq(Repl(tx_gpio, len(tx_char_disp_val)))
-            ]
-        with m.Else():
-            m.d.comb += [
-                # Enable 8b10b for our normal data...
-                tx_enable_8b10b   .eq(1),
-
-                # ... and provide that data to the SerDes' transmitter.
-                tx_data           .eq(self.sink.data),
-                tx_ctrl           .eq(self.sink.ctrl),
-                tx_char_disp_mode .eq(0),
-                tx_char_disp_val  .eq(0)
-            ]
+        # ... and provide that data to the SerDes' transmitter.
+        m.d.comb += [
+            tx_data           .eq(self.sink.data),
+            tx_ctrl           .eq(self.sink.ctrl),
+        ]
 
 
         #
