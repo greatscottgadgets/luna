@@ -65,7 +65,7 @@ class SerDesPHY(Elaboratable):
         self.phy_status       = Signal()
         self.elas_buf_mode    = Signal()
         self.power_down       = Signal(2)
-        self.pwrpresent       = Signal()
+        self.power_present    = Signal(reset=1)
         self.data_bus_width   = Const(self._DATA_BUS_WIDTHS[self.INTERFACE_WIDTH], 2)
 
         # Transmit bus.
@@ -139,12 +139,5 @@ class SerDesPHY(Elaboratable):
             self.rx_elecidle                  .eq(~self._serdes.lfps_signaling_detected),
         ]
 
-
-        #
-        # Stubbed-out control signals.
-        #
-        m.d.comb += [
-            self.pwrpresent.eq(1),
-        ]
 
         return m

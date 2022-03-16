@@ -132,7 +132,7 @@ class USB3PhysicalLayer(Elaboratable):
             phy.rx_polarity              .eq(self.invert_rx_polarity),
 
             # Pass through our VBUS detected signal up to the link layer.
-            self.vbus_present            .eq(phy.pwrpresent)
+            self.vbus_present            .eq(phy.power_present)
         ]
 
 
@@ -150,7 +150,7 @@ class USB3PhysicalLayer(Elaboratable):
             # FIXME: this is temporary; it speeds up partner detection, but isn't strictly correct.
             # (This incorrectly attempts to do link training on USB2 hosts, too).
             phy.power_down                  .eq(0),
-            self.link_partner_detected      .eq(phy.pwrpresent)
+            self.link_partner_detected      .eq(phy.power_present)
         ]
 
 

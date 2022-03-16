@@ -289,7 +289,7 @@ class Genesys2Platform(_CoreGenesys2Platform, LUNAPlatform):
             Subsignal("rate",          Pins( "fmc_0:hb15_p",              dir="o" )),
             Subsignal("elas_buf_mode", Pins( "fmc_0:hb18_p",              dir="o" )),
             Subsignal("phy_status",    Pins( "fmc_0:hb16_n",              dir="i")),
-            Subsignal("pwrpresent",    Pins( "fmc_0:hb14_n",              dir="i" )),
+            Subsignal("power_present", Pins( "fmc_0:hb14_n",              dir="i" )),
 
             Attrs(IOSTANDARD="LVCMOS18")
         ),
@@ -383,7 +383,7 @@ class Genesys2Platform(_CoreGenesys2Platform, LUNAPlatform):
             Subsignal("rate",          Pins( "fmc_0:la28_p",              dir="o" )),
             Subsignal("elas_buf_mode", Pins( "fmc_0:la15_n",              dir="o" )),
             Subsignal("phy_status",    Pins( "fmc_0:la16_p",              dir="i")),
-            Subsignal("pwrpresent",    Pins( "fmc_0:la32_p",              dir="i" )),
+            Subsignal("power_present", Pins( "fmc_0:la32_p",              dir="i" )),
 
             Attrs(IOSTANDARD="LVCMOS18")
         ),
