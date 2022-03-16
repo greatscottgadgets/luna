@@ -15,6 +15,7 @@ from amaranth.lib.cdc import FFSynchronizer, ResetSynchronizer
 
 from .soft                        import Encoder
 from ..datapath                   import ReceivePostprocessing, TransmitPreprocessing
+from ..lfps                       import LFPSSquareWaveGenerator
 
 from ....usb.stream               import USBRawSuperSpeedStream
 from ....usb.usb3.physical.coding import *
@@ -1445,11 +1446,7 @@ class LunaArtix7SerDes(Elaboratable):
         self.rx_idle                 = Signal()   # o
         self.rx_align                = Signal()   # i
 
-        # GPIO interface.
-        self.use_tx_as_gpio          = Signal()
-        self.tx_gpio                 = Signal()
-        self.rx_gpio                 = Signal()
-
+        self.send_lfps_signaling     = Signal()
         self.lfps_signaling_detected = Signal()
 
         # Debug interface.
@@ -1509,9 +1506,6 @@ class LunaArtix7SerDes(Elaboratable):
 
             tx_datapath.sink           .stream_eq(self.sink),
             serdes.sink                .stream_eq(tx_datapath.source),
-
-            serdes.tx_gpio_en          .eq(self.use_tx_as_gpio),
-            serdes.tx_gpio             .eq(self.tx_gpio)
         ]
 
 
@@ -1531,10 +1525,21 @@ class LunaArtix7SerDes(Elaboratable):
             rx_datapath.sink              .stream_eq(serdes.source),
             self.source                   .stream_eq(rx_datapath.source),
 
-            self.lfps_signaling_detected  .eq(~serdes.rx_idle),
-
             # XXX
             self.alignment_offset   .eq(rx_datapath.alignment_offset)
+        ]
+
+
+        #
+        # LFPS Generation & Detection
+        #
+        m.submodules.lfps_generator = lfps_generator = LFPSSquareWaveGenerator(250e6, 25e6)
+        m.d.comb += [
+            serdes.tx_gpio_en             .eq(lfps_generator.tx_gpio_en),
+            serdes.tx_gpio                .eq(lfps_generator.tx_gpio),
+            lfps_generator.generate       .eq(self.send_lfps_signaling),
+
+            self.lfps_signaling_detected  .eq(~serdes.rx_idle)
         ]
 
         return m
