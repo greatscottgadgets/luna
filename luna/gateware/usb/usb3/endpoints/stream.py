@@ -84,6 +84,13 @@ class SuperSpeedStreamInEndpoint(Elaboratable):
         next_sequence_number = Signal.like(sequence_number)
         m.d.comb += next_sequence_number.eq(sequence_number + 1)
 
+        # Advance the sequence number after transmission, or reset it when the endpoint is reset.
+        advance_sequence = Signal()
+        with m.If(interface.ep_reset):
+            m.d.ss += sequence_number.eq(0)
+        with m.Elif(advance_sequence):
+            m.d.ss += sequence_number.eq(next_sequence_number)
+
 
         #
         # Transmit buffer.
@@ -376,8 +383,10 @@ class SuperSpeedStreamInEndpoint(Elaboratable):
 
                         # In this case, we'll re-transmit the relevant data, either by sending another ZLP...
                         with m.If(last_packet_was_zlp):
-                            m.d.comb += interface.tx_zlp.eq(1)
-                            m.d.ss   += sequence_number.eq(next_sequence_number)
+                            m.d.comb += [
+                                interface.tx_zlp.eq(1),
+                                advance_sequence.eq(1),
+                            ]
 
                         # ... or by moving right back into sending a data packet.
                         with m.Else():
@@ -406,8 +415,10 @@ class SuperSpeedStreamInEndpoint(Elaboratable):
                             with m.If(is_in_token):
 
                                 # ... send a ZLP...
-                                m.d.comb += interface.tx_zlp.eq(1)
-                                m.d.ss   += sequence_number.eq(next_sequence_number)
+                                m.d.comb += [
+                                    interface.tx_zlp.eq(1),
+                                    advance_sequence.eq(1),
+                                ]
 
                                 # ... and clear the need to follow up with one, since we've just sent a short packet.
                                 m.d.ss += [
@@ -426,11 +437,12 @@ class SuperSpeedStreamInEndpoint(Elaboratable):
                         # ready ourselves for transmit.
                         packet_completing = in_stream.valid & (write_fill_count + 4 >= self._max_packet_size)
                         with m.Elif(~in_stream.ready | packet_completing):
+                            m.d.comb += [
+                                advance_sequence   .eq(1),
+                            ]
                             m.d.ss += [
                                 ping_pong_toggle   .eq(~ping_pong_toggle),
                                 read_stream_ended  .eq(0),
-
-                                sequence_number    .eq(next_sequence_number)
                             ]
 
                             with m.If(is_in_token):
