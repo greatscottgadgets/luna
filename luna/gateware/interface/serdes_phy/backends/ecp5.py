@@ -422,8 +422,13 @@ class ECP5SerDesEqualizer(Elaboratable):
         return m
 
 
-class ECP5ResetSequencer(Elaboratable):
-    """ Reset sequencer; ensures that the PLL starts in the correct state. """
+class ECP5SerDesResetSequencer(Elaboratable):
+    """ Reset sequencer; ensures that the PLL, CDR, and PCS all start correctly. """
+
+    RESET_CYCLES  = 8
+    RX_LOS_CYCLES = 4000
+    RX_LOL_CYCLES = 62500
+    RX_ERR_CYCLES = 1024
 
     def __init__(self):
 
@@ -432,69 +437,225 @@ class ECP5ResetSequencer(Elaboratable):
         #
 
         # Reset in.
-        self.reset             = Signal()
+        self.reset          = Signal()
 
         # Status in.
-        self.rx_pll_locked     = Signal()
-        self.tx_pll_locked     = Signal()
+        self.tx_pll_locked  = Signal()
+        self.rx_has_signal  = Signal()
+        self.rx_cdr_locked  = Signal()
+        self.rx_coding_err  = Signal()
 
         # Reset out.
-        self.serdes_tx_reset   = Signal()
-        self.serdes_rx_reset   = Signal()
-        self.pcs_reset         = Signal()
+        self.tx_pll_reset   = Signal(reset=1)
+        self.tx_pcs_reset   = Signal(reset=1)
+        self.rx_cdr_reset   = Signal(reset=1)
+        self.rx_pcs_reset   = Signal(reset=1)
 
         # Status out.
-        self.complete          = Signal()
+        self.tx_pcs_ready   = Signal()
+        self.rx_pcs_ready   = Signal()
 
 
     def elaborate(self, platform):
         m = Module()
 
-        # Per [TN1261-21: "Reset Sequence"], the SerDes requires the following bring-up ordering:
-        # 1. Start the SerDes Tx, and then wait for its PLL lock.
-        # 2. Release the SerDes Rx reset, and then wait for the SerDes' internal bit clock to be asserted.
-        #    We see this as the Rx PLL locking.
-        # 3. Release the PCS reset.
+        # Per [TN1261: "Reset Sequence"], the SerDes requires certain conditions to be met on start-up:
+        # 1. The TxPLL must be locked before the CDR PLL reset is released.
+        # 2. The PCS reset must be released only when the PLLs are locked.
+        #
+        # Per [Lattice FAQ 697], if the PCS is not held in reset and the Rx recovered clock is unstable,
+        # the PCS FIFO pointers may get corrupted. In this case, there will be no 8b10b code violations
+        # or disparity errors indicated, and the Rx link state machine will indicate synchronization
+        # to the Rx bitstream, but the PCS may return corrupt data.
+        #
+        # Per [FPGA-PB-02001], the Rx CDR and PCS require a cascaded reset sequence for reliable operation.
+        # On loss of signal, the Rx CDR and PCS are reset; and on loss of lock, the Rx PCS is reset.
 
-        with m.FSM(domain="ss"):
+
+        # Synchronize status signals to our clock.
+        tx_pll_locked = Signal()
+        rx_has_signal = Signal()
+        rx_cdr_locked = Signal()
+        rx_coding_err = Signal()
+        m.submodules += [
+            FFSynchronizer(self.tx_pll_locked, tx_pll_locked, o_domain="ss"),
+            FFSynchronizer(self.rx_has_signal, rx_has_signal, o_domain="ss"),
+            FFSynchronizer(self.rx_cdr_locked, rx_cdr_locked, o_domain="ss"),
+            FFSynchronizer(self.rx_coding_err, rx_coding_err, o_domain="ss"),
+        ]
+
+
+        def apply_resets(m, tx_pll, tx_pcs, rx_cdr, rx_pcs):
+            # The SerDes reset inputs are asynchronous; register our outputs so they do not have glitches.
+            m.d.ss += [
+                self.tx_pll_reset.eq(tx_pll),
+                self.tx_pcs_reset.eq(tx_pcs),
+                self.rx_cdr_reset.eq(rx_cdr),
+                self.rx_pcs_reset.eq(rx_pcs),
+            ]
+
+        def apply_readys(m, tx_pcs, rx_pcs):
+            m.d.ss += [
+                self.tx_pcs_ready.eq(tx_pcs),
+                self.rx_pcs_ready.eq(rx_pcs),
+            ]
+
+
+        timer = Signal(range(max(self.RESET_CYCLES, self.RX_LOS_CYCLES, self.RX_LOL_CYCLES)))
+
+        with m.FSM(domain="ss") as self.fsm:
 
             # Hold everything in reset, initially.
             with m.State("INITIAL_RESET"):
-                m.d.comb += [
-                    self.serdes_tx_reset  .eq(1),
-                    self.serdes_rx_reset  .eq(1),
-                    self.pcs_reset        .eq(1)
-                ]
+                apply_resets(m, tx_pll=1, tx_pcs=1, rx_cdr=1, rx_pcs=1)
+                apply_readys(m, tx_pcs=0, rx_pcs=0)
 
-                # Once we've strobed our reset, wait for the transmitter to start up.
-                m.next = "WAIT_FOR_TRANSMITTER_STARTUP"
+                m.next = "WAIT_FOR_TXPLL_LOCK"
 
+            # Deassert Tx PLL reset, and wait for it to start up.
+            with m.State("WAIT_FOR_TXPLL_LOCK"):
+                apply_resets(m, tx_pll=0, tx_pcs=1, rx_cdr=1, rx_pcs=1)
+                apply_readys(m, tx_pcs=0, rx_pcs=0)
 
-            # Hold the receiver and PLL in reset until the transmitter starts up.
-            with m.State("WAIT_FOR_TRANSMITTER_STARTUP"):
-                m.d.comb += [
-                    self.serdes_rx_reset  .eq(1),
-                    self.pcs_reset        .eq(1),
-                ]
+                with m.If(tx_pll_locked):
+                    m.d.ss += timer.eq(0)
+                    m.next = "APPLY_TXPCS_RESET"
 
-                # We know the transmitter has started up once its PLL is locked.
-                with m.If(self.tx_pll_locked):
-                    m.next = "WAIT_FOR_RECEIVER_STARTUP"
+            # Reset Tx PCS.
+            with m.State("APPLY_TXPCS_RESET"):
+                apply_resets(m, tx_pll=0, tx_pcs=1, rx_cdr=1, rx_pcs=1)
+                apply_readys(m, tx_pcs=0, rx_pcs=0)
 
+                with m.If(timer + 1 != self.RESET_CYCLES):
+                    m.d.ss += timer.eq(timer + 1)
+                with m.Else():
+                    m.d.ss += timer.eq(0)
+                    m.next = "WAIT_FOR_RX_SIGNAL"
 
-            # Hold the protocol engine in reset until the receiver starts up.
-            with m.State("WAIT_FOR_RECEIVER_STARTUP"):
-                m.d.comb += self.pcs_reset.eq(1)
+            # Deassert Tx PCS reset, and wait until Rx signal is present.
+            with m.State("WAIT_FOR_RX_SIGNAL"):
+                # CDR reset implies LOS reset; and must be deasserted for LOS to go low.
+                # This is not documented in [TN1261], and contradicts [FPGA-PB-02001].
+                apply_resets(m, tx_pll=0, tx_pcs=0, rx_cdr=0, rx_pcs=1)
+                apply_readys(m, tx_pcs=1, rx_pcs=0)
 
-                # We know the receiver has started up once its PLL is locked.
-                with m.If(self.rx_pll_locked):
-                    m.next = "STARTED_UP"
+                with m.If(~rx_has_signal):
+                    m.d.ss += timer.eq(0)
+                with m.Else():
+                    with m.If(timer + 1 != self.RX_LOS_CYCLES):
+                        m.d.ss += timer.eq(timer + 1)
+                    with m.Else():
+                        m.d.ss += timer.eq(0)
+                        m.next = "APPLY_CDR_RESET"
 
+                with m.If(~tx_pll_locked):
+                    m.next = "WAIT_FOR_TXPLL_LOCK"
 
-            # Finally, we're all started up. Assert no resets.
-            with m.State("STARTED_UP"):
-                m.d.comb += self.complete.eq(1)
+            # Reset CDR.
+            with m.State("APPLY_CDR_RESET"):
+                apply_resets(m, tx_pll=0, tx_pcs=0, rx_cdr=1, rx_pcs=1)
+                apply_readys(m, tx_pcs=1, rx_pcs=0)
 
+                with m.If(timer + 1 != self.RESET_CYCLES):
+                    m.d.ss += timer.eq(timer + 1)
+                with m.Else():
+                    m.d.ss += timer.eq(0)
+                    m.next = "DELAY_FOR_CDR_LOCK"
+
+            # Deassert CDR reset, and wait until CDR had some time to lock (to embedded Rx clock).
+            with m.State("DELAY_FOR_CDR_LOCK"):
+                apply_resets(m, tx_pll=0, tx_pcs=0, rx_cdr=0, rx_pcs=1)
+                apply_readys(m, tx_pcs=1, rx_pcs=0)
+
+                with m.If(timer + 1 != self.RX_LOL_CYCLES):
+                    m.d.ss += timer.eq(timer + 1)
+                with m.Else():
+                    m.d.ss += timer.eq(0)
+                    m.next = "CHECK_FOR_CDR_LOCK"
+
+                with m.If(~rx_has_signal):
+                    m.next = "WAIT_FOR_RX_SIGNAL"
+                with m.If(~tx_pll_locked):
+                    m.next = "WAIT_FOR_TXPLL_LOCK"
+
+            # Wait until CDR has been locked for a while; and if it lost lock, reset it.
+            with m.State("CHECK_FOR_CDR_LOCK"):
+                apply_resets(m, tx_pll=0, tx_pcs=0, rx_cdr=0, rx_pcs=1)
+                apply_readys(m, tx_pcs=1, rx_pcs=0)
+
+                with m.If(~rx_cdr_locked):
+                    m.d.ss += timer.eq(0)
+                    m.next = "APPLY_CDR_RESET"
+                with m.Else():
+                    with m.If(timer + 1 != self.RX_LOL_CYCLES):
+                        m.d.ss += timer.eq(timer + 1)
+                    with m.Else():
+                        m.d.ss += timer.eq(0)
+                        m.next = "APPLY_RXPCS_RESET"
+
+                with m.If(~rx_has_signal):
+                    m.next = "WAIT_FOR_RX_SIGNAL"
+                with m.If(~tx_pll_locked):
+                    m.next = "WAIT_FOR_TXPLL_LOCK"
+
+            # Reset Rx PCS.
+            with m.State("APPLY_RXPCS_RESET"):
+                apply_resets(m, tx_pll=0, tx_pcs=0, rx_cdr=0, rx_pcs=1)
+                apply_readys(m, tx_pcs=1, rx_pcs=0)
+
+                with m.If(timer + 1 != self.RESET_CYCLES):
+                    m.d.ss += timer.eq(timer + 1)
+                with m.Else():
+                    m.d.ss += timer.eq(0)
+                    m.next = "DELAY_FOR_RXPCS_LOCK"
+
+            # Deassert Rx PCS reset, and wait until PCS had some time to lock (to a K28.5 comma).
+            with m.State("DELAY_FOR_RXPCS_LOCK"):
+                apply_resets(m, tx_pll=0, tx_pcs=0, rx_cdr=0, rx_pcs=0)
+                apply_readys(m, tx_pcs=1, rx_pcs=0)
+
+                with m.If(timer + 1 != self.RX_ERR_CYCLES):
+                    m.d.ss += timer.eq(timer + 1)
+                with m.Else():
+                    m.d.ss += timer.eq(0)
+                    m.next = "CHECK_FOR_RXPCS_LOCK"
+
+                with m.If(~rx_has_signal):
+                    m.next = "WAIT_FOR_RX_SIGNAL"
+                with m.If(~tx_pll_locked):
+                    m.next = "WAIT_FOR_TXPLL_LOCK"
+
+            # Wait until Rx PCS has been locked for a while; and if it lost lock, reset it.
+            with m.State("CHECK_FOR_RXPCS_LOCK"):
+                apply_resets(m, tx_pll=0, tx_pcs=0, rx_cdr=0, rx_pcs=0)
+                apply_readys(m, tx_pcs=1, rx_pcs=0)
+
+                with m.If(rx_coding_err):
+                    m.d.ss += timer.eq(0)
+                    m.next = "APPLY_RXPCS_RESET"
+                with m.Else():
+                    with m.If(timer + 1 != self.RX_ERR_CYCLES):
+                        m.d.ss += timer.eq(timer + 1)
+                    with m.Else():
+                        m.d.ss += timer.eq(0)
+                        m.next = "IDLE"
+
+                with m.If(~rx_has_signal):
+                    m.next = "WAIT_FOR_RX_SIGNAL"
+                with m.If(~tx_pll_locked):
+                    m.next = "WAIT_FOR_TXPLL_LOCK"
+
+            # Everything is okay; monitor for errors, and restart the reset sequence if necessary.
+            with m.State("IDLE"):
+                apply_resets(m, tx_pll=0, tx_pcs=0, rx_cdr=0, rx_pcs=0)
+                apply_readys(m, tx_pcs=1, rx_pcs=1)
+
+                with m.If(rx_coding_err):
+                    m.next = "APPLY_RXPCS_RESET"
+                with m.If(~rx_has_signal):
+                    m.next = "WAIT_FOR_RX_SIGNAL"
+                with m.If(~tx_pll_locked):
+                    m.next = "WAIT_FOR_TXPLL_LOCK"
 
         return ResetInserter({"ss": self.reset})(m)
 
@@ -598,11 +759,15 @@ class ECP5SerDes(Elaboratable):
         #
 
         # The SerDes needs to be brought up gradually; we'll do that here.
-        m.submodules.reset_sequencer = reset = ECP5ResetSequencer()
+        m.submodules.reset_sequencer = reset = ECP5SerDesResetSequencer()
         m.d.comb += [
-            reset.reset          .eq(self.reset),
-            reset.tx_pll_locked  .eq(~tx_lol),
-            reset.rx_pll_locked  .eq(~rx_lol)
+            reset.reset         .eq(self.reset),
+            reset.tx_pll_locked .eq(~tx_lol),
+            reset.rx_has_signal .eq(~rx_los),
+            reset.rx_cdr_locked .eq(~rx_lol),
+            reset.rx_coding_err .eq(rx_err),
+            self.tx_ready       .eq(reset.tx_pcs_ready),
+            self.rx_ready       .eq(reset.rx_pcs_ready),
         ]
 
 
@@ -610,16 +775,14 @@ class ECP5SerDes(Elaboratable):
         m.domains.tx = ClockDomain()
         m.d.comb    += ClockSignal("tx").eq(txoutclk)
         m.submodules += [
-            ResetSynchronizer(self.reset, domain="tx"),
-            FFSynchronizer(~ResetSignal("tx"), self.tx_ready)
+            ResetSynchronizer(~reset.tx_pcs_ready, domain="tx")
         ]
 
-        # Create the same setup, buf for the receive side.
+        # Create the same setup, but for the receive side.
         m.domains.rx = ClockDomain()
         m.d.comb    += ClockSignal("rx").eq(rxoutclk)
         m.submodules += [
-            ResetSynchronizer(self.reset, domain="rx"),
-            FFSynchronizer(~ResetSignal("rx"), self.rx_ready)
+            ResetSynchronizer(~reset.rx_pcs_ready, domain="rx")
         ]
 
         m.submodules.sci = sci = ECP5SerDesConfigInterface(self)
@@ -706,8 +869,8 @@ class ECP5SerDes(Elaboratable):
             i_CHX_FFC_RXPWDNB       = 1,
 
             # CHX RX — reset
-            i_CHX_FFC_RRST          = ~self.rx_enable | reset.serdes_rx_reset,
-            i_CHX_FFC_LANE_RX_RST   = ~self.rx_enable | reset.pcs_reset,
+            i_CHX_FFC_RRST          = ~self.rx_enable | reset.rx_cdr_reset,
+            i_CHX_FFC_LANE_RX_RST   = ~self.rx_enable | reset.rx_pcs_reset,
 
             # CHX RX — input
             i_CHX_HDINP             = self._rx_pads.p,
@@ -837,8 +1000,8 @@ class ECP5SerDes(Elaboratable):
             i_CHX_FFC_TXPWDNB       = 1,
 
             # CHX TX — reset
-            i_D_FFC_TRST            = ~self.tx_enable | reset.serdes_tx_reset,
-            i_CHX_FFC_LANE_TX_RST   = ~self.tx_enable | reset.pcs_reset,
+            i_D_FFC_TRST            = ~self.tx_enable | reset.tx_pll_reset,
+            i_CHX_FFC_LANE_TX_RST   = ~self.tx_enable | reset.tx_pcs_reset,
 
             # CHX TX — output
             o_CHX_HDOUTP            = self._tx_pads.p,
@@ -907,8 +1070,9 @@ class ECP5SerDes(Elaboratable):
         serdes.attrs["BEL"] = "X42/Y71/DCU"
 
         # SerDes decodes invalid 10b symbols to 0xEE with control bit set, which is not a part
-        # of the 8b10b encoding space. We use it to drive the comma aligner.
-        m.d.comb += [
+        # of the 8b10b encoding space. We use it to drive the comma aligner and reset sequencer.
+        # This signal is registered so that it can be sampled from asynchronous domains.
+        m.d.rx += [
             rx_err.eq(rx_bus[8]  & (rx_bus[ 0: 8] == 0xee) |
                       rx_bus[20] & (rx_bus[12:20] == 0xee)),
         ]
@@ -1024,7 +1188,7 @@ class LunaECP5SerDes(Elaboratable):
         m.submodules.serdes = serdes
         m.d.comb += [
             serdes.reset            .eq(self.reset),
-            self.ready              .eq(serdes.tx_ready & serdes.rx_ready),
+            self.ready              .eq(serdes.tx_ready),
             serdes.rx_polarity      .eq(self.rx_polarity),
             serdes.rx_termination   .eq(self.rx_termination),
             serdes.rx_eq_training   .eq(self.rx_eq_training),
