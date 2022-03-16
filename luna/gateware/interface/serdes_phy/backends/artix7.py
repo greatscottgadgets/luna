@@ -1503,7 +1503,7 @@ class LunaArtix7SerDes(Elaboratable):
             serdes.tx_enable           .eq(self.enable),
             serdes.tx_polarity         .eq(self.tx_polarity),
 
-            tx_datapath.sink           .stream_eq(self.sink),
+            tx_datapath.sink           .stream_eq(self.sink, endian_swap=True),
             serdes.sink                .stream_eq(tx_datapath.source),
         ]
 
@@ -1522,7 +1522,7 @@ class LunaArtix7SerDes(Elaboratable):
             serdes.train_equalizer        .eq(self.rx_eq_training),
 
             rx_datapath.sink              .stream_eq(serdes.source),
-            self.source                   .stream_eq(rx_datapath.source),
+            self.source                   .stream_eq(rx_datapath.source, endian_swap=True),
 
             # XXX
             self.alignment_offset   .eq(rx_datapath.alignment_offset)
