@@ -121,6 +121,7 @@ class USB3LinkLayer(Elaboratable):
             # Pass down our link controls to the physical layer.
             physical_layer.tx_electrical_idle    .eq(ltssm.tx_electrical_idle),
             physical_layer.engage_terminations   .eq(ltssm.engage_terminations),
+            physical_layer.invert_rx_polarity    .eq(ltssm.invert_rx_polarity),
 
             # LFPS control.
             ltssm.lfps_polling_detected          .eq(physical_layer.lfps_polling_detected),
