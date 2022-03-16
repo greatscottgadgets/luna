@@ -1436,8 +1436,6 @@ class LunaArtix7SerDes(Elaboratable):
         self.enable                  = Signal(reset=1) # i
         self.ready                   = Signal()        # o
 
-        self.train_equalizer         = Signal(reset=1)
-
         self.tx_polarity             = Signal()   # i
         self.tx_idle                 = Signal()   # i
         self.tx_pattern              = Signal(20) # i
@@ -1445,6 +1443,7 @@ class LunaArtix7SerDes(Elaboratable):
         self.rx_polarity             = Signal()   # i
         self.rx_idle                 = Signal()   # o
         self.rx_align                = Signal()   # i
+        self.rx_eq_training          = Signal()   # i
 
         self.send_lfps_signaling     = Signal()
         self.lfps_signaling_detected = Signal()
@@ -1520,7 +1519,7 @@ class LunaArtix7SerDes(Elaboratable):
             serdes.rx_polarity            .eq(self.rx_polarity),
             serdes.rx_align               .eq(self.rx_align),
             rx_datapath.align             .eq(self.rx_align),
-            serdes.train_equalizer        .eq(self.train_equalizer),
+            serdes.train_equalizer        .eq(self.rx_eq_training),
 
             rx_datapath.sink              .stream_eq(serdes.source),
             self.source                   .stream_eq(rx_datapath.source),
