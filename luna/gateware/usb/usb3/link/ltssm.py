@@ -78,6 +78,7 @@ class LTSSMController(Elaboratable):
         self.tx_electrical_idle        = Signal()
         self.engage_terminations       = Signal()
         self.invert_rx_polarity        = Signal()
+        self.train_equalizer           = Signal()
         self.disable_scrambling        = Signal()
 
         # Receiver detection.
@@ -391,6 +392,9 @@ class LTSSMController(Elaboratable):
 
                 # Continuously send TSEQs; these are used to perform receiver equalization training.
                 m.d.comb += self.send_tseq_burst.eq(1)
+
+                # Request our physical layer to perform equalization training.
+                m.d.comb += self.train_equalizer.eq(1)
 
                 # Once we've sent a full burst of 65536 TSEQs, we can begin our link training handshake.
                 with m.If(self.ts_burst_complete):

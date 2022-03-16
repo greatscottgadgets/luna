@@ -53,6 +53,7 @@ class USB3PhysicalLayer(Elaboratable):
         self.engage_terminations        = Signal()
         self.tx_electrical_idle         = Signal()
         self.invert_rx_polarity         = Signal()
+        self.train_equalizer            = Signal()
         self.vbus_present               = Signal()
 
         # Scrambling control.
@@ -130,6 +131,7 @@ class USB3PhysicalLayer(Elaboratable):
             # Pass through our remaining control signals directly to the PHY.
             phy.rx_termination           .eq(self.engage_terminations),
             phy.rx_polarity              .eq(self.invert_rx_polarity),
+            phy.rx_eq_training           .eq(self.train_equalizer),
 
             # Pass through our VBUS detected signal up to the link layer.
             self.vbus_present            .eq(phy.power_present)
