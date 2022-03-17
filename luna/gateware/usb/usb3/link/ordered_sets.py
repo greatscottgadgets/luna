@@ -42,6 +42,13 @@ TS1_SET_DATA = [
     0x4A4A4A4A, # 20 - 23
 ]
 
+INVERTED_TS1_SET_DATA = [
+    0xBCBCBCBC, # 0  - 3
+    0x0000B5B5, # 4  - 7
+    0xB5B5B5B5, # 16 - 19
+    0xB5B5B5B5, # 20 - 23
+]
+
 TS2_SET_DATA = [
     0xBCBCBCBC, # 0  - 3
     0x00004545, # 4  - 7
@@ -61,11 +68,10 @@ class TSBurstDetector(Elaboratable):
         Strobe; pulses high when a burst of ordered sets has been received.
     """
 
-    def __init__(self, *, set_data, first_word_ctrl, sets_in_burst=1, invert_data=False, include_config=True):
+    def __init__(self, *, set_data, first_word_ctrl=0b1111, sets_in_burst=1, include_config=False):
         self._set_data            = set_data
         self._first_word_ctrl     = first_word_ctrl
         self._detection_threshold = sets_in_burst
-        self._invert_data         = invert_data
         self._include_config      = include_config
 
         #
@@ -96,13 +102,8 @@ class TSBurstDetector(Elaboratable):
 
 
         def advance_on_match(count, target_ctrl=0b0000, fail_state="NONE_DETECTED"):
-            data_matches = (data  == self._set_data[count])
-            data_inverse = (~data == self._set_data[count])
+            data_matches = (data == self._set_data[count])
             ctrl_matches = (ctrl == target_ctrl)
-
-            # If we're using the inverted set, use ``data_inverse`` instead of ``data_matches``.
-            if self._invert_data:
-                data_matches = data_inverse
 
             # Once we have a valid word in our stream...
             with m.If(self.sink.valid):
@@ -134,12 +135,7 @@ class TSBurstDetector(Elaboratable):
                 # our data with that set removed. Otherwise, we compare normally.
                 data_masked  = (data & 0xffff) if self._include_config else data
                 data_matches = (data_masked  == self._set_data[1])
-                data_inverse = (~data_masked == self._set_data[1])
                 ctrl_matches = (ctrl         == 0)
-
-                # If we're using the inverted set, use ``data_inverse`` instead of ``data_matches``.
-                if self._invert_data:
-                    data_matches = data_inverse
 
                 # Once we have a valid word in our stream...
                 with m.If(self.sink.valid):
@@ -341,31 +337,27 @@ class TSTransceiver(Elaboratable):
         m.submodules.tseq_detector = tseq_detector = TSBurstDetector(
             set_data        = TSEQ_SET_DATA,
             first_word_ctrl = 0b1000,
-            sets_in_burst   = 32,
-            include_config  = False
+            sets_in_burst   = 32
         )
         m.d.comb += [
-            tseq_detector.sink  .stream_eq(self.sink, omit={"ready"}),
+            tseq_detector.sink  .tap(self.sink),
             self.tseq_detected  .eq(tseq_detector.detected)
         ]
 
         # TS1 detector
         m.submodules.ts1_detector = ts1_detector = TSBurstDetector(
             set_data        = TS1_SET_DATA,
-            first_word_ctrl = 0b1111,
             sets_in_burst   = 8
         )
         m.d.comb += [
-            ts1_detector.sink  .tap(self.sink),
-            self.ts1_detected  .eq(ts1_detector.detected)
+            ts1_detector.sink   .tap(self.sink),
+            self.ts1_detected   .eq(ts1_detector.detected)
         ]
 
         # Inverted TS1 detector
         m.submodules.inverted_ts1_detector = inverted_ts1_detector = TSBurstDetector(
-            set_data        = TS1_SET_DATA,
-            first_word_ctrl = 0b1111,
-            sets_in_burst   = 8,
-            invert_data     = True,
+            set_data        = INVERTED_TS1_SET_DATA,
+            sets_in_burst   = 8
         )
         m.d.comb += [
             inverted_ts1_detector.sink  .tap(self.sink),
@@ -375,12 +367,12 @@ class TSTransceiver(Elaboratable):
         # TS2 detector
         m.submodules.ts2_detector = ts2_detector = TSBurstDetector(
             set_data        = TS2_SET_DATA,
-            first_word_ctrl = 0b1111,
             sets_in_burst   = 8,
+            include_config  = True
         )
         m.d.comb += [
-            ts2_detector.sink  .tap(self.sink),
-            self.ts2_detected  .eq(ts2_detector.detected),
+            ts2_detector.sink   .tap(self.sink),
+            self.ts2_detected   .eq(ts2_detector.detected),
 
             self.hot_reset_requested    .eq(ts2_detector.hot_reset),
             self.loopback_requested     .eq(ts2_detector.loopback_requested),
@@ -407,7 +399,6 @@ class TSTransceiver(Elaboratable):
         # TS1 generator
         m.submodules.ts1_generator = ts1_generator = TSEmitter(
             set_data              = TS1_SET_DATA,
-            first_word_ctrl       = 0b1111,
             transmit_burst_length = 16
         )
         with m.If(self.send_ts1_burst):
@@ -419,7 +410,6 @@ class TSTransceiver(Elaboratable):
         # TS2 Generator
         m.submodules.ts2_generator = ts2_generator = TSEmitter(
             set_data              = TS2_SET_DATA,
-            first_word_ctrl       = 0b1111,
             transmit_burst_length = 16,
             include_config        = True,
         )
