@@ -199,7 +199,7 @@ class USB3LinkLayer(Elaboratable):
             header_rx.enable                 .eq(ltssm.link_ready),
             header_rx.usb_reset              .eq(self.in_reset),
 
-            # Bring our header packet interface to the physical layer.
+            # Bring our header packet interface to the protocol layer.
             self.header_source               .header_eq(header_rx.queue),
 
             # Keepalive handling.
@@ -208,6 +208,8 @@ class USB3LinkLayer(Elaboratable):
             timers.packet_received           .eq(header_rx.packet_received),
 
             # Transmitter event path.
+            header_rx.retry_required         .eq(transmitter.retry_required),
+            transmitter.lrty_pending         .eq(header_rx.lrty_pending),
             header_rx.retry_received         .eq(transmitter.retry_received),
 
             # For now, we'll reject all forms of power management by sending a REJECT

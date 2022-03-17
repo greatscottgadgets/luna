@@ -449,6 +449,7 @@ class PacketTransmitter(Elaboratable):
         self.link_command_received = Signal()
         self.retry_received        = Signal()
         self.retry_required        = Signal()
+        self.lrty_pending          = Signal()
         self.recovery_required     = Signal()
 
         self.lgo_received          = Signal()
@@ -575,6 +576,13 @@ class PacketTransmitter(Elaboratable):
             self.source          .stream_eq(packet_tx.source)
         ]
 
+
+        # Keep track of whether a retry has been requested.
+        retry_pending = Signal()
+        with m.If(self.retry_required):
+            m.d.ss += retry_pending.eq(1)
+
+
         with m.FSM(domain="ss"):
 
             # DISPATCH_PACKET -- wait packet transmissions to be scheduled, and prepare
@@ -583,8 +591,14 @@ class PacketTransmitter(Elaboratable):
 
                 # If we have packets to send, pass them to our transmitter.
                 with m.If(self.bringup_complete & (packets_to_send != 0)):
-                    # Wait until the packet is sent.
-                    m.next = "WAIT_FOR_SEND"
+
+                    with m.If(~retry_pending):
+                        # Wait until the packet is sent.
+                        m.next = "WAIT_FOR_SEND"
+
+                    with m.Else():
+                        # Wait until all of the non-acknowledged packets are retransmitted.
+                        m.next = "WAIT_FOR_RETRY"
 
 
             # WAIT_FOR_SEND -- we've now dispatched our packet; and we're ready to wait for it to be sent.
@@ -593,11 +607,30 @@ class PacketTransmitter(Elaboratable):
 
                 # We're done with this packet.
                 with m.If(packet_tx.done):
-                    m.d.comb += dequeue_send.eq(1)
+
+                    # If we received an LBAD in the meantime, our read pointer and counter are already
+                    # set up for retransmission; don't touch them.
+                    with m.If(~retry_pending):
+                        m.d.comb += dequeue_send.eq(1)
 
                     # Handle the next packet, or wait for one.
                     m.next = "DISPATCH_PACKET"
 
+
+            # WAIT_FOR_RETRY -- we're retransmitting all of the non-acknowledged packets, with the DL bit set;
+            # but only after the receiver transmits LRTY.
+            with m.State("WAIT_FOR_RETRY"):
+                m.d.comb += packet_tx.header.delayed.eq(1)
+                m.d.comb += packet_tx.generate.eq(~self.lrty_pending)
+
+                # We're done with this packet.
+                with m.If(packet_tx.done):
+                    m.d.comb += dequeue_send.eq(1)
+
+                    # If this was the last packet to retransmit, we're done handling this LBAD.
+                    with m.If(packets_to_send == 1):
+                        m.d.ss += retry_pending.eq(0)
+                        m.next = "DISPATCH_PACKET"
 
 
         #
@@ -741,6 +774,7 @@ class PacketTransmitter(Elaboratable):
                 read_pointer              .eq(0),
                 write_pointer             .eq(0),
                 ack_pointer               .eq(0),
+                retry_pending             .eq(0),
             ]
 
 
