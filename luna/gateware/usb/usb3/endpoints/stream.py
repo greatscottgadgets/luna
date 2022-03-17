@@ -113,7 +113,7 @@ class SuperSpeedStreamInEndpoint(Elaboratable):
         # which of our "ping-pong" buffers is currently being targeted.
         buffer = Array(Memory(width=data_width, depth=buffer_depth, name=f"transmit_buffer_{i}") for i in range(2))
         buffer_write_ports = Array(buffer[i].write_port(domain="ss") for i in range(2))
-        buffer_read_ports  = Array(buffer[i].read_port(domain="ss") for i in range(2))
+        buffer_read_ports  = Array(buffer[i].read_port(domain="ss", transparent=False) for i in range(2))
 
         m.submodules.read_port_0,  m.submodules.read_port_1  = buffer_read_ports
         m.submodules.write_port_0, m.submodules.write_port_1 = buffer_write_ports
