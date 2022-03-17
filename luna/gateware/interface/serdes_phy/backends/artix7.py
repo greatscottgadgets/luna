@@ -580,12 +580,11 @@ class GTP(Elaboratable):
 
         # Ensure we have a valid PLL/CDR configuration.
         assert qpll.config["linerate"] < 6.6e9
+        # From [UG482: Table 4-14]: CDR Recommended Settings for Protocols with SSC
         rxcdr_cfgs = {
-            1 : 0x0000107FE406001041010,
-            2 : 0x0000107FE206001041010,
-            4 : 0x0000107FE106001041010,
-            8 : 0x0000107FE086001041010,
-           16 : 0x0000107FE086001041010,
+            1 : 0x0000087FE206024481010,
+            2 : 0x0000047FE206024501010,
+            4 : 0x0000047FE106024501010,
         }
 
 
