@@ -570,7 +570,7 @@ class GTP(Elaboratable):
         self.rxoutclk = Signal()
 
 
-    def elaborate(self, platorm):
+    def elaborate(self, platform):
         m = Module()
 
         # Aliases.
@@ -1342,6 +1342,8 @@ class GTP(Elaboratable):
         )
         m.submodules += ResetSynchronizer(tx_reset_deglitched, domain="tx")
 
+        platform.add_clock_constraint(self.txoutclk, 250e6)
+
         #
         # RX clocking
         #
@@ -1356,6 +1358,8 @@ class GTP(Elaboratable):
             ),
             ResetSynchronizer(rx_reset_deglitched, domain="rx")
         ]
+
+        platform.add_clock_constraint(self.rxoutclk, 250e6)
 
         #
         # Tx Datapath
