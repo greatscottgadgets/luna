@@ -547,6 +547,9 @@ class PacketTransmitter(Elaboratable):
         # Packet acceptance (protocol layer -> link layer).
         #
 
+        # Keep track of the next sequence number we'll need to assign.
+        transmit_sequence_number = Signal(self.SEQUENCE_NUMBER_WIDTH)
+
         # If we have link credits available, we're able to accept data from the protocol layer.
         m.d.comb += self.queue.ready.eq(credits_available != 0)
 
@@ -559,10 +562,14 @@ class PacketTransmitter(Elaboratable):
                 enqueue_send     .eq(1)
             ]
 
-            # Finally, capture the packet into the buffer for transmission.
+            # Assign the packet a sequence number, and capture it into the buffer for transmission.
+            # [USB3.0r1: 7.2.4.1.1]: "A header packet that is re-transmitted shall maintain its
+            # originally assigned Header Sequence Number."
             m.d.ss += [
-                buffers[write_pointer]  .eq(self.queue.header),
-                write_pointer           .eq(write_pointer + 1)
+                buffers[write_pointer]                  .eq(self.queue.header),
+                buffers[write_pointer].sequence_number  .eq(transmit_sequence_number),
+                write_pointer                           .eq(write_pointer + 1),
+                transmit_sequence_number                .eq(transmit_sequence_number + 1)
             ]
 
 
@@ -571,12 +578,10 @@ class PacketTransmitter(Elaboratable):
         #
         m.submodules.packet_tx = packet_tx = RawPacketTransmitter()
         m.d.comb += [
-            self.source          .stream_eq(packet_tx.source),
-            packet_tx.data_sink  .stream_eq(self.data_sink)
+            packet_tx.header     .eq(buffers[read_pointer]),
+            packet_tx.data_sink  .stream_eq(self.data_sink),
+            self.source          .stream_eq(packet_tx.source)
         ]
-
-        # Keep track of the next sequence number we'll need to send...
-        transmit_sequence_number = Signal(self.SEQUENCE_NUMBER_WIDTH)
 
         with m.FSM(domain="ss"):
 
@@ -586,14 +591,7 @@ class PacketTransmitter(Elaboratable):
 
                 # If we have packets to send, pass them to our transmitter.
                 with m.If((packets_to_send != 0) & self.enable):
-                    m.d.ss += [
-                        # Grab the packet from our read queue, and pass it to the transmitter;
-                        # but override its sequence number field with our current sequence number.
-                        packet_tx.header                  .eq(buffers[read_pointer]),
-                        packet_tx.header.sequence_number  .eq(transmit_sequence_number),
-                    ]
-
-                    # Move on to sending our packet.
+                    # Wait until the packet is sent.
                     m.next = "WAIT_FOR_SEND"
 
 
@@ -601,14 +599,11 @@ class PacketTransmitter(Elaboratable):
             with m.State("WAIT_FOR_SEND"):
                 m.d.comb += packet_tx.generate.eq(1)
 
-                # Once the packet is done...
+                # We're done with this packet.
                 with m.If(packet_tx.done):
                     m.d.comb += dequeue_send.eq(1)
 
-                    # Advance our sequence number.
-                    m.d.ss   += transmit_sequence_number.eq(transmit_sequence_number + 1)
-
-                    # And wait for the next packet.
+                    # Handle the next packet, or wait for one.
                     m.next = "DISPATCH_PACKET"
 
 
