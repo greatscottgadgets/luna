@@ -130,6 +130,7 @@ class USB3LinkLayer(Elaboratable):
             ltssm.lfps_cycles_sent               .eq(physical_layer.lfps_cycles_sent),
 
             # Training set detectors
+            ltssm.tseq_detected                  .eq(ts.tseq_detected),
             ltssm.ts1_detected                   .eq(ts.ts1_detected),
             ltssm.inverted_ts1_detected          .eq(ts.inverted_ts1_detected),
             ltssm.ts2_detected                   .eq(ts.ts2_detected),
