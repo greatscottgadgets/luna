@@ -604,11 +604,12 @@ class PacketTransmitter(Elaboratable):
                 # Once the packet is done...
                 with m.If(packet_tx.done):
                     m.d.comb += dequeue_send.eq(1)
+
+                    # Advance our sequence number.
                     m.d.ss   += transmit_sequence_number.eq(transmit_sequence_number + 1)
 
-                    # If this was the last packet we needed to send, resume waiting for one.
-                    with m.If(packets_to_send == 1):
-                        m.next = "DISPATCH_PACKET"
+                    # And wait for the next packet.
+                    m.next = "DISPATCH_PACKET"
 
 
 
