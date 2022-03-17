@@ -498,7 +498,7 @@ class PacketTransmitter(Elaboratable):
         dequeue_send         = Signal()
 
         # Un-retired packet count.
-        packets_awaiting_ack = Signal()
+        packets_awaiting_ack = Signal(range(self._buffer_count + 1))
 
         # If we need to retry sending our packets, we'll need to reset our pending packet count.
         # Otherwise, we increment and decrement our "to send" counts normally.
