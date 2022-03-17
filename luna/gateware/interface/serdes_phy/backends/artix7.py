@@ -1430,7 +1430,7 @@ class LunaArtix7SerDes(Elaboratable):
 
         self.rx_polarity             = Signal()   # i
         self.rx_idle                 = Signal()   # o
-        self.rx_align                = Signal()   # i
+        self.rx_align                = Signal(reset=1)   # i
         self.rx_termination          = Signal()   # i, not implemented
         self.rx_eq_training          = Signal()   # i
 
