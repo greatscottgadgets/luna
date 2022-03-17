@@ -6,7 +6,6 @@
 """ Packet transmission handling gateware. """
 
 from amaranth                      import *
-from amaranth.hdl.ast              import Fell
 from usb_protocol.types.superspeed import LinkCommand, HeaderPacketType
 
 from .header                       import HeaderPacket, HeaderQueue
@@ -478,13 +477,6 @@ class PacketTransmitter(Elaboratable):
             m.d.ss += credits_available.eq(credits_available - 1)
 
 
-        # Provide a flag that indicates when we're done with our full bringup.
-        with m.If(self.enable == 0):
-            m.d.ss += self.bringup_complete.eq(0)
-        with m.Elif(credits_available == self._buffer_count):
-            m.d.ss += self.bringup_complete.eq(1)
-
-
         #
         # Task "queues".
         #
@@ -551,7 +543,7 @@ class PacketTransmitter(Elaboratable):
         transmit_sequence_number = Signal(self.SEQUENCE_NUMBER_WIDTH)
 
         # If we have link credits available, we're able to accept data from the protocol layer.
-        m.d.comb += self.queue.ready.eq(credits_available != 0)
+        m.d.comb += self.queue.ready.eq(self.bringup_complete & (credits_available != 0))
 
         # If the protocol layer is handing us a packet...
         with m.If(self.queue.valid & self.queue.ready):
@@ -590,7 +582,7 @@ class PacketTransmitter(Elaboratable):
             with m.State("DISPATCH_PACKET"):
 
                 # If we have packets to send, pass them to our transmitter.
-                with m.If((packets_to_send != 0) & self.enable):
+                with m.If(self.bringup_complete & (packets_to_send != 0)):
                     # Wait until the packet is sent.
                     m.next = "WAIT_FOR_SEND"
 
@@ -650,8 +642,18 @@ class PacketTransmitter(Elaboratable):
                 #
                 with m.Case(LinkCommand.LGOOD):
 
+                    # If we've received a Header Sequence Number Advertisement, update our sequence
+                    # numbers, and indicate we're done with bringup.
+                    with m.If(~self.bringup_complete):
+                        m.d.ss += [
+                            self.bringup_complete     .eq(1),
+
+                            next_expected_ack_number  .eq(lc_detector.subtype + 1),
+                            transmit_sequence_number  .eq(lc_detector.subtype + 1)
+                        ]
+
                     # If the credit matches the sequence we're expecting, we can accept it!
-                    with m.If(next_expected_ack_number == lc_detector.subtype):
+                    with m.Elif(next_expected_ack_number == lc_detector.subtype):
                         m.d.comb += retire_packet.eq(1)
 
                         # Next time, we'll expect the next credit in the sequence.
@@ -659,7 +661,7 @@ class PacketTransmitter(Elaboratable):
 
                     # Otherwise, if we're expecting a packet, we've lost synchronization.
                     # We'll need to trigger link recovery.
-                    with m.Elif(packets_awaiting_ack != 0):
+                    with m.Else():
                         m.d.comb += self.recovery_required.eq(1)
 
                 #
@@ -727,23 +729,19 @@ class PacketTransmitter(Elaboratable):
         #
         # Reset Handling
         #
-        with m.If(self.usb_reset | Fell(self.enable)):
+        with m.If(~self.enable):
             m.d.ss += [
+                self.bringup_complete     .eq(0),
+
+                next_expected_credit      .eq(0),
+                credits_available         .eq(0),
+
                 packets_to_send           .eq(0),
                 packets_awaiting_ack      .eq(0),
-                next_expected_credit      .eq(0),
                 read_pointer              .eq(0),
                 write_pointer             .eq(0),
                 ack_pointer               .eq(0),
-                credits_available         .eq(0),
             ]
-
-            with m.If(self.usb_reset):
-                m.d.ss += [
-                    next_expected_ack_number  .eq(0),
-                    transmit_sequence_number  .eq(0)
-                ]
-
 
 
         #
