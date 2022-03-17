@@ -1064,7 +1064,7 @@ class GTP(Elaboratable):
             i_RXOSINTTESTOVRDEN     = 0,
 
             # Receive Ports - Clock Correction Ports
-            o_RXCLKCORCNT           = Open(),
+            o_RXCLKCORCNT           = Open(2),
 
             # Receive Ports - FPGA RX Interface Datapath Configuration
             i_RX8B10BEN             = 1,
@@ -1082,7 +1082,7 @@ class GTP(Elaboratable):
             i_RXPRBSCNTRESET        = 0,
 
             # Receive Ports - RX 8B/10B Decoder Ports
-            o_RXCHARISCOMMA         = Open(),
+            o_RXCHARISCOMMA         = Open(2),
             o_RXCHARISK             = rx_ctrl,
             o_RXDISPERR             = rx_disp_error,
             o_RXNOTINTABLE          = rx_code_error,
@@ -1096,7 +1096,7 @@ class GTP(Elaboratable):
 
             # Receive Ports - RX Buffer Bypass Ports
             i_RXBUFRESET            = 0,
-            o_RXBUFSTATUS           = Open(),
+            o_RXBUFSTATUS           = Open(3),
             i_RXDDIEN               = 0,
             i_RXDLYBYPASS           = 1,
             i_RXDLYEN               = 0,
@@ -1108,10 +1108,10 @@ class GTP(Elaboratable):
             i_RXPHALIGNEN           = 0,
             i_RXPHDLYPD             = 0,
             i_RXPHDLYRESET          = 0,
-            o_RXPHMONITOR           = Open(),
+            o_RXPHMONITOR           = Open(5),
             i_RXPHOVRDEN            = 0,
-            o_RXPHSLIPMONITOR       = Open(),
-            o_RXSTATUS              = Open(),
+            o_RXPHSLIPMONITOR       = Open(5),
+            o_RXSTATUS              = Open(3),
             i_RXSYNCALLIN           = rxphaligndone,
             o_RXSYNCDONE            = rx_init.rxsyncdone,
             i_RXSYNCIN              = 0,
@@ -1133,7 +1133,7 @@ class GTP(Elaboratable):
             i_RXCHBONDI             = 0b0000,
             i_RXCHBONDLEVEL         = 0,
             i_RXCHBONDMASTER        = 0,
-            o_RXCHBONDO             = Open(),
+            o_RXCHBONDO             = Open(4),
             i_RXCHBONDSLAVE         = 0,
 
             # Receive Ports - RX Channel Bonding Ports
@@ -1141,7 +1141,7 @@ class GTP(Elaboratable):
             o_RXCHANREALIGN         = Open(),
 
             # Receive Ports - RX Decision Feedback Equalizer
-            o_DMONITOROUT           = Open(),
+            o_DMONITOROUT           = Open(15),
             i_RXADAPTSELTEST        = 0,
             i_RXDFEXYDEN            = 0,
             i_RXOSINTEN             = 0b1,
@@ -1173,10 +1173,10 @@ class GTP(Elaboratable):
             i_RXOUTCLKSEL           = 0b010,
 
             # Receive Ports - RX Gearbox Ports
-            o_RXDATAVALID           = Open(),
-            o_RXHEADER              = Open(),
+            o_RXDATAVALID           = Open(2),
+            o_RXHEADER              = Open(3),
             o_RXHEADERVALID         = Open(),
-            o_RXSTARTOFSEQ          = Open(),
+            o_RXSTARTOFSEQ          = Open(2),
             i_RXGEARBOXSLIP         = 0,
 
             # Receive Ports - RX Initialization and Reset Ports
@@ -1214,7 +1214,7 @@ class GTP(Elaboratable):
             # TX Initialization and Reset Ports
             i_CFGRESET              = 0,
             i_GTTXRESET             = tx_init.gttxreset,
-            #o_PCSRSVDOUT           = Open(),
+            o_PCSRSVDOUT            = Open(),
             i_TXUSERRDY             = tx_init.txuserrdy,
 
             # TX Phase Interpolator PPM Controller Ports
@@ -1229,7 +1229,7 @@ class GTP(Elaboratable):
             i_RESETOVRD             = 0,
 
             # Transmit Ports
-            #o_TXPMARESETDONE       = Open(),
+            o_TXPMARESETDONE       = Open(),
 
             # Transmit Ports - Configurable Driver Ports
             i_PMARSVDIN0            = 0b0,
@@ -1273,7 +1273,7 @@ class GTP(Elaboratable):
             i_TXPHOVRDEN            = 0,
 
             # Transmit Ports - TX Buffer Ports
-            o_TXBUFSTATUS           = Open(),
+            o_TXBUFSTATUS           = Open(2),
 
             # Transmit Ports - TX Buffer and Phase Alignment Ports
             i_TXSYNCALLIN           = 0,
