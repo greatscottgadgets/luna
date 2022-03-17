@@ -512,7 +512,7 @@ class PacketTransmitter(Elaboratable):
         # Track how many packets are yet to be retired.
         with m.If(enqueue_send & ~retire_packet):
             m.d.ss += packets_awaiting_ack.eq(packets_awaiting_ack + 1)
-        with m.Elif(retire_packet & ~enqueue_send & packets_awaiting_ack > 0):
+        with m.Elif(retire_packet & ~enqueue_send & (packets_awaiting_ack != 0)):
             m.d.ss += packets_awaiting_ack.eq(packets_awaiting_ack - 1)
 
 
@@ -585,7 +585,7 @@ class PacketTransmitter(Elaboratable):
             with m.State("DISPATCH_PACKET"):
 
                 # If we have packets to send, pass them to our transmitter.
-                with m.If(packets_to_send & self.enable):
+                with m.If((packets_to_send != 0) & self.enable):
                     m.d.ss += [
                         # Grab the packet from our read queue, and pass it to the transmitter;
                         # but override its sequence number field with our current sequence number.
