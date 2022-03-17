@@ -181,8 +181,8 @@ class DataPacketReceiver(Elaboratable):
                         header.sequence_number  .eq(sink.data[16:19]),
                         header.dw3_reserved     .eq(sink.data[19:22]),
                         header.hub_depth        .eq(sink.data[22:25]),
-                        header.deferred         .eq(sink.data[25]),
-                        header.delayed          .eq(sink.data[26]),
+                        header.delayed          .eq(sink.data[25]),
+                        header.deferred         .eq(sink.data[26]),
                         header.crc5             .eq(sink.data[27:32]),
 
                         # ... and pipeline a CRC of the to the link control word.

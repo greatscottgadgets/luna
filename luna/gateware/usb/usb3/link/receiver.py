@@ -125,8 +125,8 @@ class RawHeaderPacketReceiver(Elaboratable):
                         packet.sequence_number  .eq(sink.data[16:19]),
                         packet.dw3_reserved     .eq(sink.data[19:22]),
                         packet.hub_depth        .eq(sink.data[22:25]),
-                        packet.deferred         .eq(sink.data[25]),
-                        packet.delayed          .eq(sink.data[26]),
+                        packet.delayed          .eq(sink.data[25]),
+                        packet.deferred         .eq(sink.data[26]),
                         packet.crc5             .eq(sink.data[27:32]),
 
                         # ... and pipeline a CRC of the to the link control word.

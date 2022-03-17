@@ -167,8 +167,8 @@ class RawPacketTransmitter(Elaboratable):
                     source.data[16:19]  .eq(header.sequence_number),
                     source.data[19:22]  .eq(header.dw3_reserved),
                     source.data[22:25]  .eq(header.hub_depth),
-                    source.data[25]     .eq(header.deferred),
-                    source.data[26]     .eq(header.delayed),
+                    source.data[25]     .eq(header.delayed),
+                    source.data[26]     .eq(header.deferred),
                     source.data[27:32]  .eq(compute_usb_crc5(source.data[16:27])),
                     source.ctrl         .eq(0)
                 ]
