@@ -11,7 +11,7 @@ from usb_protocol.types.superspeed import LinkCommand, HeaderPacketType
 from .header                       import HeaderPacket, HeaderQueue
 from .crc                          import compute_usb_crc5, HeaderPacketCRC, DataPacketPayloadCRC
 from .command                      import LinkCommandDetector
-from ..physical.coding             import SHP, SDP, EPF, END, get_word_for_symbols
+from ..physical.coding             import SHP, SDP, EPF, END, EDB, get_word_for_symbols
 from ...stream                     import USBRawSuperSpeedStream, SuperSpeedStreamInterface
 
 
@@ -203,8 +203,14 @@ class RawPacketTransmitter(Elaboratable):
 
                 with m.If(source.ready):
 
+                    # Special case: if we're retransmitting a data packet, we'll abort it immediately,
+                    # since we don't have the data buffered anywhere. Retransmission of the data payload
+                    # will be handled at the protocol layer.
+                    with m.If(header.delayed):
+                        m.next = "ABORT_DPP"
+
                     # Special case: if we're sending a ZLP, we'll jump directly to sending our CRC.
-                    with m.If(packet_is_zlp):
+                    with m.Elif(packet_is_zlp):
 
                         # We'll treat this as though we'd just sent a full data word; as this indicates
                         # to our later states that our data was word-aligned. (0B is a multiple of 4, after all.)
@@ -380,6 +386,23 @@ class RawPacketTransmitter(Elaboratable):
 
 
                 # Once our CRC is accepted, finish our payload.
+                with m.If(source.ready):
+                    m.d.comb += self.done.eq(1)
+                    m.next = "IDLE"
+
+
+            # ABORT_DPP -- send our abort-of-payload framing.
+            with m.State("ABORT_DPP"):
+
+                # Send our abort framing...
+                framing_data, framing_ctrl = get_word_for_symbols(EDB, EDB, EDB, EPF)
+                m.d.comb += [
+                    source.valid  .eq(1),
+                    source.data   .eq(framing_data),
+                    source.ctrl   .eq(framing_ctrl),
+                ]
+
+                # Once our framing is accepted, finish our payload.
                 with m.If(source.ready):
                     m.d.comb += self.done.eq(1)
                     m.next = "IDLE"
