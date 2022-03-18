@@ -9,7 +9,6 @@
 """ SerDes backend for the Artix7. """
 
 from amaranth import *
-from amaranth.hdl.rec import DIR_FANIN, DIR_FANOUT
 from amaranth.lib.cdc import FFSynchronizer, ResetSynchronizer
 
 
@@ -19,10 +18,6 @@ from ..lfps                       import LFPSSquareWaveGenerator
 
 from ....usb.stream               import USBRawSuperSpeedStream
 from ....usb.usb3.physical.coding import *
-
-
-DIR_C_TO_P = DIR_FANOUT
-DIR_P_TO_C = DIR_FANIN
 
 
 class WaitTimer(Elaboratable):
@@ -47,38 +42,93 @@ class WaitTimer(Elaboratable):
         return m
 
 
-class DRPInterface(Record):
-    def __init__(self, address_width=9, data_width=16):
-        super().__init__([
-            ("clk",               1, DIR_C_TO_P),
-            ("en",                1, DIR_C_TO_P),
-            ("we",                1, DIR_C_TO_P),
-            ("rdy",               1, DIR_P_TO_C),
-            ("addr", address_width,  DIR_C_TO_P),
-            ("di",      data_width,  DIR_C_TO_P),
-            ("do",      data_width,  DIR_P_TO_C),
-        ])
+class DRPInterface:
+    def __init__(self):
+        self.lock = Signal()
+        self.addr = Signal(9)
+        self.di   = Signal(16)
+        self.do   = Signal(16)
+        self.we   = Signal(1)
+        self.en   = Signal(1)
+        self.rdy  = Signal(1)
 
 
+class DRPInterfaceBuffer(Elaboratable):
+    def __init__(self, interface):
+        self.intf = interface
 
-class DRPMux(Elaboratable, DRPInterface):
-    def __init__(self, **kwargs):
-        DRPInterface.__init__(self, **kwargs)
-        self.sel = Signal(4)
+        self.addr_latch = Signal.like(interface.addr)
+        self.di_latch = Signal.like(interface.di)
+        self.we_latch = Signal.like(interface.we)
+        self.en_latch = Signal.like(interface.en)
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        with m.If(self.intf.en):
+            m.d.ss += [
+                self.addr_latch.eq(self.intf.addr),
+                self.di_latch.eq(self.intf.di),
+                self.we_latch.eq(self.intf.we),
+                self.en_latch.eq(1),
+            ]
+
+        with m.Elif(self.intf.rdy):
+            m.d.ss += [
+                self.en_latch.eq(0),
+            ]
+
+        return m
+
+
+class DRPArbiter(Elaboratable):
+    def __init__(self):
+        self.shared = DRPInterface()
         self.interfaces = []
 
     def add_interface(self, interface):
         self.interfaces.append(interface)
 
     def elaborate(self, platform):
-        assert len(self.interfaces) <= 16
-
         m = Module()
 
-        with m.Switch(self.sel):
-            for i, interface in enumerate(self.interfaces):
-                with m.Case(i):
-                    m.d.comb += interface.connect(self)
+        buffers = Array(DRPInterfaceBuffer(intf) for intf in self.interfaces)
+        m.submodules += buffers
+
+        current_idx = Signal(range(len(buffers)))
+        current_buf = buffers[current_idx]
+
+        with m.FSM(domain="ss"):
+
+            with m.State("IDLE"):
+                for idx in range(len(buffers)):
+                    with m.If(buffers[idx].en_latch):
+                        m.d.ss += current_idx.eq(idx)
+                        m.next = "REQUEST"
+
+            with m.State("REQUEST"):
+                m.d.comb += [
+                    self.shared.addr.eq(current_buf.addr_latch),
+                    self.shared.di.eq(current_buf.di_latch),
+                    self.shared.we.eq(current_buf.we_latch),
+                    self.shared.en.eq(current_buf.en_latch),
+                ]
+                with m.If(self.shared.en):
+                    m.next = "REPLY"
+                with m.Elif(~current_buf.intf.lock):
+                    m.next = "IDLE"
+
+            with m.State("REPLY"):
+                m.d.comb += [
+                    current_buf.intf.do.eq(self.shared.do),
+                    current_buf.intf.rdy.eq(self.shared.rdy),
+                ]
+                with m.If(self.shared.rdy):
+                    with m.If(current_buf.intf.lock):
+                        m.next = "REQUEST"
+                    with m.Else():
+                        m.next = "IDLE"
 
         return m
 
@@ -107,10 +157,6 @@ class GTPTXInit(Elaboratable):
         self.txphaligndone   = Signal()
         self.txdlyen         = Signal()
         self.txuserrdy       = Signal()
-
-        # DRP (optional)
-        self.drp_start       = Signal()
-        self.drp_done        = Signal(reset=1)
 
 
     def elaborate(self, platform):
@@ -164,21 +210,18 @@ class GTPTXInit(Elaboratable):
         with m.FSM(domain="ss"):
             with m.State("POWER-DOWN"):
                 m.d.comb += [
+                    self.pllreset.eq(1),
                     gttxreset.eq(1),
                     gttxpd.eq(1),
-                    self.pllreset.eq(1),
                 ]
-                m.next = "DRP"
+                m.next = "PLL-RESET"
 
-            with m.State("DRP",):
+            with m.State("PLL-RESET"):
                 m.d.comb += [
-                    gttxreset.eq(1),
                     self.pllreset.eq(1),
-                    self.drp_start.eq(1),
+                    gttxreset.eq(1),
                 ]
-                with m.If(self.drp_done):
-                    m.next = "WAIT-PLL-RESET"
-
+                m.next = "WAIT-PLL-RESET"
 
             with m.State("WAIT-PLL-RESET"):
                 m.d.comb += gttxreset.eq(1)
@@ -194,7 +237,6 @@ class GTPTXInit(Elaboratable):
                 m.d.comb += txuserrdy.eq(1)
                 with m.If(txresetdone):
                     m.next = "READY"
-
 
             with m.State("READY"):
                 m.d.comb += [
@@ -246,8 +288,8 @@ class GTPRXInit(Elaboratable):
         drpmask  = Signal()
 
         m.d.comb += [
-            self.drp.clk.eq(ClockSignal("ss")),
-            self.drp.addr.eq(0x011),
+            self.drp.lock.eq(1),
+            self.drp.addr.eq(0x011)
         ]
 
         with m.If(drpmask):
@@ -351,8 +393,8 @@ class GTPRXInit(Elaboratable):
             with m.State("DRP_RESTORE_WAIT"):
                 m.d.comb += rxuserrdy.eq(1)
                 with m.If(self.drp.rdy):
-
                     m.next = "WAIT-GTP-RESET"
+
             with m.State("WAIT-GTP-RESET"):
                 m.d.comb += rxuserrdy.eq(1)
                 with m.If(rxresetdone):
@@ -362,6 +404,7 @@ class GTPRXInit(Elaboratable):
                 m.d.comb += [
                     rxuserrdy.eq(1),
                     self.done.eq(1),
+                    self.drp.lock.eq(0),
                 ]
                 with m.If(self.restart):
                     m.next = "POWER-DOWN"
@@ -372,6 +415,63 @@ class GTPRXInit(Elaboratable):
         m.d.comb += watchdog.wait.eq(~reset_self & ~self.done),
 
         return ResetInserter(reset_self)(m)
+
+
+class GTPRXTermination(Elaboratable):
+    def __init__(self):
+        self.drp = DRPInterface()
+
+        self.enable = Signal()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        m.d.comb += [
+            self.drp.lock.eq(1),
+            self.drp.addr.eq(0x0011)
+        ]
+
+        reg_rx_cfg = Signal(15)
+
+        rx_cm_sel_cur = reg_rx_cfg[4:6]
+        rx_cm_sel_new = Mux(self.enable,
+                            0b11, # Programmable
+                            0b10) # Floating
+
+        with m.FSM(domain="ss"):
+            with m.State("READ"):
+                m.d.comb += [
+                    self.drp.en.eq(1)
+                ]
+                m.next = "READ-WAIT"
+
+            with m.State("READ-WAIT"):
+                with m.If(self.drp.rdy):
+                    m.d.ss += [
+                        reg_rx_cfg.eq(self.drp.do),
+                        rx_cm_sel_cur.eq(rx_cm_sel_new)
+                    ]
+                    m.next = "WRITE"
+
+            with m.State("WRITE"):
+                m.d.comb += [
+                    self.drp.di.eq(reg_rx_cfg),
+                    self.drp.we.eq(1),
+                    self.drp.en.eq(1),
+                ]
+                m.next = "WRITE-WAIT"
+
+            with m.State("WRITE-WAIT"):
+                with m.If(self.drp.rdy):
+                    m.next = "IDLE"
+
+            with m.State("IDLE"):
+                m.d.comb += self.drp.lock.eq(0)
+                with m.If(rx_cm_sel_cur != rx_cm_sel_new):
+                    m.next = "READ"
+
+        return m
 
 
 
@@ -416,13 +516,13 @@ class GTPQuadPLL(Elaboratable):
                 i_BGRCALOVRD   = 0b11111,
                 i_RCALENB      = 1,
 
+                i_DRPCLK       = ClockSignal("ss"),
                 i_DRPADDR      = self.drp.addr,
-                i_DRPCLK       = self.drp.clk,
                 i_DRPDI        = self.drp.di,
                 o_DRPDO        = self.drp.do,
+                i_DRPWE        = self.drp.we,
                 i_DRPEN        = self.drp.en,
                 o_DRPRDY       = self.drp.rdy,
-                i_DRPWE        = self.drp.we,
             )
 
             if self.channel == 0:
@@ -553,6 +653,7 @@ class GTP(Elaboratable):
         # RX controls
         self.rx_enable       = Signal(reset=1)
         self.rx_polarity     = Signal()
+        self.rx_termination  = Signal()
         self.rx_ready        = Signal()
         self.rx_align        = Signal(reset=1)
         self.rx_idle         = Signal()
@@ -635,11 +736,20 @@ class GTP(Elaboratable):
         ]
 
         #
+        # RX termination
+        #
+        m.submodules.rx_term = rx_term = GTPRXTermination()
+        m.d.comb += [
+            rx_term.enable.eq(self.rx_termination),
+        ]
+
+        #
         # DRP
         #
-        m.submodules.drp_mux = drp_mux = DRPMux()
-        drp_mux.add_interface(rx_init.drp)
-        drp_mux.add_interface(self.drp)
+        m.submodules.drp_arbiter = drp_arbiter = self.drp_arbiter = DRPArbiter()
+        drp_arbiter.add_interface(rx_init.drp)
+        drp_arbiter.add_interface(rx_term.drp)
+        drp_arbiter.add_interface(self.drp)
 
         #
         # LFPS "logic clock"
@@ -962,7 +1072,7 @@ class GTP(Elaboratable):
             p_LOOPBACK_CFG               = 0b0,
             p_PMA_LOOPBACK_CFG           = 0b0,
 
-            p_RX_CM_SEL                  = 0b11,
+            p_RX_CM_SEL                  = 0b10,
             p_RX_CM_TRIM                 = 0b1010,
 
             # RX OOB Signalling Attributes
@@ -987,13 +1097,13 @@ class GTP(Elaboratable):
             i_TSTIN                 = 0b11111111111111111111,
 
             # Channel - DRP Ports
-            i_DRPADDR               = drp_mux.addr,
-            i_DRPCLK                = drp_mux.clk,
-            i_DRPDI                 = drp_mux.di,
-            o_DRPDO                 = drp_mux.do,
-            i_DRPEN                 = drp_mux.en,
-            o_DRPRDY                = drp_mux.rdy,
-            i_DRPWE                 = drp_mux.we,
+            i_DRPCLK                = ClockSignal("ss"),
+            i_DRPADDR               = drp_arbiter.shared.addr,
+            i_DRPDI                 = drp_arbiter.shared.di,
+            o_DRPDO                 = drp_arbiter.shared.do,
+            i_DRPWE                 = drp_arbiter.shared.we,
+            i_DRPEN                 = drp_arbiter.shared.en,
+            o_DRPRDY                = drp_arbiter.shared.rdy,
 
             # Clocking Ports
             i_RXSYSCLKSEL           = 0b00 if qpll.channel == 0 else 0b11,
@@ -1430,7 +1540,7 @@ class LunaArtix7SerDes(Elaboratable):
         self.rx_polarity             = Signal()   # i
         self.rx_idle                 = Signal()   # o
         self.rx_align                = Signal(reset=1)   # i
-        self.rx_termination          = Signal()   # i, not implemented
+        self.rx_termination          = Signal()   # i
         self.rx_eq_training          = Signal()   # i
 
         self.send_lfps_signaling     = Signal()
@@ -1470,7 +1580,7 @@ class LunaArtix7SerDes(Elaboratable):
         #
         # Core Serdes
         #
-        m.submodules.serdes = serdes = GTP(
+        m.submodules.serdes = serdes = self.serdes = GTP(
             qpll               = qpll,
             tx_pads            = self._tx_pads,
             rx_pads            = self._rx_pads,
@@ -1505,6 +1615,7 @@ class LunaArtix7SerDes(Elaboratable):
 
             serdes.rx_enable              .eq(self.enable),
             serdes.rx_polarity            .eq(self.rx_polarity),
+            serdes.rx_termination         .eq(self.rx_termination),
             serdes.rx_align               .eq(self.rx_align),
             rx_datapath.align             .eq(self.rx_align),
             serdes.train_equalizer        .eq(self.rx_eq_training),
