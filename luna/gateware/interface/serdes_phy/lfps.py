@@ -150,13 +150,11 @@ class LFPSSquareWaveDetector(Elaboratable):
 class LFPSSquareWaveGenerator(Elaboratable):
     """Generator that outputs LFPS square-wave patterns.
     """
-    def __init__(self, fast_clk_freq, lfps_clk_freq):
-        self._clock_frequency = fast_clk_freq
-        self._lfps_clk_freq   = lfps_clk_freq
+    def __init__(self, fast_clock_frequency, lfps_frequency):
 
-        # Validate that our frequency is within the allowed bounds.
-        assert lfps_clk_freq >= 1/_LFPS_PERIOD_MAX
-        assert lfps_clk_freq <= 1/_LFPS_PERIOD_MIN
+        # Compute the cycles in one half-period, and make sure the final period is within the spec.
+        self._half_cycle = ceil(fast_clock_frequency / (2 * lfps_frequency))
+        assert _LFPS_PERIOD_MIN <= (2 * self._half_cycle) / fast_clock_frequency <= _LFPS_PERIOD_MAX
 
 
         #
@@ -174,22 +172,18 @@ class LFPSSquareWaveGenerator(Elaboratable):
         #
         # LFPS square-wave generator.
         #
-        timer_max = ceil(self._clock_frequency/(2*self._lfps_clk_freq)) - 1
-
+        period_timer = Signal(range(self._half_cycle))
         square_wave  = Signal()
-        period_timer = Signal(range(0, timer_max + 1))
 
-        with m.If(period_timer == 0):
-            m.d.fast += [
-                square_wave    .eq(~square_wave),
-                period_timer   .eq(timer_max - 1)
+        m.d.fast += period_timer.eq(period_timer + 1)
+        with m.If(period_timer + 1 == self._half_cycle):
+            m.d.fast += period_timer.eq(0)
+            m.d.fast += square_wave.eq(~square_wave)
+
+        with m.If(self.generate):
+            m.d.comb += [
+                self.tx_gpio_en.eq(1),
+                self.tx_gpio   .eq(square_wave),
             ]
-        with m.Else():
-            m.d.fast += period_timer.eq(period_timer - 1)
-
-        m.d.comb += [
-            self.tx_gpio_en  .eq(self.generate),
-            self.tx_gpio     .eq(square_wave),
-        ]
 
         return m
