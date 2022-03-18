@@ -9,7 +9,6 @@ import logging
 from amaranth    import *
 
 from ...usb.stream  import USBRawSuperSpeedStream
-from .lfps          import LFPSTransceiver
 
 
 class SerDesPHY(Elaboratable):
