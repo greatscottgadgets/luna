@@ -34,7 +34,9 @@ from amaranth       import *
 from ....test.utils  import LunaSSGatewareTestCase, ss_domain_test_case
 from ....utils       import synchronize, rising_edge_detected
 
+
 __all__ = ['LFPSTransceiver']
+
 
 #
 # LPFS timing "constants", and collection classes that represent them.
@@ -62,16 +64,6 @@ class LFPS:
         self.cycles = None
 
 
-def _ns_to_cycles(clk_freq, t):
-    return ceil(t*clk_freq)
-
-
-_DEFAULT_LFPS_FREQ = 30e6
-
-_LFPS_CLK_FREQ_MIN = 1/100e-9
-_LFPS_CLK_FREQ_MAX = 1/20e-9
-
-
 # Our actual pattern constants; as specified by the USB3 specification.
 # [USB 3.2r1: Table 6-30]
 _PollingLFPSBurst  = LFPSTiming(t_typ=1.0e-6,  t_min=0.6e-6, t_max=1.4e-6)
@@ -82,146 +74,19 @@ _ResetLFPSBurst    = LFPSTiming(t_typ=100.0e-3, t_min=80.0e-3,  t_max=120.0e-3)
 _ResetLFPS         = LFPS(burst=_ResetLFPSBurst)
 
 
-class LFPSSquareWaveDetector(Elaboratable):
-    """ Detector that identifies LFPS square-wave patterns.
-
-    Operates in the ``fast`` domain.
-
-    Attributes
-    ----------
-    rx_gpio: Signal(), input
-        The current state of the Rx lines, as retrieved by our SerDes.
-    present: Signal(), output
-        High whenever we detect an LFPS toggling.
-    """
-
-    # From [USB3.2: Table 6-29]; the maximum and minimum
-    PERIOD_MIN           =  20e-9
-    PERIOD_MAX           = 100e-9
-
-    def __init__(self, fast_clock_frequency=250e6):
-
-        # Compute the minimum and maximum cycles we're allowed to see.
-        # Our multipliers allow for up to a 10% devication in duty cycle.
-        self._half_cycle_min = _ns_to_cycles(fast_clock_frequency, (self.PERIOD_MIN / 2) * 0.8) - 1
-        self._half_cycle_max = _ns_to_cycles(fast_clock_frequency, (self.PERIOD_MAX / 2) * 1.2) + 1
-        assert(self._half_cycle_min >= 1)
-
-
-        #
-        # I/O port
-        #
-        self.rx_gpio = Signal()
-        self.present = Signal()
-
-
-    def elaborate(self, platform):
-        m = Module()
-
-        # Our mechanism is simple: we measure the length of any periods of consecutive highs and lows
-        # we see, and then check to see when they're both in acceptable ranges. Theoretically, we should
-        # also check the duty cycle, but as of now, that doesn't seem necessary. [USB3.2: Table 6-29]
-
-        # Keep track of the GPIO's value a cycle ago, so we can easily detect rising and falling edges.
-        last_gpio = Signal()
-        m.d.fast += last_gpio.eq(self.rx_gpio)
-
-        # We'll allow each timer to go one cycle past our half-cycle-max, so it can saturate at an unacceptable
-        # level, and mark the ranges as invalid.
-        timer_max = self._half_cycle_max + 1
-
-        #
-        # Time-high detection.
-        #
-
-        # Keep track of our current/total time high.
-        current_time_high = Signal(range(0, timer_max + 1))
-        total_time_high   = Signal.like(current_time_high)
-
-        # If our GPIO is high, count it.
-        with m.If(self.rx_gpio):
-
-            # Count only when we've reached a value lower than the timer's max,
-            # so we saturate once we're outside the acceptable range.
-            with m.If(current_time_high != timer_max):
-                m.d.fast += current_time_high.eq(current_time_high + 1)
-
-            # If we've saturated our count, immediately set the total time
-            # to the saturation value. This prevents false detections after long
-            # strings of constant value.
-            with m.Else():
-                m.d.fast += total_time_high.eq(timer_max)
-
-
-        # If we were still counting last cycle, we'll latch our observed time
-        # high before our timer gets cleared. This value represents our total
-        # time high, and thus the value we'll use for comparison.
-        with m.Elif(last_gpio):
-
-                m.d.fast += [
-                    total_time_high    .eq(current_time_high),
-                    current_time_high  .eq(0)
-                ]
-
-
-        #
-        # Time-low detection.
-        #
-
-        # Keep track of our current/total time low.
-        current_time_low = Signal(range(0, timer_max + 1))
-        total_time_low   = Signal.like(current_time_low)
-
-        # If our GPIO is low, count it.
-        with m.If(~self.rx_gpio):
-
-            # Count only when we've reached a value lower than the timer's max,
-            # so we saturate once we're outside the acceptable range.
-            with m.If(current_time_low != timer_max):
-                m.d.fast += current_time_low.eq(current_time_low + 1)
-
-            # If we've saturated our count, immediately set the total time
-            # to the saturation value. This prevents false detections after long
-            # strings of constant value.
-            with m.Else():
-                m.d.fast += total_time_low.eq(timer_max)
-
-        # If we were still counting last cycle, we'll latch our observed time
-        # low before our timer gets cleared. This value represents our total
-        # time high, and thus the value we'll use for comparison.
-        with m.Elif(~last_gpio):
-            m.d.fast += [
-                total_time_low    .eq(current_time_low),
-                current_time_low  .eq(0)
-            ]
-
-
-        #
-        # Final detection.
-        #
-
-        # Whenever both our time high and time low are in range, we have a valid period.
-        time_high_valid = ((total_time_high >= self._half_cycle_min) & (total_time_high <= self._half_cycle_max))
-        time_low_valid  = ((total_time_low  >= self._half_cycle_min) & (total_time_low  <= self._half_cycle_max))
-        m.d.comb += self.present.eq(time_high_valid & time_low_valid)
-
-        return m
-
-
-
 #
-# Core LFPS gateware.
+# Gateware for generating and detecting bursts of LFPS patterns. Does not deal with
+# the actual 10-50 MHz LFPS clock, delegating that to the PHY.
 #
 class LFPSDetector(Elaboratable):
     """ LFPS signaling detector; detects LFPS signaling in particular patterns.
 
     Attributes
     ----------
-    rx_gpio: Signal(), input
-        The current state of the Rx lines, as retrieved by our SerDes.
+    signaling_detected: Signal(), input
+        Held high when our PHY is detecting LFPS square waves.
     detect: Signal(), output
         Strobes high when a valid LFPS burst is detected.
-
     """
     def __init__(self, lfps_pattern, ss_clk_frequency=125e6):
         self._pattern              = lfps_pattern
@@ -241,13 +106,13 @@ class LFPSDetector(Elaboratable):
         present = synchronize(m, self.signaling_detected, o_domain="ss")
 
         # Figure out how large of a counter we're going to need...
-        burst_cycles_min    = _ns_to_cycles(self._clock_frequency, self._pattern.burst.t_min)
-        burst_cycles_max    = _ns_to_cycles(self._clock_frequency, self._pattern.burst.t_max)
+        burst_cycles_min    = ceil(self._clock_frequency * self._pattern.burst.t_min)
+        burst_cycles_max    = ceil(self._clock_frequency * self._pattern.burst.t_max)
 
         # If we have a repeat interval, include it in our calculations.
         if self._pattern.repeat is not None:
-            repeat_cycles_max   = _ns_to_cycles(self._clock_frequency, self._pattern.repeat.t_max)
-            repeat_cycles_min   = _ns_to_cycles(self._clock_frequency, self._pattern.repeat.t_min)
+            repeat_cycles_max   = ceil(self._clock_frequency * self._pattern.repeat.t_max)
+            repeat_cycles_min   = ceil(self._clock_frequency * self._pattern.repeat.t_min)
             counter_max         = max(burst_cycles_max, repeat_cycles_max)
         else:
             counter_max         = burst_cycles_max
@@ -335,18 +200,10 @@ class LFPSDetector(Elaboratable):
 
 
 class LFPSBurstGenerator(Elaboratable):
-    """LFPS Burst Generator
-
-    Generate a LFPS burst of configurable length on the TX lane. The LFPS clock is generated by
-    sending an alternating ones/zeroes data pattern on the parallel interface of the transceiver.
+    """ LFPS Burst Generator
     """
-    def __init__(self, sys_clk_freq, lfps_clk_freq):
+    def __init__(self, sys_clk_freq):
         self._clock_frequency = sys_clk_freq
-        self._lfps_clk_freq   = lfps_clk_freq
-
-        # Validate that our frequency is within the allowed bounds.
-        assert lfps_clk_freq >= _LFPS_CLK_FREQ_MIN
-        assert lfps_clk_freq <= _LFPS_CLK_FREQ_MAX
 
         #
         # I/O ports
@@ -355,7 +212,7 @@ class LFPSBurstGenerator(Elaboratable):
         self.done                   = Signal()   # o
         self.length                 = Signal(32) # i
 
-        self.send_lfps_signaling    = Signal()      # o
+        self.send_lfps_signaling    = Signal()   # o
 
 
     def elaborate(self, platform):
@@ -372,7 +229,6 @@ class LFPSBurstGenerator(Elaboratable):
             with m.State("IDLE"):
                 m.d.comb += self.done.eq(1)
                 m.d.ss   += [
-                    #period_timer          .eq(0),
                     cycles_left_in_burst  .eq(self.length)
                 ]
 
@@ -392,15 +248,11 @@ class LFPSBurstGenerator(Elaboratable):
 
 
 class LFPSGenerator(Elaboratable):
-    """LFPS Generator
-
-    Generate a specific LFPS pattern on the TX lane. This module handles LFPS clock generation, LFPS
-    burst generation and repetition.
+    """ LFPS Burst and Repeat Generator
     """
-    def __init__(self, lfps_pattern, sys_clk_freq, lfps_clk_freq):
+    def __init__(self, lfps_pattern, sys_clk_freq):
         self._pattern         = lfps_pattern
         self._clock_frequency = sys_clk_freq
-        self._lpfs_frequency  = lfps_clk_freq
 
         #
         # I/O port
@@ -421,10 +273,7 @@ class LFPSGenerator(Elaboratable):
         #
         # LFPS burst generator.
         #
-        m.submodules.burst_gen = burst_generator = LFPSBurstGenerator(
-            sys_clk_freq=self._clock_frequency,
-            lfps_clk_freq=self._lpfs_frequency
-        )
+        m.submodules.burst_gen = burst_generator = LFPSBurstGenerator(self._clock_frequency)
 
         #
         # Controller
@@ -473,8 +322,7 @@ class LFPSGeneratorTest(LunaSSGatewareTestCase):
     FRAGMENT_UNDER_TEST = LFPSGenerator
     FRAGMENT_ARGUMENTS  = dict(
         lfps_pattern = _PollingLFPS,
-        sys_clk_freq = 125e6,
-        lfps_clk_freq= _DEFAULT_LFPS_FREQ
+        sys_clk_freq = 125e6
     )
 
     @ss_domain_test_case
@@ -534,9 +382,8 @@ class LFPSTransceiver(Elaboratable):
         Indicates how many LFPS bursts we've sent since the last request.
     """
 
-    def __init__(self, ss_clk_freq=125e6, lfps_clk_freq=_DEFAULT_LFPS_FREQ):
+    def __init__(self, ss_clk_freq=125e6):
         self._clock_frequency      = ss_clk_freq
-        self._lpfs_frequency       = lfps_clk_freq
 
         #
         # I/O port
@@ -558,33 +405,28 @@ class LFPSTransceiver(Elaboratable):
         m = Module()
 
         #
-        # LFPS Receiver.
+        # LFPS Receivers.
         #
-        polling_checker = LFPSDetector(_PollingLFPS, self._clock_frequency)
-        m.submodules += polling_checker
+        m.submodules.polling_detector = polling_detector = LFPSDetector(_PollingLFPS, self._clock_frequency)
         m.d.comb += [
-            polling_checker.signaling_detected  .eq(self.lfps_signaling_detected),
-            self.lfps_polling_detected          .eq(polling_checker.detect)
+            polling_detector.signaling_detected .eq(self.lfps_signaling_detected),
+            self.lfps_polling_detected          .eq(polling_detector.detect)
         ]
 
-        reset_checker = LFPSDetector(_ResetLFPS, self._clock_frequency)
-        m.submodules += reset_checker
+        m.submodules.reset_detector = reset_detector = LFPSDetector(_ResetLFPS, self._clock_frequency)
         m.d.comb += [
-            reset_checker.signaling_detected  .eq(self.lfps_signaling_detected),
-            self.lfps_reset_detected          .eq(reset_checker.detect)
+            reset_detector.signaling_detected   .eq(self.lfps_signaling_detected),
+            self.lfps_reset_detected            .eq(reset_detector.detect)
         ]
 
 
         #
         # LFPS Transmitter(s).
         #
-        polling_generator = LFPSGenerator(_PollingLFPS, self._clock_frequency, self._lpfs_frequency)
-        m.submodules += polling_generator
-
+        m.submodules.polling_generator = polling_generator = LFPSGenerator(_PollingLFPS, self._clock_frequency)
         m.d.comb += [
-            polling_generator.generate .eq(self.send_lfps_polling),
+            polling_generator.generate  .eq(self.send_lfps_polling),
 
-            # Drive our outputs with the outputs generated by our generator...
             self.send_lfps_signaling    .eq(polling_generator.send_lfps_signaling),
             self.tx_count               .eq(polling_generator.count),
         ]
