@@ -135,7 +135,7 @@ class SerDesPHY(Elaboratable):
         #
         m.d.comb += [
             self._serdes.send_lfps_signaling  .eq(self.tx_detrx_lpbk & self.tx_elecidle),
-            self.rx_elecidle                  .eq(~self._serdes.lfps_signaling_detected),
+            self.rx_elecidle                  .eq(~self._serdes.lfps_signaling_received),
         ]
 
 

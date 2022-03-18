@@ -66,6 +66,7 @@ class LFPS:
 
 # Our actual pattern constants; as specified by the USB3 specification.
 # [USB 3.2r1: Table 6-30]
+
 _PollingLFPSBurst  = LFPSTiming(t_typ=1.0e-6,  t_min=0.6e-6, t_max=1.4e-6)
 _PollingLFPSRepeat = LFPSTiming(t_typ=10.0e-6, t_min=6.0e-6, t_max=14.0e-6)
 _PollingLFPS       = LFPS(burst=_PollingLFPSBurst, repeat=_PollingLFPSRepeat)
@@ -78,12 +79,16 @@ _ResetLFPS         = LFPS(burst=_ResetLFPSBurst)
 # Gateware for generating and detecting bursts of LFPS patterns. Does not deal with
 # the actual 10-50 MHz LFPS clock, delegating that to the PHY.
 #
+
 class LFPSDetector(Elaboratable):
-    """ LFPS signaling detector; detects LFPS signaling in particular patterns.
+    """ LFPS Signaling Detector
+
+    Compares received (and demodulated) LFPS signaling with a specified pattern.
 
     Attributes
     ----------
-    signaling_detected: Signal(), input
+
+    signaling_received: Signal(), input
         Held high when our PHY is detecting LFPS square waves.
     detect: Signal(), output
         Strobes high when a valid LFPS burst is detected.
@@ -95,7 +100,7 @@ class LFPSDetector(Elaboratable):
         #
         # I/O port
         #
-        self.signaling_detected = Signal() # i
+        self.signaling_received = Signal() # i
         self.detect             = Signal() # o
 
 
@@ -103,7 +108,7 @@ class LFPSDetector(Elaboratable):
         m = Module()
 
         # Create an in-domain version of our square-wave-detector signal.
-        present = synchronize(m, self.signaling_detected, o_domain="ss")
+        present = synchronize(m, self.signaling_received, o_domain="ss")
 
         # Figure out how large of a counter we're going to need...
         burst_cycles_min    = ceil(self._clock_frequency * self._pattern.burst.t_min)
@@ -199,120 +204,74 @@ class LFPSDetector(Elaboratable):
 
 
 
-class LFPSBurstGenerator(Elaboratable):
-    """ LFPS Burst Generator
-    """
-    def __init__(self, sys_clk_freq):
-        self._clock_frequency = sys_clk_freq
-
-        #
-        # I/O ports
-        #
-        self.start                  = Signal()   # i
-        self.done                   = Signal()   # o
-        self.length                 = Signal(32) # i
-
-        self.send_lfps_signaling    = Signal()   # o
-
-
-    def elaborate(self, platform):
-        m = Module()
-
-        #
-        # Burst generator.
-        #
-        cycles_left_in_burst = Signal.like(self.length)
-
-        with m.FSM(domain="ss"):
-
-            # IDLE -- we're currently waiting for an LFPS burst to be requested.
-            with m.State("IDLE"):
-                m.d.comb += self.done.eq(1)
-                m.d.ss   += [
-                    cycles_left_in_burst  .eq(self.length)
-                ]
-
-                with m.If(self.start):
-                    m.next = "BURST"
-
-            # BURST -- we've started a burst; and now we'll wait here until the burst is complete.
-            with m.State("BURST"):
-                m.d.comb += self.send_lfps_signaling  .eq(1)
-                m.d.ss += cycles_left_in_burst.eq(cycles_left_in_burst - 1)
-
-                with m.If(cycles_left_in_burst == 0):
-                    m.next = "IDLE"
-
-        return m
-
-
-
 class LFPSGenerator(Elaboratable):
-    """ LFPS Burst and Repeat Generator
+    """ LFPS Signaling Generator
+
+    Transmits (to be modulated) LFPS signaling that follows a specified pattern.
+
+    Attributes
+    ----------
+
+    generate: Signal(), input
+        When asserted, continuously generates LFPS patterns.
+    done: Signal(), output
+        Strobes high every time a cycle is completed.
+
+    drive_electrical_idle: Signal(), output
+        Held high while cycles are being generated; during both burst and repeat intervals.
+    send_signaling: Signal(), output
+        Held high during a burst.
     """
     def __init__(self, lfps_pattern, sys_clk_freq):
         self._pattern         = lfps_pattern
         self._clock_frequency = sys_clk_freq
 
         #
-        # I/O port
+        # I/O ports
         #
-
-        # Control
-        self.generate               = Signal()      # i
-        self.count                  = Signal(16)    # o
-
-        # Transceiver
-        self.drive_electrical_idle  = Signal()
-        self.send_lfps_signaling    = Signal()
+        self.generate               = Signal() # i
+        self.completed              = Signal() # o
+        self.drive_electrical_idle  = Signal() # o
+        self.send_signaling         = Signal() # o
 
 
     def elaborate(self, platform):
         m = Module()
 
-        #
-        # LFPS burst generator.
-        #
-        m.submodules.burst_gen = burst_generator = LFPSBurstGenerator(self._clock_frequency)
+        # Compute the amount of cycles it takes to transmit the burst and reach
+        # the end of the pattern...
+        burst_cycles  = ceil(self._clock_frequency * self._pattern.burst.t_typ)
+        repeat_cycles = ceil(self._clock_frequency * self._pattern.repeat.t_typ)
 
-        #
-        # Controller
-        #
-        burst_repeat_count = Signal(32)
-        full_burst_length  = int(self._clock_frequency*self._pattern.burst.t_typ)
-        full_repeat_length = int(self._clock_frequency*self._pattern.repeat.t_typ)
+        # ... and create our cycle counter.
+        count = Signal(range(0, repeat_cycles))
+        m.d.ss += count.eq(count + 1)
 
         with m.FSM(domain="ss"):
 
             # IDLE -- wait for an LFPS burst request.
             with m.State("IDLE"):
+                m.d.ss += count.eq(0)
 
                 # Once we get one, start a burst.
                 with m.If(self.generate):
-                    m.d.ss   += [
-                        burst_generator.start   .eq(1),
-                        burst_generator.length  .eq(full_burst_length),
-                        burst_repeat_count      .eq(full_repeat_length),
-                    ]
-                    m.next = "BURST_AND_WAIT"
+                    m.d.comb += self.drive_electrical_idle.eq(1)
+                    m.next = "BURST"
 
+            # BURST -- transmit an LFPS burst for the duration of the burst interval.
+            with m.State("BURST"):
+                m.d.comb += self.drive_electrical_idle.eq(1)
+                m.d.comb += self.send_signaling.eq(1)
 
-            # BURST_AND_WAIT -- we've now triggered a burst; we'll wait until
-            # the interval between bursts (the "repeat" interval) before allowing
-            # another burst.
-            with m.State("BURST_AND_WAIT"):
-                m.d.comb += [
-                    self.drive_electrical_idle  .eq(1),
-                    self.send_lfps_signaling    .eq(burst_generator.send_lfps_signaling)
-                ]
-                m.d.ss   += [
-                    burst_generator.start       .eq(0),
-                    burst_repeat_count          .eq(burst_repeat_count - 1)
-                ]
+                with m.If(count + 1 == burst_cycles):
+                    m.next = "WAIT"
 
-                # Once we've waited the repeat interval, return to ready.
-                with m.If(burst_repeat_count == 0):
-                    m.d.ss += self.count.eq(self.count + 1)
+            # WAIT -- do nothing for the remaining part of the repeat interval.
+            with m.State("WAIT"):
+                m.d.comb += self.drive_electrical_idle.eq(1)
+
+                with m.If(count + 1 == repeat_cycles):
+                    m.d.comb += self.completed.eq(1)
                     m.next = "IDLE"
 
         return m
@@ -329,8 +288,8 @@ class LFPSGeneratorTest(LunaSSGatewareTestCase):
     def test_polling_lfps_sequence(self):
         dut = self.dut
 
-        burst_length=int(self.SS_CLOCK_FREQUENCY * _PollingLFPSBurst.t_typ)
-        burst_repeat=int(self.SS_CLOCK_FREQUENCY * _PollingLFPSRepeat.t_typ)
+        burst_length = ceil(self.SS_CLOCK_FREQUENCY * _PollingLFPSBurst.t_typ)
+        burst_repeat = ceil(self.SS_CLOCK_FREQUENCY * _PollingLFPSRepeat.t_typ)
 
         # Trigger a burst...
         yield dut.generate.eq(1)
@@ -343,7 +302,7 @@ class LFPSGeneratorTest(LunaSSGatewareTestCase):
         while (yield dut.drive_electrical_idle):
 
             # ... and measure how long our burst lasts...
-            if (yield dut.send_lfps_signaling):
+            if (yield dut.send_signaling):
                 burst_ticks += 1
 
             # ... as well as the length of our whole interval.
@@ -359,46 +318,48 @@ class LFPSGeneratorTest(LunaSSGatewareTestCase):
 
 
 class LFPSTransceiver(Elaboratable):
-    """ Low-Frequency Periodic Signaling (LFPS) Transciever.
+    """ Low-Frequency Periodic Signaling (LFPS) Transciever
 
-    Transmits and receives the LPFS required for a USB3.0 link.
+    Transmits and receives the LPFS sequences required for a USB 3.0 link.
 
     Attributes
     ----------
 
-    send_lfps_signaling: Signal(), output
-        Held high when our PHY should be generating LFPS square waves.
-    lfps_signaling_detected: Signal(), input
-        Should be asserted when our PHY is detecting LFPS square waves.
+    drive_electrical_idle: Signal(), output
+        Held high when our PHY should be either in Electrical Idle, or transmit LFPS waveforms.
+    send_signaling: Signal(), output
+        Held high when our PHY should be transmitting LFPS square waves.
+    signaling_received: Signal(), input
+        Should be asserted when our PHY is receiving LFPS square waves.
 
-    send_lfps_polling: Signal(), input
-        Strobe. When asserted, begins an LFPS burst.
-    lfps_polling_detected: Signal(), output
+    send_polling: Signal(), input
+        Strobe. When asserted, begins Polling LFPS.
+    cycles_sent: Signal(16), output
+        Incremented every time an LFPS cycle is completed.
+
+    polling_detected: Signal(), output
         Strobes high when Polling LFPS is detected.
-    lfps_polling_detected: Signal(), output
+    reset_detected: Signal(), output
         Strobes high when Reset LFPS is detected.
-
-    tx_count: Signal(16), output
-        Indicates how many LFPS bursts we've sent since the last request.
     """
 
     def __init__(self, ss_clk_freq=125e6):
         self._clock_frequency      = ss_clk_freq
 
         #
-        # I/O port
+        # I/O ports
         #
-        self.send_lfps_signaling     = Signal()
-        self.lfps_signaling_detected = Signal()
+        self.drive_electrical_idle = Signal() # o
+        self.send_signaling        = Signal() # o
+        self.signaling_received    = Signal() # i
 
         # LFPS burst generation
-        self.send_lfps_polling       = Signal()
+        self.send_polling          = Signal() # i
+        self.cycles_sent           = Signal(16) # o
 
         # LFPS burst reception
-        self.lfps_polling_detected   = Signal()
-        self.lfps_reset_detected     = Signal()
-
-        self.tx_count                = Signal(16)
+        self.polling_detected      = Signal() # o
+        self.reset_detected        = Signal() # o
 
 
     def elaborate(self, platform):
@@ -409,27 +370,28 @@ class LFPSTransceiver(Elaboratable):
         #
         m.submodules.polling_detector = polling_detector = LFPSDetector(_PollingLFPS, self._clock_frequency)
         m.d.comb += [
-            polling_detector.signaling_detected .eq(self.lfps_signaling_detected),
-            self.lfps_polling_detected          .eq(polling_detector.detect)
+            polling_detector.signaling_received .eq(self.signaling_received),
+            self.polling_detected               .eq(polling_detector.detect)
         ]
 
         m.submodules.reset_detector = reset_detector = LFPSDetector(_ResetLFPS, self._clock_frequency)
         m.d.comb += [
-            reset_detector.signaling_detected   .eq(self.lfps_signaling_detected),
-            self.lfps_reset_detected            .eq(reset_detector.detect)
+            reset_detector.signaling_received   .eq(self.signaling_received),
+            self.reset_detected                 .eq(reset_detector.detect)
         ]
-
 
         #
         # LFPS Transmitter(s).
         #
         m.submodules.polling_generator = polling_generator = LFPSGenerator(_PollingLFPS, self._clock_frequency)
         m.d.comb += [
-            polling_generator.generate  .eq(self.send_lfps_polling),
-
-            self.send_lfps_signaling    .eq(polling_generator.send_lfps_signaling),
-            self.tx_count               .eq(polling_generator.count),
+            polling_generator.generate  .eq(self.send_polling),
+            self.drive_electrical_idle  .eq(polling_generator.drive_electrical_idle),
+            self.send_signaling         .eq(polling_generator.send_signaling),
         ]
+
+        with m.If(polling_generator.completed):
+            m.d.ss += self.cycles_sent.eq(self.cycles_sent + 1)
 
         return m
 

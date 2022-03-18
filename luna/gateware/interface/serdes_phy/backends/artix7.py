@@ -1544,7 +1544,7 @@ class LunaArtix7SerDes(Elaboratable):
         self.rx_eq_training          = Signal()   # i
 
         self.send_lfps_signaling     = Signal()
-        self.lfps_signaling_detected = Signal()
+        self.lfps_signaling_received = Signal()
 
         # Debug interface.
         self.alignment_offset        = Signal(2)
@@ -1637,7 +1637,7 @@ class LunaArtix7SerDes(Elaboratable):
             serdes.tx_gpio                .eq(lfps_generator.tx_gpio),
             lfps_generator.generate       .eq(self.send_lfps_signaling),
 
-            self.lfps_signaling_detected  .eq(~serdes.rx_idle)
+            self.lfps_signaling_received  .eq(~serdes.rx_idle)
         ]
 
         return m

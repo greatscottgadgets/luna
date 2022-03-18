@@ -1106,8 +1106,8 @@ class LunaECP5SerDes(Elaboratable):
         self.rx_eq_training          = Signal()
 
         # LFPS interface.
-        self.lfps_signaling_detected = Signal()
         self.send_lfps_signaling     = Signal()
+        self.lfps_signaling_received = Signal()
 
         # Debug interface.
         self.raw_rx_data    = Signal(16)
@@ -1199,7 +1199,7 @@ class LunaECP5SerDes(Elaboratable):
         m.submodules.lfps_detector = lfps_detector = LFPSSquareWaveDetector(self._fast_clock_frequency)
         m.d.comb += [
             lfps_detector.rx_gpio         .eq(rx_gpio),
-            self.lfps_signaling_detected  .eq(lfps_detector.present)
+            self.lfps_signaling_received  .eq(lfps_detector.present)
         ]
 
 

@@ -236,15 +236,15 @@ class USB3PhysicalLayer(Elaboratable):
 
         m.submodules.lfps_transciever = lfps = LFPSTransceiver()
         m.d.comb += [
-            lfps.send_lfps_polling        .eq(self.send_lfps_polling),
-            self.lfps_cycles_sent         .eq(lfps.tx_count),
+            lfps.send_polling           .eq(self.send_lfps_polling),
+            self.lfps_cycles_sent       .eq(lfps.cycles_sent),
 
-            self.lfps_polling_detected    .eq(lfps.lfps_polling_detected),
-            self.lfps_reset_detected      .eq(lfps.lfps_reset_detected),
+            self.lfps_polling_detected  .eq(lfps.polling_detected),
+            self.lfps_reset_detected    .eq(lfps.reset_detected),
 
             # The RX_ELECIDLE signal being de-asserted indicates we're receiving valid
             # LFPS signaling. [TUSB1310A: Table 3-3]
-            lfps.lfps_signaling_detected  .eq(~phy.rx_elecidle),
+            lfps.signaling_received     .eq(~phy.rx_elecidle),
         ]
 
         with m.Switch(phy.power_down):
@@ -254,15 +254,12 @@ class USB3PhysicalLayer(Elaboratable):
             with m.Case(0):
                 m.d.comb += [
                     # In P0, pass through TX_ELECIDLE directly, as it has its intended meaning.
-                    phy.tx_elecidle              .eq(self.tx_electrical_idle),
+                    phy.tx_elecidle               .eq(lfps.drive_electrical_idle | self.tx_electrical_idle),
 
                     # In P0, the TX_DETRX_LPBK signal is used to drive an LFPS square wave onto the
-                    # transmit line when we're in electrical idle; but that signal places us
-                    # into loopback when it's not driven. [TUSB1310A: Table 5-3]
-                    #
-                    # To prevent some difficult-to-diagnose situations, we'll prevent LFPS from
-                    # being driven while we're in loopback.
-                    phy.tx_detrx_lpbk             .eq(lfps.send_lfps_signaling & self.tx_electrical_idle)
+                    # transmit line when we're in electrical idle, and places us into loopback
+                    # otherwise. [TUSB1310A: Table 5-3]  Our LFPS generator takes care of this.
+                    phy.tx_detrx_lpbk             .eq(lfps.send_signaling)
                 ]
 
             # For now, we won't support LFPS from states other than P0, as our LTSSM only
