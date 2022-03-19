@@ -691,6 +691,7 @@ class ECP5SerDes(Elaboratable):
         # TX controls
         self.tx_ready               = Signal()
         self.tx_polarity            = Signal()
+        self.tx_idle                = Signal()
         self.tx_gpio_en             = Signal()
         self.tx_gpio                = Signal()
 
@@ -1018,6 +1019,8 @@ class ECP5SerDes(Elaboratable):
             # CHX TX — data
             **{"i_CHX_FF_TX_D_%d" % n: tx_bus[n] for n in range(len(tx_bus))},
 
+            i_CHX_FFC_EI_EN         = self.tx_idle & ~self.tx_gpio_en,
+
             # SCI interface ------------------------------------------------------------------------
             **{"i_D_SCIWDATA%d" % n: sci.sci_wdata[n] for n in range(8)},
             **{"i_D_SCIADDR%d"   % n: sci.sci_addr[n] for n in range(6)},
@@ -1101,6 +1104,8 @@ class LunaECP5SerDes(Elaboratable):
         self.reset                   = Signal()
         self.ready                   = Signal()        # o
 
+        self.tx_idle                 = Signal()
+
         self.rx_polarity             = Signal()   # i
         self.rx_termination          = Signal(reset=1) # i
         self.rx_eq_training          = Signal()
@@ -1163,6 +1168,8 @@ class LunaECP5SerDes(Elaboratable):
         #
         m.submodules.tx_datapath = tx_datapath = TransmitPreprocessing()
         m.d.comb += [
+            serdes.tx_idle             .eq(self.tx_idle),
+
             tx_datapath.sink           .stream_eq(self.sink, endian_swap=True),
             serdes.sink                .stream_eq(tx_datapath.source),
         ]

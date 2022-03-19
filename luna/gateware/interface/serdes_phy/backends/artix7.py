@@ -1350,7 +1350,7 @@ class GTP(Elaboratable):
             i_TXUSRCLK2             = ClockSignal("tx"),
 
             # Transmit Ports - PCI Express Ports
-            i_TXELECIDLE            = self.tx_idle,
+            i_TXELECIDLE            = self.tx_idle & ~tx_gpio_en,
             i_TXMARGIN              = 0,
             i_TXRATE                = 0,
             i_TXSWING               = 0,
