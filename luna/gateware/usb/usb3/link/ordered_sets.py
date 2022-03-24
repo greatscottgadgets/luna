@@ -7,10 +7,6 @@
 # Code based on ``litex`` and ``usb3_pipe``.
 # SPDX-License-Identifier: BSD-3-Clause
 """ Link training support gateware.
-
-Note that much of the gateware in this module is written big endian;
-as this makes the test sets match the standard. This is handled automatically
-by the link layer gateware.
 """
 
 from amaranth import *
@@ -25,35 +21,35 @@ TS2_SET_ID = D(5,  2)
 # Training set contents.
 #
 TSEQ_SET_DATA = [
-    0xBCFF17C0, # 0  - 3
-    0x14B2E702, # 4  - 7
-    0x82726E28, # 8  - 11
-    0xA6BE6DBF, # 12 - 15
-    0x4A4A4A4A, # 16 - 19
-    0x4A4A4A4A, # 20 - 23
-    0x4A4A4A4A, # 24 - 27
-    0x4A4A4A4A, # 28 - 31
+    0xC017FFBC, # 3  - 0
+    0x02E7B214, # 7  - 4
+    0x286E7282, # 11 - 8
+    0xBF6DBEA6, # 15 - 12
+    0x4A4A4A4A, # 19 - 16
+    0x4A4A4A4A, # 23 - 20
+    0x4A4A4A4A, # 27 - 24
+    0x4A4A4A4A, # 31 - 28
 ]
 
 TS1_SET_DATA = [
-    0xBCBCBCBC, # 0  - 3
-    0x00004A4A, # 4  - 7
-    0x4A4A4A4A, # 16 - 19
-    0x4A4A4A4A, # 20 - 23
+    0xBCBCBCBC, # 3  - 0
+    0x4A4A0000, # 7  - 4
+    0x4A4A4A4A, # 19 - 16
+    0x4A4A4A4A, # 23 - 20
 ]
 
 INVERTED_TS1_SET_DATA = [
-    0xBCBCBCBC, # 0  - 3
-    0x0000B5B5, # 4  - 7
-    0xB5B5B5B5, # 16 - 19
-    0xB5B5B5B5, # 20 - 23
+    0xBCBCBCBC, # 3  - 0
+    0xB5B50000, # 7  - 4
+    0xB5B5B5B5, # 19 - 16
+    0xB5B5B5B5, # 23 - 20
 ]
 
 TS2_SET_DATA = [
-    0xBCBCBCBC, # 0  - 3
-    0x00004545, # 4  - 7
-    0x45454545, # 16 - 19
-    0x45454545, # 20 - 23
+    0xBCBCBCBC, # 3  - 0
+    0x45450000, # 7  - 4
+    0x45454545, # 19 - 16
+    0x45454545, # 23 - 20
 ]
 
 
@@ -133,7 +129,7 @@ class TSBurstDetector(Elaboratable):
             with m.State("1_DETECTED"):
                 # If this set includes a configuration field, then we'll want to compare
                 # our data with that set removed. Otherwise, we compare normally.
-                data_masked  = (data & 0xffff) if self._include_config else data
+                data_masked  = (data & 0xffff0000) if self._include_config else data
                 data_matches = (data_masked  == self._set_data[1])
                 ctrl_matches = (ctrl         == 0)
 
@@ -148,13 +144,13 @@ class TSBurstDetector(Elaboratable):
                         if self._include_config:
                             m.d.ss += [
                                 # Bit 0 of Symbol 5 => Hot Reset
-                                self.hot_reset           .eq(data.word_select(2, 8)[0]),
+                                self.hot_reset           .eq(data.word_select(1, 8)[0]),
 
                                 # Bit 2 of Symbol 5 => Requests Loopback Mode
-                                self.loopback_requested  .eq(data.word_select(2, 8)[2]),
+                                self.loopback_requested  .eq(data.word_select(1, 8)[2]),
 
                                 # Bit 3 of Symbol 5 = > Requests we not use scrambling.
-                                self.scrambling_disabled .eq(data.word_select(2, 8)[3]),
+                                self.scrambling_disabled .eq(data.word_select(1, 8)[3]),
                             ]
 
                     with m.Else():
@@ -252,11 +248,11 @@ class TSEmitter(Elaboratable):
                     # our control fields.
                     if self._include_config and (i == 1):
                         with m.If(self.request_hot_reset):
-                            m.d.comb += self.source.data.word_select(2, 8)[0].eq(1)
+                            m.d.comb += self.source.data.word_select(1, 8)[0].eq(1)
                         with m.If(self.request_loopback):
-                            m.d.comb += self.source.data.word_select(2, 8)[2].eq(1)
+                            m.d.comb += self.source.data.word_select(1, 8)[2].eq(1)
                         with m.If(self.request_no_scrambling):
-                            m.d.comb += self.source.data.word_select(2, 8)[3].eq(1)
+                            m.d.comb += self.source.data.word_select(1, 8)[3].eq(1)
 
 
                     with m.If(self.source.ready):
@@ -336,7 +332,7 @@ class TSTransceiver(Elaboratable):
         # TSEQ detector (not strictly required, but useful for alignment)
         m.submodules.tseq_detector = tseq_detector = TSBurstDetector(
             set_data        = TSEQ_SET_DATA,
-            first_word_ctrl = 0b1000,
+            first_word_ctrl = 0b0001,
             sets_in_burst   = 32
         )
         m.d.comb += [
@@ -387,7 +383,7 @@ class TSTransceiver(Elaboratable):
         # TSEQ generator
         m.submodules.tseq_generator = tseq_generator = TSEmitter(
             set_data              = TSEQ_SET_DATA,
-            first_word_ctrl       = 0b1000,
+            first_word_ctrl       = 0b0001,
             transmit_burst_length = 65536
         )
         with m.If(self.send_tseq_burst):

@@ -82,8 +82,8 @@ class USB3LinkLayer(Elaboratable):
             # Note: we bring the physical layer's "raw" (non-descrambled) source to the TS detector,
             # as we'll still need to detect non-scrambled TS1s and TS2s if they arrive during normal
             # operation.
-            ts.sink              .tap(physical_layer.raw_source, endian_swap=True),
-            training_set_source  .stream_eq(ts.source, endian_swap=True)
+            ts.sink              .tap(physical_layer.raw_source),
+            training_set_source  .stream_eq(ts.source)
         ]
 
 
