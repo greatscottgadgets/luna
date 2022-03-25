@@ -14,6 +14,7 @@ given only a bare input buffer, or vice versa.
 
 from math import ceil
 from amaranth import *
+from amaranth.lib.cdc import FFSynchronizer
 
 
 __all__ = ['LFPSSquareWaveDetector', 'LFPSSquareWaveGenerator']
@@ -28,7 +29,7 @@ _LFPS_PERIOD_MAX = 100e-9
 class LFPSSquareWaveDetector(Elaboratable):
     """ Detector that identifies LFPS square-wave patterns.
 
-    Operates in the ``fast`` domain.
+    Operates in the ``pipe`` domain.
 
     Attributes
     ----------
@@ -38,12 +39,12 @@ class LFPSSquareWaveDetector(Elaboratable):
         High whenever we detect an LFPS toggling.
     """
 
-    def __init__(self, fast_clock_frequency=250e6):
+    def __init__(self, pipe_clock_frequency=250e6):
 
         # Compute the minimum and maximum cycles we're allowed to see.
         # Our multipliers allow for up to a 10% devication in duty cycle.
-        self._half_cycle_min = ceil(fast_clock_frequency * (_LFPS_PERIOD_MIN / 2) * 0.8) - 1
-        self._half_cycle_max = ceil(fast_clock_frequency * (_LFPS_PERIOD_MAX / 2) * 1.2) + 1
+        self._half_cycle_min = ceil(pipe_clock_frequency * (_LFPS_PERIOD_MIN / 2) * 0.8) - 1
+        self._half_cycle_max = ceil(pipe_clock_frequency * (_LFPS_PERIOD_MAX / 2) * 1.2) + 1
         assert self._half_cycle_min >= 1
 
 
@@ -57,13 +58,17 @@ class LFPSSquareWaveDetector(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
+        # Synchronize the GPIO to our clock domain.
+        rx_gpio = Signal()
+        m.submodules += FFSynchronizer(self.rx_gpio, rx_gpio, o_domain="pipe")
+
         # Our mechanism is simple: we measure the length of any periods of consecutive highs and lows
         # we see, and then check to see when they're both in acceptable ranges. Theoretically, we should
         # also check the duty cycle, but as of now, that doesn't seem necessary. [USB3.2: Table 6-29]
 
         # Keep track of the GPIO's value a cycle ago, so we can easily detect rising and falling edges.
         last_gpio = Signal()
-        m.d.fast += last_gpio.eq(self.rx_gpio)
+        m.d.pipe += last_gpio.eq(rx_gpio)
 
         # We'll allow each timer to go one cycle past our half-cycle-max, so it can saturate at an unacceptable
         # level, and mark the ranges as invalid.
@@ -78,25 +83,25 @@ class LFPSSquareWaveDetector(Elaboratable):
         total_time_high   = Signal.like(current_time_high)
 
         # If our GPIO is high, count it.
-        with m.If(self.rx_gpio):
+        with m.If(rx_gpio):
 
             # Count only when we've reached a value lower than the timer's max,
             # so we saturate once we're outside the acceptable range.
             with m.If(current_time_high != timer_max):
-                m.d.fast += current_time_high.eq(current_time_high + 1)
+                m.d.pipe += current_time_high.eq(current_time_high + 1)
 
             # If we've saturated our count, immediately set the total time
             # to the saturation value. This prevents false detections after long
             # strings of constant value.
             with m.Else():
-                m.d.fast += total_time_high.eq(timer_max)
+                m.d.pipe += total_time_high.eq(timer_max)
 
 
         # If we were still counting last cycle, we'll latch our observed time
         # high before our timer gets cleared. This value represents our total
         # time high, and thus the value we'll use for comparison.
         with m.Elif(last_gpio):
-            m.d.fast += [
+            m.d.pipe += [
                 total_time_high    .eq(current_time_high),
                 current_time_high  .eq(0)
             ]
@@ -111,24 +116,24 @@ class LFPSSquareWaveDetector(Elaboratable):
         total_time_low   = Signal.like(current_time_low)
 
         # If our GPIO is low, count it.
-        with m.If(~self.rx_gpio):
+        with m.If(~rx_gpio):
 
             # Count only when we've reached a value lower than the timer's max,
             # so we saturate once we're outside the acceptable range.
             with m.If(current_time_low != timer_max):
-                m.d.fast += current_time_low.eq(current_time_low + 1)
+                m.d.pipe += current_time_low.eq(current_time_low + 1)
 
             # If we've saturated our count, immediately set the total time
             # to the saturation value. This prevents false detections after long
             # strings of constant value.
             with m.Else():
-                m.d.fast += total_time_low.eq(timer_max)
+                m.d.pipe += total_time_low.eq(timer_max)
 
         # If we were still counting last cycle, we'll latch our observed time
         # low before our timer gets cleared. This value represents our total
         # time high, and thus the value we'll use for comparison.
         with m.Elif(~last_gpio):
-            m.d.fast += [
+            m.d.pipe += [
                 total_time_low    .eq(current_time_low),
                 current_time_low  .eq(0)
             ]
@@ -150,11 +155,11 @@ class LFPSSquareWaveDetector(Elaboratable):
 class LFPSSquareWaveGenerator(Elaboratable):
     """Generator that outputs LFPS square-wave patterns.
     """
-    def __init__(self, fast_clock_frequency, lfps_frequency):
+    def __init__(self, lfps_frequency, pipe_clock_frequency):
 
         # Compute the cycles in one half-period, and make sure the final period is within the spec.
-        self._half_cycle = ceil(fast_clock_frequency / (2 * lfps_frequency))
-        assert _LFPS_PERIOD_MIN <= (2 * self._half_cycle) / fast_clock_frequency <= _LFPS_PERIOD_MAX
+        self._half_cycle = ceil(pipe_clock_frequency / (2 * lfps_frequency))
+        assert _LFPS_PERIOD_MIN <= (2 * self._half_cycle) / pipe_clock_frequency <= _LFPS_PERIOD_MAX
 
 
         #
@@ -175,10 +180,10 @@ class LFPSSquareWaveGenerator(Elaboratable):
         period_timer = Signal(range(self._half_cycle))
         square_wave  = Signal()
 
-        m.d.fast += period_timer.eq(period_timer + 1)
+        m.d.pipe += period_timer.eq(period_timer + 1)
         with m.If(period_timer + 1 == self._half_cycle):
-            m.d.fast += period_timer.eq(0)
-            m.d.fast += square_wave.eq(~square_wave)
+            m.d.pipe += period_timer.eq(0)
+            m.d.pipe += square_wave.eq(~square_wave)
 
         with m.If(self.generate):
             m.d.comb += [

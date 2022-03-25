@@ -11,13 +11,13 @@ class DRPInterface:
     """ Dynamic Reconfiguration Port interface for Xilinx FPGAs. """
 
     def __init__(self):
-        self.lock = Signal()
-        self.addr = Signal(9)
-        self.di   = Signal(16)
-        self.do   = Signal(16)
-        self.we   = Signal(1)
-        self.en   = Signal(1)
-        self.rdy  = Signal(1)
+        self.lock = Signal(1,   name="drp_lock")
+        self.addr = Signal(9,   name="drp_addr")
+        self.di   = Signal(16,  name="drp_di")
+        self.do   = Signal(16,  name="drp_do")
+        self.we   = Signal(1,   name="drp_we")
+        self.en   = Signal(1,   name="drp_en")
+        self.rdy  = Signal(1,   name="drp_rdy")
 
 
 class _DRPInterfaceBuffer(Elaboratable):
@@ -85,6 +85,7 @@ class DRPArbiter(Elaboratable):
 
             with m.State("REQUEST"):
                 m.d.comb += [
+                    self.shared.lock.eq(current_buf.intf.lock),
                     self.shared.addr.eq(current_buf.addr_latch),
                     self.shared.di.eq(current_buf.di_latch),
                     self.shared.we.eq(current_buf.we_latch),
@@ -206,6 +207,106 @@ class GTResetDeferrer(Elaboratable):
                 self.tx_o.eq(self.tx_i),
                 self.rx_o.eq(self.rx_i),
             ]
+
+        return m
+
+
+class GTPRXPMAResetWorkaround(Elaboratable):
+    """ Gateware that ensures the required conditions for GTP receiver are met, per UG482. """
+
+    def __init__(self, ss_clock_frequency):
+        self._ss_clock_frequency = ss_clock_frequency
+
+        self.i = Signal()
+        self.o = Signal()
+
+        self.rxpmaresetdone = Signal()
+        self.drp = DRPInterface()
+
+
+    def elaborate(self, platform):
+        m = Module()
+
+        m.d.comb += [
+            self.drp.lock.eq(1),
+            self.drp.addr.eq(0x011)
+        ]
+
+        saved_val = Signal.like(self.drp.do)
+
+        with m.FSM(domain="ss"):
+            with m.State("IDLE"):
+                m.d.comb += [
+                    self.drp.lock.eq(0),
+                ]
+                with m.If(self.i):
+                    m.next = "READ"
+
+            with m.State("READ"):
+                m.d.comb += [
+                    self.o.eq(1),
+                    self.drp.en.eq(1)
+                ]
+                m.next = "READ-WAIT"
+
+            with m.State("READ-WAIT"):
+                m.d.comb += [
+                    self.o.eq(1),
+                ]
+                with m.If(self.drp.rdy):
+                    m.d.ss += [
+                        saved_val.eq(self.drp.do)
+                    ]
+                    m.next = "WRITE"
+
+            with m.State("WRITE"):
+                m.d.comb += [
+                    self.o.eq(1),
+                ]
+                m.d.comb += [
+                    self.drp.di.eq(saved_val),
+                    self.drp.di[11].eq(0),
+                    self.drp.we.eq(1),
+                    self.drp.en.eq(1),
+                ]
+                m.next = "WRITE-WAIT"
+
+            with m.State("WRITE-WAIT"):
+                m.d.comb += [
+                    self.o.eq(1),
+                ]
+                with m.If(self.drp.rdy):
+                    m.next = "RESET-WAIT"
+
+            with m.State("RESET-WAIT"):
+                m.d.comb += [
+                    self.o.eq(1),
+                ]
+                with m.If(~self.i):
+                    m.next = "RXPMARESETDONE-WAIT"
+
+            with m.State("RXPMARESETDONE-WAIT"):
+                with m.If(self.rxpmaresetdone):
+                    m.next = "RESTORE"
+                with m.If(self.i):
+                    m.next = "READ"
+
+            with m.State("RESTORE"):
+                with m.If(~self.rxpmaresetdone):
+                    m.d.comb += [
+                        self.drp.di.eq(saved_val),
+                        self.drp.we.eq(1),
+                        self.drp.en.eq(1),
+                    ]
+                    m.next = "RESTORE-WAIT"
+                with m.If(self.i):
+                    m.next = "READ"
+
+            with m.State("RESTORE-WAIT"):
+                with m.If(self.drp.rdy):
+                    m.next = "IDLE"
+                with m.If(self.i):
+                    m.next = "READ"
 
         return m
 

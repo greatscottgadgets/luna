@@ -14,11 +14,10 @@
 
 
 from amaranth import *
-from amaranth.lib.cdc import FFSynchronizer, ResetSynchronizer
+from amaranth.lib.cdc import FFSynchronizer
 
-from ....usb.stream import USBRawSuperSpeedStream
-from ..datapath     import TransmitPreprocessing, ReceivePostprocessing
 from ..lfps         import LFPSSquareWaveGenerator, LFPSSquareWaveDetector
+from ...pipe        import PIPEInterface
 
 
 class ECP5SerDesPLLConfiguration:
@@ -80,7 +79,7 @@ class ECP5SerDesConfigInterface(Elaboratable):
             self.sci_wdata.eq(self.dat_w)
         ]
 
-        with m.FSM(domain="ss"):
+        with m.FSM(domain="pipe"):
 
             with m.State("IDLE"):
                 m.d.comb += self.done.eq(1)
@@ -98,7 +97,7 @@ class ECP5SerDesConfigInterface(Elaboratable):
 
             with m.State("READ"):
                 m.d.comb += self.sci_rd.eq(1)
-                m.d.ss   += self.dat_r.eq(self.sci_rdata)
+                m.d.pipe += self.dat_r.eq(self.sci_rdata)
                 m.next = "IDLE"
 
         return m
@@ -129,14 +128,14 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
         data  = Signal(8)
 
 
-        with m.FSM(domain="ss"):
+        with m.FSM(domain="pipe"):
 
             with m.State("IDLE"):
-                m.d.ss += first.eq(1)
+                m.d.pipe += first.eq(1)
                 m.next = "READ-CH_01"
 
             with m.State("READ-CH_01"):
-                m.d.ss += first.eq(0)
+                m.d.pipe += first.eq(0)
                 m.d.comb += [
                     sci.chan_sel.eq(1),
                     sci.re.eq(1),
@@ -145,7 +144,7 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
 
                 with m.If(~first & sci.done):
                     m.d.comb += sci.re.eq(0)
-                    m.d.ss += [
+                    m.d.pipe += [
                         data.eq(sci.dat_r),
                         first.eq(1)
                     ]
@@ -153,7 +152,7 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
 
 
             with m.State("WRITE-CH_01"):
-                m.d.ss += first.eq(0)
+                m.d.pipe += first.eq(0)
                 m.d.comb += [
                     sci.chan_sel.eq(1),
                     sci.we.eq(1),
@@ -164,11 +163,11 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
                 ]
                 with m.If(~first & sci.done):
                     m.d.comb += sci.we.eq(0)
-                    m.d.ss   += first.eq(1)
+                    m.d.pipe += first.eq(1)
                     m.next = "READ-CH_02"
 
             with m.State("READ-CH_02"):
-                m.d.ss   += first.eq(0)
+                m.d.pipe += first.eq(0)
                 m.d.comb += [
                     sci.chan_sel.eq(1),
                     sci.re.eq(1),
@@ -177,11 +176,11 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
 
                 with m.If(~first & sci.done):
                     m.d.comb += sci.re.eq(0)
-                    m.d.ss   += data.eq(sci.dat_r)
+                    m.d.pipe += data.eq(sci.dat_r)
                     m.next = "WRITE-CH_02"
 
             with m.State("WRITE-CH_02"):
-                m.d.ss   += first.eq(0)
+                m.d.pipe += first.eq(0)
                 m.d.comb += [
                     sci.chan_sel.eq(1),
                     sci.we.eq(1),
@@ -191,12 +190,12 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
                 ]
 
                 with m.If(~first & sci.done):
-                    m.d.ss   += first.eq(1)
+                    m.d.pipe += first.eq(1)
                     m.d.comb += sci.we.eq(0)
                     m.next = "READ-CH_15"
 
             with m.State("READ-CH_15"):
-                m.d.ss   += first.eq(0)
+                m.d.pipe += first.eq(0)
                 m.d.comb += [
                     sci.chan_sel.eq(1),
                     sci.re.eq(1),
@@ -204,13 +203,13 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
                 ]
 
                 with m.If(~first & sci.done):
-                    m.d.ss   += first.eq(1)
+                    m.d.pipe += first.eq(1)
                     m.d.comb += sci.re.eq(0)
-                    m.d.ss += data.eq(sci.dat_r)
+                    m.d.pipe += data.eq(sci.dat_r)
                     m.next = "WRITE-CH_15"
 
             with m.State("WRITE-CH_15"):
-                m.d.ss   += first.eq(0)
+                m.d.pipe += first.eq(0)
                 m.d.comb += [
                     sci.chan_sel.eq(1),
                     sci.we.eq(1),
@@ -225,7 +224,7 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
                     m.next = "READ-CH_17"
 
             with m.State("READ-CH_17"):
-                m.d.ss   += first.eq(0)
+                m.d.pipe += first.eq(0)
                 m.d.comb += [
                     sci.chan_sel.eq(1),
                     sci.re.eq(1),
@@ -233,13 +232,13 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
                 ]
 
                 with m.If(~first & sci.done):
-                    m.d.ss   += first.eq(1)
+                    m.d.pipe += first.eq(1)
                     m.d.comb += sci.re.eq(0)
-                    m.d.ss += data.eq(sci.dat_r)
+                    m.d.pipe += data.eq(sci.dat_r)
                     m.next = "WRITE-CH_17"
 
             with m.State("WRITE-CH_17"):
-                m.d.ss   += first.eq(0)
+                m.d.pipe += first.eq(0)
                 m.d.comb += [
                     sci.chan_sel.eq(1),
                     sci.we.eq(1),
@@ -366,9 +365,9 @@ class ECP5SerDesEqualizer(Elaboratable):
         bit_errors_seen = Signal(range(self.CYCLES_PER_TRIAL + 1))
 
         with m.If(clear_errors):
-            m.d.tx += bit_errors_seen.eq(0)
+            m.d.pipe += bit_errors_seen.eq(0)
         with m.Elif(self.encoding_error_detected):
-            m.d.tx += bit_errors_seen.eq(bit_errors_seen + 1)
+            m.d.pipe += bit_errors_seen.eq(bit_errors_seen + 1)
 
 
         #
@@ -396,7 +395,7 @@ class ECP5SerDesEqualizer(Elaboratable):
 
         # If we're actively training the equalizer...
         with m.If(self.train_equalizer):
-            m.d.tx += cycles_spent_in_trial.eq(cycles_spent_in_trial + 1)
+            m.d.pipe += cycles_spent_in_trial.eq(cycles_spent_in_trial + 1)
 
             # If we're finishing a trial...
             with m.If(cycles_spent_in_trial == (self.CYCLES_PER_TRIAL - 1)):
@@ -405,18 +404,18 @@ class ECP5SerDesEqualizer(Elaboratable):
                 m.d.comb += clear_errors.eq(1)
 
                 # ... move to the next set of settings ...
-                m.d.tx += current_settings.eq(current_settings + 1)
+                m.d.pipe += current_settings.eq(current_settings + 1)
 
                 # ... and if this is a new best, store it.
                 with m.If(bit_errors_seen < best_bit_error_count):
-                    m.d.tx += [
+                    m.d.pipe += [
                         best_bit_error_count    .eq(bit_errors_seen),
                         best_equalizer_setting  .eq(current_settings)
                     ]
 
         # If we're not currently in training, always apply our known best settings.
         with m.Else():
-            m.d.tx += current_settings.eq(best_equalizer_setting)
+            m.d.pipe += current_settings.eq(best_equalizer_setting)
 
 
         return m
@@ -503,7 +502,7 @@ class ECP5SerDesResetSequencer(Elaboratable):
 
         timer = Signal(range(max(self.RESET_CYCLES, self.RX_LOS_CYCLES, self.RX_LOL_CYCLES)))
 
-        with m.FSM(domain="ss") as self.fsm:
+        with m.FSM(domain="ss"):
 
             # Hold everything in reset, initially.
             with m.State("INITIAL_RESET"):
@@ -667,62 +666,62 @@ class ECP5SerDes(Elaboratable):
         assert dual    in [0, 1]
         assert channel in [0, 1]
 
-        self._pll                   = pll_config
-        self._tx_pads               = tx_pads
-        self._rx_pads               = rx_pads
-        self._dual                  = dual
-        self._channel               = channel
+        self._pll           = pll_config
+        self._tx_pads       = tx_pads
+        self._rx_pads       = rx_pads
+        self._dual          = dual
+        self._channel       = channel
 
-        # For now, we'll always operate with 2x gearing -- which means that we internally are working
-        # with 20 bits of 8b10b encoded data.
+        # Since we run at the 5 GT/s data rate, we always operate with 2x gearing;
+        # the ECP5 fabric is not fast enough to process this much data otherwise.
         self._io_words      = 2
-        self._io_data_width = 8 * self._io_words
 
         #
-        # I/O port.
+        # I/O ports.
         #
+
+        # Interface clock.
+        self.pclk           = Signal()
+
+        # Reset sequencing.
+        self.reset          = Signal()
+        self.tx_ready       = Signal()
+        self.rx_ready       = Signal()
 
         # Core Rx and Tx lines.
-        self.sink   = USBRawSuperSpeedStream(payload_words=self._io_words)
-        self.source = USBRawSuperSpeedStream(payload_words=self._io_words)
-
-        self.reset                  = Signal()
+        self.tx_data        = Signal(self._io_words * 8)
+        self.tx_datak       = Signal(self._io_words)
+        self.rx_data        = Signal(self._io_words * 8)
+        self.rx_datak       = Signal(self._io_words)
 
         # TX controls
-        self.tx_ready               = Signal()
-        self.tx_polarity            = Signal()
-        self.tx_idle                = Signal()
-        self.tx_gpio_en             = Signal()
-        self.tx_gpio                = Signal()
+        self.tx_polarity    = Signal()
+        self.tx_elec_idle   = Signal()
+        self.tx_gpio_en     = Signal()
+        self.tx_gpio        = Signal()
 
         # RX controls
-        self.rx_ready               = Signal()
-        self.rx_polarity            = Signal()
-        self.rx_termination         = Signal(reset=1)
-        self.rx_eq_training         = Signal()
-        self.rx_gpio                = Signal()
+        self.rx_polarity    = Signal()
+        self.rx_gpio        = Signal()
+        self.rx_termination = Signal()
 
 
     def elaborate(self, platform):
         m = Module()
 
-        # The ECP5 SerDes uses a simple feedback mechanism to keep its FIFO clocks in sync
-        # with the FPGA's fabric. Accordingly, we'll need to capture the output clocks and then
-        # pass them back to the SerDes; this allows the placer to handle clocking correctly, allows us
-        # to attach clock constraints for analysis, and allows us to use these clocks for -very- simple tasks.
-        txoutclk = Signal()
-        rxoutclk = Signal()
 
+        # Internal signals.
+        tx_clk_full = Signal()
+        tx_clk_half = Signal()
 
-        # Internal state.
-        rx_los     = Signal()
-        rx_lol     = Signal()
-        rx_err     = Signal()
-        rx_align   = Signal()
-        rx_bus     = Signal(24)
+        tx_lol      = Signal()
+        tx_bus      = Signal(24)
 
-        tx_lol     = Signal()
-        tx_bus     = Signal(24)
+        rx_los      = Signal()
+        rx_lol      = Signal()
+        rx_err      = Signal()
+        rx_align    = Signal()
+        rx_bus      = Signal(24)
 
 
         #
@@ -741,28 +740,29 @@ class ECP5SerDes(Elaboratable):
             self.rx_ready       .eq(reset.rx_pcs_ready),
         ]
 
-
-        # Create a local transmit domain, for our transmit-side hardware.
-        m.domains.tx = ClockDomain()
-        m.d.comb    += ClockSignal("tx").eq(txoutclk)
-        m.submodules += [
-            ResetSynchronizer(~reset.tx_pcs_ready, domain="tx")
-        ]
-
-        # Create the same setup, but for the receive side.
-        m.domains.rx = ClockDomain()
-        m.d.comb    += ClockSignal("rx").eq(rxoutclk)
-        m.submodules += [
-            ResetSynchronizer(~reset.rx_pcs_ready, domain="rx")
-        ]
-
-        m.submodules.sci = sci = ECP5SerDesConfigInterface(self)
-        m.submodules.sci_trans = sci_trans = self.sci_trans = ECP5SerDesRegisterTranslator(self, sci)
+        # Generate the PIPE interface clock from the half rate transmit byte clock, and use it to drive
+        # both the Tx and the Rx FIFOs, to bring both halves of the data bus to the same clock domain.
+        # The recovered Rx clock will not match the generated Tx clock; use the full rate transmit byte
+        # clock to drive the CTC FIFO in the SerDes, which will compensate for the difference.
         m.d.comb += [
-            sci_trans.tx_polarity.eq(self.tx_polarity),
-            sci_trans.rx_polarity.eq(self.rx_polarity),
+            self.pclk           .eq(tx_clk_half),
+        ]
+
+
+        #
+        # SerDes parameter control.
+        #
+
+        # Some of the SerDes parameters cannot be directly controlled with fabric signals, but have to
+        # be configured through the SerDes client interface.
+        m.submodules.sci = sci = ECP5SerDesConfigInterface(self)
+        m.submodules.sci_trans = sci_trans = ECP5SerDesRegisterTranslator(self, sci)
+        m.d.comb += [
+            sci_trans.tx_polarity   .eq(self.tx_polarity),
+            sci_trans.rx_polarity   .eq(self.rx_polarity),
             sci_trans.rx_termination.eq(self.rx_termination),
         ]
+
 
         #
         # Core SerDes instantiation.
@@ -870,11 +870,16 @@ class ECP5SerDes(Elaboratable):
             p_CHX_RX_RATE_SEL       = "0d09",   # Equalizer pole position, values documented as "TBD"
 
             # CHX RX — clocking
-            i_CHX_RX_REFCLK         = self._pll.refclk,
-            o_CHX_FF_RX_PCLK        = rxoutclk,
-            i_CHX_FF_RXI_CLK        = ClockSignal("rx"),
+            p_CHX_FF_RX_H_CLK_EN    = "0b0",    # disable DIV/2 output clock
+            p_CHX_FF_RX_F_CLK_DIS   = "0b1",    # disable DIV/1 output clock
+            p_CHX_SEL_SD_RX_CLK     = "0b0",    # FIFO write driven by CTC buffer read clock
+            i_CHX_FF_EBRD_CLK       = tx_clk_full,
+            p_CHX_RX_GEAR_MODE      = "0b1",    # 1:2 gearbox
+            i_CHX_FF_RXI_CLK        = tx_clk_half,
 
+            # CHX RX — clock and data recovery
             p_CHX_CDR_MAX_RATE      = "5.0",    # 5.0 Gbps
+            i_CHX_RX_REFCLK         = self._pll.refclk,
             p_CHX_RX_DCO_CK_DIV     = {
                 32: "0b111",
                 16: "0b110",
@@ -882,12 +887,7 @@ class ECP5SerDes(Elaboratable):
                  4: "0b100",
                  2: "0b010",
                  1: "0b000"}[1],                # DIV/1
-            p_CHX_RX_GEAR_MODE      = "0b1",    # 1:2 gearbox
-            p_CHX_FF_RX_H_CLK_EN    = "0b1",    # enable  DIV/2 output clock
-            p_CHX_FF_RX_F_CLK_DIS   = "0b1",    # disable DIV/1 output clock
-            p_CHX_SEL_SD_RX_CLK     = "0b1",    # FIFO driven by recovered clock
 
-            # CHX RX — clock and data recovery
             # begin undocumented (Clarity Designer values for 5 Gbps PCIe used)
             p_CHX_DCOATDCFG         = "0b00",
             p_CHX_DCOATDDLY         = "0b00",
@@ -944,18 +944,18 @@ class ECP5SerDes(Elaboratable):
             i_CHX_FFC_ENABLE_CGALIGN= rx_err,
 
             p_CHX_UDF_COMMA_MASK    = "0x3ff",  # compare all bits
-            p_CHX_UDF_COMMA_A       = "0x283",   # 0b1010000011, K28.5 10b code
-            p_CHX_UDF_COMMA_B       = "0x17c",   # 0b0101111100, K28.5 10b code
+            p_CHX_UDF_COMMA_A       = "0x17c",   # 0b0101_111100, K28.5 RD- 10b code
+            p_CHX_UDF_COMMA_B       = "0x283",   # 0b1010_000011, K28.5 RD+ 10b code
 
             # CHX RX — clock tolerance compensation
             # Due to spread spectrum modulation, the USB 3 word clock is, on average, 2.5% slower
             # than the base 5 GHz line rate. Since the USB soft logic always runs at a fraction of
             # the base line rate, SKP ordered sets only need to be removed, and RX FIFO underrun
             # can be handled using clock enables alone.
-            p_CHX_CTC_BYPASS        = "0b1",    # bypass CTC FIFO
-            p_CHX_MIN_IPG_CNT       = "0b11",   # minimum interpacket gap of 4
-            p_CHX_MATCH_2_ENABLE    = "0b0",    # 2 character skip matching
-            p_CHX_MATCH_4_ENABLE    = "0b0",    # 4 character skip matching
+            p_CHX_CTC_BYPASS        = "0b0",    # enable CTC FIFO
+            p_CHX_MIN_IPG_CNT       = "0b00",   # minimum interpacket gap of 1X (multiplied by match length)
+            p_CHX_MATCH_2_ENABLE    = "0b1",    # enable  2 character skip matching (using characters 3..4)
+            p_CHX_MATCH_4_ENABLE    = "0b0",    # disable 4 character skip matching (using characters 1..4)
             p_CHX_CC_MATCH_1        = "0x13c",   # K28.1 1+8b code
             p_CHX_CC_MATCH_2        = "0x13c",   # K28.1 1+8b code
             p_CHX_CC_MATCH_3        = "0x13c",   # K28.1 1+8b code
@@ -1009,21 +1009,21 @@ class ECP5SerDes(Elaboratable):
             p_CHX_TDRV_SLICE5_SEL   = "0b00",   # power down
 
             # CHX TX — clocking
-            o_CHX_FF_TX_PCLK        = txoutclk,
-            i_CHX_FF_TXI_CLK        = ClockSignal("tx"),
-
-            p_CHX_TX_GEAR_MODE      = "0b1",    # 1:2 gearbox
+            p_CHX_FF_TX_F_CLK_DIS   = "0b0",    # enable  DIV/1 output clock
+            o_CHX_FF_TX_F_CLK       = tx_clk_full,
             p_CHX_FF_TX_H_CLK_EN    = "0b1",    # enable  DIV/2 output clock
-            p_CHX_FF_TX_F_CLK_DIS   = "0b1",    # disable DIV/1 output clock
+            o_CHX_FF_TX_PCLK        = tx_clk_half, # ff_tx_pclk feeds a pclk net, ff_tx_h_clk does not
+            p_CHX_TX_GEAR_MODE      = "0b1",    # 1:2 gearbox
+            i_CHX_FF_TXI_CLK        = tx_clk_half,
 
             # CHX TX — data
             **{"i_CHX_FF_TX_D_%d" % n: tx_bus[n] for n in range(len(tx_bus))},
 
-            i_CHX_FFC_EI_EN         = self.tx_idle & ~self.tx_gpio_en,
+            i_CHX_FFC_EI_EN         = self.tx_elec_idle & ~self.tx_gpio_en,
 
             # SCI interface ------------------------------------------------------------------------
             **{"i_D_SCIWDATA%d" % n: sci.sci_wdata[n] for n in range(8)},
-            **{"i_D_SCIADDR%d"   % n: sci.sci_addr[n] for n in range(6)},
+            **{"i_D_SCIADDR%d"  % n: sci.sci_addr [n] for n in range(6)},
             **{"o_D_SCIRDATA%d" % n: sci.sci_rdata[n] for n in range(8)},
             i_D_SCIENAUX  = sci.dual_sel,
             i_D_SCISELAUX = sci.dual_sel,
@@ -1045,175 +1045,142 @@ class ECP5SerDes(Elaboratable):
         # SerDes decodes invalid 10b symbols to 0xEE with control bit set, which is not a part
         # of the 8b10b encoding space. We use it to drive the comma aligner and reset sequencer.
         # This signal is registered so that it can be sampled from asynchronous domains.
-        m.d.rx += [
+        m.d.pipe += [
             rx_err.eq(rx_bus[8]  & (rx_bus[ 0: 8] == 0xee) |
                       rx_bus[20] & (rx_bus[12:20] == 0xee)),
         ]
 
         #
-        # TX and RX datapaths (SerDes <-> stream conversion)
+        # TX and RX datapaths
         #
-        sink   = self.sink
-        source = self.source
-
         m.d.comb += [
             # Grab our received data directly from our SerDes; modifying things to match the
             # SerDes Rx bus layout, which squishes status signals between our two geared words.
-            source.data[0: 8]  .eq(rx_bus[ 0: 8]),
-            source.data[8:16]  .eq(rx_bus[12:20]),
-            source.ctrl[0]     .eq(rx_bus[8]),
-            source.ctrl[1]     .eq(rx_bus[20]),
-            source.valid       .eq(1),
+            self.rx_data[0: 8]  .eq(rx_bus[ 0: 8]),
+            self.rx_data[8:16]  .eq(rx_bus[12:20]),
+            self.rx_datak[0]    .eq(rx_bus[8]),
+            self.rx_datak[1]    .eq(rx_bus[20]),
 
             # Stick the data we'd like to transmit into the SerDes; again modifying things to match
             # the transmit bus layout.
-            tx_bus[ 0: 8]      .eq(sink.data[0: 8]),
-            tx_bus[12:20]      .eq(sink.data[8:16]),
-            tx_bus[8]          .eq(sink.ctrl[0]),
-            tx_bus[20]         .eq(sink.ctrl[1]),
-            sink.ready         .eq(1)
+            tx_bus[ 0: 8]       .eq(self.tx_data[0: 8]),
+            tx_bus[12:20]       .eq(self.tx_data[8:16]),
+            tx_bus[8]           .eq(self.tx_datak[0]),
+            tx_bus[20]          .eq(self.tx_datak[1]),
         ]
 
 
         return m
 
 
+class ECP5SerDesPIPE(PIPEInterface, Elaboratable):
+    """ Wrapper around the core ECP5 SerDes that adapts it to the PIPE interface.
 
-class LunaECP5SerDes(Elaboratable):
-    """ Wrapper around the core ECP5 SerDes that optimizes the SerDes for USB3 use. """
+    The implementation-dependent behavior of the standard PIPE signals is described below:
 
-    def __init__(self, platform, sys_clk, sys_clk_freq, refclk_pads, refclk_freq,
-            tx_pads, rx_pads, channel, dual=0, refclk_num=None, fast_clock_frequency=250e6):
-        self._primary_clock           = sys_clk
-        self._primary_clock_frequency = sys_clk_freq
-        self._refclk                  = refclk_pads
-        self._refclk_frequency        = refclk_freq
+    width :
+        Interface width. Always 2 symbols.
+    clk :
+        Reference clock for the PHY receiver and transmitter. Could be routed through fabric,
+        or connected to the output of an ``EXTREFB`` block. Frequency must be one of 250 MHz,
+        200 MHz, or 312.5 MHz.
+    pclk :
+        Clock for the PHY interface. Frequency is always 250 MHz.
+    phy_mode :
+        PHY operating mode. Only SuperSpeed USB mode is supported.
+    elas_buf_mode :
+        Elastic buffer mode. Only nominal half-full mode is supported.
+    rate :
+        Link signaling rate. Only 5 GT/s is supported.
+    power_down :
+        Power management mode. Only P0 is supported.
+    tx_deemph :
+        Transmitter de-emphasis level. Only TBD is supported.
+    tx_margin :
+        Transmitter voltage levels. Only TBD is supported.
+    tx_swing :
+        Transmitter voltage swing level. Only full swing is supported.
+    tx_detrx_lpbk :
+    tx_elec_idle :
+        Transmit control signals. Loopback and receiver detection are not implemented.
+    tx_compliance :
+    tx_ones_zeroes :
+    rx_eq_training :
+        These inputs are not implemented.
+    rx_status :
+        Receiver status. Implemented as always 0.
+    power_present :
+        This output is not implemented. External logic may drive it if necessary.
+    """
+
+    def __init__(self, *, tx_pads, rx_pads, channel=0, dual=0, refclk_frequency):
+        super().__init__(width=2)
+
         self._tx_pads                 = tx_pads
         self._rx_pads                 = rx_pads
         self._channel                 = channel
         self._dual                    = dual
-        self._refclk_num              = refclk_num if refclk_num else dual
-        self._fast_clock_frequency    = 250e6
-
-        #
-        # I/O port
-        #
-        self.sink                    = USBRawSuperSpeedStream()
-        self.source                  = USBRawSuperSpeedStream()
-
-        self.reset                   = Signal()
-        self.ready                   = Signal()        # o
-
-        self.tx_idle                 = Signal()
-
-        self.rx_polarity             = Signal()   # i
-        self.rx_termination          = Signal(reset=1) # i
-        self.rx_eq_training          = Signal()
-
-        # LFPS interface.
-        self.send_lfps_signaling     = Signal()
-        self.lfps_signaling_received = Signal()
-
-        # Debug interface.
-        self.raw_rx_data    = Signal(16)
-        self.raw_rx_ctrl    = Signal(2)
+        self._refclk_frequency        = refclk_frequency
 
 
     def elaborate(self, platform):
         m = Module()
 
         #
-        # Reference clock selection.
+        # SerDes instantiation.
         #
-
-        # If we seem to have a raw pin record, we'll assume we're being passed the external REFCLK.
-        # We'll instantiate an instance that captures the reference clock signal.
-        if hasattr(self._refclk, 'p'):
-            refclk = Signal()
-            m.submodules.refclk_input = refclk_in = Instance("EXTREFB",
-                i_REFCLKP     = self._refclk.p,
-                i_REFCLKN     = self._refclk.n,
-                o_REFCLKO     = refclk,
-                p_REFCK_PWDNB = "0b1",
-                p_REFCK_RTERM = "0b1", # 100 Ohm
-            )
-            refclk_in.attrs["LOC"] =  f"EXTREF{self._refclk_num}"
-
-        # Otherwise, we'll accept the reference clock directly.
-        else:
-            refclk = self._refclk
-
-        #
-        # Raw serdes.
-        #
-        pll_config = ECP5SerDesPLLConfiguration(refclk, refclk_freq=self._refclk_frequency, linerate=5e9)
-        serdes  = ECP5SerDes(
+        pll_config = ECP5SerDesPLLConfiguration(
+            refclk      = self.clk,
+            refclk_freq = self._refclk_frequency,
+            linerate    = 5e9
+        )
+        m.submodules.serdes = serdes = ECP5SerDes(
             pll_config  = pll_config,
             tx_pads     = self._tx_pads,
             rx_pads     = self._rx_pads,
             channel     = self._channel,
         )
-        m.submodules.serdes = serdes
+
+        # Our soft PHY includes some logic that needs to run synchronously to the PIPE clock; create
+        # a local clock domain to drive it.
+        m.domains.pipe = ClockDomain(local=True, async_reset=True)
+        m.d.comb += [
+            ClockSignal("pipe")     .eq(serdes.pclk),
+        ]
+
+
+        #
+        # LFPS generation & detection.
+        #
+        m.submodules.lfps_generator = lfps_generator = LFPSSquareWaveGenerator(25e6, 250e6)
+        m.submodules.lfps_detector  = lfps_detector  = LFPSSquareWaveDetector(250e6)
+        m.d.comb += [
+            serdes.tx_gpio_en       .eq(lfps_generator.tx_gpio_en),
+            serdes.tx_gpio          .eq(lfps_generator.tx_gpio),
+            lfps_detector.rx_gpio   .eq(serdes.rx_gpio),
+        ]
+
+
+        #
+        # PIPE interface signaling.
+        #
         m.d.comb += [
             serdes.reset            .eq(self.reset),
-            self.ready              .eq(serdes.tx_ready),
+            self.pclk               .eq(serdes.pclk),
+
+            serdes.tx_elec_idle     .eq(self.tx_elec_idle),
             serdes.rx_polarity      .eq(self.rx_polarity),
             serdes.rx_termination   .eq(self.rx_termination),
-            serdes.rx_eq_training   .eq(self.rx_eq_training),
-        ]
+            lfps_generator.generate .eq(self.tx_detrx_lpbk & self.tx_elec_idle),
 
+            self.phy_status         .eq(~serdes.tx_ready),
+            self.rx_valid           .eq(serdes.rx_ready),
+            self.rx_elec_idle       .eq(~lfps_detector.present),
 
-        #
-        # Transmit datapath.
-        #
-        m.submodules.tx_datapath = tx_datapath = TransmitPreprocessing()
-        m.d.comb += [
-            serdes.tx_idle             .eq(self.tx_idle),
-
-            tx_datapath.sink           .stream_eq(self.sink, endian_swap=True),
-            serdes.sink                .stream_eq(tx_datapath.source),
-        ]
-
-
-        #
-        # Receive datapath.
-        #
-        m.submodules.rx_datapath = rx_datapath = ReceivePostprocessing()
-        m.d.comb += [
-            rx_datapath.sink        .stream_eq(serdes.source),
-            self.source             .stream_eq(rx_datapath.source, endian_swap=True)
-        ]
-
-        # Pass through a synchronized version of our SerDes' rx-gpio.
-        rx_gpio = Signal()
-        m.submodules += FFSynchronizer(serdes.rx_gpio, rx_gpio, o_domain="fast")
-
-
-        #
-        # LFPS Generation
-        #
-        m.submodules.lfps_generator = lfps_generator = LFPSSquareWaveGenerator(self._fast_clock_frequency, 25e6)
-        m.d.comb += [
-            serdes.tx_gpio_en             .eq(lfps_generator.tx_gpio_en),
-            serdes.tx_gpio                .eq(lfps_generator.tx_gpio),
-            lfps_generator.generate       .eq(self.send_lfps_signaling),
-        ]
-
-
-        #
-        # LFPS Detection
-        #
-        m.submodules.lfps_detector = lfps_detector = LFPSSquareWaveDetector(self._fast_clock_frequency)
-        m.d.comb += [
-            lfps_detector.rx_gpio         .eq(rx_gpio),
-            self.lfps_signaling_received  .eq(lfps_detector.present)
-        ]
-
-
-        # debug signals
-        m.d.comb += [
-            self.raw_rx_data.eq(serdes.source.data),
-            self.raw_rx_ctrl.eq(serdes.source.ctrl),
+            serdes.tx_data          .eq(self.tx_data),
+            serdes.tx_datak         .eq(self.tx_datak),
+            self.rx_data            .eq(serdes.rx_data),
+            self.rx_datak           .eq(serdes.rx_datak),
         ]
 
         return m

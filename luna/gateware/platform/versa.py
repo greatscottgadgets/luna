@@ -19,8 +19,11 @@ from amaranth.lib.cdc import ResetSynchronizer
 from amaranth_boards.versa_ecp5_5g import VersaECP55GPlatform as _VersaECP55G
 from amaranth_boards.resources import *
 
+from ..interface.pipe       import AsyncPIPEInterface
+from ..interface.serdes_phy import ECP5SerDesPIPE
+
 from .core import LUNAPlatform
-from ..interface.serdes_phy import SerDesPHY, LunaECP5SerDes
+
 
 __all__ = ["ECP5Versa_5G_Platform"]
 
@@ -217,7 +220,7 @@ class VersaDomainGenerator(Elaboratable):
         return m
 
 
-class VersaSuperSpeedPHY(SerDesPHY):
+class VersaSuperSpeedPHY(AsyncPIPEInterface):
     """ Superspeed PHY configuration for the Versa-5G. """
 
     REFCLK_FREQUENCY = 312.5e6
@@ -230,8 +233,7 @@ class VersaSuperSpeedPHY(SerDesPHY):
 
     def __init__(self, platform):
 
-        # Grab the I/O that implements our SerDes interface, ensuring our directions are '-',
-        # so we don't create any I/O buffering hardware.
+        # Grab the I/O that implements our SerDes interface...
         serdes_io_directions = {
             'ch0':    {'tx':"-", 'rx':"-"},
             #'ch1':    {'tx':"-", 'rx':"-"},
@@ -240,34 +242,32 @@ class VersaSuperSpeedPHY(SerDesPHY):
         serdes_io      = platform.request("serdes", self.SERDES_DUAL, dir=serdes_io_directions)
         serdes_channel = getattr(serdes_io, f"ch{self.SERDES_CHANNEL}")
 
-        # Create our SerDes interface...
-        self.serdes = LunaECP5SerDes(platform,
-            sys_clk      = ClockSignal("ss"),
-            sys_clk_freq = self.SS_FREQUENCY,
-            #refclk_pads  = serdes_io.refclk,
-            #refclk_freq  = self.REFCLK_FREQUENCY,
-            refclk_pads  = ClockSignal("fast"),
-            refclk_freq  = self.FAST_FREQUENCY,
-            tx_pads      = serdes_channel.tx,
-            rx_pads      = serdes_channel.rx,
-            channel      = self.SERDES_CHANNEL
+        # Use it to create our soft PHY...
+        serdes_phy = ECP5SerDesPIPE(
+            tx_pads             = serdes_channel.tx,
+            rx_pads             = serdes_channel.rx,
+            dual                = self.SERDES_DUAL,
+            channel             = self.SERDES_CHANNEL,
+            refclk_frequency    = self.FAST_FREQUENCY,
         )
 
-        # ... and use it to create our core PHY interface.
-        super().__init__(
-            serdes             = self.serdes,
-            ss_clk_frequency   = self.SS_FREQUENCY,
-            fast_clk_frequency = self.FAST_FREQUENCY
-        )
+        # ... and bring the PHY interface signals to the MAC domain.
+        super().__init__(serdes_phy, width=4, domain="ss")
 
 
     def elaborate(self, platform):
         m = super().elaborate(platform)
 
-        # Patch in our SerDes as a submodule...
-        m.submodules.serdes = self.serdes
+        # Patch in our soft PHY as a submodule.
+        m.submodules.phy = self.phy
 
-        # ... and enable the Versa's reference clock.
+        # Drive the PHY reference clock with our fast generated clock.
+        m.d.comb += self.clk.eq(ClockSignal("fast"))
+
+        # This board does not have a way to detect Vbus, so assume it's always present.
+        m.d.comb += self.phy.power_present.eq(1)
+
+        # Enable the Versa's reference clock.
         m.d.comb += platform.request("refclk_enable").o.eq(1)
 
         return m

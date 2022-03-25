@@ -11,12 +11,8 @@
 #
 # Quick-use aliases
 #
-__all__ = ['SerDesPHY', 'LunaECP5SerDes', 'LunaArtix7SerDes', 'LunaKintex7SerDes']
+__all__ = ['ECP5SerDesPIPE', 'Artix7SerDesPIPE', 'Kintex7SerDesPIPE']
 
-# Core hardware.
-from .phy import SerDesPHY
-
-# Backends.
-from .backends.ecp5    import LunaECP5SerDes
-from .backends.artix7  import LunaArtix7SerDes
-from .backends.kintex7 import LunaKintex7SerDes
+from .backends.ecp5    import ECP5SerDesPIPE
+from .backends.artix7  import Artix7SerDesPIPE
+from .backends.kintex7 import Kintex7SerDesPIPE

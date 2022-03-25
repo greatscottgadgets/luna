@@ -25,8 +25,10 @@ from amaranth_boards.logicbone import LogicbonePlatform as _CoreLogicbonePlatfor
 from amaranth_boards.logicbone import Logicbone85FPlatform as _CoreLogicbone85FPlatform
 from amaranth_boards.resources import *
 
+from ..interface.pipe       import AsyncPIPEInterface
+from ..interface.serdes_phy import ECP5SerDesPIPE
+
 from .core import LUNAPlatform
-from ..interface.serdes_phy import SerDesPHY, LunaECP5SerDes
 
 
 __all__ = ["LogicbonePlatform", "Logicbone85FPlatform"]
@@ -226,44 +228,43 @@ class LogicboneDomainGenerator(Elaboratable):
         return m
 
 
-class LogicboneSuperSpeedPHY(SerDesPHY):
-    """ Superspeed PHY configuration for the LogicboneSuperSpeedPHY. """
+class LogicboneSuperSpeedPHY(AsyncPIPEInterface):
+    """ Superspeed PHY configuration for the Logicbone. """
 
-    SYNC_FREQUENCY = 125e6
+    SS_FREQUENCY   = 125e6
     FAST_FREQUENCY = 250e6
 
-    SERDES_CHANNEL = 1
+    SERDES_CHANNEL = 0
 
 
     def __init__(self, platform):
 
         # Grab the I/O that implements our SerDes interface...
-        serdes_io      = platform.request("serdes", self.SERDES_CHANNEL, dir={'tx':"-", 'rx':"-"})
+        serdes_io = platform.request("serdes", self.SERDES_CHANNEL, dir={'tx':"-", 'rx':"-"})
 
-        # Create our SerDes interface...
-        self.serdes = LunaECP5SerDes(platform,
-            sys_clk      = ClockSignal("sync"),
-            sys_clk_freq = self.SYNC_FREQUENCY,
-            refclk_pads  = ClockSignal("fast"),
-            refclk_freq  = self.FAST_FREQUENCY,
-            tx_pads      = serdes_io.tx,
-            rx_pads      = serdes_io.rx,
-            channel      = self.SERDES_CHANNEL
+        # Use it to create our soft PHY...
+        serdes_phy = ECP5SerDesPIPE(
+            tx_pads             = serdes_io.tx,
+            rx_pads             = serdes_io.rx,
+            channel             = self.SERDES_CHANNEL,
+            refclk_frequency    = self.FAST_FREQUENCY,
         )
 
-        # ... and use it to create our core PHY interface.
-        super().__init__(
-            serdes             = self.serdes,
-            ss_clk_frequency   = self.SYNC_FREQUENCY,
-            fast_clk_frequency = self.FAST_FREQUENCY
-        )
+        # ... and bring the PHY interface signals to the MAC domain.
+        super().__init__(serdes_phy, width=4, domain="ss")
 
 
     def elaborate(self, platform):
         m = super().elaborate(platform)
 
-        # Patch in our SerDes as a submodule.
-        m.submodules.serdes = self.serdes
+        # Patch in our soft PHY as a submodule.
+        m.submodules.phy = self.phy
+
+        # Drive the PHY reference clock with our fast generated clock.
+        m.d.comb += self.clk.eq(ClockSignal("fast"))
+
+        # This board does not have a way to detect Vbus, so assume it's always present.
+        m.d.comb += self.phy.power_present.eq(1)
 
         return m
 

@@ -9,325 +9,16 @@
 """ SerDes backend for the Artix7. """
 
 from amaranth import *
-from amaranth.lib.cdc import FFSynchronizer, ResetSynchronizer
+from amaranth.lib.cdc import FFSynchronizer
 
 
-from .xc7                         import DRPInterface, DRPArbiter, DRPFieldController
-from .xc7                         import GTOOBClockDivider
-from ..datapath                   import ReceivePostprocessing, TransmitPreprocessing
-from ..lfps                       import LFPSSquareWaveGenerator
-
-from ....usb.stream               import USBRawSuperSpeedStream
-from ....usb.usb3.physical.coding import *
+from .xc7           import DRPInterface, DRPArbiter, DRPFieldController
+from .xc7           import GTResetDeferrer, GTPRXPMAResetWorkaround, GTOOBClockDivider
+from ..lfps         import LFPSSquareWaveGenerator, LFPSSquareWaveDetector
+from ...pipe        import PIPEInterface
 
 
 Open = Signal
-
-
-class WaitTimer(Elaboratable):
-    def __init__(self, t):
-        self._t   = t
-        self.wait = Signal()
-        self.done = Signal()
-
-
-    def elaborate(self, platform):
-        m = Module()
-
-        count = Signal(range(self._t + 1), reset=self._t)
-        m.d.comb += self.done.eq(count == 0)
-
-        with m.If(self.wait):
-            with m.If(~self.done):
-                m.d.ss += count.eq(count + 1)
-        with m.Else():
-            m.d.ss += count.eq(count.reset)
-
-        return m
-
-
-class GTPTXInit(Elaboratable):
-    def __init__(self, ss_clock_frequency=125e6):
-        self._ss_clock_frequency = ss_clock_frequency
-
-        #
-        # I/O port
-        #
-        self.done            = Signal()
-        self.restart         = Signal()
-
-        # GTP signals
-        self.plllock         = Signal()
-        self.pllreset        = Signal()
-        self.gttxreset       = Signal()
-        self.gttxpd          = Signal()
-        self.txresetdone     = Signal()
-        self.txdlysreset     = Signal()
-        self.txdlysresetdone = Signal()
-        self.txphinit        = Signal()
-        self.txphinitdone    = Signal()
-        self.txphalign       = Signal()
-        self.txphaligndone   = Signal()
-        self.txdlyen         = Signal()
-        self.txuserrdy       = Signal()
-
-
-    def elaborate(self, platform):
-        m = Module()
-
-        # Double-latch transceiver asynch outputs
-        plllock         = Signal()
-        txresetdone     = Signal()
-        txdlysresetdone = Signal()
-        txphinitdone    = Signal()
-        txphaligndone   = Signal()
-        m.submodules += [
-            FFSynchronizer(self.plllock, plllock, o_domain="ss"),
-            FFSynchronizer(self.txresetdone, txresetdone, o_domain="ss"),
-            FFSynchronizer(self.txdlysresetdone, txdlysresetdone, o_domain="ss"),
-            FFSynchronizer(self.txphinitdone, txphinitdone, o_domain="ss"),
-            FFSynchronizer(self.txphaligndone, txphaligndone, o_domain="ss")
-        ]
-
-        # Deglitch FSM outputs driving transceiver asynch inputs
-        gttxreset   = Signal()
-        gttxpd      = Signal()
-        txdlysreset = Signal()
-        txphinit    = Signal()
-        txphalign   = Signal()
-        txdlyen     = Signal()
-        txuserrdy   = Signal()
-        m.d.ss += [
-            self.gttxreset   .eq(gttxreset),
-            self.gttxpd      .eq(gttxpd),
-            self.txdlysreset .eq(txdlysreset),
-            self.txphinit    .eq(txphinit),
-            self.txphalign   .eq(txphalign),
-            self.txdlyen     .eq(txdlyen),
-            self.txuserrdy   .eq(txuserrdy)
-        ]
-
-        # Detect txphaligndone rising edge
-        txphaligndone_r = Signal(reset=1)
-        txphaligndone_rising = Signal()
-        m.d.ss   += txphaligndone_r.eq(txphaligndone)
-        m.d.comb += txphaligndone_rising.eq(txphaligndone & ~txphaligndone_r)
-
-        # Wait 500ns after configuration before releasing
-        # GTP reset (to follow AR43482)
-        init_delay = WaitTimer(int(500e-9*self._ss_clock_frequency))
-        m.submodules += init_delay
-        m.d.comb += init_delay.wait.eq(1)
-
-
-        with m.FSM(domain="ss"):
-            with m.State("POWER-DOWN"):
-                m.d.comb += [
-                    self.pllreset.eq(1),
-                    gttxreset.eq(1),
-                    gttxpd.eq(1),
-                ]
-                m.next = "PLL-RESET"
-
-            with m.State("PLL-RESET"):
-                m.d.comb += [
-                    self.pllreset.eq(1),
-                    gttxreset.eq(1),
-                ]
-                m.next = "WAIT-PLL-RESET"
-
-            with m.State("WAIT-PLL-RESET"):
-                m.d.comb += gttxreset.eq(1)
-                with m.If(plllock):
-                    m.next = "WAIT-INIT-DELAY"
-
-            with m.State("WAIT-INIT-DELAY"):
-                m.d.comb += gttxreset.eq(1)
-                with m.If(init_delay.done):
-                    m.next = "WAIT-GTP-RESET"
-
-            with m.State("WAIT-GTP-RESET"):
-                m.d.comb += txuserrdy.eq(1)
-                with m.If(txresetdone):
-                    m.next = "READY"
-
-            with m.State("READY"):
-                m.d.comb += [
-                    txuserrdy.eq(1),
-                    txdlyen.eq(1),
-                    self.done.eq(1),
-                ]
-                with m.If(self.restart):
-                    m.next = "POWER-DOWN"
-
-
-        # FSM watchdog / restart
-        m.submodules.watchdog = watchdog = WaitTimer(int(1e-3*self._ss_clock_frequency))
-        reset_self = self.restart | watchdog.done
-        m.d.comb += watchdog.wait.eq(~reset_self & ~self.done),
-
-        return ResetInserter(reset_self)(m)
-
-
-class GTPRXInit(Elaboratable):
-    def __init__(self, ss_clock_frequency):
-        self._ss_clock_frequency = ss_clock_frequency
-
-        #
-        # I/O port
-        #
-        self.done            = Signal()
-        self.restart         = Signal()
-
-        # GTP signals
-        self.plllock         = Signal()
-        self.gtrxreset       = Signal()
-        self.gtrxpd          = Signal()
-        self.rxresetdone     = Signal()
-        self.rxdlysreset     = Signal()
-        self.rxdlysresetdone = Signal()
-        self.rxphalign       = Signal()
-        self.rxuserrdy       = Signal()
-        self.rxsyncdone      = Signal()
-        self.rxpmaresetdone  = Signal()
-
-        self.drp             = DRPInterface()
-
-
-    def elaborate(self, platform):
-        m = Module()
-
-        drpvalue = Signal(16)
-        drpmask  = Signal()
-
-        m.d.comb += [
-            self.drp.lock.eq(1),
-            self.drp.addr.eq(0x011)
-        ]
-
-        with m.If(drpmask):
-            m.d.comb += self.drp.di.eq(drpvalue & 0xf7ff)
-        with m.Else():
-            m.d.comb += self.drp.di.eq(drpvalue)
-
-
-        rxpmaresetdone = Signal()
-        m.submodules += FFSynchronizer(self.rxpmaresetdone, rxpmaresetdone)
-        rxpmaresetdone_r = Signal()
-        m.d.ss += rxpmaresetdone_r.eq(rxpmaresetdone)
-
-        # Double-latch transceiver asynch outputs
-        plllock         = Signal()
-        rxresetdone     = Signal()
-        rxdlysresetdone = Signal()
-        rxsyncdone      = Signal()
-        m.submodules += [
-            FFSynchronizer(self.plllock, plllock, o_domain="ss"),
-            FFSynchronizer(self.rxresetdone, rxresetdone, o_domain="ss"),
-            FFSynchronizer(self.rxdlysresetdone, rxdlysresetdone, o_domain="ss"),
-            FFSynchronizer(self.rxsyncdone, rxsyncdone, o_domain="ss")
-        ]
-
-        # Deglitch FSM outputs driving transceiver asynch inputs
-        gtrxreset   = Signal()
-        gtrxpd      = Signal()
-        rxdlysreset = Signal()
-        rxphalign   = Signal()
-        rxuserrdy   = Signal()
-        m.d.ss += [
-            self.gtrxreset    .eq(gtrxreset),
-            self.gtrxpd       .eq(gtrxpd),
-            self.rxdlysreset  .eq(rxdlysreset),
-            self.rxphalign    .eq(rxphalign),
-            self.rxuserrdy    .eq(rxuserrdy)
-        ]
-
-        # Wait 500ns after configuration before releasing
-        # GTP reset (to follow AR43482)
-        init_delay = WaitTimer(int(500e-9*self._ss_clock_frequency))
-        m.submodules += init_delay
-        m.d.comb += init_delay.wait.eq(1)
-
-        with m.FSM(domain="ss"):
-            with m.State("POWER-DOWN"):
-                m.d.comb += [
-                    gtrxreset.eq(1),
-                    gtrxpd.eq(1),
-                ]
-                m.next = "DRP_READ_ISSUE"
-
-            with m.State("DRP_READ_ISSUE"):
-                m.d.comb += gtrxreset.eq(1)
-                with m.If(init_delay.done):
-                    m.next = "DRP_READ_ISSUE_POST"
-
-            with m.State("DRP_READ_ISSUE_POST"):
-                m.d.comb += [
-                    gtrxreset.eq(1),
-                    self.drp.en.eq(1),
-                ]
-                m.next = "DRP_READ_WAIT"
-
-            with m.State("DRP_READ_WAIT"):
-                m.d.comb += gtrxreset.eq(1)
-                with m.If(self.drp.rdy):
-                    m.d.ss += drpvalue.eq(self.drp.do)
-                    m.next = "DRP_MOD_ISSUE"
-
-            with m.State("DRP_MOD_ISSUE"):
-                m.d.comb += [
-                    gtrxreset.eq(1),
-                    drpmask.eq(1),
-                    self.drp.en.eq(1),
-                    self.drp.we.eq(1),
-                ]
-                m.next = "DRP_MOD_WAIT"
-
-
-            with m.State("DRP_MOD_WAIT"):
-                m.d.comb += gtrxreset.eq(1)
-                with m.If(self.drp.rdy):
-                    m.next = "WAIT_PMARST_FALL"
-
-            with m.State("WAIT_PMARST_FALL"):
-                m.d.comb += rxuserrdy.eq(1)
-                with m.If(rxpmaresetdone_r & ~rxpmaresetdone):
-                    m.next = "DRP_RESTORE_ISSUE"
-
-
-            with m.State("DRP_RESTORE_ISSUE"):
-                m.d.comb += [
-                    rxuserrdy.eq(1),
-                    self.drp.en.eq(1),
-                    self.drp.we.eq(1),
-                ]
-                m.next = "DRP_RESTORE_WAIT"
-
-            with m.State("DRP_RESTORE_WAIT"):
-                m.d.comb += rxuserrdy.eq(1)
-                with m.If(self.drp.rdy):
-                    m.next = "WAIT-GTP-RESET"
-
-            with m.State("WAIT-GTP-RESET"):
-                m.d.comb += rxuserrdy.eq(1)
-                with m.If(rxresetdone):
-                    m.next = "READY"
-
-            with m.State("READY"):
-                m.d.comb += [
-                    rxuserrdy.eq(1),
-                    self.done.eq(1),
-                    self.drp.lock.eq(0),
-                ]
-                with m.If(self.restart):
-                    m.next = "POWER-DOWN"
-
-        # FSM watchdog / restart
-        m.submodules.watchdog = watchdog = WaitTimer(int(4e-3*self._ss_clock_frequency))
-        reset_self = watchdog.done | self.restart
-        m.d.comb += watchdog.wait.eq(~reset_self & ~self.done),
-
-        return ResetInserter(reset_self)(m)
 
 
 class GTPQuadPLL(Elaboratable):
@@ -467,48 +158,52 @@ CLKIN +----> /M  +-->       Charge Pump         +-> VCO +---> CLKOUT
 
 class GTPChannel(Elaboratable):
     def __init__(self, qpll, tx_pads, rx_pads, ss_clock_frequency):
-        self._qpll    = qpll
-        self._tx_pads = tx_pads
-        self._rx_pads = rx_pads
+        self._qpll          = qpll
+        self._tx_pads       = tx_pads
+        self._rx_pads       = rx_pads
         self._ss_clock_frequency = ss_clock_frequency
 
-        self.data_width = 20
-        self.nwords = self.data_width // 10
+        # For now, always operate at 2x gearing, and using the corresponding width for
+        # the internal data path.
+        self._io_words      = 2
+        self._data_width    = self._io_words * 10
 
-        # Streams
-        self.sink   = USBRawSuperSpeedStream(payload_words=2)
-        self.source = USBRawSuperSpeedStream(payload_words=2)
+        #
+        # I/O ports.
+        #
 
-        self.reset           = Signal()
+        # Dynamic reconfiguration port
+        self.drp            = DRPInterface()
+
+        # Interface clock
+        self.pclk           = Signal()
+
+        # Reset sequencing
+        self.reset          = Signal()
+        self.tx_ready       = Signal()
+        self.rx_ready       = Signal()
+
+        # Core Rx and Tx lines
+        self.tx_data        = Signal(self._io_words * 8)
+        self.tx_datak       = Signal(self._io_words)
+        self.rx_data        = Signal(self._io_words * 8)
+        self.rx_datak       = Signal(self._io_words)
 
         # TX controls
-        self.tx_enable       = Signal(reset=1)
-        self.tx_polarity     = Signal()
-        self.tx_ready        = Signal()
-        self.tx_idle         = Signal()
-        self.tx_inhibit      = Signal()
-        self.tx_gpio_en      = Signal()
-        self.tx_gpio         = Signal()
+        self.tx_polarity    = Signal()
+        self.tx_elec_idle   = Signal()
+        self.tx_gpio_en     = Signal()
+        self.tx_gpio        = Signal()
 
         # RX controls
-        self.rx_enable       = Signal(reset=1)
-        self.rx_polarity     = Signal()
-        self.rx_termination  = Signal()
-        self.rx_ready        = Signal()
-        self.rx_align        = Signal(reset=1)
-        self.rx_idle         = Signal()
-        self.train_equalizer = Signal()
+        self.rx_polarity    = Signal()
+        self.rx_eq_training = Signal()
+        self.rx_termination = Signal()
 
-
-        # DRP
-        self.drp = DRPInterface()
-
-        # Loopback
-        self.loopback = Signal(3)
-
-        # Transceiver direct clock outputs (useful to specify clock constraints)
-        self.txoutclk = Signal()
-        self.rxoutclk = Signal()
+        # RX status
+        self.rx_valid       = Signal()
+        self.rx_status      = Signal(3)
+        self.rx_elec_idle   = Signal()
 
 
     def elaborate(self, platform):
@@ -516,11 +211,16 @@ class GTPChannel(Elaboratable):
 
         # Aliases.
         qpll       = self._qpll
-        data_width = self.data_width
-        nwords     = self.nwords
+        io_words   = self._io_words
+        data_width = self._data_width
+
+        #
+        # Clocking.
+        #
 
         # Ensure we have a valid PLL/CDR configuration.
         assert qpll.config["linerate"] < 6.6e9
+
         # From [UG482: Table 4-14]: CDR Recommended Settings for Protocols with SSC
         rxcdr_cfgs = {
             1: 0x0_0000_87FE_2060_2448_1010,
@@ -528,90 +228,76 @@ class GTPChannel(Elaboratable):
             4: 0x0_0000_47FE_1060_2450_1010,
         }
 
+        # Generate the PIPE interface clock from the transmit word clock, and use it to drive both
+        # the Tx and the Rx FIFOs, to bring both halves of the data bus to the same clock domain.
+        # The recovered Rx clock will not match the generated Tx clock; use the recovered word
+        # clock to drive the CTC FIFO in the transceiver, which will compensate for the difference.
+        txoutclk = Signal()
+        m.submodules += Instance("BUFG",
+            i_I=txoutclk,
+            o_O=self.pclk
+        )
+        platform.add_clock_constraint(self.pclk, 250e6)
+
+        # Transceiver uses a 25 MHz clock internally, which needs to be derived from
+        # the reference clock.
+        for clk25_div in range(1, 33):
+            if qpll._refclk_freq / clk25_div <= 25e6:
+                break
+
+        # Out of band sequence detector uses an auxiliary clock whose frequency is derived
+        # from the properties of the sequences.
+        m.submodules.oob_clkdiv = oob_clkdiv = GTOOBClockDivider(self._ss_clock_frequency)
+
 
         #
-        # Transciever GPIO synchronization
+        # Initialization.
         #
-        tx_polarity     = Signal()
-        tx_gpio_en      = Signal()
-        tx_gpio         = Signal()
-        m.submodules += [
-            FFSynchronizer(self.tx_polarity, tx_polarity, o_domain="tx"),
-            FFSynchronizer(self.tx_gpio_en,  tx_gpio_en,  o_domain="tx"),
-            FFSynchronizer(self.tx_gpio,     tx_gpio,     o_domain="tx"),
-        ]
 
-        rx_polarity     = Signal()
-        m.submodules += [
-            FFSynchronizer(self.rx_polarity, rx_polarity, o_domain="rx"),
-        ]
-
-
-
-        #
-        # Transmitter bringup.
-        #
-        m.submodules.tx_init = tx_init = ResetInserter({"ss": self.reset})(GTPTXInit(self._ss_clock_frequency))
+        # Per [AR43482], GTP transceivers must not be reset immediately after configuration.
+        m.submodules.defer_rst = defer_rst = GTResetDeferrer(self._ss_clock_frequency)
         m.d.comb += [
-            self.tx_ready    .eq(tx_init.done),
-            tx_init.restart  .eq(~self.tx_enable)
+            defer_rst.tx_i.eq(~qpll.lock | self.reset),
+            defer_rst.rx_i.eq(~qpll.lock | self.reset),
         ]
 
-        #
-        # Receiver bringup.
-        #
-        m.submodules.rx_init = rx_init = ResetInserter({"ss": self.reset})(GTPRXInit(self._ss_clock_frequency))
+        # Per [UG482], GTP receiver reset must follow a specific sequence.
+        m.submodules.rx_pma_rst = rx_pma_rst = GTPRXPMAResetWorkaround(self._ss_clock_frequency)
         m.d.comb += [
-            self.rx_ready.eq(rx_init.done),
-            rx_init.restart.eq(~self.rx_enable)
+            rx_pma_rst.i.eq(defer_rst.rx_o)
         ]
 
-        #
-        # PLL interconnection
-        #
+        tx_rst_done = Signal()
+        rx_rst_done = Signal()
         m.d.comb += [
-            tx_init.plllock.eq(qpll.lock),
-            rx_init.plllock.eq(qpll.lock),
-            qpll.reset.eq(tx_init.pllreset)
+            self.tx_ready.eq(defer_rst.done & tx_rst_done),
+            self.rx_ready.eq(defer_rst.done & rx_rst_done),
         ]
 
+
         #
-        # Dynamic reconfiguration
+        # Dynamic reconfiguration.
         #
+        rx_termination = Signal()
+        m.submodules += FFSynchronizer(self.rx_termination, rx_termination, o_domain="ss")
+
         m.submodules.rx_term = rx_term = DRPFieldController(
             addr=0x0011, bits=slice(4, 6), reset=0b10) # RX_CM_SEL
         m.d.comb += [
-            rx_term.value.eq(Mux(self.rx_termination,
+            rx_term.value.eq(Mux(rx_termination,
                                  0b11,    # Programmable
                                  0b10)),  # Floating
         ]
 
-        m.submodules.drp_arbiter = drp_arbiter = self.drp_arbiter = DRPArbiter()
-        drp_arbiter.add_interface(rx_init.drp)
+        m.submodules.drp_arbiter = drp_arbiter = DRPArbiter()
+        drp_arbiter.add_interface(rx_pma_rst.drp)
         drp_arbiter.add_interface(rx_term.drp)
         drp_arbiter.add_interface(self.drp)
 
-        #
-        # Out-of-band detector
-        #
-        m.submodules.oob_clkdiv = oob_clkdiv = GTOOBClockDivider(self._ss_clock_frequency)
 
         #
-        # Core SerDes-chnannel IP instance
+        # Core SerDes instantiation.
         #
-        rxphaligndone = Signal()
-
-        # Transmitter data signals.
-        tx_data       = Signal(8 * nwords)
-        tx_ctrl       = Signal(nwords)
-
-        # Receiver data signals.
-        rx_data       = Signal(8 * nwords)
-        rx_ctrl       = Signal(nwords)
-        rx_disp_error = Signal(nwords)
-        rx_code_error = Signal(nwords)
-
-
         m.submodules.gtp = Instance("GTPE2_CHANNEL",
             # Simulation-Only Attributes
             p_SIM_RECEIVER_DETECT_PASS   = "TRUE",
@@ -619,41 +305,42 @@ class GTPChannel(Elaboratable):
             p_SIM_RESET_SPEEDUP          = "FALSE",
             p_SIM_VERSION                = "2.0",
 
-            # RX Byte and Word Alignment Attributes
-            p_ALIGN_COMMA_DOUBLE         = "FALSE",
-            p_ALIGN_COMMA_ENABLE         = 0b11_1111_1111,
-            p_ALIGN_COMMA_WORD           = 1,
-            p_ALIGN_MCOMMA_DET           = "TRUE",
-            p_ALIGN_MCOMMA_VALUE         = 0b10_1000_0011,
-            p_ALIGN_PCOMMA_DET           = "TRUE",
-            p_ALIGN_PCOMMA_VALUE         = 0b01_0111_1100,
-            p_SHOW_REALIGN_COMMA         = "TRUE",
-            p_RXSLIDE_AUTO_WAIT          = 7,
-            p_RXSLIDE_MODE               = "OFF",
-            p_RX_SIG_VALID_DLY           = 10,
-
             # RX 8B/10B Decoder Attributes
             p_RX_DISPERR_SEQ_MATCH       = "FALSE",
             p_DEC_MCOMMA_DETECT          = "TRUE",
             p_DEC_PCOMMA_DETECT          = "TRUE",
             p_DEC_VALID_COMMA_ONLY       = "TRUE",
+            p_UCODEER_CLR                = 0b0,
+
+            # RX Byte and Word Alignment Attributes
+            p_ALIGN_COMMA_DOUBLE         = "FALSE",
+            p_ALIGN_COMMA_ENABLE         = 0b1111_111111,
+            p_ALIGN_COMMA_WORD           = 1,
+            p_ALIGN_MCOMMA_DET           = "TRUE",
+            p_ALIGN_MCOMMA_VALUE         = 0b0101_111100, # K28.5 RD- 10b code
+            p_ALIGN_PCOMMA_DET           = "TRUE",
+            p_ALIGN_PCOMMA_VALUE         = 0b1010_000011, # K28.5 RD+ 10b code
+            p_SHOW_REALIGN_COMMA         = "TRUE",
+            p_RXSLIDE_AUTO_WAIT          = 7,
+            p_RXSLIDE_MODE               = "OFF",
+            p_RX_SIG_VALID_DLY           = 10,
 
             # RX Clock Correction Attributes
             p_CBCC_DATA_SOURCE_SEL       = "DECODED",
-            p_CLK_COR_SEQ_2_USE          = "FALSE",
+            p_CLK_CORRECT_USE            = "TRUE",
             p_CLK_COR_KEEP_IDLE          = "FALSE",
-            p_CLK_COR_MAX_LAT            = 10,
-            p_CLK_COR_MIN_LAT            = 8,
+            p_CLK_COR_MAX_LAT            = 14,
+            p_CLK_COR_MIN_LAT            = 11,
             p_CLK_COR_PRECEDENCE         = "TRUE",
             p_CLK_COR_REPEAT_WAIT        = 0,
             p_CLK_COR_SEQ_LEN            = 2,
-            p_CLK_COR_SEQ_1_ENABLE       = 0b1100,
-            p_CLK_COR_SEQ_1_1            = 0b0000000000,
-            p_CLK_COR_SEQ_1_2            = 0b0000000000,
+            p_CLK_COR_SEQ_1_ENABLE       = 0b1111,
+            p_CLK_COR_SEQ_1_1            = 0b01_001_11100, # K28.1 1+8b code
+            p_CLK_COR_SEQ_1_2            = 0b01_001_11100, # K28.1 1+8b code
             p_CLK_COR_SEQ_1_3            = 0b0000000000,
             p_CLK_COR_SEQ_1_4            = 0b0000000000,
-            p_CLK_CORRECT_USE            = "FALSE",
             p_CLK_COR_SEQ_2_ENABLE       = 0b1111,
+            p_CLK_COR_SEQ_2_USE          = "FALSE",
             p_CLK_COR_SEQ_2_1            = 0b0000000000,
             p_CLK_COR_SEQ_2_2            = 0b0000000000,
             p_CLK_COR_SEQ_2_3            = 0b0000000000,
@@ -708,18 +395,17 @@ class GTPChannel(Elaboratable):
             p_TERM_RCAL_CFG              = 0b100001000010000,
             p_TERM_RCAL_OVRD             = 0b000,
             p_TST_RSV                    = 0x00000000,
-            p_RX_CLK25_DIV               = 5,
-            p_TX_CLK25_DIV               = 5,
-            p_UCODEER_CLR                = 0b0,
+            p_RX_CLK25_DIV               = clk25_div,
+            p_TX_CLK25_DIV               = clk25_div,
 
             # PCI Express Attributes
             p_PCS_PCIE_EN                = "FALSE",
 
             # PCS Attributes
-            p_PCS_RSVD_ATTR              = 0x0000_0000_0100,
+            p_PCS_RSVD_ATTR              = 0x0000_0000_0100, # OOB power up
 
             # RX Buffer Attributes
-            p_RXBUF_ADDR_MODE            = "FAST",
+            p_RXBUF_ADDR_MODE            = "FULL",
             p_RXBUF_EIDLE_HI_CNT         = 0b1000,
             p_RXBUF_EIDLE_LO_CNT         = 0b0000,
             p_RXBUF_EN                   = "TRUE",
@@ -918,7 +604,7 @@ class GTPChannel(Elaboratable):
 
             # TX Buffer Attributes
             p_TXSYNC_MULTILANE           = 0b0,
-            p_TXSYNC_OVRD                = 0b1,
+            p_TXSYNC_OVRD                = 0b0,
             p_TXSYNC_SKIP_DA             = 0b0,
 
             # CPLL Ports
@@ -948,26 +634,26 @@ class GTPChannel(Elaboratable):
             i_TXSYSCLKSEL           =        0b00 if qpll.channel == 0 else 0b11,
 
             # Loopback Ports
-            i_LOOPBACK              = self.loopback,
+            i_LOOPBACK              = 0b000,
 
             # PMA Reserved Ports
             i_PMARSVDIN3            = 0b0,
             i_PMARSVDIN4            = 0b0,
 
             # Power-Down Ports
-            i_RXPD                  = Cat(rx_init.gtrxpd, rx_init.gtrxpd),
+            i_RXPD                  = 0,
             i_TXPD                  = 0b00,
 
             # RX Initialization and Reset Ports
             i_EYESCANRESET          = 0,
-            i_GTRXRESET             = rx_init.gtrxreset,
+            i_GTRXRESET             = rx_pma_rst.o,
             i_RXLPMRESET            = 0,
             i_RXOOBRESET            = 0,
             i_RXPCSRESET            = 0,
             i_RXPMARESET            = 0,
-            o_RXPMARESETDONE        = rx_init.rxpmaresetdone,
-            o_RXRESETDONE           = rx_init.rxresetdone,
-            i_RXUSERRDY             = rx_init.rxuserrdy,
+            o_RXPMARESETDONE        = rx_pma_rst.rxpmaresetdone,
+            o_RXRESETDONE           = rx_rst_done,
+            i_RXUSERRDY             = 1,
 
             # Receive Ports
             i_CLKRSVD0              = 0,
@@ -1001,26 +687,26 @@ class GTPChannel(Elaboratable):
             i_RX8B10BEN             = 1,
 
             # Receive Ports - FPGA RX Interface Ports
-            o_RXDATA                = rx_data,
-            i_RXUSRCLK              = ClockSignal("rx"),
-            i_RXUSRCLK2             = ClockSignal("rx"),
+            o_RXDATA                = self.rx_data,
+            i_RXUSRCLK              = self.pclk,
+            i_RXUSRCLK2             = self.pclk,
 
             # Receive Ports - Pattern Checker Ports
             o_RXPRBSERR             = Open(),
-            i_RXPRBSSEL             = 0,
+            i_RXPRBSSEL             = 0b000,
             i_RXPRBSCNTRESET        = 0,
 
             # Receive Ports - PCI Express Ports
             o_PHYSTATUS             = Open(),
             i_RXRATE                = 0,
-            o_RXSTATUS              = Open(3),
-            o_RXVALID               = Open(),
+            o_RXSTATUS              = self.rx_status,
+            o_RXVALID               = self.rx_valid,
 
             # Receive Ports - RX 8B/10B Decoder Ports
-            o_RXCHARISCOMMA         = Open(2),
-            o_RXCHARISK             = rx_ctrl,
-            o_RXDISPERR             = rx_disp_error,
-            o_RXNOTINTABLE          = rx_code_error,
+            o_RXCHARISCOMMA         = Open(4),
+            o_RXCHARISK             = self.rx_datak,
+            o_RXDISPERR             = Open(4),
+            o_RXNOTINTABLE          = Open(4),
             i_SETERRSTATUS          = 0,
 
             # Receive Ports - RX AFE Ports
@@ -1037,18 +723,18 @@ class GTPChannel(Elaboratable):
             i_RXDLYBYPASS           = 1,
             i_RXDLYEN               = 0,
             i_RXDLYOVRDEN           = 0,
-            i_RXDLYSRESET           = rx_init.rxdlysreset,
-            o_RXDLYSRESETDONE       = rx_init.rxdlysresetdone,
+            i_RXDLYSRESET           = 0,
+            o_RXDLYSRESETDONE       = Open(),
             i_RXPHALIGN             = 0,
-            o_RXPHALIGNDONE         = rxphaligndone,
+            o_RXPHALIGNDONE         = Open(),
             i_RXPHALIGNEN           = 0,
             i_RXPHDLYPD             = 0,
             i_RXPHDLYRESET          = 0,
             o_RXPHMONITOR           = Open(5),
             i_RXPHOVRDEN            = 0,
             o_RXPHSLIPMONITOR       = Open(5),
-            i_RXSYNCALLIN           = rxphaligndone,
-            o_RXSYNCDONE            = rx_init.rxsyncdone,
+            i_RXSYNCALLIN           = 0,
+            o_RXSYNCDONE            = Open(),
             i_RXSYNCIN              = 0,
             i_RXSYNCMODE            = 0,
             o_RXSYNCOUT             = Open(),
@@ -1058,8 +744,8 @@ class GTPChannel(Elaboratable):
             o_RXBYTEREALIGN         = Open(),
             o_RXCOMMADET            = Open(),
             i_RXCOMMADETEN          = 1,
-            i_RXMCOMMAALIGNEN       = self.rx_align,
-            i_RXPCOMMAALIGNEN       = self.rx_align,
+            i_RXMCOMMAALIGNEN       = 1,
+            i_RXPCOMMAALIGNEN       = 1,
             i_RXSLIDE               = 0,
 
             # Receive Ports - RX Channel Bonding Ports
@@ -1083,12 +769,12 @@ class GTPChannel(Elaboratable):
             o_RXOSINTSTROBEDONE     = Open(),
 
             # Receive Ports - RX Equalizer Ports
-            i_RXLPMHFHOLD           = ~self.train_equalizer,
+            i_RXLPMHFHOLD           = ~self.rx_eq_training,
             i_RXLPMHFOVRDEN         = 0,
-            i_RXLPMLFHOLD           = ~self.train_equalizer,
+            i_RXLPMLFHOLD           = ~self.rx_eq_training,
             i_RXLPMLFOVRDEN         = 0,
             i_RXLPMOSINTNTRLEN      = 0,
-            i_RXOSHOLD              = 0,
+            i_RXOSHOLD              = ~self.rx_eq_training,
             i_RXOSOVRDEN            = 0,
 
             # Receive Ports - RX Fabric Clock Output Control Ports
@@ -1096,7 +782,7 @@ class GTPChannel(Elaboratable):
             i_RXRATEMODE            = 0b0,
 
             # Receive Ports - RX Fabric Output Control Ports
-            o_RXOUTCLK              = self.rxoutclk,
+            o_RXOUTCLK              = Open(),
             o_RXOUTCLKFABRIC        = Open(),
             o_RXOUTCLKPCS           = Open(),
             i_RXOUTCLKSEL           = 0b010,
@@ -1117,20 +803,20 @@ class GTPChannel(Elaboratable):
             o_RXCOMSASDET           = Open(),
             o_RXCOMWAKEDET          = Open(),
             o_RXCOMINITDET          = Open(),
-            o_RXELECIDLE            = self.rx_idle,
+            o_RXELECIDLE            = self.rx_elec_idle,
             i_RXELECIDLEMODE        = 0b00,
 
             # Receive Ports - RX Polarity Control Ports
-            i_RXPOLARITY            = rx_polarity,
+            i_RXPOLARITY            = self.rx_polarity,
 
             # TX Initialization and Reset Ports
             i_CFGRESET              = 0,
-            i_GTTXRESET             = tx_init.gttxreset,
+            i_GTTXRESET             = defer_rst.tx_o,
             i_TXPCSRESET            = 0,
             i_TXPMARESET            = 0,
             o_TXPMARESETDONE        = Open(),
-            o_TXRESETDONE           = tx_init.txresetdone,
-            i_TXUSERRDY             = tx_init.txuserrdy,
+            o_TXRESETDONE           = tx_rst_done,
+            i_TXUSERRDY             = 1,
             o_PCSRSVDOUT            = Open(),
 
             # Transmit Ports - Configurable Driver Ports
@@ -1140,7 +826,7 @@ class GTPChannel(Elaboratable):
             i_TXDEEMPH              = 0,
             i_TXDIFFCTRL            = 0b1000,
             i_TXDIFFPD              = 0,
-            i_TXINHIBIT             = self.tx_inhibit | tx_gpio_en,
+            i_TXINHIBIT             = self.tx_gpio_en,
             i_TXMAINCURSOR          = 0b0000000,
             i_TXPISOPD              = 0,
             i_TXPOSTCURSOR          = 0b00000,
@@ -1154,11 +840,11 @@ class GTPChannel(Elaboratable):
             i_TX8B10BEN             = 1,
 
             # Transmit Ports - FPGA TX Interface Ports
-            i_TXUSRCLK              = ClockSignal("tx"),
-            i_TXUSRCLK2             = ClockSignal("tx"),
+            i_TXUSRCLK              = self.pclk,
+            i_TXUSRCLK2             = self.pclk,
 
             # Transmit Ports - PCI Express Ports
-            i_TXELECIDLE            = self.tx_idle & ~tx_gpio_en,
+            i_TXELECIDLE            = ~self.tx_gpio_en & self.tx_elec_idle,
             i_TXMARGIN              = 0,
             i_TXRATE                = 0b000,
             i_TXSWING               = 0,
@@ -1171,27 +857,27 @@ class GTPChannel(Elaboratable):
             i_TX8B10BBYPASS         = 0b0000,
             i_TXCHARDISPMODE        = 0b0000,
             i_TXCHARDISPVAL         = 0b0000,
-            i_TXCHARISK             = tx_ctrl,
+            i_TXCHARISK             = self.tx_datak,
 
             # Transmit Ports - TX Data Path Interface
-            i_TXDATA                = tx_data,
+            i_TXDATA                = self.tx_data,
 
             # Transmit Ports - TX Buffer Bypass Ports
             i_TXDLYBYPASS           = 1,
-            i_TXDLYEN               = tx_init.txdlyen,
+            i_TXDLYEN               = 0,
             i_TXDLYHOLD             = 0,
             i_TXDLYOVRDEN           = 0,
-            i_TXDLYSRESET           = tx_init.txdlysreset,
-            o_TXDLYSRESETDONE       = tx_init.txdlysresetdone,
+            i_TXDLYSRESET           = 0,
+            o_TXDLYSRESETDONE       = Open(),
             i_TXDLYUPDOWN           = 0,
-            i_TXPHALIGN             = tx_init.txphalign,
-            o_TXPHALIGNDONE         = tx_init.txphaligndone,
+            i_TXPHALIGN             = 0,
+            o_TXPHALIGNDONE         = Open(),
             i_TXPHALIGNEN           = 0,
             i_TXPHDLYPD             = 0,
             i_TXPHDLYRESET          = 0,
             i_TXPHDLYTSTCLK         = 0,
-            i_TXPHINIT              = tx_init.txphinit,
-            o_TXPHINITDONE          = tx_init.txphinitdone,
+            i_TXPHINIT              = 0,
+            o_TXPHINITDONE          = Open(),
             i_TXPHOVRDEN            = 0,
 
             # Transmit Ports - TX Buffer Ports
@@ -1205,7 +891,7 @@ class GTPChannel(Elaboratable):
             o_TXSYNCOUT             = Open(),
 
             # Transmit Ports - TX Fabric Clock Output Control Ports
-            o_TXOUTCLK              = self.txoutclk,
+            o_TXOUTCLK              = txoutclk,
             o_TXOUTCLKFABRIC        = Open(),
             o_TXOUTCLKPCS           = Open(),
             i_TXOUTCLKSEL           = 0b010,
@@ -1233,213 +919,119 @@ class GTPChannel(Elaboratable):
             i_TXPIPPMSTEPSIZE       = 0,
 
             # Transmit Ports - TX Polarity Control Ports
-            i_TXPOLARITY            = tx_polarity ^ (tx_gpio_en & tx_gpio),
+            i_TXPOLARITY            = self.tx_polarity ^ (self.tx_gpio_en & self.tx_gpio),
 
             # Transmit Ports - TX Receiver Detection Ports
             i_TXDETECTRX            = 0,
         )
 
-        #
-        # TX clocking
-        #
-        tx_reset_deglitched = Signal()
-        #tx_reset_deglitched.attr.add("no_retiming")
-        m.d.ss += tx_reset_deglitched.eq(~tx_init.done)
-        m.domains.tx = ClockDomain()
-
-        m.submodules += Instance("BUFG",
-            i_I=self.txoutclk,
-            o_O=ClockSignal("tx")
-        )
-        m.submodules += ResetSynchronizer(tx_reset_deglitched, domain="tx")
-
-        platform.add_clock_constraint(self.txoutclk, 250e6)
-
-        #
-        # RX clocking
-        #
-        rx_reset_deglitched = Signal()
-        #rx_reset_deglitched.attr.add("no_retiming")
-        m.d.tx += rx_reset_deglitched.eq(~rx_init.done)
-        m.domains.rx = ClockDomain()
-        m.submodules += [
-            Instance("BUFG",
-                i_I=self.rxoutclk,
-                o_O=ClockSignal("rx")
-            ),
-            ResetSynchronizer(rx_reset_deglitched, domain="rx")
-        ]
-
-        platform.add_clock_constraint(self.rxoutclk, 250e6)
-
-        #
-        # Tx Datapath
-        #
-
-        # We're always ready to accept data, since our inner SerDes spews out data at a fixed rate.
-        m.d.comb += self.sink.ready.eq(1)
-
-        # ... and provide that data to the SerDes' transmitter.
-        m.d.comb += [
-            tx_data           .eq(self.sink.data),
-            tx_ctrl           .eq(self.sink.ctrl),
-        ]
-
-
-        #
-        # Rx Datapath
-        #
-
-        # We're always grabbing data, so our output should always be valid.
-        # (Decoding errors are still valid stream words; but are replaced with SUB).
-        m.d.comb += self.source.valid.eq(1)
-
-        # ... and then assign their values to our output bus.
-        for i in range(nwords):
-
-            # If 8B10B decoding failed on the given byte, replace it with our substitution character.
-            with m.If(rx_code_error[i]):
-                m.d.comb += [
-                    self.source.data.word_select(i, 8)  .eq(SUB.value),
-                    self.source.ctrl[i]                 .eq(SUB.ctrl),
-                ]
-
-            # Otherwise, pass it through directly.
-            with m.Else():
-                m.d.comb += [
-                    self.source.data.word_select(i, 8)  .eq(rx_data.word_select(i, 8)),
-                    self.source.ctrl[i]                 .eq(rx_ctrl[i])
-                ]
-
         return m
 
 
 
-class LunaArtix7SerDes(Elaboratable):
-    def __init__(self, ss_clock_frequency, refclk_pads, refclk_frequency, tx_pads, rx_pads):
-        """ Wrapper around the core Artix7 SerDes that optimizes the SerDes for USB3 use. """
+class Artix7SerDesPIPE(PIPEInterface, Elaboratable):
+    """ Wrapper around the core GTP SerDes that adapts it to the PIPE interface.
 
-        self._ss_clock_frequency = ss_clock_frequency
-        self._refclk_pads        = refclk_pads
-        self._refclk_frequency   = refclk_frequency
+    The implementation-dependent behavior of the standard PIPE signals is described below:
+
+    width :
+        Interface width. Always 2 symbols.
+    clk :
+        Reference clock for the PHY receiver and transmitter. Could be routed through fabric,
+        or connected to the output of an ``IBUFDS_GTE2`` block.
+    pclk :
+        Clock for the PHY interface. Frequency is always 250 MHz.
+    phy_mode :
+        PHY operating mode. Only SuperSpeed USB mode is supported.
+    elas_buf_mode :
+        Elastic buffer mode. Only nominal half-full mode is supported.
+    rate :
+        Link signaling rate. Only 5 GT/s is supported.
+    power_down :
+        Power management mode. Only P0 is supported.
+    tx_deemph :
+        Transmitter de-emphasis level. Only TBD is supported.
+    tx_margin :
+        Transmitter voltage levels. Only TBD is supported.
+    tx_swing :
+        Transmitter voltage swing level. Only full swing is supported.
+    tx_detrx_lpbk :
+    tx_elec_idle :
+        Transmit control signals. Loopback and receiver detection are not implemented.
+    tx_compliance :
+    tx_ones_zeroes :
+        These inputs are not implemented.
+    power_present :
+        This output is not implemented. External logic may drive it if necessary.
+    """
+    def __init__(self, *, tx_pads, rx_pads, refclk_frequency, ss_clock_frequency):
+        super().__init__(width=2)
+
         self._tx_pads            = tx_pads
         self._rx_pads            = rx_pads
-
-        #
-        # I/O port
-        #
-        self.sink                    = USBRawSuperSpeedStream()
-        self.source                  = USBRawSuperSpeedStream()
-
-        self.reset                   = Signal()
-        self.enable                  = Signal(reset=1) # i
-        self.ready                   = Signal()        # o
-
-        self.tx_polarity             = Signal()   # i
-        self.tx_idle                 = Signal()   # i
-        self.tx_pattern              = Signal(20) # i
-
-        self.rx_polarity             = Signal()   # i
-        self.rx_idle                 = Signal()   # o
-        self.rx_align                = Signal(reset=1)   # i
-        self.rx_termination          = Signal()   # i
-        self.rx_eq_training          = Signal()   # i
-
-        self.send_lfps_signaling     = Signal()
-        self.lfps_signaling_received = Signal()
-
-        # Debug interface.
-        self.alignment_offset        = Signal(2)
-        self.raw_rx_data             = Signal(16)
-        self.raw_rx_ctrl             = Signal(2)
+        self._refclk_frequency   = refclk_frequency
+        self._ss_clock_frequency = ss_clock_frequency
 
 
     def elaborate(self, platform):
         m = Module()
 
         #
-        # Clock
+        # PLL and SerDes instantiation.
         #
-        if isinstance(self._refclk_pads, (Signal, ClockSignal)):
-            refclk = self._refclk_pads
-        else:
-            refclk = Signal()
-            m.submodules += [
-                Instance("IBUFDS_GTE2",
-                    i_CEB=0,
-                    i_I=self._refclk_pads.p,
-                    i_IB=self._refclk_pads.n,
-                    o_O=refclk
-                )
-            ]
-
-        #
-        # PLL
-        #
-        m.submodules.qpll = qpll = GTPQuadPLL(refclk, self._refclk_frequency, 5e9)
-
-
-        #
-        # Core Serdes
-        #
-        m.submodules.serdes = serdes = self.serdes = GTPChannel(
-            qpll               = qpll,
-            tx_pads            = self._tx_pads,
-            rx_pads            = self._rx_pads,
-            ss_clock_frequency = self._ss_clock_frequency
+        m.submodules.qpll = qpll = GTPQuadPLL(
+            refclk              = self.clk,
+            refclk_freq         = self._refclk_frequency,
+            linerate            = 5e9
         )
+        m.submodules.serdes = serdes = GTPChannel(
+            qpll                = qpll,
+            tx_pads             = self._tx_pads,
+            rx_pads             = self._rx_pads,
+            ss_clock_frequency  = self._ss_clock_frequency
+        )
+
+        # Our soft PHY includes some logic that needs to run synchronously to the PIPE clock; create
+        # a local clock domain to drive it.
+        m.domains.pipe = ClockDomain(local=True, async_reset=True)
         m.d.comb += [
-            serdes.reset.eq(self.reset),
-            self.ready.eq(serdes.tx_ready & serdes.rx_ready),
+            ClockSignal("pipe")     .eq(serdes.pclk),
         ]
 
 
         #
-        # Transmit datapath.
+        # LFPS generation.
         #
-        m.submodules.tx_datapath = tx_datapath = TransmitPreprocessing()
+        m.submodules.lfps_generator = lfps_generator = LFPSSquareWaveGenerator(25e6, 250e6)
         m.d.comb += [
-            serdes.tx_idle             .eq(self.tx_idle),
-            serdes.tx_enable           .eq(self.enable),
-            serdes.tx_polarity         .eq(self.tx_polarity),
-
-            tx_datapath.sink           .stream_eq(self.sink, endian_swap=True),
-            serdes.sink                .stream_eq(tx_datapath.source),
+            serdes.tx_gpio_en       .eq(lfps_generator.tx_gpio_en),
+            serdes.tx_gpio          .eq(lfps_generator.tx_gpio),
         ]
 
 
         #
-        # Receive datapath.
+        # PIPE interface signaling.
         #
-        m.submodules.rx_datapath = rx_datapath = ReceivePostprocessing()
         m.d.comb += [
-            self.rx_idle                  .eq(serdes.rx_idle),
+            qpll.reset              .eq(self.reset),
+            serdes.reset            .eq(self.reset),
+            self.pclk               .eq(serdes.pclk),
 
-            serdes.rx_enable              .eq(self.enable),
-            serdes.rx_polarity            .eq(self.rx_polarity),
-            serdes.rx_termination         .eq(self.rx_termination),
-            serdes.rx_align               .eq(self.rx_align),
-            rx_datapath.align             .eq(self.rx_align),
-            serdes.train_equalizer        .eq(self.rx_eq_training),
+            serdes.tx_elec_idle     .eq(self.tx_elec_idle),
+            serdes.rx_polarity      .eq(self.rx_polarity),
+            serdes.rx_eq_training   .eq(self.rx_eq_training),
+            serdes.rx_termination   .eq(self.rx_termination),
+            lfps_generator.generate .eq(self.tx_detrx_lpbk & self.tx_elec_idle),
 
-            rx_datapath.sink              .stream_eq(serdes.source),
-            self.source                   .stream_eq(rx_datapath.source, endian_swap=True),
+            self.phy_status         .eq(~serdes.tx_ready),
+            self.rx_valid           .eq(serdes.rx_valid),
+            self.rx_status          .eq(serdes.rx_status),
+            self.rx_elec_idle       .eq(serdes.rx_elec_idle),
 
-            # XXX
-            self.alignment_offset   .eq(rx_datapath.alignment_offset)
-        ]
-
-
-        #
-        # LFPS Generation & Detection
-        #
-        m.submodules.lfps_generator = lfps_generator = LFPSSquareWaveGenerator(250e6, 25e6)
-        m.d.comb += [
-            serdes.tx_gpio_en             .eq(lfps_generator.tx_gpio_en),
-            serdes.tx_gpio                .eq(lfps_generator.tx_gpio),
-            lfps_generator.generate       .eq(self.send_lfps_signaling),
-
-            self.lfps_signaling_received  .eq(~serdes.rx_idle)
+            serdes.tx_data          .eq(self.tx_data),
+            serdes.tx_datak         .eq(self.tx_datak),
+            self.rx_data            .eq(serdes.rx_data),
+            self.rx_datak           .eq(serdes.rx_datak),
         ]
 
         return m

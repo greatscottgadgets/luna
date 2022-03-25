@@ -90,8 +90,6 @@ class USB3PhysicalLayer(Elaboratable):
         m.submodules.reset_controller = reset_controller = PHYResetController(sync_frequency=self._sync_frequency)
         m.d.comb += [
             phy.reset                       .eq(reset_controller.reset),
-            phy.phy_reset                   .eq(reset_controller.reset),
-
             reset_controller.phy_status     .eq(phy.phy_status),
             self.ready                      .eq(reset_controller.ready),
         ]
@@ -100,51 +98,37 @@ class USB3PhysicalLayer(Elaboratable):
         #
         # PHY control signal handling.
         #
-
-        def set_phy_strap_if_present(name, value):
-            """ Convenience method to assist with setting optional PHY signals. """
-            if hasattr(self._phy, name):
-                m.d.comb += getattr(self._phy, name).eq(value)
-            else:
-                logging.debug(f"Ignoring PHY signal {name}, as it's not present on this PHY.")
-
-
-        # For now, always drive our PHY's outputs.
-        # Theroetically, this could only be driven post-powerup, but this is good for now.
-        set_phy_strap_if_present('out_enable',    1)
-
-        # Use default/normal signal thresholds.
-        set_phy_strap_if_present('tx_swing',      0)
-        set_phy_strap_if_present('tx_margin',     0)
-        set_phy_strap_if_present('tx_deemph',     0b01)
-
-        # Use USB3.0 5Gbps signaling.
-        set_phy_strap_if_present('rate',          1)
-
-        # Use our normal elastic buffer mode.
-        set_phy_strap_if_present('elas_buf_mode', 0)
-
-        # Don't emit a compliance pattern, currently.
-        set_phy_strap_if_present('tx_oneszeroes', 0)
-
         m.d.comb += [
+            # Use USB3.0 5Gbps signaling.
+            phy.phy_mode                .eq(0b01),
+            phy.rate                    .eq(1),
+
+            # Use nominal half full elastic buffer mode.
+            phy.elas_buf_mode           .eq(0),
+
+            # Use default/normal signal thresholds.
+            phy.tx_swing                .eq(0),
+            phy.tx_margin               .eq(0b000),
+            phy.tx_deemph               .eq(0b01),
+
             # Pass through our remaining control signals directly to the PHY.
-            phy.rx_termination           .eq(self.engage_terminations),
-            phy.rx_polarity              .eq(self.invert_rx_polarity),
-            phy.rx_eq_training           .eq(self.train_equalizer),
+            phy.rx_termination          .eq(self.engage_terminations),
+            phy.rx_polarity             .eq(self.invert_rx_polarity),
+            phy.rx_eq_training          .eq(self.train_equalizer),
 
             # Pass through our VBUS detected signal up to the link layer.
-            self.vbus_present            .eq(phy.power_present)
+            self.vbus_present           .eq(phy.power_present)
         ]
 
 
         #
         # Link Partner Detection
         #
-        m.submodules.rx_detect = rx_detect = LinkPartnerDetector(rx_status=phy.rx_status)
+        m.submodules.rx_detect = rx_detect = LinkPartnerDetector()
         m.d.comb += [
             rx_detect.request_detection    .eq(self.perform_rx_detection),
             rx_detect.phy_status           .eq(phy.phy_status),
+            rx_detect.rx_status            .eq(phy.rx_status),
 
             #self.link_partner_detected     .eq(rx_detect.new_result & rx_detect.partner_present),
             #self.no_link_partner_detected  .eq(rx_detect.new_result & ~rx_detect.partner_present)
@@ -197,7 +181,7 @@ class USB3PhysicalLayer(Elaboratable):
             # Connect our PHY's receive data directly to our CTC hardware.
             rx_ctc.sink.data   .eq(phy.rx_data),
             rx_ctc.sink.ctrl   .eq(phy.rx_datak),
-            rx_ctc.sink.valid  .eq(phy.rx_valid),
+            rx_ctc.sink.valid  .eq(1),
 
             # Diagnostic output.
             self.skip_removed         .eq(rx_ctc.skip_removed),
@@ -244,7 +228,7 @@ class USB3PhysicalLayer(Elaboratable):
 
             # The RX_ELECIDLE signal being de-asserted indicates we're receiving valid
             # LFPS signaling. [TUSB1310A: Table 3-3]
-            lfps.signaling_received     .eq(~phy.rx_elecidle),
+            lfps.signaling_received     .eq(~phy.rx_elec_idle),
         ]
 
         with m.Switch(phy.power_down):
@@ -254,7 +238,7 @@ class USB3PhysicalLayer(Elaboratable):
             with m.Case(0):
                 m.d.comb += [
                     # In P0, pass through TX_ELECIDLE directly, as it has its intended meaning.
-                    phy.tx_elecidle               .eq(lfps.drive_electrical_idle | self.tx_electrical_idle),
+                    phy.tx_elec_idle              .eq(lfps.drive_electrical_idle | self.tx_electrical_idle),
 
                     # In P0, the TX_DETRX_LPBK signal is used to drive an LFPS square wave onto the
                     # transmit line when we're in electrical idle, and places us into loopback
@@ -266,7 +250,7 @@ class USB3PhysicalLayer(Elaboratable):
             # performs it from P0. We'll use the PHY exclusively for receiver detection.
             with m.Default():
                 m.d.comb += [
-                    phy.tx_elecidle               .eq(1),
+                    phy.tx_elec_idle              .eq(1),
                     phy.tx_detrx_lpbk             .eq(rx_detect.detection_control)
                 ]
 

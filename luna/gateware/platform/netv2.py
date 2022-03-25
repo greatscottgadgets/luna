@@ -22,7 +22,9 @@ from amaranth.build import *
 from amaranth.vendor.xilinx_7series import Xilinx7SeriesPlatform
 
 from amaranth_boards.resources import *
-from ..interface.serdes_phy import SerDesPHY, LunaArtix7SerDes
+
+from ..interface.pipe       import AsyncPIPEInterface
+from ..interface.serdes_phy import Artix7SerDesPIPE
 
 from .core import LUNAPlatform
 
@@ -124,42 +126,41 @@ class NeTV2ClockDomainGenerator(Elaboratable):
         return m
 
 
-class NeTV2SuperSpeedPHY(SerDesPHY):
+class NeTV2SuperSpeedPHY(AsyncPIPEInterface):
     """ Superspeed PHY configuration for the NeTV2. """
 
-    SS_FREQUENCY     = 125e6
-    FAST_FREQUENCY   = 250e6
+    SS_FREQUENCY   = 125e6
+    FAST_FREQUENCY = 250e6
 
 
     def __init__(self, platform):
 
-        # Grab the I/O that implements our SerDes interface, ensuring our directions are '-',
-        # so we don't create any I/O buffering hardware.
-        serdes_io_directions = {'tx': "-", 'rx': "-"}
-        serdes_io            = platform.request("serdes", dir=serdes_io_directions)
+        # Grab the I/O that implements our SerDes interface...
+        serdes_io = platform.request("serdes", dir={'tx':"-", 'rx':"-"})
 
-        # Create our SerDes interface...
-        self.serdes = LunaArtix7SerDes(
-            ss_clock_frequency = self.SS_FREQUENCY,
-            refclk_pads        = ClockSignal("ss"),
-            refclk_frequency   = self.SS_FREQUENCY,
-            tx_pads            = serdes_io.tx,
-            rx_pads            = serdes_io.rx,
+        # Use it to create our soft PHY...
+        serdes_phy = Artix7SerDesPIPE(
+            tx_pads             = serdes_io.tx,
+            rx_pads             = serdes_io.rx,
+            refclk_frequency    = self.FAST_FREQUENCY,
+            ss_clock_frequency  = self.SS_FREQUENCY,
         )
 
-        # ... and use it to create our core PHY interface.
-        super().__init__(
-            serdes             = self.serdes,
-            ss_clk_frequency   = self.SS_FREQUENCY,
-            fast_clk_frequency = self.FAST_FREQUENCY
-        )
+        # ... and bring the PHY interface signals to the MAC domain.
+        super().__init__(serdes_phy, width=4, domain="ss")
 
 
     def elaborate(self, platform):
         m = super().elaborate(platform)
 
-        # Patch in our SerDes as a submodule.
-        m.submodules.serdes = self.serdes
+        # Patch in our soft PHY as a submodule.
+        m.submodules.phy = self.phy
+
+        # Drive the PHY reference clock with our fast generated clock.
+        m.d.comb += self.clk.eq(ClockSignal("fast"))
+
+        # This board does not have a way to detect Vbus, so assume it's always present.
+        m.d.comb += self.phy.power_present.eq(1)
 
         return m
 
