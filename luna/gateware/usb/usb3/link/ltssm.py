@@ -367,7 +367,7 @@ class LTSSMController(Elaboratable):
 
 
                 # If we haven't yet sent 16 bursts, track how many bursts we have sent.
-                with m.Elif(self.lfps_polling_detected):
+                with m.Elif(self.lfps_polling_detected & ~lfps_burst_seen):
                     m.d.ss += lfps_burst_seen.eq(1)
 
                     with m.If(self.lfps_cycles_sent > 12):
