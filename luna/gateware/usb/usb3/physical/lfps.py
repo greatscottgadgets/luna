@@ -390,8 +390,11 @@ class LFPSTransceiver(Elaboratable):
             self.send_signaling         .eq(polling_generator.send_signaling),
         ]
 
-        with m.If(polling_generator.completed):
-            m.d.ss += self.cycles_sent.eq(self.cycles_sent + 1)
+        with m.If(polling_generator.generate):
+            with m.If(polling_generator.completed):
+                m.d.ss += self.cycles_sent.eq(self.cycles_sent + 1)
+        with m.Else():
+            m.d.ss += self.cycles_sent.eq(0)
 
         return m
 
