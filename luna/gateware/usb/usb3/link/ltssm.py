@@ -613,7 +613,6 @@ class LTSSMController(Elaboratable):
 
                     # Once we see enough TS1s from the other side; or see TS2s, we'll move into our next step.
                     with m.If(self.ts1_detected | self.ts2_detected):
-                        m.d.ss += self.invert_rx_polarity.eq(0),
                         transition_to_state("Recovery.Configuration")
 
 
