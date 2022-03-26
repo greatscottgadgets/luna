@@ -705,6 +705,9 @@ class ECP5SerDes(Elaboratable):
         self.rx_gpio        = Signal()
         self.rx_termination = Signal()
 
+        # RX status
+        self.rx_status      = Signal(3)
+
 
     def elaborate(self, platform):
         m = Module()
@@ -720,6 +723,8 @@ class ECP5SerDes(Elaboratable):
         rx_los      = Signal()
         rx_lol      = Signal()
         rx_err      = Signal()
+        rx_ctc_urun = Signal()
+        rx_ctc_orun = Signal()
         rx_align    = Signal()
         rx_bus      = Signal(24)
 
@@ -830,7 +835,7 @@ class ECP5SerDes(Elaboratable):
             # CHX common ---------------------------------------------------------------------------
             # CHX — protocol
             p_CHX_PROTOCOL          = "G8B10B",
-            p_CHX_UC_MODE           = "0b1",
+            p_CHX_PCIE_MODE         = "0b1",
 
             p_CHX_ENC_BYPASS        = "0b0",    # Use the 8b10b encoder
             p_CHX_DEC_BYPASS        = "0b0",    # Use the 8b10b decoder
@@ -842,7 +847,7 @@ class ECP5SerDes(Elaboratable):
 
             # CHX RX — reset
             i_CHX_FFC_RRST          = reset.rx_cdr_reset,
-            i_CHX_FFC_LANE_RX_RST   = reset.rx_pcs_reset,
+            i_CHX_FFC_LANE_RX_RST   = reset.rx_pcs_reset | rx_ctc_urun | rx_ctc_orun,
 
             # CHX RX — input
             i_CHX_HDINP             = self._rx_pads.p,
@@ -963,6 +968,12 @@ class ECP5SerDes(Elaboratable):
             p_D_LOW_MARK            = "0d4",    # CTC FIFO low  water mark (mean=8)
             p_D_HIGH_MARK           = "0d12",   # CTC FIFO high water mark (mean=8)
 
+            # The CTC FIFO underrun and overrun flags are 'sticky'; once the condition occurs, the flag
+            # remains set until the RX PCS is reset. This affects the PIPE RxStatus output as well; to
+            # be PIPE-compliant, reset the PCS immediately on overrun/underrun.
+            o_CHX_FFS_CC_UNDERRUN   = rx_ctc_urun,
+            o_CHX_FFS_CC_OVERRUN    = rx_ctc_orun,
+
             # CHX RX — data
             **{"o_CHX_FF_RX_D_%d" % n: rx_bus[n] for n in range(len(rx_bus))},
 
@@ -1053,6 +1064,8 @@ class ECP5SerDes(Elaboratable):
         #
         # TX and RX datapaths
         #
+        rx_status = [Signal(3) for _ in range(self._io_words)]
+
         m.d.comb += [
             # Grab our received data directly from our SerDes; modifying things to match the
             # SerDes Rx bus layout, which squishes status signals between our two geared words.
@@ -1060,6 +1073,8 @@ class ECP5SerDes(Elaboratable):
             self.rx_data[8:16]  .eq(rx_bus[12:20]),
             self.rx_datak[0]    .eq(rx_bus[8]),
             self.rx_datak[1]    .eq(rx_bus[20]),
+            rx_status[0]        .eq(rx_bus[ 9:12]),
+            rx_status[1]        .eq(rx_bus[21:24]),
 
             # Stick the data we'd like to transmit into the SerDes; again modifying things to match
             # the transmit bus layout.
@@ -1068,6 +1083,12 @@ class ECP5SerDes(Elaboratable):
             tx_bus[8]           .eq(self.tx_datak[0]),
             tx_bus[20]          .eq(self.tx_datak[1]),
         ]
+
+        # The SerDes is providing us with two RxStatus words, one per byte; but we emit only one
+        # for the entire word. Combine the status conditions together according to their priorities.
+        for rx_status_code in 0b011, 0b010, 0b001, 0b111, 0b110, 0b101, 0b100:
+            with m.If(Cat(rx_status[i] == rx_status_code for i in range(self._io_words)).any()):
+                m.d.comb += self.rx_status.eq(rx_status_code)
 
 
         return m
@@ -1107,8 +1128,6 @@ class ECP5SerDesPIPE(PIPEInterface, Elaboratable):
     tx_ones_zeroes :
     rx_eq_training :
         These inputs are not implemented.
-    rx_status :
-        Receiver status. Implemented as always 0.
     power_present :
         This output is not implemented. External logic may drive it if necessary.
     """
@@ -1175,6 +1194,7 @@ class ECP5SerDesPIPE(PIPEInterface, Elaboratable):
 
             self.phy_status         .eq(~serdes.tx_ready),
             self.rx_valid           .eq(serdes.rx_ready),
+            self.rx_status          .eq(serdes.rx_status),
             self.rx_elec_idle       .eq(~lfps_detector.present),
 
             serdes.tx_data          .eq(self.tx_data),
