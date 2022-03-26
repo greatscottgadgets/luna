@@ -6,7 +6,7 @@
 #
 # Code based in part on ``litex`` and ``liteiclink``.
 # SPDX-License-Identifier: BSD-3-Clause
-""" SerDes backend for the Kintex7. """
+""" Soft PIPE backend for the Xilinx 7 Series GTX transceivers. """
 
 from amaranth import *
 from amaranth.lib.cdc import FFSynchronizer
@@ -14,8 +14,8 @@ from amaranth.lib.cdc import FFSynchronizer
 
 from .xc7           import DRPInterface, DRPArbiter, DRPFieldController
 from .xc7           import GTResetDeferrer, GTOOBClockDivider
-from ..lfps         import LFPSSquareWaveGenerator, LFPSSquareWaveDetector
-from ...pipe        import PIPEInterface
+from .lfps         import LFPSSquareWaveGenerator, LFPSSquareWaveDetector
+from ..pipe        import PIPEInterface
 
 
 Open = Signal
@@ -987,7 +987,7 @@ class GTXChannel(Elaboratable):
 
 
 
-class Kintex7SerDesPIPE(PIPEInterface, Elaboratable):
+class XC7GTXSerDesPIPE(PIPEInterface, Elaboratable):
     """ Wrapper around the core GTX SerDes that adapts it to the PIPE interface.
 
     The implementation-dependent behavior of the standard PIPE signals is described below:

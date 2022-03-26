@@ -24,7 +24,7 @@ from amaranth.vendor.xilinx_7series import Xilinx7SeriesPlatform
 from amaranth_boards.resources import *
 
 from ..interface.pipe       import AsyncPIPEInterface
-from ..interface.serdes_phy import Artix7SerDesPIPE
+from ..interface.serdes_phy import XC7GTPSerDesPIPE
 
 from .core import LUNAPlatform
 
@@ -139,7 +139,7 @@ class NeTV2SuperSpeedPHY(AsyncPIPEInterface):
         serdes_io = platform.request("serdes", dir={'tx':"-", 'rx':"-"})
 
         # Use it to create our soft PHY...
-        serdes_phy = Artix7SerDesPIPE(
+        serdes_phy = XC7GTPSerDesPIPE(
             tx_pads             = serdes_io.tx,
             rx_pads             = serdes_io.rx,
             refclk_frequency    = self.FAST_FREQUENCY,

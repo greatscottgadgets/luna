@@ -10,14 +10,14 @@
 #
 # Code based in part on ``litex`` and ``liteiclink``.
 # SPDX-License-Identifier: BSD-3-Clause
-""" SerDes backend for the ECP5. """
+""" Soft PIPE backend for the Lattice ECP5 SerDes. """
 
 
 from amaranth import *
 from amaranth.lib.cdc import FFSynchronizer
 
-from ..lfps         import LFPSSquareWaveGenerator, LFPSSquareWaveDetector
-from ...pipe        import PIPEInterface
+from .lfps         import LFPSSquareWaveGenerator, LFPSSquareWaveDetector
+from ..pipe        import PIPEInterface
 
 
 class ECP5SerDesPLLConfiguration:

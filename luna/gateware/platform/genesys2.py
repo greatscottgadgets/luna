@@ -26,7 +26,7 @@ from amaranth_boards.resources import *
 
 from ..architecture.car     import PHYResetController
 from ..interface.pipe       import GearedPIPEInterface, AsyncPIPEInterface
-from ..interface.serdes_phy import Kintex7SerDesPIPE
+from ..interface.serdes_phy import XC7GTXSerDesPIPE
 
 from .core import LUNAPlatform
 
@@ -290,7 +290,7 @@ class Genesys2GTXSuperSpeedPHY(AsyncPIPEInterface):
         serdes_io = platform.request("hitech_fmc_serdes", dir={'tx':"-", 'rx':"-"})
 
         # Use it to create our soft PHY...
-        serdes_phy = Kintex7SerDesPIPE(
+        serdes_phy = XC7GTXSerDesPIPE(
             tx_pads             = serdes_io.tx,
             rx_pads             = serdes_io.rx,
             refclk_frequency    = self.FAST_FREQUENCY,

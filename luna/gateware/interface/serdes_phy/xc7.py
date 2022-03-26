@@ -4,7 +4,7 @@
 from math import ceil
 from amaranth import *
 
-from ..lfps import _LFPS_PERIOD_MAX
+from .lfps import _LFPS_PERIOD_MAX
 
 
 class DRPInterface:

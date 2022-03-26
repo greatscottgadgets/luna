@@ -6,7 +6,7 @@
 #
 # Code based in part on ``litex`` and ``liteiclink``.
 # SPDX-License-Identifier: BSD-3-Clause
-""" SerDes backend for the Artix7. """
+""" Soft PIPE backend for the Xilinx 7 Series GTP transceivers. """
 
 from amaranth import *
 from amaranth.lib.cdc import FFSynchronizer
@@ -14,8 +14,8 @@ from amaranth.lib.cdc import FFSynchronizer
 
 from .xc7           import DRPInterface, DRPArbiter, DRPFieldController
 from .xc7           import GTResetDeferrer, GTPRXPMAResetWorkaround, GTOOBClockDivider
-from ..lfps         import LFPSSquareWaveGenerator, LFPSSquareWaveDetector
-from ...pipe        import PIPEInterface
+from .lfps         import LFPSSquareWaveGenerator, LFPSSquareWaveDetector
+from ..pipe        import PIPEInterface
 
 
 Open = Signal
@@ -929,7 +929,7 @@ class GTPChannel(Elaboratable):
 
 
 
-class Artix7SerDesPIPE(PIPEInterface, Elaboratable):
+class XC7GTPSerDesPIPE(PIPEInterface, Elaboratable):
     """ Wrapper around the core GTP SerDes that adapts it to the PIPE interface.
 
     The implementation-dependent behavior of the standard PIPE signals is described below:

@@ -11,8 +11,8 @@
 #
 # Quick-use aliases
 #
-__all__ = ['ECP5SerDesPIPE', 'Artix7SerDesPIPE', 'Kintex7SerDesPIPE']
+__all__ = ['ECP5SerDesPIPE', 'XC7GTPSerDesPIPE', 'XC7GTXSerDesPIPE']
 
-from .backends.ecp5    import ECP5SerDesPIPE
-from .backends.artix7  import Artix7SerDesPIPE
-from .backends.kintex7 import Kintex7SerDesPIPE
+from .ecp5    import ECP5SerDesPIPE
+from .xc7_gtp import XC7GTPSerDesPIPE
+from .xc7_gtx import XC7GTXSerDesPIPE
