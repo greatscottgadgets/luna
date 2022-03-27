@@ -229,6 +229,9 @@ class USBAnalyzerApplet(Elaboratable):
         m.submodules.analyzer = analyzer = USBAnalyzer(utmi_interface=utmi)
 
         m.d.comb += [
+            # Connect enable signal to host-controlled state register.
+            analyzer.capture_enable     .eq(state.current[0]),
+
             # USB stream uplink.
             stream_ep.stream            .stream_eq(analyzer.stream),
 

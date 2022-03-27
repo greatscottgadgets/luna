@@ -72,6 +72,7 @@ class USBAnalyzer(Elaboratable):
         #
         self.stream         = StreamInterface()
 
+        self.capture_enable = Signal()
         self.idle           = Signal()
         self.overrun        = Signal()
         self.capturing      = Signal()
@@ -168,7 +169,7 @@ class USBAnalyzer(Elaboratable):
 
                 # Wait until a transmission is active.
                 # TODO: add triggering logic?
-                with m.If(self.utmi.rx_active):
+                with m.If(self.utmi.rx_active & self.capture_enable):
                     m.next = "CAPTURE"
                     m.d.usb += [
                         header_location  .eq(write_location),
