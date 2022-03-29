@@ -197,6 +197,11 @@ class USBInTransferManager(Elaboratable):
         with m.If(in_stream.last & buffer_write.en):
             m.d.usb += write_stream_ended.eq(1)
 
+        # A packet is completing when:
+        # - There is a byte arriving from the input stream, and:
+        # - It is either the last byte from the stream, or will cause us to reach max packet size.
+        packet_nearly_full = (write_fill_count + 1 == self._max_packet_size)
+        packet_completing = in_stream.valid & (in_stream.last | packet_nearly_full)
 
         # Shortcut for when we need to deal with an in token.
         # Pulses high an interpacket delay after receiving an IN token.
@@ -212,13 +217,8 @@ class USBInTransferManager(Elaboratable):
                 # We can't yet send data; so NAK any packet requests.
                 m.d.comb += self.handshakes_out.nak.eq(in_token_received)
 
-                # If we have valid data that will end our packet, we're no longer waiting for data.
-                # We'll now wait for the host to request data from us.
-                packet_complete = (write_fill_count + 1 == self._max_packet_size)
-                will_end_packet = in_stream.valid & (packet_complete | in_stream.last)
-
                 # If we've just finished a packet, we now have data we can send!
-                with m.If(will_end_packet):
+                with m.If(packet_completing):
                     m.next = "WAIT_TO_SEND"
                     m.d.usb += [
 
@@ -314,7 +314,6 @@ class USBInTransferManager(Elaboratable):
                     # for us in our "write buffer", which we've been filling in the background.
                     # If this is the case, we'll flip which buffer we're working with, toggle our data pid,
                     # and then ready ourselves for transmit.
-                    packet_completing = in_stream.valid & ((write_fill_count + 1 == self._max_packet_size) | in_stream.last)
                     with m.Elif(~in_stream.ready | packet_completing):
                         m.next = "WAIT_TO_SEND"
                         m.d.usb += [
