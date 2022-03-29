@@ -42,6 +42,11 @@ class USBInTransferManager(Elaboratable):
     packet_stream: USBInStreamInterface, output stream
         Output stream; broken into packets to be sent.
 
+    flush: Signal(), input
+        If high, data that is currently buffered will be sent out as soon as possible. The module will
+        not wait further for the input stream to end, or to have a max-length packet; it will send a
+        packet as soon as possible.
+
     data_pid: Signal(2), output
         The LSBs of the data PID to be issued with the current packet. Used with :attr:`packet_stream`
         to indicate the PID of the transmitted packet.
@@ -82,6 +87,8 @@ class USBInTransferManager(Elaboratable):
 
         self.transfer_stream  = StreamInterface()
         self.packet_stream    = USBInStreamInterface()
+
+        self.flush            = Signal()
 
         # Note: we'll start with DATA1 in our register; as we'll toggle our data PID
         # before we send.
@@ -203,6 +210,14 @@ class USBInTransferManager(Elaboratable):
         packet_nearly_full = (write_fill_count + 1 == self._max_packet_size)
         packet_completing = in_stream.valid & (in_stream.last | packet_nearly_full)
 
+        # We should also send a packet when both:
+        # - Our flush input is asserted
+        # - We have some data in the buffer to flush.
+        packet_to_flush = self.flush & (write_fill_count != 0)
+
+        # We're ready to send a packet when either of the above conditions is met.
+        packet_ready = packet_completing | packet_to_flush
+
         # Shortcut for when we need to deal with an in token.
         # Pulses high an interpacket delay after receiving an IN token.
         in_token_received = self.active & self.tokenizer.is_in & self.tokenizer.ready_for_response
@@ -218,7 +233,7 @@ class USBInTransferManager(Elaboratable):
                 m.d.comb += self.handshakes_out.nak.eq(in_token_received)
 
                 # If we've just finished a packet, we now have data we can send!
-                with m.If(packet_completing):
+                with m.If(packet_ready):
                     m.next = "WAIT_TO_SEND"
                     m.d.usb += [
 
@@ -314,7 +329,7 @@ class USBInTransferManager(Elaboratable):
                     # for us in our "write buffer", which we've been filling in the background.
                     # If this is the case, we'll flip which buffer we're working with, toggle our data pid,
                     # and then ready ourselves for transmit.
-                    with m.Elif(~in_stream.ready | packet_completing):
+                    with m.Elif(~in_stream.ready | packet_ready):
                         m.next = "WAIT_TO_SEND"
                         m.d.usb += [
                             self.buffer_toggle .eq(~self.buffer_toggle),
