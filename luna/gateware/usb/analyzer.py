@@ -155,21 +155,22 @@ class USBAnalyzer(Elaboratable):
         #
         with m.FSM(domain="usb") as f:
             m.d.comb += [
-                self.idle      .eq(f.ongoing("IDLE")),
+                self.idle      .eq(f.ongoing("START") | f.ongoing("IDLE")),
                 self.overrun   .eq(f.ongoing("OVERRUN")),
                 self.capturing .eq(f.ongoing("CAPTURE")),
             ]
 
+            # START: wait for capture to be enabled, but don't start mid-packet.
             with m.State("START"):
-                with m.If(~self.utmi.rx_active):
+                with m.If(self.capture_enable & ~self.utmi.rx_active):
                     m.next = "IDLE"
 
-            # IDLE: wait for an active receive.
-            with m.State("IDLE"):
 
-                # Wait until a transmission is active.
-                # TODO: add triggering logic?
-                with m.If(self.utmi.rx_active & self.capture_enable):
+            # IDLE: capture is enabled, wait for a packet to start.
+            with m.State("IDLE"):
+                with m.If(~self.capture_enable):
+                    m.next = "START"
+                with m.Elif(self.utmi.rx_active):
                     m.next = "CAPTURE"
                     m.d.usb += [
                         header_location  .eq(write_location),
@@ -210,7 +211,7 @@ class USBAnalyzer(Elaboratable):
                     # Optimization: if we didn't receive any data, there's no need
                     # to create a packet. Clear our header from the FIFO and disarm.
                     with m.If(packet_size == 0):
-                        m.next = "IDLE"
+                        m.next = "START"
                         m.d.usb += [
                             write_location.eq(header_location)
                         ]
@@ -243,9 +244,7 @@ class USBAnalyzer(Elaboratable):
                     mem_write_port.en    .eq(1),
                     fifo_new_data        .eq(1)
                 ]
-
-
-                m.next = "IDLE"
+                m.next = "START"
 
 
             # BABBLE -- handles the case in which we've received a packet beyond
