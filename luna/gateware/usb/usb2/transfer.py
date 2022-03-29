@@ -217,21 +217,19 @@ class USBInTransferManager(Elaboratable):
                 packet_complete = (write_fill_count + 1 == self._max_packet_size)
                 will_end_packet = packet_complete | in_stream.last
 
+                # If we've just finished a packet, we now have data we can send!
                 with m.If(in_stream.valid & will_end_packet):
+                    m.next = "WAIT_TO_SEND"
+                    m.d.usb += [
 
-                    # If we've just finished a packet, we now have data we can send!
-                    with m.If(packet_complete | in_stream.last):
-                        m.next = "WAIT_TO_SEND"
-                        m.d.usb += [
+                        # We're now ready to take the data we've captured and _transmit_ it.
+                        # We'll swap our read and write buffers, and toggle our data PID.
+                        self.buffer_toggle  .eq(~self.buffer_toggle),
+                        self.data_pid[0]    .eq(~self.data_pid[0]),
 
-                            # We're now ready to take the data we've captured and _transmit_ it.
-                            # We'll swap our read and write buffers, and toggle our data PID.
-                            self.buffer_toggle  .eq(~self.buffer_toggle),
-                            self.data_pid[0]    .eq(~self.data_pid[0]),
-
-                            # Mark our current stream as no longer having ended.
-                            read_stream_ended  .eq(0)
-                        ]
+                        # Mark our current stream as no longer having ended.
+                        read_stream_ended  .eq(0)
+                    ]
 
 
             # WAIT_TO_SEND -- we now have at least a buffer full of data to send; we'll
