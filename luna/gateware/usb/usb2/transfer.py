@@ -215,10 +215,10 @@ class USBInTransferManager(Elaboratable):
                 # If we have valid data that will end our packet, we're no longer waiting for data.
                 # We'll now wait for the host to request data from us.
                 packet_complete = (write_fill_count + 1 == self._max_packet_size)
-                will_end_packet = packet_complete | in_stream.last
+                will_end_packet = in_stream.valid & (packet_complete | in_stream.last)
 
                 # If we've just finished a packet, we now have data we can send!
-                with m.If(in_stream.valid & will_end_packet):
+                with m.If(will_end_packet):
                     m.next = "WAIT_TO_SEND"
                     m.d.usb += [
 
