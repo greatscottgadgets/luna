@@ -97,11 +97,9 @@ class IntegratedLogicAnalyzer(Elaboratable):
     def elaborate(self, platform):
         m  = Module()
 
-        # TODO: switch this to a single-port RAM
-
         # Memory ports.
         write_port = self.mem.write_port()
-        read_port  = self.mem.read_port(domain='comb')
+        read_port  = self.mem.read_port(domain="sync")
         m.submodules += [write_port, read_port]
 
         # If necessary, create synchronized versions of the relevant signals.
@@ -128,13 +126,10 @@ class IntegratedLogicAnalyzer(Elaboratable):
             read_port.addr         .eq(self.captured_sample_number)
         ]
 
-        self.test = Signal()
-        m.d.comb += self.test.eq(read_port.addr)
-
         # Don't sample unless our FSM asserts our sample signal explicitly.
         m.d.sync += write_port.en.eq(0)
 
-        with m.FSM() as fsm:
+        with m.FSM(name="ila_state") as fsm:
 
             m.d.comb += self.sampling.eq(~fsm.ongoing("IDLE"))
 
@@ -173,7 +168,7 @@ class IntegratedLogicAnalyzer(Elaboratable):
 
         # Convert our sync domain to the domain requested by the user, if necessary.
         if self.domain != "sync":
-            m = DomainRenamer({"sync": self.domain})(m)
+            m = DomainRenamer(self.domain)(m)
 
         return m
 
@@ -207,7 +202,8 @@ class IntegratedLogicAnalyzerTest(LunaGatewareTestCase):
 
         yield self.dut.captured_sample_number.eq(address)
         yield
-
+        # Delay a clock to allow the block ram to latch the new value
+        yield
         try:
             self.assertEqual((yield self.dut.captured_sample), value)
             return
@@ -407,6 +403,10 @@ class SyncSerialILA(Elaboratable):
 
             # From then on, we'll move to the next sample whenever we're finished
             # scanning out a word (and thus our current samples are latched in).
+            # This only works correctly because the SPI interface will accept a word
+            # more than one clock cycle after the edge which latches the new address
+            # to read, allowing the backing memory to have a clock to latch in the
+            # correct value.
             with m.Elif(interface.word_accepted):
                 m.d.sync += current_sample_number.eq(current_sample_number + 1)
 
@@ -423,7 +423,7 @@ class SyncSerialILA(Elaboratable):
 
         # Convert our sync domain to the domain requested by the user, if necessary.
         if self.domain != "sync":
-            m = DomainRenamer({"sync": self.domain})(m)
+            m = DomainRenamer(self.domain)(m)
 
         return m
 
@@ -544,7 +544,7 @@ class StreamILA(Elaboratable):
 
         # Bolster our bits per sample "word" up to a power of two.
         self.bits_per_sample = 2 ** ((self.ila.sample_width - 1).bit_length())
-        self.bytes_per_sample = self.bits_per_sample // 8
+        self.bytes_per_sample = (self.bits_per_sample + 7) // 8
 
         #
         # I/O port
@@ -607,9 +607,10 @@ class StreamILA(Elaboratable):
             # SENDING -- we now have a valid buffer of samples to send up to the host;
             # we'll transmit them over our stream interface.
             with m.State("SENDING"):
+                data_valid = Signal(reset=1)
                 m.d.comb += [
                     # While we're sending, we're always providing valid data to the UART.
-                    in_domain_stream.valid  .eq(1),
+                    in_domain_stream.valid  .eq(data_valid),
 
                     # Indicate when we're on the last sample.
                     in_domain_stream.last   .eq(current_sample_number == (self.sample_depth - 1))
@@ -617,14 +618,18 @@ class StreamILA(Elaboratable):
 
                 # Each time the UART accepts a valid word, move on to the next one.
                 with m.If(in_domain_stream.ready):
-                    m.d.sync += [
-                        current_sample_number .eq(current_sample_number + 1),
-                        in_domain_stream.first     .eq(0)
-                    ]
+                    with m.If(data_valid):
+                        m.d.sync += [
+                            current_sample_number   .eq(current_sample_number + 1),
+                            data_valid              .eq(0),
+                            in_domain_stream.first  .eq(0)
+                        ]
 
-                    # If this was the last sample, we're done! Move back to idle.
-                    with m.If(self.stream.last):
-                        m.next = "IDLE"
+                        # If this was the last sample, we're done! Move back to idle.
+                        with m.If(self.stream.last):
+                            m.next = "IDLE"
+                    with m.Else():
+                        m.d.sync += data_valid.eq(1)
 
 
         # If we're not streaming out of the same domain we're capturing from,
@@ -663,10 +668,56 @@ class StreamILA(Elaboratable):
 
         # Convert our sync domain to the domain requested by the user, if necessary.
         if self.domain != "sync":
-            m = DomainRenamer({"sync": self.domain})(m)
+            m = DomainRenamer(self.domain)(m)
 
         return m
 
+class StreamILATest(LunaGatewareTestCase):
+
+    def instantiate_dut(self):
+        self.input_signal = Signal(12)
+        return StreamILA(
+            signals=[self.input_signal],
+            sample_depth=16
+        )
+
+    def initialize_signals(self):
+        yield self.input_signal.eq(0xF00)
+
+    @sync_test_case
+    def test_stream_readout(self):
+        input_signal = self.input_signal
+        stream = self.dut.stream
+
+        # Trigger the ILA with the first sample
+        yield
+        yield from self.pulse(self.dut.trigger, step_after=False)
+
+        # Fill up the ILA with the remaining samples
+        for i in range(1, 16):
+            yield input_signal.eq(0xF00 | i)
+            yield
+
+        # Wait a few cycles to allow the ILA to fully finish processing
+        yield from self.advance_cycles(6)
+        # Stream should now be presenting valid data
+        self.assertEqual((yield stream.valid), 1)
+
+        # Now we want to stream out the samples from the ILA
+        yield stream.ready.eq(1)
+        yield
+        self.assertEqual((yield stream.first), 1)
+
+        # Read out data from the stream until it signals completion
+        data = []
+        while not (yield stream.last):
+            if (yield stream.valid):
+                data.append((yield stream.payload))
+            yield
+
+        # Match read data to what should have been sampled
+        for i, datum in enumerate(data):
+            self.assertEqual(datum, 0xF00 | i)
 
 
 class AsyncSerialILA(Elaboratable):
