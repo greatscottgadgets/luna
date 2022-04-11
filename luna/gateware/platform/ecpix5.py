@@ -282,15 +282,15 @@ class _ECPIXExtensions:
         # to be *there*. We'll provide correct ones in case it ever decides to use them.
         #
         Resource("serdes", 0,
-            Subsignal("ch0",
-                Subsignal("rx", DiffPairs("AF6",  "AF7")),
-                Subsignal("tx", DiffPairs("AD7",  "AD8")),
-            ),
+            #Subsignal("ch0",
+            #    Subsignal("rx", DiffPairs("AF6",  "AF7")),
+            #    Subsignal("tx", DiffPairs("AD7",  "AD8")),
+            #),
             Subsignal("ch1",
                 Subsignal("rx", DiffPairs("AF9",  "AF10")),
                 Subsignal("tx", DiffPairs("AD10", "AD11")),
             ),
-            Subsignal("refclk", DiffPairs("AF12", "AF13"))
+            #Subsignal("refclk", DiffPairs("AF12", "AF13"))
         ),
         Resource("serdes", 1,
             Subsignal("ch0",
