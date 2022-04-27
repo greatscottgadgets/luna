@@ -53,7 +53,7 @@ class USBAnalyzer(Elaboratable):
     # Support a maximum payload size of 1024B, plus a 1-byte PID and a 2-byte CRC16.
     MAX_PACKET_SIZE_BYTES = 1024 + 1 + 2
 
-    def __init__(self, *, utmi_interface, mem_depth=8192):
+    def __init__(self, *, utmi_interface, mem_depth=65536):
         """
         Parameters:
             utmi_interface -- A record or elaboratable that presents a UTMI interface.
@@ -106,7 +106,7 @@ class USBAnalyzer(Elaboratable):
         m.d.comb += [
 
             # We have data ready whenever there's data in the FIFO.
-            self.stream.valid    .eq((fifo_count != 0) & self.idle),
+            self.stream.valid    .eq((fifo_count != 0) & (self.idle | self.overrun)),
 
             # Our data_out is always the output of our read port...
             self.stream.payload  .eq(mem_read_port.data),
@@ -158,6 +158,10 @@ class USBAnalyzer(Elaboratable):
                 self.overrun   .eq(f.ongoing("OVERRUN")),
                 self.capturing .eq(f.ongoing("CAPTURE")),
             ]
+
+            with m.State("START"):
+                with m.If(~self.utmi.rx_active):
+                    m.next = "IDLE"
 
             # IDLE: wait for an active receive.
             with m.State("IDLE"):
