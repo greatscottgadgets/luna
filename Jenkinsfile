@@ -2,7 +2,7 @@ pipeline {
     agent { 
         dockerfile {
             additionalBuildArgs '--build-arg CACHEBUST=$(date +%s)'
-            args '--group-add=46 --privileged -v /dev/bus/usb:/dev/bus/usb'
+            args '--group-add=46 --device-cgroup-rule="c 189:* rmw" -v /dev/bus/usb:/dev/bus/usb'
         }
     }
     stages {
