@@ -46,11 +46,11 @@ RUN curl -L $(curl -s "https://api.github.com/repos/YosysHQ/oss-cad-suite-build/
     && tar zxvf oss-cad-suite-linux-x64.tgz
 
 RUN groupadd -g 1000 jenkins
-RUN useradd -r -u 1000 -g 1000 -d /home/jenkins jenkins
-WORKDIR /home/jenkins
+RUN useradd -r -u 1000 -g 1000 -d /var/jenkins_home jenkins
+WORKDIR /var/jenkins_home
 
 # add to PATH for pip/source package installations
-ENV PATH="/root/.local/bin:/home/jenkins/oss-cad-suite/bin:$PATH"
+ENV PATH="/root/.local/bin:/var/jenkins_home/jenkins/oss-cad-suite/bin:$PATH"
 
 USER jenkins
 
