@@ -50,7 +50,7 @@ RUN useradd -r -u 1000 -g 1000 -d /var/jenkins_home jenkins
 WORKDIR /var/jenkins_home
 
 # add to PATH for pip/source package installations
-ENV PATH="/root/.local/bin:/var/jenkins_home/jenkins/oss-cad-suite/bin:$PATH"
+ENV PATH="/root/.local/bin:/oss-cad-suite/bin:$PATH"
 
 USER jenkins
 
