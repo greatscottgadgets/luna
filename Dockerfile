@@ -45,6 +45,7 @@ RUN curl -L $(curl -s "https://api.github.com/repos/YosysHQ/oss-cad-suite-build/
     | jq --raw-output '.assets[].browser_download_url' | grep "linux-x64") --output oss-cad-suite-linux-x64.tgz \
     && tar zxvf oss-cad-suite-linux-x64.tgz
 
+RUN groupadd -g 1000 jenkins
 RUN useradd -r -u 1000 -g 1000 -d /var/jenkins_home jenkins
 WORKDIR /var/jenkins_home
 
