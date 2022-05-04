@@ -295,6 +295,7 @@ class LFPSGeneratorTest(LunaSSGatewareTestCase):
         yield dut.generate.eq(1)
         yield
         yield
+        yield dut.generate.eq(0)
 
         # Wait for a whole burst-repeat cycle...
         burst_ticks = 0
