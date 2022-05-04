@@ -162,6 +162,12 @@ class ConstantStreamGenerator(Elaboratable):
         rom = Memory(width=self._data_width, depth=data_length, init=data_initializer)
         m.submodules.rom_read_port = rom_read_port = rom.read_port(transparent=False)
 
+        if self._max_length_width:
+            # Register maximum length, to improve timing.
+            max_length = Signal.like(self.max_length)
+        else:
+            max_length = self.max_length
+
         # Register that stores our current position in the stream.
         position_in_stream = Signal(range(0, data_length))
 
@@ -178,7 +184,7 @@ class ConstantStreamGenerator(Elaboratable):
         on_first_packet = position_in_stream == self.start_position
         on_last_packet  = \
             (position_in_stream          == (data_length - 1)) | \
-            (bytes_sent + bytes_per_word >= self.max_length)
+            (bytes_sent + bytes_per_word >= max_length)
 
 
         #
@@ -199,11 +205,12 @@ class ConstantStreamGenerator(Elaboratable):
         # Output length field.
         #
 
-        # Return our max length of the length of our data, whichever is less.
-        with m.If(self.max_length < self._data_length):
-            m.d.comb += self.output_length.eq(self.max_length)
-        with m.Else():
-            m.d.comb += self.output_length.eq(self._data_length)
+        if self._max_length_width:
+            # Return our max length or the length of our data, whichever is less.
+            with m.If(max_length < self._data_length):
+                m.d.comb += self.output_length.eq(max_length)
+            with m.Else():
+                m.d.comb += self.output_length.eq(self._data_length)
 
 
 
@@ -224,6 +231,11 @@ class ConstantStreamGenerator(Elaboratable):
                 ]
                 m.d.comb += [
                     rom_read_port.addr  .eq(start_position),
+                ]
+
+                # Latch the maximum length.
+                m.d.sync += [
+                    max_length          .eq(self.max_length),
                 ]
 
                 # Once the user requests that we start, move to our stream being valid.
@@ -269,7 +281,7 @@ class ConstantStreamGenerator(Elaboratable):
                             # Figure out if we're ending due to the length of data we have, or due to a
                             # maximum-to-send restriction...
                             ending_due_to_data_length = (position_in_stream == (data_length - 1))
-                            ending_due_to_max_length  = (bytes_sent + bytes_per_word >= self.max_length)
+                            ending_due_to_max_length  = (bytes_sent + bytes_per_word >= max_length)
 
                             # ... and figure out the valid bits based us running out of data...
                             valid_due_to_data_length  = Repl(Const(1), valid_bits_last_word)
@@ -279,7 +291,7 @@ class ConstantStreamGenerator(Elaboratable):
                             # we'll figure this out enumeratively.
                             bytes_left_over         = Signal(range(bytes_per_word + 1))
                             valid_due_to_max_length = Signal.like(self.stream.valid)
-                            m.d.comb += bytes_left_over.eq(self.max_length - bytes_sent)
+                            m.d.comb += bytes_left_over.eq(max_length - bytes_sent)
 
                             # Generate a case for every possibly number of bytes left over...
                             with m.Switch(bytes_left_over):

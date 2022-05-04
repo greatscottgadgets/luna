@@ -24,14 +24,15 @@ from amaranth.vendor.xilinx_7series import Xilinx7SeriesPlatform
 from amaranth_boards.genesys2 import Genesys2Platform as _CoreGenesys2Platform
 from amaranth_boards.resources import *
 
-from ..architecture.car import PHYResetController
-from ..interface.pipe   import GearedPIPEInterface
+from ..architecture.car     import PHYResetController
+from ..interface.pipe       import GearedPIPEInterface, AsyncPIPEInterface
+from ..interface.serdes_phy import XC7GTXSerDesPIPE
 
 from .core import LUNAPlatform
 
 
-class Genesys2ClockDomainGenerator(Elaboratable):
-    """ Clock/Reset Controller for the Genesys2. """
+class Genesys2HTGClockDomainGenerator(Elaboratable):
+    """ Clock/Reset Controller for the Genesys2, used with TUSB1310 PHY. """
 
     def __init__(self, *, clock_frequencies=None, clock_signal_name=None):
         pass
@@ -158,7 +159,7 @@ class Genesys2ClockDomainGenerator(Elaboratable):
         return m
 
 
-class Genesys2HTGSuperspeedPHY(GearedPIPEInterface):
+class Genesys2HTGSuperSpeedPHY(GearedPIPEInterface):
     """ Interface for the TUSB1310A, mounted on the HTG-FMC-USB3.0 board. """
 
     SYNC_FREQUENCY = 200e6
@@ -189,6 +190,132 @@ class Genesys2HTGSuperspeedPHY(GearedPIPEInterface):
         return m
 
 
+class Genesys2GTXClockDomainGenerator(Elaboratable):
+    """ Clock/Reset Controller for the Genesys2, used with the SerDes PHY. """
+
+    def __init__(self, *, clock_frequencies=None, clock_signal_name=None):
+        pass
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Grab our main clock and reset.
+        clk200 = platform.request(platform.default_clk).i
+        rst    = platform.request(platform.default_rst).i
+
+        # Create our domains; but don't do anything else for them, for now.
+        m.domains.usb     = cd_usb      = ClockDomain()
+        m.domains.usb_io  = cd_usb_io   = ClockDomain()
+        m.domains.sync    = cd_sync     = ClockDomain()
+        m.domains.ss      = cd_ss       = ClockDomain()
+        m.domains.fast    = cd_fast     = ClockDomain()
+
+        # USB2 connections.
+        # To meet our PHY's timing, we'll need to shift the USB clock's phase a bit,
+        # so we sample at a valid point and don't violate setup or hold.
+        usb2_locked   = Signal()
+        usb2_feedback = Signal()
+        m.submodules.usb2_pll = Instance("PLLE2_ADV",
+            p_BANDWIDTH            = "OPTIMIZED",
+            p_COMPENSATION         = "ZHOLD",
+            p_STARTUP_WAIT         = "FALSE",
+            p_DIVCLK_DIVIDE        = 1,
+            p_CLKFBOUT_MULT        = 14,
+            p_CLKFBOUT_PHASE       = 0.000,
+            p_CLKOUT0_DIVIDE       = 14,
+            p_CLKOUT0_PHASE        = 270.000,
+            p_CLKOUT0_DUTY_CYCLE   = 0.500,
+            i_CLKFBIN              = usb2_feedback,
+            o_CLKFBOUT             = usb2_feedback,
+            i_CLKIN1               = ClockSignal("usb_io"),  # 60 MHz
+            p_CLKIN1_PERIOD        = 16.67,
+            o_CLKOUT0              = ClockSignal("usb"),     # 60 MHz
+            o_LOCKED               = usb2_locked,
+            i_RST                  = rst,
+        )
+
+        # USB3 PLL connections.
+        clk250        = Signal()
+        clk125        = Signal()
+        usb3_locked   = Signal()
+        usb3_feedback = Signal()
+        m.submodules.usb3_pll = Instance("PLLE2_ADV",
+            p_BANDWIDTH            = "OPTIMIZED",
+            p_COMPENSATION         = "ZHOLD",
+            p_STARTUP_WAIT         = "FALSE",
+            p_DIVCLK_DIVIDE        = 1,
+            p_CLKFBOUT_MULT        = 5,     # VCO = 1000 MHz
+            p_CLKFBOUT_PHASE       = 0.000,
+            p_CLKOUT0_DIVIDE       = 4,     # CLKOUT0 = 250 MHz (1000/4)
+            p_CLKOUT0_PHASE        = 0.000,
+            p_CLKOUT0_DUTY_CYCLE   = 0.500,
+            p_CLKOUT1_DIVIDE       = 8,     # CLKOUT1 = 125 MHz (1000/8)
+            p_CLKOUT1_PHASE        = 0.000,
+            p_CLKOUT1_DUTY_CYCLE   = 0.500,
+            i_CLKFBIN              = usb3_feedback,
+            o_CLKFBOUT             = usb3_feedback,
+            i_CLKIN1               = clk200,
+            p_CLKIN1_PERIOD        = 20.000,
+            o_CLKOUT0              = clk250,
+            o_CLKOUT1              = clk125,
+            o_LOCKED               = usb3_locked,
+            i_RST                  = rst,
+        )
+
+        # Connect up our clock domains.
+        m.d.comb += [
+            ClockSignal("sync")     .eq(clk125),
+            ClockSignal("ss")       .eq(clk125),
+            ClockSignal("fast")     .eq(clk250),
+
+            ResetSignal("usb")      .eq(~usb2_locked),
+            ResetSignal("sync")     .eq(~usb3_locked),
+            ResetSignal("ss")       .eq(~usb3_locked),
+            ResetSignal("fast")     .eq(~usb3_locked),
+        ]
+
+        return m
+
+
+class Genesys2GTXSuperSpeedPHY(AsyncPIPEInterface):
+    """ Superspeed PHY configuration for the Genesys2, using transceivers. """
+
+    SS_FREQUENCY   = 125e6
+    FAST_FREQUENCY = 250e6
+
+
+    def __init__(self, platform):
+
+        # Grab the I/O that implements our SerDes interface...
+        serdes_io = platform.request("hitech_fmc_serdes", dir={'tx':"-", 'rx':"-"})
+
+        # Use it to create our soft PHY...
+        serdes_phy = XC7GTXSerDesPIPE(
+            tx_pads             = serdes_io.tx,
+            rx_pads             = serdes_io.rx,
+            refclk_frequency    = self.FAST_FREQUENCY,
+            ss_clock_frequency  = self.SS_FREQUENCY,
+        )
+
+        # ... and bring the PHY interface signals to the MAC domain.
+        super().__init__(serdes_phy, width=4, domain="ss")
+
+
+    def elaborate(self, platform):
+        m = super().elaborate(platform)
+
+        # Patch in our soft PHY as a submodule.
+        m.submodules.phy = self.phy
+
+        # Drive the PHY reference clock with our fast generated clock.
+        m.d.comb += self.clk.eq(ClockSignal("fast"))
+
+        # This board does not have a way to detect Vbus, so assume it's always present.
+        m.d.comb += self.phy.power_present.eq(1)
+
+        return m
+
+
 
 class Genesys2Platform(_CoreGenesys2Platform, LUNAPlatform):
     """ Board description for the Digilent Genesys 2."""
@@ -197,14 +324,15 @@ class Genesys2Platform(_CoreGenesys2Platform, LUNAPlatform):
     default_usb_connection = "usb"
     ulpi_raw_clock_domain  = "usb_io"
 
-    # Provide the type that'll be used to create our clock domains.
-    clock_domain_generator = Genesys2ClockDomainGenerator
-
     # Select how we'll connect to our USB PHY.
     usb_connections = 'hpc_fmc'
 
     if usb_connections == 'hpc_fmc':
-        default_usb3_phy       = Genesys2HTGSuperspeedPHY
+        clock_domain_generator = Genesys2HTGClockDomainGenerator
+        default_usb3_phy       = Genesys2HTGSuperSpeedPHY
+    else:
+        clock_domain_generator = Genesys2GTXClockDomainGenerator
+        default_usb3_phy       = Genesys2GTXSuperSpeedPHY
 
 
     # Additional resources for LUNA-specific connections.
@@ -216,7 +344,7 @@ class Genesys2Platform(_CoreGenesys2Platform, LUNAPlatform):
         # Link: <http://www.hitechglobal.com/FMCModules/FMC_USB3.htm>
 
         #
-        # PHY P2; outer of the two close-together micro-B ports.
+        # PHY P2; the micro-B connector that's farther away from others.
         #
         Resource("hitech_fmc_pipe", 2,
             # Transmit bus.
@@ -289,7 +417,7 @@ class Genesys2Platform(_CoreGenesys2Platform, LUNAPlatform):
             Subsignal("rate",          Pins( "fmc_0:hb15_p",              dir="o" )),
             Subsignal("elas_buf_mode", Pins( "fmc_0:hb18_p",              dir="o" )),
             Subsignal("phy_status",    Pins( "fmc_0:hb16_n",              dir="i")),
-            Subsignal("pwrpresent",    Pins( "fmc_0:hb14_n",              dir="i" )),
+            Subsignal("power_present", Pins( "fmc_0:hb14_n",              dir="i" )),
 
             Attrs(IOSTANDARD="LVCMOS18")
         ),
@@ -383,7 +511,7 @@ class Genesys2Platform(_CoreGenesys2Platform, LUNAPlatform):
             Subsignal("rate",          Pins( "fmc_0:la28_p",              dir="o" )),
             Subsignal("elas_buf_mode", Pins( "fmc_0:la15_n",              dir="o" )),
             Subsignal("phy_status",    Pins( "fmc_0:la16_p",              dir="i")),
-            Subsignal("pwrpresent",    Pins( "fmc_0:la32_p",              dir="i" )),
+            Subsignal("power_present", Pins( "fmc_0:la32_p",              dir="i" )),
 
             Attrs(IOSTANDARD="LVCMOS18")
         ),
@@ -413,6 +541,14 @@ class Genesys2Platform(_CoreGenesys2Platform, LUNAPlatform):
 
         Resource("hitech_fmc_clkout", 1, Pins("fmc_0:la00_p", dir="i"), Attrs(IOSTANDARD="LVCMOS18")),
 
+        #
+        # PHY P3; outer of the two close-together micro-B ports.
+        #
+        Resource("hitech_fmc_serdes", 0,
+            Subsignal("tx", DiffPairs("fmc_0:dp0_c2m_p", "fmc_0:dp0_c2m_n")),
+            Subsignal("rx", DiffPairs("fmc_0:dp0_m2c_p", "fmc_0:dp0_m2c_n")),
+        ),
+
         # Convenience: user_io.
         Resource("user_io", 0, Pins("U27"), Attrs(IOSTANDARD="LVCMOS33")),
         Resource("user_io", 1, Pins("U28"), Attrs(IOSTANDARD="LVCMOS33")),
@@ -433,6 +569,10 @@ class Genesys2Platform(_CoreGenesys2Platform, LUNAPlatform):
             "clk1_m2c_p": "e28",
             "clk2_n": "k25",
             "clk2_p": "l25",
+            "dp0_c2m_p": "y2",
+            "dp0_c2m_n": "y1",
+            "dp0_m2c_p": "aa4",
+            "dp0_m2c_n": "aa3",
             "ha00_n": "k29",
             "ha00_p": "k28",
             "ha01_n": "l28",

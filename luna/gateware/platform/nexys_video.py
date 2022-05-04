@@ -336,7 +336,7 @@ class NexysVideoPlatform(Xilinx7SeriesPlatform, LUNAPlatform):
             Subsignal("phy_reset",      PinsN("FMC_0:LA08_N",             dir="o" )),
             Subsignal("power_down",     Pins("FMC_0:LA07_N FMC_0:LA12_N", dir="o" )),
             Subsignal("phy_status",     Pins("FMC_0:LA21_N",              dir="i")),
-            Subsignal("pwrpresent",     Pins("FMC_0:LA31_N",              dir="i" )),
+            Subsignal("power_present",  Pins("FMC_0:LA31_N",              dir="i" )),
             Subsignal("out_enable",     Pins("FMC_0:LA04_N"  ,            dir="o" )),
 
             # Attributes

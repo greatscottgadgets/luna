@@ -6,13 +6,12 @@
 """ Packet transmission handling gateware. """
 
 from amaranth                      import *
-from amaranth.hdl.ast              import Fell
 from usb_protocol.types.superspeed import LinkCommand, HeaderPacketType
 
 from .header                       import HeaderPacket, HeaderQueue
 from .crc                          import compute_usb_crc5, HeaderPacketCRC, DataPacketPayloadCRC
 from .command                      import LinkCommandDetector
-from ..physical.coding             import SHP, SDP, EPF, END, get_word_for_symbols
+from ..physical.coding             import SHP, SDP, EPF, END, EDB, get_word_for_symbols
 from ...stream                     import USBRawSuperSpeedStream, SuperSpeedStreamInterface
 
 
@@ -168,8 +167,8 @@ class RawPacketTransmitter(Elaboratable):
                     source.data[16:19]  .eq(header.sequence_number),
                     source.data[19:22]  .eq(header.dw3_reserved),
                     source.data[22:25]  .eq(header.hub_depth),
-                    source.data[25]     .eq(header.deferred),
-                    source.data[26]     .eq(header.delayed),
+                    source.data[25]     .eq(header.delayed),
+                    source.data[26]     .eq(header.deferred),
                     source.data[27:32]  .eq(compute_usb_crc5(source.data[16:27])),
                     source.ctrl         .eq(0)
                 ]
@@ -204,8 +203,14 @@ class RawPacketTransmitter(Elaboratable):
 
                 with m.If(source.ready):
 
+                    # Special case: if we're retransmitting a data packet, we'll abort it immediately,
+                    # since we don't have the data buffered anywhere. Retransmission of the data payload
+                    # will be handled at the protocol layer.
+                    with m.If(header.delayed):
+                        m.next = "ABORT_DPP"
+
                     # Special case: if we're sending a ZLP, we'll jump directly to sending our CRC.
-                    with m.If(packet_is_zlp):
+                    with m.Elif(packet_is_zlp):
 
                         # We'll treat this as though we'd just sent a full data word; as this indicates
                         # to our later states that our data was word-aligned. (0B is a multiple of 4, after all.)
@@ -385,6 +390,23 @@ class RawPacketTransmitter(Elaboratable):
                     m.d.comb += self.done.eq(1)
                     m.next = "IDLE"
 
+
+            # ABORT_DPP -- send our abort-of-payload framing.
+            with m.State("ABORT_DPP"):
+
+                # Send our abort framing...
+                framing_data, framing_ctrl = get_word_for_symbols(EDB, EDB, EDB, EPF)
+                m.d.comb += [
+                    source.valid  .eq(1),
+                    source.data   .eq(framing_data),
+                    source.ctrl   .eq(framing_ctrl),
+                ]
+
+                # Once our framing is accepted, finish our payload.
+                with m.If(source.ready):
+                    m.d.comb += self.done.eq(1)
+                    m.next = "IDLE"
+
         return m
 
 
@@ -450,6 +472,7 @@ class PacketTransmitter(Elaboratable):
         self.link_command_received = Signal()
         self.retry_received        = Signal()
         self.retry_required        = Signal()
+        self.lrty_pending          = Signal()
         self.recovery_required     = Signal()
 
         self.lgo_received          = Signal()
@@ -478,13 +501,6 @@ class PacketTransmitter(Elaboratable):
             m.d.ss += credits_available.eq(credits_available - 1)
 
 
-        # Provide a flag that indicates when we're done with our full bringup.
-        with m.If(self.enable == 0):
-            m.d.ss += self.bringup_complete.eq(0)
-        with m.Elif(credits_available == self._buffer_count):
-            m.d.ss += self.bringup_complete.eq(1)
-
-
         #
         # Task "queues".
         #
@@ -498,7 +514,7 @@ class PacketTransmitter(Elaboratable):
         dequeue_send         = Signal()
 
         # Un-retired packet count.
-        packets_awaiting_ack = Signal()
+        packets_awaiting_ack = Signal(range(self._buffer_count + 1))
 
         # If we need to retry sending our packets, we'll need to reset our pending packet count.
         # Otherwise, we increment and decrement our "to send" counts normally.
@@ -512,7 +528,7 @@ class PacketTransmitter(Elaboratable):
         # Track how many packets are yet to be retired.
         with m.If(enqueue_send & ~retire_packet):
             m.d.ss += packets_awaiting_ack.eq(packets_awaiting_ack + 1)
-        with m.Elif(retire_packet & ~enqueue_send & packets_awaiting_ack > 0):
+        with m.Elif(retire_packet & ~enqueue_send & (packets_awaiting_ack != 0)):
             m.d.ss += packets_awaiting_ack.eq(packets_awaiting_ack - 1)
 
 
@@ -547,8 +563,11 @@ class PacketTransmitter(Elaboratable):
         # Packet acceptance (protocol layer -> link layer).
         #
 
+        # Keep track of the next sequence number we'll need to assign.
+        transmit_sequence_number = Signal(self.SEQUENCE_NUMBER_WIDTH)
+
         # If we have link credits available, we're able to accept data from the protocol layer.
-        m.d.comb += self.queue.ready.eq(credits_available != 0)
+        m.d.comb += self.queue.ready.eq(self.bringup_complete & (credits_available != 0))
 
         # If the protocol layer is handing us a packet...
         with m.If(self.queue.valid & self.queue.ready):
@@ -559,10 +578,14 @@ class PacketTransmitter(Elaboratable):
                 enqueue_send     .eq(1)
             ]
 
-            # Finally, capture the packet into the buffer for transmission.
+            # Assign the packet a sequence number, and capture it into the buffer for transmission.
+            # [USB3.0r1: 7.2.4.1.1]: "A header packet that is re-transmitted shall maintain its
+            # originally assigned Header Sequence Number."
             m.d.ss += [
-                buffers[write_pointer]  .eq(self.queue.header),
-                write_pointer           .eq(write_pointer + 1)
+                buffers[write_pointer]                  .eq(self.queue.header),
+                buffers[write_pointer].sequence_number  .eq(transmit_sequence_number),
+                write_pointer                           .eq(write_pointer + 1),
+                transmit_sequence_number                .eq(transmit_sequence_number + 1)
             ]
 
 
@@ -571,12 +594,17 @@ class PacketTransmitter(Elaboratable):
         #
         m.submodules.packet_tx = packet_tx = RawPacketTransmitter()
         m.d.comb += [
-            self.source          .stream_eq(packet_tx.source),
-            packet_tx.data_sink  .stream_eq(self.data_sink)
+            packet_tx.header     .eq(buffers[read_pointer]),
+            packet_tx.data_sink  .stream_eq(self.data_sink),
+            self.source          .stream_eq(packet_tx.source)
         ]
 
-        # Keep track of the next sequence number we'll need to send...
-        transmit_sequence_number = Signal(self.SEQUENCE_NUMBER_WIDTH)
+
+        # Keep track of whether a retry has been requested.
+        retry_pending = Signal()
+        with m.If(self.retry_required):
+            m.d.ss += retry_pending.eq(1)
+
 
         with m.FSM(domain="ss"):
 
@@ -585,31 +613,47 @@ class PacketTransmitter(Elaboratable):
             with m.State("DISPATCH_PACKET"):
 
                 # If we have packets to send, pass them to our transmitter.
-                with m.If(packets_to_send & self.enable):
-                    m.d.ss += [
-                        # Grab the packet from our read queue, and pass it to the transmitter;
-                        # but override its sequence number field with our current sequence number.
-                        packet_tx.header                  .eq(buffers[read_pointer]),
-                        packet_tx.header.sequence_number  .eq(transmit_sequence_number),
-                    ]
+                with m.If(self.bringup_complete & (packets_to_send != 0)):
 
-                    # Move on to sending our packet.
-                    m.next = "WAIT_FOR_SEND"
+                    with m.If(~retry_pending):
+                        # Wait until the packet is sent.
+                        m.next = "WAIT_FOR_SEND"
+
+                    with m.Else():
+                        # Wait until all of the non-acknowledged packets are retransmitted.
+                        m.next = "WAIT_FOR_RETRY"
 
 
             # WAIT_FOR_SEND -- we've now dispatched our packet; and we're ready to wait for it to be sent.
             with m.State("WAIT_FOR_SEND"):
                 m.d.comb += packet_tx.generate.eq(1)
 
-                # Once the packet is done...
+                # We're done with this packet.
+                with m.If(packet_tx.done):
+
+                    # If we received an LBAD in the meantime, our read pointer and counter are already
+                    # set up for retransmission; don't touch them.
+                    with m.If(~retry_pending):
+                        m.d.comb += dequeue_send.eq(1)
+
+                    # Handle the next packet, or wait for one.
+                    m.next = "DISPATCH_PACKET"
+
+
+            # WAIT_FOR_RETRY -- we're retransmitting all of the non-acknowledged packets, with the DL bit set;
+            # but only after the receiver transmits LRTY.
+            with m.State("WAIT_FOR_RETRY"):
+                m.d.comb += packet_tx.header.delayed.eq(1)
+                m.d.comb += packet_tx.generate.eq(~self.lrty_pending)
+
+                # We're done with this packet.
                 with m.If(packet_tx.done):
                     m.d.comb += dequeue_send.eq(1)
-                    m.d.ss   += transmit_sequence_number.eq(transmit_sequence_number + 1)
 
-                    # If this was the last packet we needed to send, resume waiting for one.
+                    # If this was the last packet to retransmit, we're done handling this LBAD.
                     with m.If(packets_to_send == 1):
+                        m.d.ss += retry_pending.eq(0)
                         m.next = "DISPATCH_PACKET"
-
 
 
         #
@@ -654,8 +698,18 @@ class PacketTransmitter(Elaboratable):
                 #
                 with m.Case(LinkCommand.LGOOD):
 
+                    # If we've received a Header Sequence Number Advertisement, update our sequence
+                    # numbers, and indicate we're done with bringup.
+                    with m.If(~self.bringup_complete):
+                        m.d.ss += [
+                            self.bringup_complete     .eq(1),
+
+                            next_expected_ack_number  .eq(lc_detector.subtype + 1),
+                            transmit_sequence_number  .eq(lc_detector.subtype + 1)
+                        ]
+
                     # If the credit matches the sequence we're expecting, we can accept it!
-                    with m.If(next_expected_ack_number == lc_detector.subtype):
+                    with m.Elif(next_expected_ack_number == lc_detector.subtype):
                         m.d.comb += retire_packet.eq(1)
 
                         # Next time, we'll expect the next credit in the sequence.
@@ -663,7 +717,7 @@ class PacketTransmitter(Elaboratable):
 
                     # Otherwise, if we're expecting a packet, we've lost synchronization.
                     # We'll need to trigger link recovery.
-                    with m.Elif(packets_awaiting_ack != 0):
+                    with m.Else():
                         m.d.comb += self.recovery_required.eq(1)
 
                 #
@@ -731,23 +785,20 @@ class PacketTransmitter(Elaboratable):
         #
         # Reset Handling
         #
-        with m.If(self.usb_reset | Fell(self.enable)):
+        with m.If(~self.enable):
             m.d.ss += [
+                self.bringup_complete     .eq(0),
+
+                next_expected_credit      .eq(0),
+                credits_available         .eq(0),
+
                 packets_to_send           .eq(0),
                 packets_awaiting_ack      .eq(0),
-                next_expected_credit      .eq(0),
                 read_pointer              .eq(0),
                 write_pointer             .eq(0),
                 ack_pointer               .eq(0),
-                credits_available         .eq(0),
+                retry_pending             .eq(0),
             ]
-
-            with m.If(self.usb_reset):
-                m.d.ss += [
-                    next_expected_ack_number  .eq(0),
-                    transmit_sequence_number  .eq(0)
-                ]
-
 
 
         #

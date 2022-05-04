@@ -125,8 +125,8 @@ class RawHeaderPacketReceiver(Elaboratable):
                         packet.sequence_number  .eq(sink.data[16:19]),
                         packet.dw3_reserved     .eq(sink.data[19:22]),
                         packet.hub_depth        .eq(sink.data[22:25]),
-                        packet.deferred         .eq(sink.data[25]),
-                        packet.delayed          .eq(sink.data[26]),
+                        packet.delayed          .eq(sink.data[25]),
+                        packet.deferred         .eq(sink.data[26]),
                         packet.crc5             .eq(sink.data[27:32]),
 
                         # ... and pipeline a CRC of the to the link control word.
@@ -341,6 +341,7 @@ class HeaderPacketReceiver(Elaboratable):
 
         # Event signaling.
         self.retry_received          = Signal()
+        self.lrty_pending            = Signal()
         self.retry_required          = Signal()
         self.recovery_required       = Signal()
 
@@ -403,9 +404,9 @@ class HeaderPacketReceiver(Elaboratable):
         lbad_pending = Signal()
 
         # Keep track of whether a retry has been requested.
-        retry_pending = Signal()
+        lrty_pending = self.lrty_pending
         with m.If(self.retry_required):
-            m.d.ss += retry_pending.eq(1)
+            m.d.ss += lrty_pending.eq(1)
 
         # Keep track of whether a keepalive has been requested.
         keepalive_pending = Signal()
@@ -572,7 +573,7 @@ class HeaderPacketReceiver(Elaboratable):
                     # - LBAD must come after ACKs and credit management, as all scheduled ACKs need to be
                     #   sent to the other side for the LBAD to have the correct semantic meaning.
 
-                    with m.If(retry_pending):
+                    with m.If(lrty_pending):
                         m.next = "SEND_LRTY"
 
                     # If we have acknowledgements to send, send them.
@@ -620,7 +621,7 @@ class HeaderPacketReceiver(Elaboratable):
                         credits_to_issue      .eq(self._buffer_count),
 
                         # - Clear our pending events.
-                        retry_pending         .eq(0),
+                        lrty_pending          .eq(0),
                         lbad_pending          .eq(0),
                         keepalive_pending     .eq(0),
                         ignore_packets        .eq(0)
@@ -702,7 +703,7 @@ class HeaderPacketReceiver(Elaboratable):
                 ]
 
                 with m.If(lc_generator.done):
-                    m.d.ss += retry_pending.eq(0)
+                    m.d.ss += lrty_pending.eq(0)
                     m.next = "DISPATCH_COMMAND"
 
 

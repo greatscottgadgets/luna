@@ -626,7 +626,7 @@ class StreamILA(Elaboratable):
                         ]
 
                         # If this was the last sample, we're done! Move back to idle.
-                        with m.If(self.stream.last):
+                        with m.If(in_domain_stream.last):
                             m.next = "IDLE"
                     with m.Else():
                         m.d.sync += data_valid.eq(1)

@@ -80,9 +80,12 @@ class SuperSpeedEndpointInterface:
         self.tx_sequence_number    = Signal(5)
         self.tx_direction          = Signal(reset=1)
 
-        # Handshaking / transcation packet exchange.
+        # Handshaking / transaction packet exchange.
         self.handshakes_out        = HandshakeGeneratorInterface()
         self.handshakes_in         = HandshakeReceiverInterface()
+
+        # Endpoint state.
+        self.ep_reset              = Signal()
 
         # Typically only used for control endpoints.
         self.active_address        = Signal(7)
@@ -184,6 +187,7 @@ class SuperSpeedEndpointMultiplexer(Elaboratable):
                 shared.handshakes_in             .connect(interface.handshakes_in),
 
                 # State signals.
+                interface.ep_reset               .eq(shared.config_changed),
                 interface.active_config          .eq(shared.active_config),
                 interface.active_address         .eq(shared.active_address)
             ]
