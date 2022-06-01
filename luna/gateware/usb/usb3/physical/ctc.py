@@ -64,7 +64,7 @@ class CTCSkipRemover(Elaboratable):
         self.source          = USBRawSuperSpeedStream()
 
         self.skip_removed    = Signal()
-        self.bytes_in_buffer = Signal(range(9))
+        self.bytes_in_buffer = Signal(range(len(self.sink.ctrl) + 1))
 
 
     def elaborate(self, platform):
@@ -197,7 +197,7 @@ class CTCSkipRemover(Elaboratable):
 
         # We'll output a word each time we have enough data in our shift register toS
         # output a full word.
-        m.d.comb += source.valid.eq(bytes_in_buffer >= 4)
+        m.d.comb += source.valid.eq(bytes_in_buffer >= bytes_in_stream)
 
         # Our data ends in different places depending on how many bytes we
         # have in our shift register; so we'll need to pop it from different locations.
@@ -384,7 +384,7 @@ class CTCSkipInserter(Elaboratable):
         should not advance.
     """
 
-    SKIP_INTERVAL_BYTES = 704
+    SKIP_BYTE_LIMIT = 354
 
     def __init__(self):
         #
@@ -403,54 +403,61 @@ class CTCSkipInserter(Elaboratable):
         sink   = self.sink
         source = self.source
 
-        # Figure out how many geared words we want to observe before we insert a SKP.
-        skip_interval_words = self.SKIP_INTERVAL_BYTES // len(self.sink.ctrl)
+        #
+        # SKP scheduling.
+        #
+
+        # The largest amount of pending SKP ordered sets can right before finishing transmitting:
+        #   (20 bytes of DPH) + (1036 bytes of DPP) + (6 bytes of SKP)
+        # This sequence is 1062, or 354*3, bytes long. Since we only transmit pairs of SKP ordered sets,
+        # the maximum amount of pending SKP ordered sets at any time is 4.
+        skips_to_send = Signal(range(5))
+        skip_needed   = Signal()
+
+        # Precisely count the amount of skip ordered sets that will be inserted at the next opportunity.
+        # From [USB3.0r1: 6.4.3]: "The non-integer remainder of the Y/354 SKP calculation shall not be
+        # discarded and shall be used in the calculation to schedule the next SKP Ordered Set."
+        with m.If(skip_needed & ~self.sending_skip):
+            m.d.ss += skips_to_send.eq(skips_to_send + 1)
+        with m.If(~skip_needed & self.sending_skip):
+            m.d.ss += skips_to_send.eq(skips_to_send - 2)
+        with m.If(skip_needed & self.sending_skip):
+            m.d.ss += skips_to_send.eq(skips_to_send - 1)
+
 
         #
         # SKP insertion timing.
         #
-        data_bytes_elapsed = Signal(range(skip_interval_words))
-        skip_needed       = Signal()
+        bytes_per_word = len(self.sink.ctrl)
+        data_bytes_elapsed = Signal(range(self.SKIP_BYTE_LIMIT))
 
-        # Count each word of data we send...
+        # Count each byte of data we send...
         with m.If(sink.valid & sink.ready):
-            m.d.ss += data_bytes_elapsed.eq(data_bytes_elapsed + 1)
+            m.d.ss += data_bytes_elapsed.eq(data_bytes_elapsed + bytes_per_word)
 
-            # ... and once we see a enough data, schedule insertion of a skip.
-            with m.If(data_bytes_elapsed + 1 == skip_interval_words):
-                m.d.ss   += data_bytes_elapsed.eq(0)
+            # ... and once we see enough data, schedule insertion of a skip ordered set.
+            with m.If(data_bytes_elapsed + bytes_per_word >= self.SKIP_BYTE_LIMIT):
+                m.d.ss   += data_bytes_elapsed.eq(data_bytes_elapsed + bytes_per_word - self.SKIP_BYTE_LIMIT)
                 m.d.comb += skip_needed.eq(1)
 
 
         #
-        # SKP scheduling.
-        #
-        skip_pending = Signal()
-
-        # If we'd like to send a skip, but can't, mark a skip as pending.
-        with m.If(skip_needed & ~self.can_send_skip):
-            m.d.ss += skip_pending.eq(1)
-
-        # If we -can- send a skip, and we have one queued, we can finally send it.
-        # We'll clear out our pending skip, and set our pending skip to in a 1 if we want to
-        # send another skip (as we can't send two skips at the same time), or 0 if we don't.
-        with m.Elif(self.can_send_skip & skip_pending):
-            m.d.ss += skip_pending.eq(skip_needed)
-
-
-        #
-        # SKP insertion
+        # SKP insertion.
         #
 
-        # Finally, if we can send a skip this cycle and need to, replace our IDLE
-        with m.If(self.can_send_skip & (skip_pending | skip_needed)):
+        # Finally, if we can send a skip this cycle and need to, replace our IDLE with two SKP ordered sets.
+        #
+        # Although [USB3.0r1: 6.4.3] allows "during training only [...] the option of waiting to insert 2 SKP
+        # ordered sets when the integer result of Y/354 reaches 2", inserting individual SKP ordered sets on
+        # a 32-bit data path has considerable overhead, and we only insert pairs.
+        with m.If(self.can_send_skip & (skips_to_send >= 2)):
             m.d.comb += self.sending_skip.eq(1)
             m.d.ss += [
                 source.valid       .eq(1),
-                source.data        .eq(Repl(SKP.value_const(), 4)),
-                source.ctrl        .eq(Repl(SKP.ctrl_const(),  4)),
-
+                source.data        .eq(Repl(SKP.value_const(), len(source.ctrl))),
+                source.ctrl        .eq(Repl(SKP.ctrl_const(),  len(source.ctrl))),
             ]
+
         with m.Else():
             m.d.ss += [
                 self.source        .stream_eq(self.sink),

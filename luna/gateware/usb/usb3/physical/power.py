@@ -45,7 +45,7 @@ class PHYResetController(Elaboratable):
         self.reset          = Signal()
         self.ready          = Signal()
 
-        self.phy_status     = Signal(2)
+        self.phy_status     = Signal()
 
 
 
@@ -58,17 +58,8 @@ class PHYResetController(Elaboratable):
         cycles_in_reset = int(5e-6 * 50e6)
         cycles_spent_in_reset = Signal(range(cycles_in_reset + 1))
 
-        # Create versions of our phy_status signals that are observable:
-        # 1) as an asynchronous inputs for startup pulses
-        # 2) as a single-cycle pulse, for power-state-change notifications
-        phy_status = Signal()
-
-        # Convert our PHY status signal into a simple, sync-domain signal.
-        m.submodules += FFSynchronizer(self.phy_status[0] | self.phy_status[1], phy_status),
-
 
         with m.FSM():
-
 
             # STARTUP_RESET -- post configuration, we'll reset the PIPE PHY.
             # This is distinct from the PHY's built-in power-on-reset, as we run this
@@ -88,7 +79,7 @@ class PHYResetController(Elaboratable):
             # We'll wait for this to happen, so we can track the PHY's progress.
             with m.State("DETECT_PHY_STARTUP"):
 
-                with m.If(phy_status):
+                with m.If(self.phy_status):
                     m.next = "WAIT_FOR_STARTUP"
 
 
@@ -97,7 +88,7 @@ class PHYResetController(Elaboratable):
             with m.State("WAIT_FOR_STARTUP"):
 
                 # For now, we'll start up in P0. This will change once we implement proper RxDetect.
-                with m.If(~phy_status):
+                with m.If(~self.phy_status):
                     m.next = "READY"
 
 
@@ -125,8 +116,10 @@ class LinkPartnerDetector(Elaboratable):
         Controls the PHY's power state signals.
     detection_control: Signal(), output
         Controls the PHY's partner detection signal.
-    phy_status: Signal(2), input
-        Geared version of the PHY_STATUS signal from our PHY.
+    phy_status: Signal(), input
+        Status signal; asserted when the PHY has completed our request.
+    rx_status: Signal(3), input
+        Status signal; indicates the result of our request.
 
     new_result: Signal(), output
         Strobe; indicates when a new result is ready on :attr:``partner_present``.
@@ -139,8 +132,7 @@ class LinkPartnerDetector(Elaboratable):
         Read-only view of the PHY's rx_status signal.
     """
 
-    def __init__(self, *, rx_status):
-        self._rx_status = rx_status
+    def __init__(self):
 
         #
         # I/O port
@@ -149,7 +141,8 @@ class LinkPartnerDetector(Elaboratable):
 
         self.power_state       = Signal(2, reset=2)
         self.detection_control = Signal()
-        self.phy_status        = Signal(2)
+        self.phy_status        = Signal()
+        self.rx_status         = Signal(3)
 
         self.new_result        = Signal()
         self.partner_present   = Signal()
@@ -179,22 +172,21 @@ class LinkPartnerDetector(Elaboratable):
             with m.State("PERFORM_DETECT"):
 
                 # Per [TUSB1310A, 5.3.5.2], we should hold our detection control high until
-                # PHY_STATUS pulses high; when we'll get the results of our detection.
+                # PhyStatus pulses high; when we'll get the results of our detection.
                 m.d.comb += [
                     self.power_state        .eq(2),
                     self.detection_control  .eq(1)
                 ]
 
-                # When we see PHY_STATUS strobe high, we know our result is in RX_STATUS. Since
-                # both PHY_STATUS and RX_STATUS are geared down, we'll have to check both halves.
+                # When we see PhyStatus strobe high, we know our result is in RxStatus.
                 for i in range(2):
 
                     # When our detection is complete...
-                    with m.If(self.phy_status[i]):
+                    with m.If(self.phy_status):
 
                         # ... capture the results, but don't mark ourselves as complete, yet, as we're
                         # still in P2. We'll need to move to operational state.
-                        m.d.ss += self.partner_present.eq(self._rx_status[i] == PARTNER_PRESENT_STATUS)
+                        m.d.ss += self.partner_present.eq(self.rx_status == PARTNER_PRESENT_STATUS)
                         m.next = "MOVE_TO_P0"
 
 
@@ -207,7 +199,7 @@ class LinkPartnerDetector(Elaboratable):
 
                 # Once the PHY indicates it's put us into the relevant power state, we're done.
                 # We can now broadcast our result.
-                with m.If(self.phy_status != 0):
+                with m.If(self.phy_status):
                     m.d.comb += self.new_result.eq(1)
                     m.next = "IDLE_P0"
 
@@ -232,7 +224,7 @@ class LinkPartnerDetector(Elaboratable):
 
                 # Once the PHY indicates it's put us into the relevant power state, we can begin
                 # our link partner detection.
-                with m.If(self.phy_status != 0):
+                with m.If(self.phy_status):
                     m.next = "PERFORM_DETECT"
 
 

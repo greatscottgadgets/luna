@@ -61,6 +61,9 @@ class USB3LinkLayer(Elaboratable):
         self.ready                     = Signal()
         self.in_reset                  = Signal()
 
+        # Test and debug signals.
+        self.disable_scrambling        = Signal()
+
 
     def elaborate(self, platform):
         m = Module()
@@ -79,8 +82,8 @@ class USB3LinkLayer(Elaboratable):
             # Note: we bring the physical layer's "raw" (non-descrambled) source to the TS detector,
             # as we'll still need to detect non-scrambled TS1s and TS2s if they arrive during normal
             # operation.
-            ts.sink              .tap(physical_layer.raw_source, endian_swap=True),
-            training_set_source  .stream_eq(ts.source, endian_swap=True)
+            ts.sink              .tap(physical_layer.raw_source),
+            training_set_source  .stream_eq(ts.source)
         ]
 
 
@@ -118,6 +121,8 @@ class USB3LinkLayer(Elaboratable):
             # Pass down our link controls to the physical layer.
             physical_layer.tx_electrical_idle    .eq(ltssm.tx_electrical_idle),
             physical_layer.engage_terminations   .eq(ltssm.engage_terminations),
+            physical_layer.invert_rx_polarity    .eq(ltssm.invert_rx_polarity),
+            physical_layer.train_equalizer       .eq(ltssm.train_equalizer),
 
             # LFPS control.
             ltssm.lfps_polling_detected          .eq(physical_layer.lfps_polling_detected),
@@ -125,18 +130,20 @@ class USB3LinkLayer(Elaboratable):
             ltssm.lfps_cycles_sent               .eq(physical_layer.lfps_cycles_sent),
 
             # Training set detectors
+            ltssm.tseq_detected                  .eq(ts.tseq_detected),
             ltssm.ts1_detected                   .eq(ts.ts1_detected),
             ltssm.inverted_ts1_detected          .eq(ts.inverted_ts1_detected),
             ltssm.ts2_detected                   .eq(ts.ts2_detected),
             ltssm.hot_reset_requested            .eq(ts.hot_reset_requested),
             ltssm.loopback_requested             .eq(ts.loopback_requested),
-            ltssm.no_scrambling_requested        .eq(ts.disable_scrambling),
+            ltssm.no_scrambling_requested        .eq(ts.no_scrambling_requested),
 
             # Training set emitters
             ts.send_tseq_burst                   .eq(ltssm.send_tseq_burst),
             ts.send_ts1_burst                    .eq(ltssm.send_ts1_burst),
             ts.send_ts2_burst                    .eq(ltssm.send_ts2_burst),
             ts.request_hot_reset                 .eq(ltssm.request_hot_reset),
+            ts.request_no_scrambling             .eq(ltssm.request_no_scrambling),
             ltssm.ts_burst_complete              .eq(ts.burst_complete),
 
             # Scrambling control.
@@ -152,6 +159,9 @@ class USB3LinkLayer(Elaboratable):
             # Status signaling.
             self.trained                         .eq(ltssm.link_ready),
             self.in_reset                        .eq(ltssm.request_hot_reset | ltssm.in_usb_reset),
+
+            # Test and debug.
+            ltssm.disable_scrambling             .eq(self.disable_scrambling),
         ]
 
 
@@ -190,7 +200,7 @@ class USB3LinkLayer(Elaboratable):
             header_rx.enable                 .eq(ltssm.link_ready),
             header_rx.usb_reset              .eq(self.in_reset),
 
-            # Bring our header packet interface to the physical layer.
+            # Bring our header packet interface to the protocol layer.
             self.header_source               .header_eq(header_rx.queue),
 
             # Keepalive handling.
@@ -199,6 +209,8 @@ class USB3LinkLayer(Elaboratable):
             timers.packet_received           .eq(header_rx.packet_received),
 
             # Transmitter event path.
+            header_rx.retry_required         .eq(transmitter.retry_required),
+            transmitter.lrty_pending         .eq(header_rx.lrty_pending),
             header_rx.retry_received         .eq(transmitter.retry_received),
 
             # For now, we'll reject all forms of power management by sending a REJECT

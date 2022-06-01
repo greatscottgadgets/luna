@@ -30,8 +30,8 @@ class HeaderPacket(Record):
         ('sequence_number',  3),
         ('dw3_reserved',     3),
         ('hub_depth',        3),
-        ('deferred',         1),
         ('delayed',          1),
+        ('deferred',         1),
         ('crc5',             5),
     ]
 

@@ -1,6 +1,6 @@
 [[package]]
 name = "amaranth"
-version = "0.3"
+version = "0.4.dev7+g02364a4"
 description = "Amaranth hardware definition language"
 category = "main"
 optional = false
@@ -10,7 +10,7 @@ develop = false
 [package.dependencies]
 importlib-metadata = {version = "*", markers = "python_version < \"3.8\""}
 importlib-resources = {version = "*", markers = "python_version < \"3.9\""}
-Jinja2 = ">=2.11,<3.0"
+Jinja2 = ">=2.11,<4.0"
 pyvcd = ">=0.2.2,<0.3.0"
 
 [package.extras]
@@ -21,11 +21,11 @@ remote-build = ["paramiko (>=2.7,<3.0)"]
 type = "git"
 url = "https://github.com/amaranth-lang/amaranth.git"
 reference = "main"
-resolved_reference = "39a83f4d995d16364cc9b99da646ff8db6394166"
+resolved_reference = "02364a4fd7cf0882478fe5a42c2ce8ff59ba41cd"
 
 [[package]]
 name = "amaranth-boards"
-version = "0.1.dev201+g5b82f0d"
+version = "0.1.dev208+g2d0a23b"
 description = "Board and connector definitions for Amaranth HDL"
 category = "main"
 optional = false
@@ -33,14 +33,14 @@ python-versions = "*"
 develop = false
 
 [package.dependencies]
-amaranth = ">=0.2,<0.4"
+amaranth = ">=0.2,<0.5"
 importlib-metadata = {version = "*", markers = "python_version < \"3.8\""}
 
 [package.source]
 type = "git"
 url = "https://github.com/amaranth-lang/amaranth-boards.git"
 reference = "main"
-resolved_reference = "5b82f0d6d3f301aacc1eb29f0ef53d4882d4e28d"
+resolved_reference = "2d0a23b75ebb769874719297dec65ff07ca9e79f"
 
 [[package]]
 name = "amaranth-soc"

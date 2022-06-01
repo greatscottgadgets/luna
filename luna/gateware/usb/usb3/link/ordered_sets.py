@@ -7,10 +7,6 @@
 # Code based on ``litex`` and ``usb3_pipe``.
 # SPDX-License-Identifier: BSD-3-Clause
 """ Link training support gateware.
-
-Note that much of the gateware in this module is written big endian;
-as this makes the test sets match the standard. This is handled automatically
-by the link layer gateware.
 """
 
 from amaranth import *
@@ -25,28 +21,35 @@ TS2_SET_ID = D(5,  2)
 # Training set contents.
 #
 TSEQ_SET_DATA = [
-    0xBCFF17C0, # 0  - 3
-    0x14B2E702, # 4  - 7
-    0x82726E28, # 8  - 11
-    0xA6BE6DBF, # 12 - 15
-    0x4A4A4A4A, # 16 - 19
-    0x4A4A4A4A, # 20 - 23
-    0x4A4A4A4A, # 24 - 27
-    0x4A4A4A4A, # 28 - 31
+    0xC017FFBC, # 3  - 0
+    0x02E7B214, # 7  - 4
+    0x286E7282, # 11 - 8
+    0xBF6DBEA6, # 15 - 12
+    0x4A4A4A4A, # 19 - 16
+    0x4A4A4A4A, # 23 - 20
+    0x4A4A4A4A, # 27 - 24
+    0x4A4A4A4A, # 31 - 28
 ]
 
 TS1_SET_DATA = [
-    0xBCBCBCBC, # 0  - 3
-    0x00004A4A, # 4  - 7
-    0x4A4A4A4A, # 16 - 19
-    0x4A4A4A4A, # 20 - 23
+    0xBCBCBCBC, # 3  - 0
+    0x4A4A0000, # 7  - 4
+    0x4A4A4A4A, # 19 - 16
+    0x4A4A4A4A, # 23 - 20
+]
+
+INVERTED_TS1_SET_DATA = [
+    0xBCBCBCBC, # 3  - 0
+    0xB5B50000, # 7  - 4
+    0xB5B5B5B5, # 19 - 16
+    0xB5B5B5B5, # 23 - 20
 ]
 
 TS2_SET_DATA = [
-    0xBCBCBCBC, # 0  - 3
-    0x00004545, # 4  - 7
-    0x45454545, # 16 - 19
-    0x45454545, # 20 - 23
+    0xBCBCBCBC, # 3  - 0
+    0x45450000, # 7  - 4
+    0x45454545, # 19 - 16
+    0x45454545, # 23 - 20
 ]
 
 
@@ -61,11 +64,10 @@ class TSBurstDetector(Elaboratable):
         Strobe; pulses high when a burst of ordered sets has been received.
     """
 
-    def __init__(self, *, set_data, first_word_ctrl, sets_in_burst=1, invert_data=False, include_config=True):
+    def __init__(self, *, set_data, first_word_ctrl=0b1111, sets_in_burst=1, include_config=False):
         self._set_data            = set_data
         self._first_word_ctrl     = first_word_ctrl
         self._detection_threshold = sets_in_burst
-        self._invert_data         = invert_data
         self._include_config      = include_config
 
         #
@@ -77,7 +79,7 @@ class TSBurstDetector(Elaboratable):
         if self._include_config:
             self.hot_reset            = Signal()
             self.loopback_requested   = Signal()
-            self.disable_scrambling   = Signal()
+            self.scrambling_disabled  = Signal()
 
 
     def elaborate(self, platform):
@@ -96,13 +98,8 @@ class TSBurstDetector(Elaboratable):
 
 
         def advance_on_match(count, target_ctrl=0b0000, fail_state="NONE_DETECTED"):
-            data_matches = (data  == self._set_data[count])
-            data_inverse = (~data == self._set_data[count])
+            data_matches = (data == self._set_data[count])
             ctrl_matches = (ctrl == target_ctrl)
-
-            # If we're using the inverted set, use ``data_inverse`` instead of ``data_matches``.
-            if self._invert_data:
-                data_matches = data_inverse
 
             # Once we have a valid word in our stream...
             with m.If(self.sink.valid):
@@ -132,14 +129,9 @@ class TSBurstDetector(Elaboratable):
             with m.State("1_DETECTED"):
                 # If this set includes a configuration field, then we'll want to compare
                 # our data with that set removed. Otherwise, we compare normally.
-                data_masked  = (data & 0xffff) if self._include_config else data
+                data_masked  = (data & 0xffff0000) if self._include_config else data
                 data_matches = (data_masked  == self._set_data[1])
-                data_inverse = (~data_masked == self._set_data[1])
                 ctrl_matches = (ctrl         == 0)
-
-                # If we're using the inverted set, use ``data_inverse`` instead of ``data_matches``.
-                if self._invert_data:
-                    data_matches = data_inverse
 
                 # Once we have a valid word in our stream...
                 with m.If(self.sink.valid):
@@ -152,13 +144,13 @@ class TSBurstDetector(Elaboratable):
                         if self._include_config:
                             m.d.ss += [
                                 # Bit 0 of Symbol 5 => Hot Reset
-                                self.hot_reset           .eq(data.word_select(2, 8)[0]),
+                                self.hot_reset           .eq(data.word_select(1, 8)[0]),
 
                                 # Bit 2 of Symbol 5 => Requests Loopback Mode
-                                self.loopback_requested  .eq(data.word_select(2, 8)[2]),
+                                self.loopback_requested  .eq(data.word_select(1, 8)[2]),
 
                                 # Bit 3 of Symbol 5 = > Requests we not use scrambling.
-                                self.disable_scrambling  .eq(data.word_select(2, 8)[3]),
+                                self.scrambling_disabled .eq(data.word_select(1, 8)[3]),
                             ]
 
                     with m.Else():
@@ -219,7 +211,9 @@ class TSEmitter(Elaboratable):
         self.done              = Signal()
 
         if self._include_config:
-            self.request_hot_reset = Signal()
+            self.request_hot_reset      = Signal()
+            self.request_loopback       = Signal()
+            self.request_no_scrambling  = Signal()
 
 
 
@@ -228,7 +222,6 @@ class TSEmitter(Elaboratable):
 
         # Keep track of how many ordered sets we've sent.
         sent_ordered_sets = Signal(range(self._total_to_transmit))
-        m.d.comb += self.done.eq(sent_ordered_sets == self._total_to_transmit)
 
         with m.FSM(domain="ss"):
 
@@ -255,7 +248,11 @@ class TSEmitter(Elaboratable):
                     # our control fields.
                     if self._include_config and (i == 1):
                         with m.If(self.request_hot_reset):
-                            m.d.comb += self.source.data.word_select(2, 8).eq(1)
+                            m.d.comb += self.source.data.word_select(1, 8)[0].eq(1)
+                        with m.If(self.request_loopback):
+                            m.d.comb += self.source.data.word_select(1, 8)[2].eq(1)
+                        with m.If(self.request_no_scrambling):
+                            m.d.comb += self.source.data.word_select(1, 8)[3].eq(1)
 
 
                     with m.If(self.source.ready):
@@ -308,7 +305,7 @@ class TSTransceiver(Elaboratable):
 
         self.hot_reset_requested   = Signal()
         self.loopback_requested    = Signal()
-        self.disable_scrambling    = Signal()
+        self.no_scrambling_requested = Signal()
 
         # Emitters
         self.send_tseq_burst       = Signal() # i
@@ -318,6 +315,8 @@ class TSTransceiver(Elaboratable):
         self.burst_complete        = Signal() # o
 
         self.request_hot_reset     = Signal()
+        self.request_loopback      = Signal()
+        self.request_no_scrambling = Signal()
 
 
     def elaborate(self, platform):
@@ -333,32 +332,28 @@ class TSTransceiver(Elaboratable):
         # TSEQ detector (not strictly required, but useful for alignment)
         m.submodules.tseq_detector = tseq_detector = TSBurstDetector(
             set_data        = TSEQ_SET_DATA,
-            first_word_ctrl = 0b1000,
-            sets_in_burst   = 32,
-            include_config  = False
+            first_word_ctrl = 0b0001,
+            sets_in_burst   = 32
         )
         m.d.comb += [
-            tseq_detector.sink  .stream_eq(self.sink, omit={"ready"}),
+            tseq_detector.sink  .tap(self.sink),
             self.tseq_detected  .eq(tseq_detector.detected)
         ]
 
         # TS1 detector
         m.submodules.ts1_detector = ts1_detector = TSBurstDetector(
             set_data        = TS1_SET_DATA,
-            first_word_ctrl = 0b1111,
             sets_in_burst   = 8
         )
         m.d.comb += [
-            ts1_detector.sink  .tap(self.sink),
-            self.ts1_detected  .eq(ts1_detector.detected)
+            ts1_detector.sink   .tap(self.sink),
+            self.ts1_detected   .eq(ts1_detector.detected)
         ]
 
         # Inverted TS1 detector
         m.submodules.inverted_ts1_detector = inverted_ts1_detector = TSBurstDetector(
-            set_data        = TS1_SET_DATA,
-            first_word_ctrl = 0b1111,
-            sets_in_burst   = 8,
-            invert_data     = True,
+            set_data        = INVERTED_TS1_SET_DATA,
+            sets_in_burst   = 8
         )
         m.d.comb += [
             inverted_ts1_detector.sink  .tap(self.sink),
@@ -368,16 +363,16 @@ class TSTransceiver(Elaboratable):
         # TS2 detector
         m.submodules.ts2_detector = ts2_detector = TSBurstDetector(
             set_data        = TS2_SET_DATA,
-            first_word_ctrl = 0b1111,
             sets_in_burst   = 8,
+            include_config  = True
         )
         m.d.comb += [
-            ts2_detector.sink  .tap(self.sink),
-            self.ts2_detected  .eq(ts2_detector.detected),
+            ts2_detector.sink   .tap(self.sink),
+            self.ts2_detected   .eq(ts2_detector.detected),
 
-            self.hot_reset_requested  .eq(ts2_detector.hot_reset),
-            self.loopback_requested   .eq(ts2_detector.loopback_requested),
-            self.disable_scrambling   .eq(ts2_detector.loopback_requested),
+            self.hot_reset_requested    .eq(ts2_detector.hot_reset),
+            self.loopback_requested     .eq(ts2_detector.loopback_requested),
+            self.no_scrambling_requested.eq(ts2_detector.scrambling_disabled),
         ]
 
 
@@ -388,19 +383,18 @@ class TSTransceiver(Elaboratable):
         # TSEQ generator
         m.submodules.tseq_generator = tseq_generator = TSEmitter(
             set_data              = TSEQ_SET_DATA,
-            first_word_ctrl       = 0b1000,
+            first_word_ctrl       = 0b0001,
             transmit_burst_length = 65536
         )
         with m.If(self.send_tseq_burst):
             m.d.comb += [
-                tseq_generator.start  .eq(1),
-                self.source           .stream_eq(tseq_generator.source)
+                tseq_generator.start .eq(1),
+                self.source          .stream_eq(tseq_generator.source)
             ]
 
         # TS1 generator
         m.submodules.ts1_generator = ts1_generator = TSEmitter(
             set_data              = TS1_SET_DATA,
-            first_word_ctrl       = 0b1111,
             transmit_burst_length = 16
         )
         with m.If(self.send_ts1_burst):
@@ -412,15 +406,16 @@ class TSTransceiver(Elaboratable):
         # TS2 Generator
         m.submodules.ts2_generator = ts2_generator = TSEmitter(
             set_data              = TS2_SET_DATA,
-            first_word_ctrl       = 0b1111,
             transmit_burst_length = 16,
             include_config        = True,
         )
         with m.If(self.send_ts2_burst):
             m.d.comb += [
-                ts2_generator.start              .eq(1),
-                ts2_generator.request_hot_reset  .eq(self.request_hot_reset),
-                self.source                      .stream_eq(ts2_generator.source),
+                ts2_generator.start                 .eq(1),
+                ts2_generator.request_hot_reset     .eq(self.request_hot_reset),
+                ts2_generator.request_loopback      .eq(self.request_loopback),
+                ts2_generator.request_no_scrambling .eq(self.request_no_scrambling),
+                self.source                         .stream_eq(ts2_generator.source),
             ]
 
         #

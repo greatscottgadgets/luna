@@ -107,15 +107,26 @@ class GetDescriptorHandler(Elaboratable):
 
                     # ... connect the relevant generator to our output.
                     m.d.comb += [
-                        self.tx               .stream_eq(generator.stream),
                         generator.start       .eq(self.start),
                         generator.max_length  .eq(self.length),
-                        self.tx_length        .eq(generator.output_length)
                     ]
+
+                    # Buffer the output stream to improve timings.
+                    with m.If(~self.tx.valid.any() | self.tx.ready):
+                        m.d.sync += [
+                            self.tx               .stream_eq(generator.stream, omit={'ready'}),
+                            self.tx_length        .eq(generator.output_length)
+                        ]
+                        m.d.comb += [
+                            generator.stream.ready.eq(1),
+                        ]
 
             # If none of our descriptors match, stall any request that comes in.
             with m.Case():
                 m.d.comb += self.stall.eq(self.start)
 
+        # Convert our sync domain to the domain requested by the user, if necessary.
+        if self._domain != "sync":
+            m = DomainRenamer({"sync": self._domain})(m)
 
         return m

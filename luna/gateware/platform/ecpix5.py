@@ -21,8 +21,11 @@ from amaranth_boards.resources import *
 from amaranth_boards.ecpix5 import ECPIX545Platform as _ECPIX545Platform
 from amaranth_boards.ecpix5 import ECPIX585Platform as _ECPIX585Platform
 
-from .core                  import LUNAPlatform
-from ..interface.serdes_phy import SerDesPHY, LunaECP5SerDes
+from ..interface.pipe       import AsyncPIPEInterface
+from ..interface.serdes_phy import ECP5SerDesPIPE
+
+from .core import LUNAPlatform
+
 
 __all__ = ["ECPIX5_45F_Platform", "ECPIX5_85F_Platform"]
 
@@ -66,7 +69,7 @@ class ECPIX5DomainGenerator(Elaboratable):
 
                 # PLL parameters...
                 p_CLKI_DIV=1,
-                p_PLLRST_ENA="DISABLED",
+                p_PLLRST_ENA="ENABLED",
                 p_INTFB_WAKE="DISABLED",
                 p_STDBY_ENABLE="DISABLED",
                 p_DPHASE_SOURCE="DISABLED",
@@ -131,7 +134,7 @@ class ECPIX5DomainGenerator(Elaboratable):
                 o_LOCK=usb2_locked,
 
                 # PLL parameters...
-                p_PLLRST_ENA="DISABLED",
+                p_PLLRST_ENA="ENABLED",
                 p_INTFB_WAKE="DISABLED",
                 p_STDBY_ENABLE="DISABLED",
                 p_DPHASE_SOURCE="DISABLED",
@@ -215,11 +218,11 @@ class ECPIX5DomainGenerator(Elaboratable):
         return m
 
 
-class ECPIX5SuperSpeedPHY(SerDesPHY):
+class ECPIX5SuperSpeedPHY(AsyncPIPEInterface):
     """ Superspeed PHY configuration for the ECPIX5. """
 
     REFCLK_FREQUENCY = 100e6
-    SYNC_FREQUENCY   = 125e6
+    SS_FREQUENCY     = 125e6
     FAST_FREQUENCY   = 250e6
 
     SERDES_DUAL    = 0
@@ -228,8 +231,7 @@ class ECPIX5SuperSpeedPHY(SerDesPHY):
 
     def __init__(self, platform):
 
-        # Grab the I/O that implements our SerDes interface, ensuring our directions are '-',
-        # so we don't create any I/O buffering hardware.
+        # Grab the I/O that implements our SerDes interface...
         serdes_io_directions = {
             'ch0':    {'tx':"-", 'rx':"-"},
             'ch1':    {'tx':"-", 'rx':"-"},
@@ -238,30 +240,30 @@ class ECPIX5SuperSpeedPHY(SerDesPHY):
         serdes_io      = platform.request("serdes", self.SERDES_DUAL, dir=serdes_io_directions)
         serdes_channel = getattr(serdes_io, f"ch{self.SERDES_CHANNEL}")
 
-        # Create our SerDes interface...
-        self.serdes = LunaECP5SerDes(platform,
-            sys_clk      = ClockSignal("sync"),
-            sys_clk_freq = self.SYNC_FREQUENCY,
-            refclk_pads  = serdes_io.refclk,
-            refclk_freq  = self.REFCLK_FREQUENCY,
-            tx_pads      = serdes_channel.tx,
-            rx_pads      = serdes_channel.rx,
-            channel      = self.SERDES_CHANNEL
+        # Use it to create our soft PHY...
+        serdes_phy = ECP5SerDesPIPE(
+            tx_pads             = serdes_channel.tx,
+            rx_pads             = serdes_channel.rx,
+            dual                = self.SERDES_DUAL,
+            channel             = self.SERDES_CHANNEL,
+            refclk_frequency    = self.FAST_FREQUENCY,
         )
 
-        # ... and use it to create our core PHY interface.
-        super().__init__(
-            serdes             = self.serdes,
-            ss_clk_frequency   = self.SYNC_FREQUENCY,
-            fast_clk_frequency = self.FAST_FREQUENCY
-        )
+        # ... and bring the PHY interface signals to the MAC domain.
+        super().__init__(serdes_phy, width=4, domain="ss")
 
 
     def elaborate(self, platform):
         m = super().elaborate(platform)
 
-        # Patch in our SerDes as a submodule.
-        m.submodules.serdes = self.serdes
+        # Patch in our soft PHY as a submodule.
+        m.submodules.phy = self.phy
+
+        # Drive the PHY reference clock with our fast generated clock.
+        m.d.comb += self.clk.eq(ClockSignal("fast"))
+
+        # This board does not have a way to detect Vbus, so assume it's always present.
+        m.d.comb += self.phy.power_present.eq(1)
 
         return m
 
@@ -280,15 +282,15 @@ class _ECPIXExtensions:
         # to be *there*. We'll provide correct ones in case it ever decides to use them.
         #
         Resource("serdes", 0,
-            Subsignal("ch0",
-                Subsignal("rx", DiffPairs("AF6",  "AF7")),
-                Subsignal("tx", DiffPairs("AD7",  "AD8")),
-            ),
+            #Subsignal("ch0",
+            #    Subsignal("rx", DiffPairs("AF6",  "AF7")),
+            #    Subsignal("tx", DiffPairs("AD7",  "AD8")),
+            #),
             Subsignal("ch1",
                 Subsignal("rx", DiffPairs("AF9",  "AF10")),
                 Subsignal("tx", DiffPairs("AD10", "AD11")),
             ),
-            Subsignal("refclk", DiffPairs("AF12", "AF13"))
+            #Subsignal("refclk", DiffPairs("AF12", "AF13"))
         ),
         Resource("serdes", 1,
             Subsignal("ch0",
