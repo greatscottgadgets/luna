@@ -18,7 +18,7 @@ from datetime import datetime
 from amaranth                         import Signal, Elaboratable, Module
 from usb_protocol.emitters            import DeviceDescriptorCollection
 
-from luna                             import get_appropriate_platform
+from luna.gateware.platform           import get_appropriate_platform
 from luna.usb2                        import USBDevice, USBStreamInEndpoint
 
 from luna.gateware.utils.cdc          import synchronize
