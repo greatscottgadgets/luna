@@ -246,7 +246,7 @@ class USBControlEndpoint(Elaboratable):
                     m.d.comb += request_handler.data_requested.eq(1)
 
                 # Once we get an OUT token, we should move on to the STATUS stage. [USB2, 8.5.3]
-                with m.If(endpoint_targeted & interface.tokenizer.new_token & interface.tokenizer.is_out):
+                with m.If(endpoint_targeted & interface.tokenizer.new_token & (interface.tokenizer.is_out | interface.tokenizer.is_ping)):
                     m.next = 'STATUS_OUT'
 
 
@@ -266,6 +266,10 @@ class USBControlEndpoint(Elaboratable):
                 # Once we get an IN token, we should move on to the STATUS stage. [USB2, 8.5.3]
                 with m.If(endpoint_targeted & interface.tokenizer.new_token & interface.tokenizer.is_in):
                     m.next = 'STATUS_IN'
+
+                # Respond to PING token [USB2.0: 8.5.1]
+                with m.If(endpoint_targeted & interface.tokenizer.ready_for_response & interface.tokenizer.is_ping):
+                    m.d.comb += interface.handshakes_out.ack.eq(1)
 
 
             # STATUS_IN -- We're currently in the status stage, and we're expecting an IN token.
@@ -291,6 +295,10 @@ class USBControlEndpoint(Elaboratable):
                 allowed_to_respond = interface.rx_ready_for_response & endpoint_targeted
                 with m.If(allowed_to_respond & interface.tokenizer.is_out):
                     m.d.comb += request_handler.status_requested.eq(1)
+
+                # Respond to PING token [USB2.0: 8.5.1]
+                with m.If(endpoint_targeted & interface.tokenizer.ready_for_response & interface.tokenizer.is_ping):
+                    m.d.comb += interface.handshakes_out.ack.eq(1)
 
         return m
 
