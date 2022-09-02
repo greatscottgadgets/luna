@@ -244,6 +244,10 @@ class StandardRequestHandler(USBRequestHandler):
                         m.d.comb += handshake_generator.ack.eq(1)
                         m.next = 'IDLE'
 
+                    # If the requested descriptor doesn't exist, the request is terminated by STALLing the data stage.
+                    with m.If(get_descriptor_handler.stall):
+                        m.d.usb += expecting_ack.eq(0)
+                        m.next = 'IDLE'
 
                 # GET_CONFIGURATION -- The host is asking for the active configuration number.
                 with m.State('GET_CONFIGURATION'):
