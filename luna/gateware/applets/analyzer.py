@@ -14,18 +14,24 @@ import errno
 
 import usb
 from datetime import datetime
+from enum import IntEnum
 
-from amaranth                         import Signal, Elaboratable, Module
-from usb_protocol.emitters            import DeviceDescriptorCollection
+from amaranth                          import Signal, Elaboratable, Module
+from usb_protocol.emitters             import DeviceDescriptorCollection
+from usb_protocol.types                import USBRequestType
 
-from luna.gateware.platform           import get_appropriate_platform
-from luna.usb2                        import USBDevice, USBStreamInEndpoint
+from luna.gateware.platform            import get_appropriate_platform
+from luna.usb2                         import USBDevice, USBStreamInEndpoint
 
-from luna.gateware.utils.cdc          import synchronize
-from luna.gateware.architecture.car   import LunaECP5DomainGenerator
+from luna.gateware.usb.request.control import ControlRequestHandler
+from luna.gateware.usb.stream          import USBInStreamInterface
+from luna.gateware.stream.generator    import StreamSerializer
+from luna.gateware.utils.cdc           import synchronize
+from luna.gateware.architecture.car    import LunaECP5DomainGenerator
 
-from luna.gateware.interface.ulpi     import UTMITranslator
-from luna.gateware.usb.analyzer       import USBAnalyzer
+from luna.gateware.interface.ulpi      import UTMITranslator
+from luna.gateware.usb.analyzer        import USBAnalyzer
+
 
 USB_SPEED_HIGH       = 0b00
 USB_SPEED_FULL       = 0b01
@@ -37,6 +43,85 @@ USB_PRODUCT_ID       = 0x615b
 BULK_ENDPOINT_NUMBER  = 1
 BULK_ENDPOINT_ADDRESS = 0x80 | BULK_ENDPOINT_NUMBER
 MAX_BULK_PACKET_SIZE  = 512
+
+
+class USBAnalyzerState(Elaboratable):
+
+    def __init__(self):
+        self.current = Signal(8)
+        self.next = Signal(8)
+        self.write = Signal()
+
+    def elaborate(self, platform):
+        m = Module()
+        with m.If(self.write):
+            m.d.sync += self.current.eq(self.next)
+        return m
+
+
+class USBAnalyzerVendorRequests(IntEnum):
+    GET_STATE = 0
+    SET_STATE = 1
+
+
+class USBAnalyzerVendorRequestHandler(ControlRequestHandler):
+
+    def __init__(self, state):
+        self.state = state
+        super().__init__()
+
+    def elaborate(self, platform):
+        m = Module()
+        interface = self.interface
+
+        # Create convenience aliases for our interface components.
+        setup               = interface.setup
+        handshake_generator = interface.handshakes_out
+
+        # Transmitter for small-constant-response requests
+        m.submodules.transmitter = transmitter = \
+            StreamSerializer(data_length=1, domain="usb", stream_type=USBInStreamInterface, max_length_width=1)
+
+        # Handle vendor requests
+        with m.If(setup.type == USBRequestType.VENDOR):
+            with m.FSM(domain="usb"):
+
+                # IDLE -- not handling any active request
+                with m.State('IDLE'):
+
+                    # If we've received a new setup packet, handle it.
+                    with m.If(setup.received):
+
+                        # Select which vendor we're going to handle.
+                        with m.Switch(setup.request):
+
+                            with m.Case(USBAnalyzerVendorRequests.GET_STATE):
+                                m.next = 'GET_STATE'
+                            with m.Case(USBAnalyzerVendorRequests.SET_STATE):
+                                m.next = 'SET_STATE'
+                            with m.Case():
+                                m.next = 'UNHANDLED'
+
+
+                # GET_STATE -- Fetch the device's state
+                with m.State('GET_STATE'):
+                    self.handle_simple_data_request(m, transmitter, self.state.current, length=1)
+
+                # SET_STATE -- The host is trying to set our state
+                with m.State('SET_STATE'):
+                    self.handle_register_write_request(m, self.state.next, self.state.write)
+
+                # UNHANDLED -- we've received a request we're not prepared to handle
+                with m.State('UNHANDLED'):
+
+                    # When we next have an opportunity to stall, do so,
+                    # and then return to idle.
+                    with m.If(interface.data_requested | interface.status_requested):
+                        m.d.comb += handshake_generator.stall.eq(1)
+                        m.next = 'IDLE'
+
+        return m
+
 
 class USBAnalyzerApplet(Elaboratable):
     """ Gateware that serves as a generic USB analyzer backend.
@@ -89,6 +174,9 @@ class USBAnalyzerApplet(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
+        # State register
+        m.submodules.state = state = USBAnalyzerState()
+
         # Generate our clock domains.
         clocking = LunaECP5DomainGenerator()
         m.submodules.clocking = clocking
@@ -124,7 +212,11 @@ class USBAnalyzerApplet(Elaboratable):
 
         # Add our standard control endpoint to the device.
         descriptors = self.create_descriptors()
-        usb.add_standard_control_endpoint(descriptors)
+        control_endpoint = usb.add_standard_control_endpoint(descriptors)
+
+        # Add our vendor request handler to the control endpoint.
+        vendor_request_handler = USBAnalyzerVendorRequestHandler(state)
+        control_endpoint.add_request_handler(vendor_request_handler)
 
         # Add a stream endpoint to our device.
         stream_ep = USBStreamInEndpoint(
@@ -137,6 +229,12 @@ class USBAnalyzerApplet(Elaboratable):
         m.submodules.analyzer = analyzer = USBAnalyzer(utmi_interface=utmi)
 
         m.d.comb += [
+            # Connect enable signal to host-controlled state register.
+            analyzer.capture_enable     .eq(state.current[0]),
+
+            # Flush endpoint when analyzer is idle with capture disabled.
+            stream_ep.flush             .eq(analyzer.idle & ~analyzer.capture_enable),
+
             # USB stream uplink.
             stream_ep.stream            .stream_eq(analyzer.stream),
 
@@ -194,6 +292,15 @@ class USBAnalyzerConnection:
 
             self._device = usb.core.find(idVendor=USB_VENDOR_ID, idProduct=USB_PRODUCT_ID)
 
+    def start_capture(self):
+        self._device.ctrl_transfer(
+            usb.core.util.CTRL_OUT | usb.core.util.CTRL_TYPE_VENDOR | usb.core.util.CTRL_RECIPIENT_DEVICE,
+            1,
+            1,
+            0,
+            b"",
+            timeout=5,
+        )
 
     def _fetch_data_into_buffer(self):
         """ Attempts a single data read from the analyzer into our buffer. """

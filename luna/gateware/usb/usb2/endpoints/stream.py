@@ -27,6 +27,10 @@ class USBStreamInEndpoint(Elaboratable):
     a short data packet. If the stream's ``last`` signal is tied to zero, then a continuous stream of
     maximum-length-packets will be sent with no inserted ZLPs.
 
+    The ``flush`` input may be asserted to to cause all pending data to be transmitted as soon as
+    possible. When ``flush`` is asserted, packets of varying length will be sent as needed, according
+    to the data available.
+
     This implementation is double buffered; and can store a single packets worth of data while transmitting
     a second packet.
 
@@ -35,6 +39,9 @@ class USBStreamInEndpoint(Elaboratable):
     ----------
     stream: StreamInterface, input stream
         Full-featured stream interface that carries the data we'll transmit to the host.
+
+    flush: Signal(), input
+        Assert to cause all pending data to be transmitted as soon as possible.
 
     interface: EndpointInterface
         Communications link to our USB device.
@@ -60,6 +67,7 @@ class USBStreamInEndpoint(Elaboratable):
         #
         self.stream    = StreamInterface()
         self.interface = EndpointInterface()
+        self.flush     = Signal()
 
 
     def elaborate(self, platform):
@@ -77,8 +85,9 @@ class USBStreamInEndpoint(Elaboratable):
             # We want to handle packets only that target our endpoint number.
             tx_manager.active           .eq(interface.tokenizer.endpoint == self._endpoint_number),
 
-            # Connect up our transfer manager to our input stream...
+            # Connect up our transfer manager to our input stream and flush control...
             tx_manager.transfer_stream  .stream_eq(self.stream),
+            tx_manager.flush            .eq(self.flush),
 
             # ... and our output stream...
             interface.tx                .stream_eq(tx_manager.packet_stream),

@@ -72,6 +72,7 @@ class USBAnalyzer(Elaboratable):
         #
         self.stream         = StreamInterface()
 
+        self.capture_enable = Signal()
         self.idle           = Signal()
         self.overrun        = Signal()
         self.capturing      = Signal()
@@ -154,21 +155,22 @@ class USBAnalyzer(Elaboratable):
         #
         with m.FSM(domain="usb") as f:
             m.d.comb += [
-                self.idle      .eq(f.ongoing("IDLE")),
+                self.idle      .eq(f.ongoing("START") | f.ongoing("IDLE")),
                 self.overrun   .eq(f.ongoing("OVERRUN")),
                 self.capturing .eq(f.ongoing("CAPTURE")),
             ]
 
+            # START: wait for capture to be enabled, but don't start mid-packet.
             with m.State("START"):
-                with m.If(~self.utmi.rx_active):
+                with m.If(self.capture_enable & ~self.utmi.rx_active):
                     m.next = "IDLE"
 
-            # IDLE: wait for an active receive.
-            with m.State("IDLE"):
 
-                # Wait until a transmission is active.
-                # TODO: add triggering logic?
-                with m.If(self.utmi.rx_active):
+            # IDLE: capture is enabled, wait for a packet to start.
+            with m.State("IDLE"):
+                with m.If(~self.capture_enable):
+                    m.next = "START"
+                with m.Elif(self.utmi.rx_active):
                     m.next = "CAPTURE"
                     m.d.usb += [
                         header_location  .eq(write_location),
@@ -209,7 +211,7 @@ class USBAnalyzer(Elaboratable):
                     # Optimization: if we didn't receive any data, there's no need
                     # to create a packet. Clear our header from the FIFO and disarm.
                     with m.If(packet_size == 0):
-                        m.next = "IDLE"
+                        m.next = "START"
                         m.d.usb += [
                             write_location.eq(header_location)
                         ]
@@ -242,9 +244,7 @@ class USBAnalyzer(Elaboratable):
                     mem_write_port.en    .eq(1),
                     fifo_new_data        .eq(1)
                 ]
-
-
-                m.next = "IDLE"
+                m.next = "START"
 
 
             # BABBLE -- handles the case in which we've received a packet beyond
@@ -279,7 +279,8 @@ class USBAnalyzerTest(LunaGatewareTestCase):
             ('rx_error',    1),
             ('rx_complete', 1),
         ])
-        return USBAnalyzer(utmi_interface=self.utmi, mem_depth=128)
+        self.analyzer = USBAnalyzer(utmi_interface=self.utmi, mem_depth=128)
+        return self.analyzer
 
 
     def advance_stream(self, value):
@@ -289,6 +290,9 @@ class USBAnalyzerTest(LunaGatewareTestCase):
 
     @usb_domain_test_case
     def test_single_packet(self):
+        # Enable capture
+        yield self.analyzer.capture_enable.eq(1)
+        yield
 
         # Ensure we're not capturing until a transaction starts.
         self.assertEqual((yield self.dut.capturing), 0)
@@ -338,6 +342,9 @@ class USBAnalyzerTest(LunaGatewareTestCase):
 
     @usb_domain_test_case
     def test_short_packet(self):
+        # Enable capture
+        yield self.analyzer.capture_enable.eq(1)
+        yield
 
         # Apply our first input, and validate that we start capturing.
         yield self.utmi.rx_active.eq(1)
@@ -421,6 +428,8 @@ class USBAnalyzerStackTest(LunaGatewareTestCase):
 
     @usb_domain_test_case
     def test_simple_analysis(self):
+        # Enable capture
+        yield self.analyzer.capture_enable.eq(1)
         yield from self.advance_cycles(10)
 
         # Start a new packet.
