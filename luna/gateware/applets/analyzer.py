@@ -292,6 +292,15 @@ class USBAnalyzerConnection:
 
             self._device = usb.core.find(idVendor=USB_VENDOR_ID, idProduct=USB_PRODUCT_ID)
 
+    def start_capture(self):
+        self._device.ctrl_transfer(
+            usb.core.util.CTRL_OUT | usb.core.util.CTRL_TYPE_VENDOR | usb.core.util.CTRL_RECIPIENT_DEVICE,
+            1,
+            1,
+            0,
+            b"",
+            timeout=5,
+        )
 
     def _fetch_data_into_buffer(self):
         """ Attempts a single data read from the analyzer into our buffer. """
