@@ -279,7 +279,8 @@ class USBAnalyzerTest(LunaGatewareTestCase):
             ('rx_error',    1),
             ('rx_complete', 1),
         ])
-        return USBAnalyzer(utmi_interface=self.utmi, mem_depth=128)
+        self.analyzer = USBAnalyzer(utmi_interface=self.utmi, mem_depth=128)
+        return self.analyzer
 
 
     def advance_stream(self, value):
@@ -289,6 +290,9 @@ class USBAnalyzerTest(LunaGatewareTestCase):
 
     @usb_domain_test_case
     def test_single_packet(self):
+        # Enable capture
+        yield self.analyzer.capture_enable.eq(1)
+        yield
 
         # Ensure we're not capturing until a transaction starts.
         self.assertEqual((yield self.dut.capturing), 0)
@@ -338,6 +342,9 @@ class USBAnalyzerTest(LunaGatewareTestCase):
 
     @usb_domain_test_case
     def test_short_packet(self):
+        # Enable capture
+        yield self.analyzer.capture_enable.eq(1)
+        yield
 
         # Apply our first input, and validate that we start capturing.
         yield self.utmi.rx_active.eq(1)
@@ -421,6 +428,8 @@ class USBAnalyzerStackTest(LunaGatewareTestCase):
 
     @usb_domain_test_case
     def test_simple_analysis(self):
+        # Enable capture
+        yield self.analyzer.capture_enable.eq(1)
         yield from self.advance_cycles(10)
 
         # Start a new packet.
