@@ -398,7 +398,10 @@ class GetDescriptorHandlerBlock(Elaboratable):
             m.d.sync += length.eq(self._max_packet_length)
 
         # Register that stores our current position in the stream.
-        position_in_stream = Signal(range(descriptor_max_length))
+        # We still want to be able to store a position beyond bounds (+1),
+        # this is required for descriptors length multiple of the maximum packet size.
+        # Like this we do not overflow our position and are able to send a ZLP on the next request.
+        position_in_stream = Signal(range(descriptor_max_length + 1))
         bytes_sent = Signal.like(length)
 
         # Registers that store descriptor length and data base address.
@@ -488,7 +491,13 @@ class GetDescriptorHandlerBlock(Elaboratable):
                     descriptor_length             .eq(rom_element_count),
                 ]
 
-                m.next = 'SEND_DESCRIPTOR'
+                # Our current position may point out of bounds in case our descriptor length is a multiple
+                # of the maximum packet size. We must send a ZLP now so the host knows the previous
+                # packet was the end of the descriptor.
+                with m.If(position_in_stream >= rom_element_count):
+                    m.next = 'SEND_ZLP'
+                with m.Else():
+                    m.next = 'SEND_DESCRIPTOR'
 
 
             # SEND_DESCRIPTOR -- we finally are actively streaming our descriptor; which we'll complete until
