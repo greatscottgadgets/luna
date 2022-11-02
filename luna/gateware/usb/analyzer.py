@@ -257,7 +257,10 @@ class USBAnalyzer(Elaboratable):
 
             with m.State("OVERRUN"):
                 # TODO: we should probably set an overrun flag and then emit an EOP, here?
-                pass
+
+                # If capture is stopped by the host, reset back to the ready state.
+                with m.If(~self.capture_enable):
+                    m.next = "START"
 
 
         return m
