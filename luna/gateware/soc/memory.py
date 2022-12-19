@@ -85,9 +85,9 @@ class WishboneRAM(Elaboratable):
         # Note that we provide the -local- address to the Interface object; as it automatically factors
         # in our extra bits as it computes our granularity.
         self.bus = wishbone.Interface(addr_width=self.local_addr_width, data_width=data_width, granularity=granularity)
-        self.bus.memory_map = memory.MemoryMap(addr_width=self.bus_addr_width, data_width=granularity)
-        self.bus.memory_map.add_resource(self, size=2 ** addr_width)
-
+        memory_map = memory.MemoryMap(addr_width=self.bus_addr_width, data_width=granularity, name=self.name)
+        memory_map.add_resource(self, size=2 ** addr_width, name=self.name)
+        self.bus.memory_map = memory_map
 
     def elaborate(self, platform):
         m = Module()
