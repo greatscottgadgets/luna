@@ -25,7 +25,7 @@ def configure_default_logging(level=logging.INFO, logger=logging):
     else:
         log_format = LOG_FORMAT_PLAIN
 
-    logger.basicConfig(level=logging.INFO, format=log_format)
+    logger.basicConfig(level=level, format=log_format)
 
 
 def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
@@ -181,5 +181,3 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
             shutil.rmtree(build_dir)
 
     return None
-
-
