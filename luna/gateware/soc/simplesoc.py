@@ -12,6 +12,7 @@ import logging
 
 from amaranth                import Elaboratable, Module
 from amaranth_soc            import wishbone
+from amaranth_stdio.serial   import AsyncSerial
 
 from lambdasoc.soc.cpu       import CPUSoC
 from lambdasoc.cpu.minerva   import MinervaCPU
@@ -50,7 +51,7 @@ class SimpleSoC(CPUSoC, Elaboratable):
             clock_frequency -- The frequency of our `sync` domain, in MHz.
         """
 
-        self.clk_freq = clock_frequency
+        self.sync_clk_freq = clock_frequency
 
         self._main_rom  = None
         self._main_ram  = None
@@ -77,11 +78,15 @@ class SimpleSoC(CPUSoC, Elaboratable):
         # Create our interrupt controller.
         self.intc = GenericInterruptController(width=32)
 
-        # Create our bus decoder and set up our memory map.
+        # Create our bus decoder
         self.bus_decoder = wishbone.Decoder(addr_width=30, data_width=32, granularity=8, features={"cti", "bte"})
-        self.memory_map  = self.bus_decoder.bus.memory_map
+        # Things we don't have but lambdasoc's jinja2 templates expect
+        self.sdram = None
+        self.ethmac = None
 
-
+    @property
+    def memory_map(self):
+        return self.bus_decoder.bus.memory_map
 
     def add_rom(self, data, size, addr=0, is_main_rom=True):
         """ Creates a simple ROM and adds it to the design.
@@ -101,6 +106,13 @@ class SimpleSoC(CPUSoC, Elaboratable):
 
         return self.add_peripheral(rom, addr=addr)
 
+    @property
+    def mainram(self):
+        return self.sram
+
+    @property
+    def sram(self):
+        return self._main_ram
 
     def add_ram(self, size: int, addr: int = None, is_main_mem: bool = True):
         """ Creates a simple RAM and adds it to our design.
@@ -119,7 +131,6 @@ class SimpleSoC(CPUSoC, Elaboratable):
             self._main_ram = ram
 
         return self.add_peripheral(ram, addr=addr)
-
 
     def add_peripheral(self, p, *, as_submodule=True, **kwargs):
         """ Adds a peripheral to the SoC.
@@ -161,14 +172,14 @@ class SimpleSoC(CPUSoC, Elaboratable):
         """ Adds a simple BIOS that allows loading firmware, and the requisite peripherals.
 
         Automatically adds the following peripherals:
-            self.uart      -- An AsyncSerialPeripheral used for serial I/O.
-            self.timer     -- A TimerPeripheral used for BIOS timing.
-            self.rom       -- A ROM memory used for the BIOS.
-            self.ram       -- The RAM used by the BIOS; not typically the program RAM.
+            self.uart       -- An AsyncSerialPeripheral used for serial I/O.
+            self.timer      -- A TimerPeripheral used for BIOS timing.
+            self.bootrom    -- A ROM memory used for the BIOS.
+            self.scratchpad -- The RAM used by the BIOS; not typically the program RAM.
 
         Parameters:
-            uart_pins      -- The UARTResource to be used for UART communications; or an equivalent record.
-            uart_baud_rate -- The baud rate to be used by the BIOS' uart.
+            uart_pins       -- The UARTResource to be used for UART communications; or an equivalent record.
+            uart_baud_rate  -- The baud rate to be used by the BIOS' uart.
         """
 
         self._build_bios = True
@@ -181,12 +192,12 @@ class SimpleSoC(CPUSoC, Elaboratable):
         # as that's what the lambdasoc BIOS expects. These are effectively internal.
         #
         addr = 0x0000_0000 if fixed_addresses else None
-        self.rom = SRAMPeripheral(size=0x4000, writable=False)
-        self.add_peripheral(self.rom, addr=addr)
+        self.bootrom = SRAMPeripheral(size=0x4000, writable=False)
+        self.add_peripheral(self.bootrom, addr=addr)
 
         addr = 0x0001_0000 if fixed_addresses else None
-        self.ram = SRAMPeripheral(size=0x1000)
-        self.add_peripheral(self.ram, addr=addr)
+        self.scratchpad = SRAMPeripheral(size=0x1000)
+        self.add_peripheral(self.scratchpad, addr=addr)
 
         # Add our UART and Timer.
         # Again, names are fixed.
@@ -195,7 +206,12 @@ class SimpleSoC(CPUSoC, Elaboratable):
         self.add_peripheral(self.timer, addr=addr)
 
         addr = 0x0003_0000 if fixed_addresses else None
-        self.uart = AsyncSerialPeripheral(divisor=int(self.clk_freq // uart_baud_rate), pins=uart_pins)
+        uart_core = AsyncSerial(
+            data_bits = 8,
+            divisor   = int(self.sync_clk_freq // uart_baud_rate),
+            pins      = uart_pins,
+        )
+        self.uart = AsyncSerialPeripheral(core=uart_core)
         self.add_peripheral(self.uart, addr=addr)
 
 
@@ -258,20 +274,26 @@ class SimpleSoC(CPUSoC, Elaboratable):
         memory_map = self.bus_decoder.bus.memory_map
 
         # ... find each addressable peripheral...
-        for peripheral, (peripheral_start, _end, _granularity) in memory_map.windows():
-            resources = peripheral.all_resources()
+        window: amaranth_soc.memory.MemoryMap
+        for window, (window_start, _end, _granularity) in memory_map.windows():
+            resources = window.all_resources()
 
             # ... find the peripheral's resources...
-            for resource, (register_offset, register_end_offset, _local_granularity) in resources:
+            resource_info: amaranth_soc.memory.ResourceInfo
+            for resource_info in resources:
+                resource = resource_info.resource
+                register_offset = resource_info.start
+                register_end_offset = resource_info.end
+                _local_granularity = resource_info.width
 
                 if self._build_bios and omit_bios_mem:
                     # If we're omitting bios resources, skip the BIOS ram/rom.
-                    if (self.ram._mem is resource) or (self.rom._mem is resource):
+                    if (self.scratchpad._mem is resource) or (self.bootrom._mem is resource):
                         continue
 
                 # ... and extract the peripheral's range/vitals...
                 size = register_end_offset - register_offset
-                yield resource, peripheral_start + register_offset, size
+                yield window, resource, window_start + register_offset, size
 
 
     def build(self, name=None, build_dir="build"):
@@ -307,9 +329,10 @@ class SimpleSoC(CPUSoC, Elaboratable):
         memory_map = self.bus_decoder.bus.memory_map
 
         # Search our memory map for the target peripheral.
-        for peripheral, (start, end, _granularity) in memory_map.all_resources():
-            if peripheral is target_peripheral:
-                return start, (end - start)
+        resource_info: amaranth_soc.memory.ResourceInfo
+        for resource_info in memory_map.all_resources():
+            if resource_info.name[0] is target_peripheral.name:
+                return resource_info.start, (resource_info.end - resource_info.start)
 
         return None, None
 
@@ -440,10 +463,14 @@ class SimpleSoC(CPUSoC, Elaboratable):
         emit("//")
         emit("// Peripherals")
         emit("//")
-        for resource, address, size in self.resources():
+        for memory_map, resource, address, size in self.resources():
+            # Get peripheral name
+            if memory_map.name is None:
+                name = resource.name
+            else:
+                name = "{}_{}".format(memory_map.name, resource.name)
 
             # Always generate a macro for the resource's ADDRESS and size.
-            name = resource.name
             emit(f"#define {name.upper()}_ADDRESS (0x{address:08x}U)")
             emit(f"#define {name.upper()}_SIZE ({size})")
 
@@ -519,8 +546,7 @@ class SimpleSoC(CPUSoC, Elaboratable):
         emit("{")
 
         # Add regions for our main ROM and our main RAM.
-        for memory in [self._main_rom, self._main_ram]:
-
+        for memory in [self.bootrom, self._main_ram]:
             # Figure out our fields: a region name, our start, and our size.
             name = "ram" if (memory is self._main_ram) else "rom"
             start, size = self._range_for_peripheral(memory)
@@ -537,8 +563,13 @@ class SimpleSoC(CPUSoC, Elaboratable):
 
         # Resource addresses:
         logging.info("Physical address allocations:")
-        for peripheral, (start, end, _granularity) in self.memory_map.all_resources():
+        memory_map = self.bus_decoder.bus.memory_map
+        for resource_info in memory_map.all_resources():
+            start = resource_info.start
+            end = resource_info.end
+            peripheral = resource_info.resource
             logging.info(f"    {start:08x}-{end:08x}: {peripheral}")
+
         logging.info("")
 
         # IRQ numbers
