@@ -1,17 +1,23 @@
-# kicad backup files
+# KiCad local project settings
+*.kicad_prl
+
+# KiCad backup files
 $savepcb.*
 *.000
 *.bak
 *.bck
 *.kicad_pcb-bak
+*.kicad_sch-bak
 *.sch-bak
 _autosave*
+*.zip
+\#auto_saved_files\#
 
-# kicad cache files
+# KiCad cache files
 # *-cache.lib not ignored, so schematic can be viewed without libraries
 fp-info-cache
 
-# gerber and drill files
+# KiCad fabrication outputs
 *.drl
 *.g2
 *.g3
@@ -19,20 +25,27 @@ fp-info-cache
 *.gbo
 *.gbp
 *.gbr
-*.gbr
-*.gbr
 *.gbs
 *.gm1
 *.gtl
 *.gto
 *.gtp
 *.gts
+*.pos
+*.rpt
 
-# other generated files
+# other KiCad generated files
 *.csv
 *.html
 *.net
 *.pdf
 *.svg
 *.xml
-*.zip
+*.cmp
+*.dxf
+*.ps
+*.plt
+
+# KiCad Interactive HTML BOM plugin
+*.ini
+*.html
