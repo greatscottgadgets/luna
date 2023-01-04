@@ -282,7 +282,7 @@
   (pad T14 smd circle (at 4.4 6 90) (size 0.41 0.41) (layers F.Cu F.Paste F.Mask))
   (pad T15 smd circle (at 5.2 6 90) (size 0.41 0.41) (layers F.Cu F.Paste F.Mask))
   (pad T16 smd circle (at 6 6 90) (size 0.41 0.41) (layers F.Cu F.Paste F.Mask))
-  (model ${KISYS3DMOD}/Package_BGA.3dshapes/BGA-256_14.0x14.0mm_Layout16x16_P0.8mm_Ball0.45mm_Pad0.32mm_NSMD.step
+  (model ${KICAD6_3DMODEL_DIR}/Package_BGA.3dshapes/BGA-256_14.0x14.0mm_Layout16x16_P0.8mm_Ball0.45mm_Pad0.32mm_NSMD.step
     (at (xyz 0 0 0))
     (scale (xyz 1 1 1))
     (rotate (xyz 0 0 0))

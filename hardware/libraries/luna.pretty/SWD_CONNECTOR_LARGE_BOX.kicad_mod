@@ -28,7 +28,7 @@
   (pad 8 thru_hole circle (at 1.27 -0.635) (size 1.0668 1.0668) (drill 0.7112) (layers *.Cu *.Mask))
   (pad 9 thru_hole circle (at 2.54 0.635) (size 1.0668 1.0668) (drill 0.7112) (layers *.Cu *.Mask))
   (pad 10 thru_hole circle (at 2.54 -0.635) (size 1.0668 1.0668) (drill 0.7112) (layers *.Cu *.Mask))
-  (model ${KISYS3DMOD}/Connector_IDC.3dshapes/IDC-Header_2x05_P2.54mm_Vertical.wrl
+  (model ${KICAD6_3DMODEL_DIR}/Connector_IDC.3dshapes/IDC-Header_2x05_P2.54mm_Vertical.wrl
     (offset (xyz -2.54 -0.635 -0.0762))
     (scale (xyz 0.5 0.5 0.5))
     (rotate (xyz 0 0 -90))

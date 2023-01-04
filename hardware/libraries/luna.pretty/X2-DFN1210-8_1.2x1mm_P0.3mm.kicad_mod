@@ -30,7 +30,7 @@
   (pad 6 smd rect (at 0.4375 0.15 270) (size 0.15 0.725) (layers F.Cu F.Paste F.Mask))
   (pad 7 smd rect (at 0.4375 -0.15 270) (size 0.15 0.725) (layers F.Cu F.Paste F.Mask))
   (pad 8 smd rect (at 0.4375 -0.45 270) (size 0.15 0.725) (layers F.Cu F.Paste F.Mask))
-  (model ${KISYS3DMOD}/Package_SON.3dshapes/X2SON-8_1.4x1mm_P0.35mm.wrl
+  (model ${KICAD6_3DMODEL_DIR}/Package_SON.3dshapes/X2SON-8_1.4x1mm_P0.35mm.wrl
     (at (xyz 0 0 0))
     (scale (xyz 1 0.857 1))
     (rotate (xyz 0 0 0))
