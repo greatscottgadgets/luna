@@ -4540,7 +4540,7 @@
     (property "Value" "PMEG4010ESBYL" (id 1) (at 68.58 111.76 0)
       (effects (font (size 1.27 1.27)) hide)
     )
-    (property "Footprint" "Diode_SMD:D_0402_1005Metric" (id 2) (at 64.77 114.3 0)
+    (property "Footprint" "luna:DSN1006-2" (id 2) (at 64.77 114.3 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "~" (id 3) (at 64.77 114.3 0)

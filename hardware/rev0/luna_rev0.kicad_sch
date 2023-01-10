@@ -3808,7 +3808,7 @@
       (reference "D8") (unit 1) (value "PMEG3050EP,115") (footprint "luna:SOD128")
     )
     (path "/00000000-0000-0000-0000-00005dcaa6d2/00000000-0000-0000-0000-0000604e0bb6"
-      (reference "D9") (unit 1) (value "PMEG4010ESBYL") (footprint "Diode_SMD:D_0402_1005Metric")
+      (reference "D9") (unit 1) (value "PMEG4010ESBYL") (footprint "luna:DSN1006-2")
     )
     (path "/00000000-0000-0000-0000-00005dcaa6d2/00000000-0000-0000-0000-00005db78dc3"
       (reference "D10") (unit 1) (value "ICE BLUE") (footprint "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder")
