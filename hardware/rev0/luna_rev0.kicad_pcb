@@ -9302,6 +9302,7 @@
     (property "Part Number" "PMEG4010ESBYL")
     (property "Sheetfile" "fpga_configuration.kicad_sch")
     (property "Sheetname" "FPGA Configuration and Dev Features")
+    (property "Substitution" "Diodes Inc. BAT54LP-7")
     (path "/00000000-0000-0000-0000-00005dcaa6d2/00000000-0000-0000-0000-0000604e0bb6")
     (attr smd)
     (fp_text reference "D9" (at 0 0.9 90) (layer "B.SilkS") hide
