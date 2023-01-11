@@ -2971,7 +2971,7 @@
     (in_bom yes) (on_board yes)
     (uuid 00000000-0000-0000-0000-00005dcdaef5)
     (property "Reference" "U8" (id 0) (at 208.28 79.6798 0))
-    (property "Value" "USB3343" (id 1) (at 208.28 81.9658 0))
+    (property "Value" "USB3343-CP" (id 1) (at 208.28 81.9658 0))
     (property "Footprint" "Package_DFN_QFN:VQFN-24-1EP_4x4mm_P0.5mm_EP2.45x2.45mm" (id 2) (at 193.04 83.82 0)
       (effects (font (size 1.27 1.27)) hide)
     )

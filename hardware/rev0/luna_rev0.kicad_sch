@@ -2158,7 +2158,7 @@
     (in_bom yes) (on_board yes)
     (uuid 00000000-0000-0000-0000-00005dcd8026)
     (property "Reference" "D8" (id 0) (at 53.34 119.38 0))
-    (property "Value" "PMEG3050EP,115" (id 1) (at 55.88 120.65 0)
+    (property "Value" "PMEG3050BEP,115" (id 1) (at 55.88 120.65 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Footprint" "luna:SOD128" (id 2) (at 53.34 116.84 0)
@@ -2170,7 +2170,7 @@
     (property "Manufacturer" "Nexperia" (id 4) (at 53.34 116.84 0)
       (effects (font (size 1.27 1.27)) hide)
     )
-    (property "Part Number" "PMEG3050EP,115" (id 5) (at 53.34 116.84 0)
+    (property "Part Number" "PMEG3050BEP,115" (id 5) (at 53.34 116.84 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Description" "DIODE SCHOTTKY 30V 5A SOD128" (id 6) (at 53.34 116.84 0)
@@ -2284,7 +2284,7 @@
     (in_bom yes) (on_board yes)
     (uuid 00000000-0000-0000-0000-00005ddcce15)
     (property "Reference" "D1" (id 0) (at 53.34 54.61 0))
-    (property "Value" "PMEG3050EP,115" (id 1) (at 55.88 55.88 0)
+    (property "Value" "PMEG3050BEP,115" (id 1) (at 55.88 55.88 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Footprint" "luna:SOD128" (id 2) (at 53.34 52.07 0)
@@ -2296,7 +2296,7 @@
     (property "Manufacturer" "Nexperia" (id 4) (at 53.34 52.07 0)
       (effects (font (size 1.27 1.27)) hide)
     )
-    (property "Part Number" "PMEG3050EP,115" (id 5) (at 53.34 52.07 0)
+    (property "Part Number" "PMEG3050BEP,115" (id 5) (at 53.34 52.07 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Description" "DIODE SCHOTTKY 30V 5A SOD128" (id 6) (at 53.34 52.07 0)
@@ -3784,7 +3784,7 @@
       (reference "C58") (unit 1) (value "0.1uF") (footprint "Capacitor_SMD:C_0402_1005Metric")
     )
     (path "/00000000-0000-0000-0000-00005ddcce15"
-      (reference "D1") (unit 1) (value "PMEG3050EP,115") (footprint "luna:SOD128")
+      (reference "D1") (unit 1) (value "PMEG3050BEP,115") (footprint "luna:SOD128")
     )
     (path "/00000000-0000-0000-0000-00005def5588/00000000-0000-0000-0000-000061428aef"
       (reference "D2") (unit 1) (value "RED") (footprint "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder")
@@ -3805,7 +3805,7 @@
       (reference "D7") (unit 1) (value "PURPLE") (footprint "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder")
     )
     (path "/00000000-0000-0000-0000-00005dcd8026"
-      (reference "D8") (unit 1) (value "PMEG3050EP,115") (footprint "luna:SOD128")
+      (reference "D8") (unit 1) (value "PMEG3050BEP,115") (footprint "luna:SOD128")
     )
     (path "/00000000-0000-0000-0000-00005dcaa6d2/00000000-0000-0000-0000-0000604e0bb6"
       (reference "D9") (unit 1) (value "PMEG4010ESBYL") (footprint "luna:DSN1006-2")
@@ -4171,7 +4171,7 @@
       (reference "TP41") (unit 1) (value "TestPoint") (footprint "TestPoint:TestPoint_Pad_D1.0mm")
     )
     (path "/00000000-0000-0000-0000-00005da7baf4/00000000-0000-0000-0000-00006025b245"
-      (reference "U1") (unit 1) (value "AP22811A") (footprint "Package_TO_SOT_SMD:SOT-23-5")
+      (reference "U1") (unit 1) (value "AP2171WG-7") (footprint "Package_TO_SOT_SMD:SOT-23-5")
     )
     (path "/00000000-0000-0000-0000-00005def5588/00000000-0000-0000-0000-00006050f1cf"
       (reference "U2") (unit 1) (value "74AUP2G126") (footprint "luna:X2-DFN1210-8_1.2x1mm_P0.3mm")
@@ -4195,22 +4195,22 @@
       (reference "U7") (unit 1) (value "W25Q32JVSS") (footprint "Package_SO:SOIC-8_5.23x5.23mm_P1.27mm")
     )
     (path "/00000000-0000-0000-0000-00005dcd9772/00000000-0000-0000-0000-00005dcdaef5"
-      (reference "U8") (unit 1) (value "USB3343") (footprint "Package_DFN_QFN:VQFN-24-1EP_4x4mm_P0.5mm_EP2.45x2.45mm")
+      (reference "U8") (unit 1) (value "USB3343-CP") (footprint "Package_DFN_QFN:VQFN-24-1EP_4x4mm_P0.5mm_EP2.45x2.45mm")
     )
     (path "/00000000-0000-0000-0000-00005dddb747/00000000-0000-0000-0000-00005dde2b63"
-      (reference "U9") (unit 1) (value "USB3343") (footprint "Package_DFN_QFN:VQFN-24-1EP_4x4mm_P0.5mm_EP2.45x2.45mm")
+      (reference "U9") (unit 1) (value "USB3343-CP") (footprint "Package_DFN_QFN:VQFN-24-1EP_4x4mm_P0.5mm_EP2.45x2.45mm")
     )
     (path "/00000000-0000-0000-0000-00005de77fe3/00000000-0000-0000-0000-00005dea1fc4"
       (reference "U10") (unit 1) (value "HyperRAM") (footprint "luna:BGA-24_5x5_6.0x8.0mm")
     )
     (path "/00000000-0000-0000-0000-00005dd754d4/00000000-0000-0000-0000-00005dd9aea4"
-      (reference "U11") (unit 1) (value "USB3343") (footprint "Package_DFN_QFN:VQFN-24-1EP_4x4mm_P0.5mm_EP2.45x2.45mm")
+      (reference "U11") (unit 1) (value "USB3343-CP") (footprint "Package_DFN_QFN:VQFN-24-1EP_4x4mm_P0.5mm_EP2.45x2.45mm")
     )
     (path "/00000000-0000-0000-0000-00005da7baf4/00000000-0000-0000-0000-00006025b224"
-      (reference "U12") (unit 1) (value "AP22811A") (footprint "Package_TO_SOT_SMD:SOT-23-5")
+      (reference "U12") (unit 1) (value "AP2171WG-7") (footprint "Package_TO_SOT_SMD:SOT-23-5")
     )
     (path "/00000000-0000-0000-0000-00005da7baf4/00000000-0000-0000-0000-0000602b24c1"
-      (reference "U13") (unit 1) (value "AP22811A") (footprint "Package_TO_SOT_SMD:SOT-23-5")
+      (reference "U13") (unit 1) (value "AP2171WG-7") (footprint "Package_TO_SOT_SMD:SOT-23-5")
     )
     (path "/00000000-0000-0000-0000-00005def5588/00000000-0000-0000-0000-0000605119ed"
       (reference "U14") (unit 1) (value "74AUP2G126") (footprint "luna:X2-DFN1210-8_1.2x1mm_P0.3mm")

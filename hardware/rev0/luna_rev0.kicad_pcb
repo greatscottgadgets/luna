@@ -437,7 +437,7 @@
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp e5570f66-822b-46cc-9985-aac4c9da9175)
     )
-    (fp_text value "USB3343" (at 0 3.32) (layer "F.Fab") hide
+    (fp_text value "USB3343-CP" (at 0 3.32) (layer "F.Fab") hide
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 8785e628-59f5-4b80-8610-9b72165162f6)
     )
@@ -1013,7 +1013,7 @@
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 1e2e7e5a-08cb-48af-b22e-2ec67941fd5c)
     )
-    (fp_text value "USB3343" (at 0 3.32) (layer "F.Fab") hide
+    (fp_text value "USB3343-CP" (at 0 3.32) (layer "F.Fab") hide
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 89cb690b-af83-4f61-b3cc-a6f03c28cae4)
     )
@@ -1243,7 +1243,7 @@
     (at 94.74 90.73)
     (property "Description" "DIODE SCHOTTKY 30V 5A SOD128")
     (property "Manufacturer" "Nexperia")
-    (property "Part Number" "PMEG3050EP,115")
+    (property "Part Number" "PMEG3050BEP,115")
     (property "Sheetfile" "luna_rev0.kicad_sch")
     (property "Sheetname" "")
     (path "/00000000-0000-0000-0000-00005dcd8026")
@@ -1252,7 +1252,7 @@
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 5617992b-8d71-4b8e-a421-5d178416f831)
     )
-    (fp_text value "PMEG3050EP,115" (at 0 0 180) (layer "F.SilkS") hide
+    (fp_text value "PMEG3050BEP,115" (at 0 0 180) (layer "F.SilkS") hide
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 1f65aad7-0216-406b-8e7b-e6b652c2cbf4)
     )
@@ -1444,7 +1444,7 @@
     (at 93.4 74.6 -90)
     (property "Description" "DIODE SCHOTTKY 30V 5A SOD128")
     (property "Manufacturer" "Nexperia")
-    (property "Part Number" "PMEG3050EP,115")
+    (property "Part Number" "PMEG3050BEP,115")
     (property "Sheetfile" "luna_rev0.kicad_sch")
     (property "Sheetname" "")
     (path "/00000000-0000-0000-0000-00005ddcce15")
@@ -1453,7 +1453,7 @@
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 0b54b6fa-a21f-4b6f-a708-5af4a96497cf)
     )
-    (fp_text value "PMEG3050EP,115" (at 0 0 -90) (layer "F.SilkS") hide
+    (fp_text value "PMEG3050BEP,115" (at 0 0 -90) (layer "F.SilkS") hide
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 54da4154-1e2a-47ec-906c-d8d1e68c7fcb)
     )
@@ -1816,19 +1816,19 @@
     (at 125.7 75.3 180)
     (descr "5-pin SOT23 package")
     (tags "SOT-23-5")
-    (property "Description" "IC PWR SWITCH P-CHAN 1:1 SOT25")
+    (property "Description" "IC PWR SWITCH P-CHAN 1:1 1A SOT25")
     (property "Manufacturer" "Diodes Inc.")
-    (property "Part Number" "AP22811AW5-7")
+    (property "Part Number" "AP2171WG-7")
     (property "Sheetfile" "power_supplies.kicad_sch")
     (property "Sheetname" "Power Supplies")
-    (property "Substitution" "AP22804AW5-7, AP22814AW5-7")
+    (property "Substitution" "AP22818AKEWT-7, AP22811AW5-7, AP22804AW5-7, AP22814AW5-7")
     (path "/00000000-0000-0000-0000-00005da7baf4/00000000-0000-0000-0000-00006025b245")
     (attr smd)
     (fp_text reference "U1" (at 0 -2.9) (layer "F.SilkS") hide
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 218bab10-026d-4730-904a-a2e18138952a)
     )
-    (fp_text value "AP22811A" (at 0 2.9) (layer "F.Fab") hide
+    (fp_text value "AP2171WG-7" (at 0 2.9) (layer "F.Fab") hide
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 6f39d202-2c74-42c3-8310-e600c3496cd6)
     )
@@ -1921,19 +1921,19 @@
     (at 136.3 84.2 90)
     (descr "5-pin SOT23 package")
     (tags "SOT-23-5")
-    (property "Description" "IC PWR SWITCH P-CHAN 1:1 SOT25")
+    (property "Description" "IC PWR SWITCH P-CHAN 1:1 1A SOT25")
     (property "Manufacturer" "Diodes Inc.")
-    (property "Part Number" "AP22811AW5-7")
+    (property "Part Number" "AP2171WG-7")
     (property "Sheetfile" "power_supplies.kicad_sch")
     (property "Sheetname" "Power Supplies")
-    (property "Substitution" "AP22804AW5-7, AP22814AW5-7")
+    (property "Substitution" "AP22818AKEWT-7, AP22811AW5-7, AP22804AW5-7, AP22814AW5-7")
     (path "/00000000-0000-0000-0000-00005da7baf4/00000000-0000-0000-0000-0000602b24c1")
     (attr smd)
     (fp_text reference "U13" (at 0 -2.9 90) (layer "F.SilkS") hide
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp f6c717e8-bf18-42d0-8ec7-41d9edeb64fc)
     )
-    (fp_text value "AP22811A" (at 0 2.9 90) (layer "F.Fab") hide
+    (fp_text value "AP2171WG-7" (at 0 2.9 90) (layer "F.Fab") hide
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 6f95849b-5841-4470-a5db-f0855a4f34d5)
     )
@@ -1974,19 +1974,19 @@
     (at 132.6 84.2 -90)
     (descr "5-pin SOT23 package")
     (tags "SOT-23-5")
-    (property "Description" "IC PWR SWITCH P-CHAN 1:1 SOT25")
+    (property "Description" "IC PWR SWITCH P-CHAN 1:1 1A SOT25")
     (property "Manufacturer" "Diodes Inc.")
-    (property "Part Number" "AP22811AW5-7")
+    (property "Part Number" "AP2171WG-7")
     (property "Sheetfile" "power_supplies.kicad_sch")
     (property "Sheetname" "Power Supplies")
-    (property "Substitution" "AP22804AW5-7, AP22814AW5-7")
+    (property "Substitution" "AP22818AKEWT-7, AP22811AW5-7, AP22804AW5-7, AP22814AW5-7")
     (path "/00000000-0000-0000-0000-00005da7baf4/00000000-0000-0000-0000-00006025b224")
     (attr smd)
     (fp_text reference "U12" (at 0 -2.9 90) (layer "F.SilkS") hide
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 770153a4-81bd-4833-a51d-42eace2fe484)
     )
-    (fp_text value "AP22811A" (at 0 2.9 90) (layer "F.Fab") hide
+    (fp_text value "AP2171WG-7" (at 0 2.9 90) (layer "F.Fab") hide
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp be33571b-fb16-483a-ba31-607d39ecc750)
     )
@@ -2944,7 +2944,7 @@
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 2b9be0b5-90f0-44a4-b292-dc6c7dbbdbde)
     )
-    (fp_text value "USB3343" (at 0 3.32) (layer "F.Fab") hide
+    (fp_text value "USB3343-CP" (at 0 3.32) (layer "F.Fab") hide
       (effects (font (size 1 1) (thickness 0.15)))
       (tstamp 51c497c5-375a-474c-aa7d-524ae4746fe6)
     )
@@ -9302,7 +9302,7 @@
     (property "Part Number" "PMEG4010ESBYL")
     (property "Sheetfile" "fpga_configuration.kicad_sch")
     (property "Sheetname" "FPGA Configuration and Dev Features")
-    (property "Substitution" "Diodes Inc. BAT54LP-7")
+    (property "Substitution" "Diodes Inc. BAT54LP-7, Micro Commercial SM5819L2-TP")
     (path "/00000000-0000-0000-0000-00005dcaa6d2/00000000-0000-0000-0000-0000604e0bb6")
     (attr smd)
     (fp_text reference "D9" (at 0 0.9 90) (layer "B.SilkS") hide
