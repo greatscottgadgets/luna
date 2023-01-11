@@ -5,12 +5,11 @@
   (paper "A4")
 
   (title_block
-    (title "LUNA: Sideband USB PHY")
-    (date "2021-03-10")
-    (rev "r0")
-    (company "Copyright 2019-2021 Great Scott Gadgets")
-    (comment 1 "Katherine J. Temkin")
-    (comment 3 "Licensed under the CERN-OHL-P v2")
+    (title "LUNA USB Multitool")
+    (date "2023-01-11")
+    (rev "r0.5")
+    (company "Copyright 2019-2023 Great Scott Gadgets")
+    (comment 1 "Licensed under the CERN-OHL-P v2")
   )
 
   (lib_symbols
