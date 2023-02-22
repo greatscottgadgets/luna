@@ -130,11 +130,6 @@ class USBAnalyzerApplet(Elaboratable):
         - DRAM backing for analysis
     """
 
-
-    def __init__(self, usb_speed=USB_SPEED_FULL):
-        self.usb_speed = usb_speed
-
-
     def create_descriptors(self):
         """ Create the descriptors we want to use for our device. """
 
@@ -153,6 +148,7 @@ class USBAnalyzerApplet(Elaboratable):
             d.iManufacturer      = "LUNA"
             d.iProduct           = "USB Analyzer"
             d.iSerialNumber      = "[autodetect serial here]"
+            d.bcdDevice          = 0.01
 
             d.bNumConfigurations = 1
 
@@ -197,7 +193,7 @@ class USBAnalyzerApplet(Elaboratable):
 
             # Set our mode to non-driving and to the desired speed.
             utmi.op_mode     .eq(0b01),
-            utmi.xcvr_select .eq(self.usb_speed),
+            utmi.xcvr_select .eq(state.current[1:3]),
 
             # Disable all of our terminations, as we want to participate in
             # passive observation.
@@ -270,11 +266,11 @@ class USBAnalyzerConnection:
 
 
 
-    def build_and_configure(self, capture_speed):
+    def build_and_configure(self):
         """ Builds the LUNA analyzer applet and configures the FPGA with it. """
 
         # Create the USBAnalyzer we want to work with.
-        analyzer = USBAnalyzerApplet(usb_speed=capture_speed)
+        analyzer = USBAnalyzerApplet()
 
         # Build and upload the analyzer.
         # FIXME: use a temporary build directory
