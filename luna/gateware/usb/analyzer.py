@@ -30,11 +30,15 @@ class USBAnalyzer(Elaboratable):
 
     idle: Signal(), output
         Asserted iff the analyzer is not currently receiving data.
+    stopped: Signal(), output
+        Asserted iff the analyzer is stopped and not capturing packets.
     overrun: Signal(), output
         Asserted iff the analyzer has received more data than it can store in its internal buffer.
         Occurs if :attr:``stream`` is not being read quickly enough.
     capturing: Signal(), output
         Asserted iff the analyzer is currently capturing a packet.
+    discarding: Signal(), output
+        Asserted iff the analyzer is discarding the contents of its internal buffer.
 
 
     Parameters
@@ -74,8 +78,10 @@ class USBAnalyzer(Elaboratable):
 
         self.capture_enable = Signal()
         self.idle           = Signal()
+        self.stopped        = Signal()
         self.overrun        = Signal()
         self.capturing      = Signal()
+        self.discarding     = Signal()
 
         # Diagnostic I/O.
         self.sampling       = Signal()
@@ -138,9 +144,17 @@ class USBAnalyzer(Elaboratable):
             data_push  .eq(fifo_new_data & ~fifo_full)
         ]
 
+        # If discarding data, set the count to zero.
+        with m.If(self.discarding):
+            m.d.usb += [
+                fifo_count.eq(0),
+                read_location.eq(0),
+                write_location.eq(0),
+            ]
+
         # If we have both a read and a write, don't update the count,
         # as we've both added one and subtracted one.
-        with m.If(data_push & data_pop):
+        with m.Elif(data_push & data_pop):
             pass
 
         # Otherwise, add when data's added, and subtract when data's removed.
@@ -156,8 +170,10 @@ class USBAnalyzer(Elaboratable):
         with m.FSM(domain="usb") as f:
             m.d.comb += [
                 self.idle      .eq(f.ongoing("AWAIT_START") | f.ongoing("AWAIT_PACKET")),
+                self.stopped   .eq(f.ongoing("AWAIT_START") | f.ongoing("OVERRUN")),
                 self.overrun   .eq(f.ongoing("OVERRUN")),
                 self.capturing .eq(f.ongoing("CAPTURE_PACKET")),
+                self.discarding.eq(self.stopped & self.capture_enable),
             ]
 
             # AWAIT_START: wait for capture to be enabled, but don't start mid-packet.
