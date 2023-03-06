@@ -47,6 +47,10 @@ class USBInTransferManager(Elaboratable):
         not wait further for the input stream to end, or to have a max-length packet; it will send a
         packet as soon as possible.
 
+    discard: Signal(), input
+        If high, data that is currently buffered will be discarded. The module will not buffer further
+        data, or send any further packets, until this signal is low again.
+
     data_pid: Signal(2), output
         The LSBs of the data PID to be issued with the current packet. Used with :attr:`packet_stream`
         to indicate the PID of the transmitted packet.
@@ -89,6 +93,7 @@ class USBInTransferManager(Elaboratable):
         self.packet_stream    = USBInStreamInterface()
 
         self.flush            = Signal()
+        self.discard          = Signal()
 
         # Note: we'll start with DATA1 in our register; as we'll toggle our data PID
         # before we send.
@@ -196,8 +201,17 @@ class USBInTransferManager(Elaboratable):
             buffer_write.en              .eq(in_stream.valid & in_stream.ready)
         ]
 
+        # Set both fill counts to zero when we discard data.
+        with m.If(self.discard):
+            m.d.usb += [
+                write_fill_count    .eq(0),
+                write_stream_ended  .eq(0),
+                read_fill_count     .eq(0),
+                read_stream_ended   .eq(0),
+            ]
+
         # Increment our fill count whenever we accept new data.
-        with m.If(buffer_write.en):
+        with m.Elif(buffer_write.en):
             m.d.usb += write_fill_count.eq(write_fill_count + 1)
 
         # If the stream ends while we're adding data to the buffer, mark this as an ended stream.
@@ -215,8 +229,8 @@ class USBInTransferManager(Elaboratable):
         # - We have some data in the buffer to flush.
         packet_to_flush = self.flush & (write_fill_count != 0)
 
-        # We're ready to send a packet when either of the above conditions is met.
-        packet_ready = packet_completing | packet_to_flush
+        # We're ready to send a packet when either of the above conditions is met, and not discarding.
+        packet_ready = (packet_completing | packet_to_flush) & ~self.discard
 
         # Shortcut for when we need to deal with an in token.
         # Pulses high an interpacket delay after receiving an IN token.
@@ -252,8 +266,14 @@ class USBInTransferManager(Elaboratable):
             with m.State("WAIT_TO_SEND"):
                 m.d.usb += send_position .eq(0),
 
-                # Once we get an IN token, move to sending a packet.
-                with m.If(in_token_received):
+                # If discarding data, go back to waiting for new data.
+                with m.If(self.discard):
+                    # Undo the data PID toggle.
+                    m.d.usb += self.data_pid[0].eq(~self.data_pid[0]),
+                    m.next = "WAIT_FOR_DATA"
+
+                # Otherwise, once we get an IN token, move to sending a packet.
+                with m.Elif(in_token_received):
 
                     # If we have a packet to send, send it.
                     with m.If(read_fill_count):
@@ -308,8 +328,12 @@ class USBInTransferManager(Elaboratable):
             # received it correctly. We'll wait to see if the host ACKs.
             with m.State("WAIT_FOR_ACK"):
 
+                # If discarding data, go back to waiting for new data.
+                with m.If(self.discard):
+                    m.next = "WAIT_FOR_DATA"
+
                 # If the host does ACK...
-                with m.If(self.handshakes_in.ack):
+                with m.Elif(self.handshakes_in.ack):
                     # ... clear the data we've sent from our buffer.
                     m.d.usb += read_fill_count.eq(0)
 
@@ -343,9 +367,9 @@ class USBInTransferManager(Elaboratable):
                         m.next = "WAIT_FOR_DATA"
 
 
-                # If the host starts a new packet without ACK'ing, we'll need to retransmit.
+                # If the host starts a new packet without ACK'ing, we'll need to retransmit, unless discarding.
                 # We'll move back to our "wait for token" state without clearing our buffer.
-                with m.If(self.tokenizer.new_token):
+                with m.If(self.tokenizer.new_token & ~self.discard):
                     m.next = 'WAIT_TO_SEND'
 
         return m
