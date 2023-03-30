@@ -18,6 +18,7 @@ from .cynthion_r0_1 import CynthionPlatformRev0D1
 from .cynthion_r0_2 import CynthionPlatformRev0D2
 from .cynthion_r0_3 import CynthionPlatformRev0D3
 from .cynthion_r0_4 import CynthionPlatformRev0D4
+from .cynthion_r1 import CynthionPlatformRev1
 from .daisho    import DaishoPlatform
 from .amalthea  import AmaltheaPlatformRev0D1
 
@@ -26,7 +27,7 @@ from .core      import NullPin
 
 
 # Stores the latest platform; for reference / automagic.
-LATEST_PLATFORM = CynthionPlatformRev0D4
+LATEST_PLATFORM = CynthionPlatformRev1
 
 
 # Table mapping hardware revision numbers to their platform objects.
@@ -35,6 +36,7 @@ PLATFORM_FOR_REVISION = {
     (0,   2): CynthionPlatformRev0D2,
     (0,   3): CynthionPlatformRev0D3,
     (0,   4): CynthionPlatformRev0D4,
+    (1,   0): CynthionPlatformRev1,
     (254, 1): AmaltheaPlatformRev0D1,
     (255, 0): DaishoPlatform
 }
