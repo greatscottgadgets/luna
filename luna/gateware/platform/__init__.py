@@ -1,7 +1,7 @@
 #
 # This file is part of LUNA.
 #
-# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# Copyright (c) 2020-2023 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
@@ -14,10 +14,10 @@ import importlib.util
 from amaranth import Record
 from amaranth.vendor.lattice_ecp5 import LatticeECP5Platform
 
-from .luna_r0_1 import LUNAPlatformRev0D1
-from .luna_r0_2 import LUNAPlatformRev0D2
-from .luna_r0_3 import LUNAPlatformRev0D3
-from .luna_r0_4 import LUNAPlatformRev0D4
+from .cynthion_r0_1 import CynthionPlatformRev0D1
+from .cynthion_r0_2 import CynthionPlatformRev0D2
+from .cynthion_r0_3 import CynthionPlatformRev0D3
+from .cynthion_r0_4 import CynthionPlatformRev0D4
 from .daisho    import DaishoPlatform
 from .amalthea  import AmaltheaPlatformRev0D1
 
@@ -26,15 +26,15 @@ from .core      import NullPin
 
 
 # Stores the latest platform; for reference / automagic.
-LATEST_PLATFORM = LUNAPlatformRev0D4
+LATEST_PLATFORM = CynthionPlatformRev0D4
 
 
-# Table mapping LUNA revision numbers to their platform objects.
+# Table mapping hardware revision numbers to their platform objects.
 PLATFORM_FOR_REVISION = {
-    (0,   1): LUNAPlatformRev0D1,
-    (0,   2): LUNAPlatformRev0D2,
-    (0,   3): LUNAPlatformRev0D3,
-    (0,   4): LUNAPlatformRev0D4,
+    (0,   1): CynthionPlatformRev0D1,
+    (0,   2): CynthionPlatformRev0D2,
+    (0,   3): CynthionPlatformRev0D3,
+    (0,   4): CynthionPlatformRev0D4,
     (254, 1): AmaltheaPlatformRev0D1,
     (255, 0): DaishoPlatform
 }

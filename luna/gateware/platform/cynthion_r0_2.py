@@ -1,54 +1,34 @@
 #
 # This file is part of LUNA.
 #
-# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# Copyright (c) 2020-2023 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
 
-from amaranth.build import Resource, Subsignal, Pins, PinsN, Attrs, Clock, DiffPairs, Connector
+from amaranth.build import *
 from amaranth.vendor.lattice_ecp5 import LatticeECP5Platform
+from amaranth_boards.resources import *
 
 from .core import LUNAApolloPlatform
 from ..architecture.car import LunaECP5DomainGenerator
 
-__all__ = ["LUNAPlatformR01"]
+__all__ = ["CynthionPlatformRev0D2"]
 
 #
-# Note that r0.1+ have D+/D- swapped to avoid having to cross D+/D- in routing.
+# Note that r0.2+ have D+/D- swapped to avoid having to cross D+/D- in routing.
 #
 # This is supported by a PHY feature that allows you to swap pins 13 + 14.
-# You'll need to set
 #
 
-def ULPIResource(name, data_sites, clk_site, dir_site, nxt_site, stp_site, reset_site):
-    """ Generates a set of resources for a ULPI-connected USB PHY. """
+class CynthionPlatformRev0D2(LUNAApolloPlatform, LatticeECP5Platform):
+    """ Board description for the pre-release r0.2 revision of Cynthion. """
 
-    return Resource(name, 0,
-        Subsignal("data",  Pins(data_sites,  dir="io")),
-        Subsignal("clk",   Pins(clk_site,    dir="o" )),
-        Subsignal("dir",   Pins(dir_site,    dir="i" )),
-        Subsignal("nxt",   Pins(nxt_site,    dir="i" )),
-        Subsignal("stp",   Pins(stp_site,    dir="o" )),
-        Subsignal("rst",   PinsN(reset_site, dir="o" )),
-        Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")
-    )
-
-
-class LUNAPlatformRev0D1(LUNAApolloPlatform, LatticeECP5Platform):
-    """ Board description for the pre-release r0.1 revision of LUNA. """
-
-    name        = "LUNA r0.1"
+    name        = "Cynthion r0.2"
 
     device      = "LFE5U-12F"
     package     = "BG256"
-
-    # Different r0.1s have been produced with different speed grades; but there's
-    # some evidence (and some testing) that all of them are effectively speed grade 8.
-    # It's possible all ECP5 binning is artificial.
-    #
-    # We'll assume speed grade 8 unless the user overrides it on the command line.
-    speed       = os.getenv("LUNA_SPEED_GRADE", "8")
+    speed       = os.getenv("ECP5_SPEED_GRADE", "8")
 
     default_clk = "clk_60MHz"
 
@@ -81,9 +61,8 @@ class LUNAPlatformRev0D1(LUNAApolloPlatform, LatticeECP5Platform):
     # This is the spot to put any platform-specific vendor registers that need
     # to be written.
     ulpi_extra_registers = {
-        0x39: 0b000110 # USB3343: swap D+ and D- to match the LUNA boards
+        0x39: 0b000110 # USB3343: swap D+ and D- to match the hardware design
     }
-
 
 
     #
@@ -92,7 +71,7 @@ class LUNAPlatformRev0D1(LUNAApolloPlatform, LatticeECP5Platform):
     resources   = [
 
         # Primary, discrete 60MHz oscillator.
-        Resource("clk_60MHz", 0, Pins("A8", dir="i"),
+        Resource("clk_60MHz", 0, Pins("A7", dir="i"),
             Clock(60e6), Attrs(IO_TYPE="LVCMOS33")),
 
         # Connection to our SPI flash; can be used to work with the flash
@@ -105,65 +84,56 @@ class LUNAPlatformRev0D1(LUNAApolloPlatform, LatticeECP5Platform):
             Subsignal("sdi",  Pins("T8",  dir="o")),
             Subsignal("sdo",  Pins("T7",  dir="i")),
 
-            # In r0.1, the chip select line can either be driven by the FPGA
+            # In r0.2, the chip select line can either be driven by the FPGA
             # or by the Debug Controller. Accordingly, we'll mark the line as
             # bidirectional, and let the user decide.
             Subsignal("cs",   PinsN("N8", dir="io")),
             Attrs(IO_TYPE="LVCMOS33")
         ),
 
-        #
-        # Note: r0.1 has a DFM issue that makes it difficult to solder a BGA with
-        # reliable connections on the intended SCK pin (P12), and lacks a CS pin on the
-        # debug SPI; which seems like a silly omission.
-        #
-        # Accordingly, we're mapping the debug SPI and UART over the same pins, as the
-        # microcontroller can use either.
-        #
-
         # UART connected to the debug controller; can be routed to a host via CDC-ACM.
-        Resource("uart", 0,
-            Subsignal("rx",   Pins("R14", dir="i")),
-            Subsignal("tx",   Pins("T14", dir="o")),
-            Attrs(IO_TYPE="LVCMOS33")
-        ),
-
+        UARTResource(0, rx="R14", tx="T14", attrs=Attrs(IO_TYPE="LVCMOS33")),
 
         # SPI bus connected to the debug controller, for simple register exchanges.
-        # Note that the Debug Controller is the master on this bus.
+        # Note that the Debug Controller is the controller on this bus.
         Resource("debug_spi", 0,
-            Subsignal("sck",  Pins( "R14", dir="i")),
+            Subsignal("sck",  Pins( "R13", dir="i")),
             Subsignal("sdi",  Pins( "P13", dir="i")),
             Subsignal("sdo",  Pins( "P11", dir="o")),
-            Subsignal("cs",   PinsN("T14", dir="i")),
+            Subsignal("cs",   PinsN("T13", dir="i")),
             Attrs(IO_TYPE="LVCMOS33")
         ),
 
         # FPGA-connected LEDs.
-        Resource("led",  5, PinsN("P15", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led",  4, PinsN("N16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led",  3, PinsN("M15", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led",  2, PinsN("M16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led",  1, PinsN("L15", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("led",  0, PinsN("L16", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        *LEDResources(pins="L16 L15 M16 M15 N16 P15", attrs=Attrs(IO_TYPE="LVCMOS33"), invert=True),
 
         # USB PHYs
-        ULPIResource("sideband_phy",
-            data_sites="R2 R1 P2 P1 N1 M2 M1 L2", clk_site="R4",
-            dir_site="T3", nxt_site="T2", stp_site="T4", reset_site="R3"),
-        ULPIResource("host_phy",
-            data_sites="G2 G1 F2 F1 E1 D1 C1 B1", clk_site="K2",
-            dir_site="J1", nxt_site="H2", stp_site="J2", reset_site="K1"),
-        ULPIResource("target_phy",
-            data_sites="D16 E15 E16 F15 F16 G15 J16 K16", clk_site="B15",
-            dir_site="C15", nxt_site="C16", stp_site="B16", reset_site="G16"),
+        ULPIResource("control_phy", 0,
+            data="R2 R1 P2 P1 N1 M2 M1 L2", clk="R4", clk_dir='o',
+            dir="T3", nxt="T2", stp="T4", rst="R3", rst_invert=True,
+            attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
+        ULPIResource("aux_phy", 0,
+            data="G2 G1 F2 F1 E1 D1 C1 B1", clk="K2", clk_dir='o',
+            dir="J1", nxt="H2", stp="J2", rst="K1", rst_invert=True,
+            attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
+        ULPIResource("target_phy", 0,
+            data="D16 E15 E16 F15 F16 G15 J16 K16", clk="B15", clk_dir='o',
+            dir="C15", nxt="C16", stp="B16", rst="G16", rst_invert=True,
+            attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
 
-        # Target port power switching
-        # Note: the r0.1 boards that have been produced incorrectly use the AP22814B
-        # instead of the AP22814A. This inverts the load-switch enables.
-        #
-        Resource("power_a_port",       0, PinsN("C14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
-        Resource("pass_through_vbus",  0, PinsN("D14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        # legacy USB port names
+        ULPIResource("sideband_phy", 0,
+            data="R2 R1 P2 P1 N1 M2 M1 L2", clk="R4", clk_dir='o',
+            dir="T3", nxt="T2", stp="T4", rst="R3", rst_invert=True,
+            attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
+        ULPIResource("host_phy", 0,
+            data="G2 G1 F2 F1 E1 D1 C1 B1", clk="K2", clk_dir='o',
+            dir="J1", nxt="H2", stp="J2", rst="K1", rst_invert=True,
+            attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
+
+        # Target port power switching.
+        Resource("power_a_port",       0, Pins("C14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("pass_through_vbus",  0, Pins("D14", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
         Resource("target_vbus_fault",  0, Pins("K15", dir="i"), Attrs(IO_TYPE="LVCMOS33")),
 
         # HyperRAM (1V8 domain).
@@ -187,18 +157,16 @@ class LUNAPlatformRev0D1(LUNAApolloPlatform, LatticeECP5Platform):
     ]
 
     connectors = [
-
-        # User I/O connector.
         Connector("user_io", 0, """
             A5  -  A2
             A4  -  A3
         """)
-
     ]
 
     def toolchain_prepare(self, fragment, name, **kwargs):
         overrides = {
-            'ecppack_opts': '--compress --idcode {} --freq 38.8'.format(0x21111043)
+            'ecppack_opts': '--compress --freq 38.8'
         }
 
         return super().toolchain_prepare(fragment, name, **overrides, **kwargs)
+
