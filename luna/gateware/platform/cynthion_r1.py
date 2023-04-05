@@ -168,7 +168,7 @@ class CynthionPlatformRev1(LUNAApolloPlatform, LatticeECP5Platform):
             Subsignal("pwrdn", PinsN("C7", dir="o" )),
             Subsignal("slow",  Pins( "D5", dir="io")),
             Subsignal("gpio",  Pins( "D7", dir="io")),
-            Attrs(IO_TYPE="LVCMOS33", Attrs(PULLMODE="UP"))
+            Attrs(IO_TYPE="LVCMOS33", PULLMODE="UP")
         ),
 
         # HyperRAM
