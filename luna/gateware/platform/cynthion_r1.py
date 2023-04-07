@@ -156,7 +156,7 @@ class CynthionPlatformRev1(LUNAApolloPlatform, LatticeECP5Platform):
         # The TARGET C switch is enabled by default, even when Cynthion is
         # powered off, enabling VBUS passthrough from TARGET C to TARGET A.
 
-        Resource("target_c_vbus_en",   0, Pins("K5", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("target_c_vbus_en",   0, PinsN("K5", dir="o"), Attrs(IO_TYPE="LVCMOS33", PULLMODE="UP")),
         Resource("control_vbus_en",    0, Pins("L1", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
         Resource("aux_vbus_en",        0, Pins("L2", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
         Resource("target_a_discharge", 0, Pins("K4", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
