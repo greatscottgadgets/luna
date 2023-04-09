@@ -70,7 +70,7 @@ class SetupFIFOInterface(Peripheral, Elaboratable):
         #
         # IRQ / Events
         #
-        self.setup_received = self.event(desc="""
+        self.setup_received = self.event(mode="rise", desc="""
             Interrupt that triggers when a new SETUP packet is ready to be read.
         """)
 
@@ -228,7 +228,7 @@ class InFIFOInterface(Peripheral, Elaboratable):
         # Interrupts
         #
 
-        self._done_irq = self.event(name="done", desc="""
+        self._done_irq = self.event(mode="rise", name="done", desc="""
             Indicates that the host has successfully transferred an ``IN`` packet,
             and that the FIFO is now empty.
         """)
@@ -548,7 +548,7 @@ class OutFIFOInterface(Peripheral, Elaboratable):
         # Interrupts.
         #
 
-        self._done_irq = self.event(name="done", desc="""
+        self._done_irq = self.event(mode="rise", name="done", desc="""
             Indicates that an ``OUT`` packet has successfully been transferred
             from the host.  This bit must be cleared in order to receive
             additional packets.

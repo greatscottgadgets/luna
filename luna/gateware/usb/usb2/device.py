@@ -675,7 +675,7 @@ try:
                 2 => Low, and 3 => SuperSpeed (incl SuperSpeed+).
             """)
 
-            self._reset_irq = self.event(name="reset", desc="""
+            self._reset_irq = self.event(mode="rise", name="reset", desc="""
                 Interrupt that occurs when a USB bus reset is received.
             """)
 
