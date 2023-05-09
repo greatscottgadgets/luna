@@ -182,10 +182,10 @@ class CynthionPlatformRev1D0(LUNAApolloPlatform, LatticeECP5Platform):
         ),
 
         # User I/O connections.
-        Resource("user_pmod", 0, Pins("C9 C8 D11 C12 B8 D8 D9 C10", dir="io"), Attrs(IO_TYPE="LVCMOS33")),
+        Resource("user_pmod", 0, Pins("C9 B9 D11 C12 C8 D8 D9 C10", dir="io"), Attrs(IO_TYPE="LVCMOS33")),
         Resource("user_pmod", 1, Pins("B4 B5 B6 B7 C5 A5 A6 A7", dir="io"), Attrs(IO_TYPE="LVCMOS33")),
         Resource("user_mezzanine", 0,
-                Pins("B9 A9 B10 A10 B11 D14 C14 F14 E14 G13 G12 C16 C15 B16 B15 A14 B13 A13 D13 A12 B12 A11", dir="io"),
+                Pins("B8 A9 B10 A10 B11 D14 C14 F14 E14 G13 G12 C16 C15 B16 B15 A14 B13 A13 D13 A12 B12 A11", dir="io"),
                 Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
     ]
 
@@ -193,7 +193,7 @@ class CynthionPlatformRev1D0(LUNAApolloPlatform, LatticeECP5Platform):
         Connector("pmod", 0, "C9 C8 D11 C12 - - B8 D8 D9 C10 - -"), # PMOD A
         Connector("pmod", 1, "B4 B5 B6 B7 - - C5 A5 A6 A7 - -"), # PMOD B
         Connector("mezzanine", 0,
-            "- - B9 A9 B10 A10 B11 D14 C14 F14 E14 G13 G12 - - - - C16 C15 B16 B15 A14 B13 A13 D13 A12 B12 A11 - -"),
+            "- - B8 A9 B10 A10 B11 D14 C14 F14 E14 G13 G12 - - - - C16 C15 B16 B15 A14 B13 A13 D13 A12 B12 A11 - -"),
     ]
 
     def toolchain_prepare(self, fragment, name, **kwargs):
