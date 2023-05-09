@@ -97,7 +97,7 @@ class CynthionPlatformRev0D7(LUNAApolloPlatform, LatticeECP5Platform):
         Resource("int", 0, Pins("R8", dir="o"), Attrs(IO_TYPE="LVCMOS33")),
 
         # USER button
-        Resource("button_user", 0, PinsN("M14", dir="i"), Attrs(IO_TYPE="LVCMOS33", PULLMODE="UP")),
+        Resource("button_user", 0, PinsN("M14", dir="i"), Attrs(IO_TYPE="LVCMOS33", PULLMODE="NONE")),
 
         # output signal connected to PROGRAMN to trigger FPGA reconfiguration
         Resource("self_program", 0, PinsN("T13", dir="o"), Attrs(IO_TYPE="LVCMOS33", PULLMODE="UP")),
