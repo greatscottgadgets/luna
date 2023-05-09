@@ -13,12 +13,12 @@ from amaranth_boards.resources import *
 from .core import LUNAApolloPlatform
 from ..architecture.car import LunaECP5DomainGenerator
 
-__all__ = ["CynthionPlatformRev1"]
+__all__ = ["CynthionPlatformRev1D0"]
 
-class CynthionPlatformRev1(LUNAApolloPlatform, LatticeECP5Platform):
-    """ Board description for Cynthion r1. """
+class CynthionPlatformRev1D0(LUNAApolloPlatform, LatticeECP5Platform):
+    """ Board description for Cynthion r1.0 """
 
-    name        = "Cynthion r1"
+    name        = "Cynthion r1.0"
 
     device      = "LFE5U-12F"
     package     = "BG256"
