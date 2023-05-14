@@ -17,6 +17,7 @@ from datetime import datetime
 from enum import IntEnum
 
 from amaranth                          import Signal, Elaboratable, Module
+from amaranth.build.res                import ResourceError
 from usb_protocol.emitters             import DeviceDescriptorCollection
 from usb_protocol.types                import USBRequestType
 
@@ -183,10 +184,13 @@ class USBAnalyzerApplet(Elaboratable):
 
         # Strap our power controls to be in VBUS passthrough by default,
         # on the target port.
-        m.d.comb += [
-            platform.request("power_a_port").o      .eq(0),
-            platform.request("pass_through_vbus").o .eq(1),
-        ]
+        try:
+            m.d.comb += [
+                platform.request("power_a_port").o      .eq(0),
+                platform.request("pass_through_vbus").o .eq(1),
+            ]
+        except ResourceError:
+            pass
 
         # Set up our parameters.
         m.d.comb += [
@@ -203,7 +207,10 @@ class USBAnalyzerApplet(Elaboratable):
         ]
 
         # Create our USB uplink interface...
-        uplink_ulpi = platform.request("host_phy")
+        try:
+            uplink_ulpi = platform.request("control_phy")
+        except ResourceError:
+            uplink_ulpi = platform.request("host_phy")
         m.submodules.usb = usb = USBDevice(bus=uplink_ulpi)
 
         # Add our standard control endpoint to the device.
