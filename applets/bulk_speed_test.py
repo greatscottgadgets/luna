@@ -13,7 +13,13 @@ import time
 
 import usb1
 
-from luna.gateware.applets.speed_test import USBInSpeedTestDevice, USBInSuperSpeedTestDevice, BULK_ENDPOINT_NUMBER
+from luna.gateware.applets.speed_test import (
+    USBSpeedTestDevice,
+    USBInSuperSpeedTestDevice,
+    BULK_ENDPOINT_NUMBER,
+    VENDOR_ID,
+    PRODUCT_ID,
+)
 
 from luna import top_level_cli, configure_default_logging
 
@@ -26,8 +32,12 @@ TEST_TRANSFER_SIZE = 16 * 1024
 TRANSFER_QUEUE_DEPTH = 16
 
 
-def run_speed_test():
+def run_speed_test(direction=usb1.ENDPOINT_IN):
     """ Runs a simple speed test, and reports throughput. """
+
+    if os.getenv('LUNA_SUPERSPEED') and not direction == usb1.ENDPOINT_IN:
+        logging.error("The SuperSpeed test device does not currently support OUT transfers.")
+        sys.exit(1)
 
     total_data_exchanged = 0
     failed_out = False
@@ -73,7 +83,7 @@ def run_speed_test():
     with usb1.USBContext() as context:
 
         # Grab a reference to our device...
-        device = context.openByVendorIDAndProductID(0x16d0, 0x0f3b)
+        device = context.openByVendorIDAndProductID(VENDOR_ID, PRODUCT_ID)
 
         # ... and claim its bulk interface.
         device.claimInterface(0)
@@ -84,7 +94,13 @@ def run_speed_test():
 
             # Allocate the transfer...
             transfer = device.getTransfer()
-            transfer.setBulk(0x80 | BULK_ENDPOINT_NUMBER, TEST_TRANSFER_SIZE, callback=_transfer_completed, timeout=1000)
+            endpoint = direction | BULK_ENDPOINT_NUMBER
+
+            if direction == usb1.ENDPOINT_IN:
+                transfer.setBulk(endpoint, TEST_TRANSFER_SIZE, callback=_transfer_completed, timeout=1000)
+            else:
+                out_test_data = bytearray([x % 256 for x in range(512)])
+                transfer.setBulk(endpoint, out_test_data, callback=_transfer_completed, timeout=1000)
 
             # ... and store it.
             active_transfers.append(transfer)
@@ -108,7 +124,10 @@ def run_speed_test():
         # Cancel all of our active transfers.
         for transfer in active_transfers:
             if transfer.isSubmitted():
-                transfer.cancel()
+                try:
+                    transfer.cancel()
+                except:
+                    pass
 
         # If we failed out; indicate it.
         if (failed_out):
@@ -122,25 +141,37 @@ def run_speed_test():
 
 if __name__ == "__main__":
 
-    # If our environment is suggesting we rerun tests, do so.
-    if os.getenv('LUNA_RERUN_TEST'):
-        configure_default_logging()
-        logging.info("Running speed test without rebuilding...")
-        run_speed_test()
+    configure_default_logging()
 
-    # Otherwise, build and run our tests.
+    # If our environment is suggesting we rerun tests without rebuilding, do so.
+    if os.getenv('LUNA_RERUN_TEST'):
+        logging.info("Running speed test without rebuilding...")
+
+    # Otherwise, rebuild.
     else:
         # Selectively create our device to be either USB3 or USB2 based on the
         # SuperSpeed variable.
         if os.getenv('LUNA_SUPERSPEED'):
             device = top_level_cli(USBInSuperSpeedTestDevice)
         else:
-            device = top_level_cli(USBInSpeedTestDevice,
+            device = top_level_cli(USBSpeedTestDevice,
                                    fs_only=bool(os.getenv('LUNA_FULL_ONLY')))
 
-        logging.info("Giving the device time to connect...")
-        time.sleep(5)
-
+        # Give the device a moment to connect.
         if device is not None:
-            logging.info(f"Starting bulk in speed test.")
-            run_speed_test()
+            logging.info("Giving the device time to connect...")
+            time.sleep(5)
+
+    # Run our Bulk IN test.
+    logging.info(f"Starting Bulk IN speed test.")
+    run_speed_test(direction=usb1.ENDPOINT_IN)
+
+    # Run our Bulk OUT speed test.
+    #
+    # Note: The SuperSpeed test device does not yet support an OUT speed test.
+    if os.getenv('LUNA_SUPERSPEED'):
+        logging.info("Skipping Bulk OUT speed test.")
+        logging.info("This test is not yet supported on SuperSpeed devices.")
+    else:
+        logging.info(f"Starting Bulk OUT speed test.")
+        run_speed_test(direction=usb1.ENDPOINT_OUT)
