@@ -20,7 +20,7 @@ class CynthionPlatformRev0D7(LUNAApolloPlatform, LatticeECP5Platform):
 
     name        = "Cynthion r0.7"
 
-    device      = "LFE5U-12F"
+    device      = "LFE5U-25F"
     package     = "BG256"
     speed       = os.getenv("ECP5_SPEED_GRADE", "8")
 
