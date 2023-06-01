@@ -211,7 +211,7 @@ class USBAnalyzer(Elaboratable):
                     # Optimization: if we didn't receive any data, there's no need
                     # to create a packet. Clear our header from the FIFO and disarm.
                     with m.If(packet_size == 0):
-                        m.next = "START"
+                        m.next = "IDLE"
                         m.d.usb += [
                             write_location.eq(header_location)
                         ]
@@ -244,7 +244,7 @@ class USBAnalyzer(Elaboratable):
                     mem_write_port.en    .eq(1),
                     fifo_new_data        .eq(1)
                 ]
-                m.next = "START"
+                m.next = "IDLE"
 
 
             # BABBLE -- handles the case in which we've received a packet beyond
