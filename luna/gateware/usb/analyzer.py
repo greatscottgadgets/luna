@@ -155,23 +155,23 @@ class USBAnalyzer(Elaboratable):
         #
         with m.FSM(domain="usb") as f:
             m.d.comb += [
-                self.idle      .eq(f.ongoing("START") | f.ongoing("IDLE")),
+                self.idle      .eq(f.ongoing("AWAIT_START") | f.ongoing("AWAIT_PACKET")),
                 self.overrun   .eq(f.ongoing("OVERRUN")),
-                self.capturing .eq(f.ongoing("CAPTURE")),
+                self.capturing .eq(f.ongoing("CAPTURE_PACKET")),
             ]
 
-            # START: wait for capture to be enabled, but don't start mid-packet.
-            with m.State("START"):
+            # AWAIT_START: wait for capture to be enabled, but don't start mid-packet.
+            with m.State("AWAIT_START"):
                 with m.If(self.capture_enable & ~self.utmi.rx_active):
-                    m.next = "IDLE"
+                    m.next = "AWAIT_PACKET"
 
 
-            # IDLE: capture is enabled, wait for a packet to start.
-            with m.State("IDLE"):
+            # AWAIT_PACKET: capture is enabled, wait for a packet to start.
+            with m.State("AWAIT_PACKET"):
                 with m.If(~self.capture_enable):
-                    m.next = "START"
+                    m.next = "AWAIT_START"
                 with m.Elif(self.utmi.rx_active):
-                    m.next = "CAPTURE"
+                    m.next = "CAPTURE_PACKET"
                     m.d.usb += [
                         header_location  .eq(write_location),
                         write_location   .eq(write_location + self.HEADER_SIZE_BYTES),
@@ -180,7 +180,7 @@ class USBAnalyzer(Elaboratable):
 
 
             # Capture data until the packet is complete.
-            with m.State("CAPTURE"):
+            with m.State("CAPTURE_PACKET"):
 
                 byte_received = self.utmi.rx_valid & self.utmi.rx_active
 
@@ -211,7 +211,7 @@ class USBAnalyzer(Elaboratable):
                     # Optimization: if we didn't receive any data, there's no need
                     # to create a packet. Clear our header from the FIFO and disarm.
                     with m.If(packet_size == 0):
-                        m.next = "IDLE"
+                        m.next = "AWAIT_PACKET"
                         m.d.usb += [
                             write_location.eq(header_location)
                         ]
@@ -244,7 +244,7 @@ class USBAnalyzer(Elaboratable):
                     mem_write_port.en    .eq(1),
                     fifo_new_data        .eq(1)
                 ]
-                m.next = "IDLE"
+                m.next = "AWAIT_PACKET"
 
 
             # BABBLE -- handles the case in which we've received a packet beyond
@@ -260,7 +260,7 @@ class USBAnalyzer(Elaboratable):
 
                 # If capture is stopped by the host, reset back to the ready state.
                 with m.If(~self.capture_enable):
-                    m.next = "START"
+                    m.next = "AWAIT_START"
 
 
         return m
