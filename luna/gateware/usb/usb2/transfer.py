@@ -47,6 +47,10 @@ class USBInTransferManager(Elaboratable):
         not wait further for the input stream to end, or to have a max-length packet; it will send a
         packet as soon as possible.
 
+    discard: Signal(), input
+        If high, data that is currently buffered will be discarded. The module will not buffer further
+        data, or send any further packets, until this signal is low again.
+
     data_pid: Signal(2), output
         The LSBs of the data PID to be issued with the current packet. Used with :attr:`packet_stream`
         to indicate the PID of the transmitted packet.
@@ -89,6 +93,7 @@ class USBInTransferManager(Elaboratable):
         self.packet_stream    = USBInStreamInterface()
 
         self.flush            = Signal()
+        self.discard          = Signal()
 
         # Note: we'll start with DATA1 in our register; as we'll toggle our data PID
         # before we send.
@@ -196,8 +201,17 @@ class USBInTransferManager(Elaboratable):
             buffer_write.en              .eq(in_stream.valid & in_stream.ready)
         ]
 
+        # Set both fill counts to zero when we discard data.
+        with m.If(self.discard):
+            m.d.usb += [
+                write_fill_count    .eq(0),
+                write_stream_ended  .eq(0),
+                read_fill_count     .eq(0),
+                read_stream_ended   .eq(0),
+            ]
+
         # Increment our fill count whenever we accept new data.
-        with m.If(buffer_write.en):
+        with m.Elif(buffer_write.en):
             m.d.usb += write_fill_count.eq(write_fill_count + 1)
 
         # If the stream ends while we're adding data to the buffer, mark this as an ended stream.
@@ -215,8 +229,8 @@ class USBInTransferManager(Elaboratable):
         # - We have some data in the buffer to flush.
         packet_to_flush = self.flush & (write_fill_count != 0)
 
-        # We're ready to send a packet when either of the above conditions is met.
-        packet_ready = packet_completing | packet_to_flush
+        # We're ready to send a packet when either of the above conditions is met, and not discarding.
+        packet_ready = (packet_completing | packet_to_flush) & ~self.discard
 
         # Shortcut for when we need to deal with an in token.
         # Pulses high an interpacket delay after receiving an IN token.
@@ -252,8 +266,14 @@ class USBInTransferManager(Elaboratable):
             with m.State("WAIT_TO_SEND"):
                 m.d.usb += send_position .eq(0),
 
-                # Once we get an IN token, move to sending a packet.
-                with m.If(in_token_received):
+                # If discarding data, go back to waiting for new data.
+                with m.If(self.discard):
+                    # Undo the data PID toggle.
+                    m.d.usb += self.data_pid[0].eq(~self.data_pid[0]),
+                    m.next = "WAIT_FOR_DATA"
+
+                # Otherwise, once we get an IN token, move to sending a packet.
+                with m.Elif(in_token_received):
 
                     # If we have a packet to send, send it.
                     with m.If(read_fill_count):
@@ -308,8 +328,12 @@ class USBInTransferManager(Elaboratable):
             # received it correctly. We'll wait to see if the host ACKs.
             with m.State("WAIT_FOR_ACK"):
 
+                # If discarding data, go back to waiting for new data.
+                with m.If(self.discard):
+                    m.next = "WAIT_FOR_DATA"
+
                 # If the host does ACK...
-                with m.If(self.handshakes_in.ack):
+                with m.Elif(self.handshakes_in.ack):
                     # ... clear the data we've sent from our buffer.
                     m.d.usb += read_fill_count.eq(0)
 
@@ -343,9 +367,9 @@ class USBInTransferManager(Elaboratable):
                         m.next = "WAIT_FOR_DATA"
 
 
-                # If the host starts a new packet without ACK'ing, we'll need to retransmit.
+                # If the host starts a new packet without ACK'ing, we'll need to retransmit, unless discarding.
                 # We'll move back to our "wait for token" state without clearing our buffer.
-                with m.If(self.tokenizer.new_token):
+                with m.If(self.tokenizer.new_token & ~self.discard):
                     m.next = 'WAIT_TO_SEND'
 
         return m
@@ -553,6 +577,84 @@ class USBInTransferManagerTest(LunaGatewareTestCase):
 
         # ... and we shouldn't emit a ZLP; meaning we should be ready to receive new data.
         self.assertEqual((yield transfer_stream.ready), 1)
+
+
+    @usb_domain_test_case
+    def test_discard(self):
+        dut = self.dut
+
+        packet_stream   = dut.packet_stream
+        transfer_stream = dut.transfer_stream
+
+        # Before we do anything, we shouldn't have anything our output stream.
+        self.assertEqual((yield packet_stream.valid), 0)
+
+        # Our transfer stream should accept data until we fill up its buffers.
+        self.assertEqual((yield transfer_stream.ready), 1)
+
+        # We queue up two full packets.
+        yield transfer_stream.valid.eq(1)
+        for value in [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]:
+            yield transfer_stream.payload.eq(value)
+            yield
+
+        for value in [0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00]:
+            yield transfer_stream.payload.eq(value)
+            yield
+        yield transfer_stream.valid.eq(0)
+
+        # Once we do see an IN token...
+        yield from self.pulse(dut.tokenizer.ready_for_response)
+
+        # ... we should start transmitting...
+        self.assertEqual((yield packet_stream.valid), 1)
+
+        # ... and should see the full packet be emitted...
+        for value in [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]:
+            self.assertEqual((yield packet_stream.payload), value)
+            yield
+
+        # ... with DATA PID 0 ...
+        self.assertEqual((yield dut.data_pid), 0)
+
+        # ... and then the packet should end.
+        self.assertEqual((yield packet_stream.valid), 0)
+
+        # If we ACK the first packet...
+        yield from self.pulse(dut.handshakes_in.ack)
+
+        # ... we should be ready to accept data again.
+        self.assertEqual((yield transfer_stream.ready), 1)
+        yield from self.advance_cycles(5)
+
+        # If we then discard the second packet...
+        yield from self.pulse(dut.discard, step_after=False)
+
+        # ... we shouldn't see a transmit request upon an in token.
+        yield from self.pulse(dut.tokenizer.ready_for_response, step_after=False)
+        yield from self.advance_cycles(5)
+        self.assertEqual((yield packet_stream.valid), 0)
+
+        # If we send another full packet...
+        yield transfer_stream.valid.eq(1)
+        for value in [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]:
+            yield transfer_stream.payload.eq(value)
+            yield
+        yield transfer_stream.valid.eq(0)
+
+        # ... and see an IN token...
+        yield from self.pulse(dut.tokenizer.ready_for_response)
+
+        # ... we should start transmitting...
+        self.assertEqual((yield packet_stream.valid), 1)
+
+        # ... add should see the full packet be emitted...
+        for value in [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]:
+            self.assertEqual((yield packet_stream.payload), value)
+            yield
+
+        # ... with the correct DATA PID.
+        self.assertEqual((yield dut.data_pid), 1)
 
 
 if __name__ == "__main__":

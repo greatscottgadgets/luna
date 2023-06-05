@@ -43,6 +43,9 @@ class USBStreamInEndpoint(Elaboratable):
     flush: Signal(), input
         Assert to cause all pending data to be transmitted as soon as possible.
 
+    discard: Signal(), input
+        Assert to cause all pending data to be discarded.
+
     interface: EndpointInterface
         Communications link to our USB device.
 
@@ -68,6 +71,7 @@ class USBStreamInEndpoint(Elaboratable):
         self.stream    = StreamInterface()
         self.interface = EndpointInterface()
         self.flush     = Signal()
+        self.discard   = Signal()
 
 
     def elaborate(self, platform):
@@ -85,9 +89,10 @@ class USBStreamInEndpoint(Elaboratable):
             # We want to handle packets only that target our endpoint number.
             tx_manager.active           .eq(interface.tokenizer.endpoint == self._endpoint_number),
 
-            # Connect up our transfer manager to our input stream and flush control...
+            # Connect up our transfer manager to our input stream, flush and discard control...
             tx_manager.transfer_stream  .stream_eq(self.stream),
             tx_manager.flush            .eq(self.flush),
+            tx_manager.discard          .eq(self.discard),
 
             # ... and our output stream...
             interface.tx                .stream_eq(tx_manager.packet_stream),
