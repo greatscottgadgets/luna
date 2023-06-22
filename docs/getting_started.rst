@@ -29,16 +29,17 @@ Currently, the LUNA library is considered a “work-in-progress”; and
 thus it’s assumed you’ll want to use a local copy of LUNA for
 development.
 
-The easiest way to set this up is to install the distribution in a virtual environment.
+The easiest way to set this up is to install the distribution in your working environment.
 From the root of the repository:
 
 .. code:: sh
 
-   # Pull down poetry, our build system.
-   pip3 install poetry --user
+   # Install a copy of our local tools.
+   pip install .
 
-   # Install a copy of our local tools into our virtualenv.
-   poetry install
+   # Alternatively: install all dependencies,
+   # including optional development packages (required for running applets and examples).
+   pip install .[dev]
 
 
 If you want to install LUNA to your machine globally (not recommended), you can do so
@@ -48,7 +49,7 @@ using the following single command:
 .. code:: sh
 
    # Create a LUNA package, and install it.
-   pip3 install . --user
+   pip install . --user
 
 
 Testing
@@ -62,11 +63,11 @@ program gateware using Amaranth HDL; so they can be run like any other script:
 
    # With GSG or self-built LUNA hardware connected; we can run the full test,
    # and test both our installation and the attached hardware.
-   poetry run applets/interactive-test.py
+   python applets/interactive-test.py
 
    # Without LUNA hardware connected, we'll only build the applet, to exercise
    # our toolchain.
-   poetry run applets/interactive-test.py --dry-run
+   python applets/interactive-test.py --dry-run
 
 
 The ``apollo`` utility.
