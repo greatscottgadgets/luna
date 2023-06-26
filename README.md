@@ -1,4 +1,3 @@
-
 # LUNA: an Amaranth HDL library for USB ![Simulation Status](https://github.com/greatscottgadgets/luna/workflows/simulations/badge.svg) [![Documentation Status](https://readthedocs.org/projects/luna/badge/?version=latest)](https://luna.readthedocs.io/en/latest/?badge=latest)
 
 LUNA is a toolkit for working with USB using FPGA technology, providing gateware and software to enable USB applications.
@@ -7,7 +6,7 @@ Some things you can use LUNA for, currently:
 
 - **Protocol analysis for Low-, Full-, or High- speed USB.** LUNA provides gateware that allow passive USB monitoring when combined with [Cynthion](https://github.com/greatscottgadgets/cynthion-hardware) and [Packetry](https://github.com/greatscottgadgets/packetry).
 - **Creating your own Low-, Full-, High-, or (experimentally) Super- speed USB device.** LUNA provides a collection of Amaranth gateware that allows you to easily create USB devices in gateware, software, or a combination of the two.
-- **Building USB functionality into a new or existing System-on-a-Chip (SoC).** LUNA is capable of generating custom peripherals targeting the common Wishbone bus; allowing it to easily be integrated into SoC designs; and the library provides simple automation for developing simple SoC designs.
+- **Building USB functionality into a new or existing System-on-a-Chip (SoC).** LUNA is capable of generating custom peripherals targeting the common Wishbone bus; allowing it to easily be integrated into SoC designs; and the [luna-soc](https://github.com/greatscottgadgets/luna-soc) library provides simple automation for developing simple SoC designs.
 
 Some things you'll be able to use LUNA for in the future:
 

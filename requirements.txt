@@ -4,7 +4,6 @@ pyusb
 -e git+https://github.com/amaranth-lang/amaranth-soc.git#egg=amaranth-soc
 -e git+https://github.com/amaranth-lang/amaranth-boards.git#egg=amaranth_boards
 -e git+https://github.com/lambdaconcept/minerva.git#egg=minerva
--e git+https://github.com/lambdaconcept/lambdasoc.git#egg=lambdasoc
 -e git+https://github.com/usb-tools/python-usb-protocol.git#egg=usb_protocol
 -e git+https://github.com/greatscottgadgets/apollo.git#egg=apollo-fpga
 pyvcd

@@ -1,16 +1,15 @@
-
 ============
 Introduction
 ============
 
-	*Note: LUNA is still a work in progress; and while much of the technology is in a usable state,
-	much of its feature-set is still being built. Consider LUNA an 'unstable' library, for the time being.*
+    *Note: LUNA is still a work in progress; and while much of the technology is in a usable state,
+    much of its feature-set is still being built. Consider LUNA an 'unstable' library, for the time being.*
 
 Welcome to the LUNA project! LUNA is a full toolkit for working with USB using FPGA technology; and provides
 hardware, gateware, and software to enable USB applications.
 
 .. image:: images/board_readme.jpg
-	:align: center
+    :align: center
 ..
 
 Some things you can use LUNA for, currently:
@@ -21,8 +20,9 @@ Some things you can use LUNA for, currently:
 - **Creating your own Low, Full or High speed USB device.** LUNA provides a collection of Amaranth gateware that
   allows you to easily create USB devices in gateware, software, or a combination of the two.
 - **Building USB functionality into a new or existing System-on-a-Chip (SoC).** LUNA is capable of generating custom
-  peripherals targeting the common Wishbone bus; allowing it to easily be integrated into SoC designs; and the library
-  provides simple automation for developing simple SoC designs.
+  peripherals targeting the common Wishbone bus; allowing it to easily be integrated into SoC designs; and the
+  [luna-soc](https://github.com/greatscottgadgets/luna-soc) library provides simple automation for developing simple
+  SoC designs.
 
 Some things you'll be able to use LUNA for in the future:
 
