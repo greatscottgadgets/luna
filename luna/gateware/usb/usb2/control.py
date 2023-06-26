@@ -260,7 +260,8 @@ class USBControlEndpoint(Elaboratable):
                 with m.If(endpoint_targeted & interface.tokenizer.is_out):
                     m.d.comb += [
                         interface.rx                           .connect(request_handler.rx),
-                        request_handler.rx_ready_for_response  .eq(interface.rx_ready_for_response)
+                        request_handler.rx_ready_for_response  .eq(interface.rx_ready_for_response),
+                        request_handler.rx_invalid             .eq(interface.rx_invalid),
                     ]
 
                 # Once we get an IN token, we should move on to the STATUS stage. [USB2, 8.5.3]
