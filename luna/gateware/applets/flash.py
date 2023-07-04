@@ -5,14 +5,21 @@
 # Copyright (c) 2023 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
+import usb.core
+import time
+import os
+import xdg.BaseDirectory
+
 from amaranth                         import Signal, Elaboratable, Module, Cat, C
 from amaranth.lib.fifo                import AsyncFIFO
+from amaranth.build.run               import LocalBuildProducts
 
 from luna                             import top_level_cli
 from luna.gateware.interface.flash    import ECP5ConfigurationFlashInterface
 from luna.gateware.interface.spi      import SPIBus
 from luna.gateware.stream             import StreamInterface
 from luna.gateware.usb.usb2.request   import USBRequestHandler
+from luna.gateware.platform           import PLATFORM_FOR_REVISION, LATEST_PLATFORM
 from luna.usb2                        import USBDevice, USBStreamInEndpoint, USBStreamOutEndpoint
 
 from usb_protocol.types               import USBRequestType
@@ -174,6 +181,34 @@ class FlashBridgeRequestHandler(USBRequestHandler):
 
 class FlashBridge(Elaboratable):
 
+    def configure(programmer):
+        """ Configure configuration flash bridge and return a FlashBridgeConnection instance """
+
+        # Look up the relevant platform accordingly and override the device.
+        debugger = programmer.chain.debugger
+        version = debugger.detect_connected_version()
+        platform = PLATFORM_FOR_REVISION.get(version, LATEST_PLATFORM)()
+        platform.device = debugger.get_fpga_type()
+        
+        # Build and configure
+        plan = platform.build(FlashBridge(), do_build=False)
+        cache_dir = os.path.join(
+            xdg.BaseDirectory.save_cache_path('luna'),
+            'build',
+            plan.digest().hex()
+        )
+        if os.path.exists(cache_dir):
+            products = LocalBuildProducts(cache_dir)
+        else:
+            products = plan.execute_local(cache_dir)
+        programmer.configure(products.get("top.bit"))
+        
+        # Create connection to our flash bridge
+        flash_bridge = FlashBridgeConnection()
+
+        return flash_bridge
+
+
     def create_descriptors(self):
         """ Create the descriptors we want to use for our device. """
 
@@ -288,6 +323,52 @@ class FlashBridge(Elaboratable):
         ]
 
         return m
+
+
+class FlashBridgeNotFound(IOError):
+    pass
+
+class FlashBridgeConnection:
+    def __init__(self):
+        # Try to create a connection to our configuration flash bridge.
+        while True:
+            device = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)
+            if device is not None:
+                break
+            time.sleep(0.1)
+
+        # If we couldn't find the bridge, bail out.
+        if device is None:
+            raise FlashBridgeNotFound()
+
+        self.device = device
+        self.reset_flash()
+
+    def reset_flash(self):
+        # Send a string of 8 NOP 0xFFs, to ensure that the flash isn't in the middle of
+        # any other command.
+        self.transfer([0xFF] * 8)
+
+        self.transfer([0x66])
+        self.transfer([0x99])
+        time.sleep(0.1)
+
+    def trigger_reconfiguration(self):
+        """ Triggers the target FPGA to reconfigure itself from its flash chip. """
+        request_type = usb.ENDPOINT_OUT | usb.RECIP_DEVICE | usb.TYPE_VENDOR
+        return self.device.ctrl_transfer(request_type, 0, 0, 0, None)
+
+    def transfer(self, data):
+        """ Performs a SPI transfer, targeting the configuration flash."""
+        tx_sent = self.device.write(BULK_ENDPOINT_NUMBER, data)
+        assert tx_sent == len(data)
+        rx_data = self.device.read(0x80 | BULK_ENDPOINT_NUMBER, 512)
+        assert len(rx_data) == tx_sent, f'Expected {tx_sent} bytes, received {len(rx_data)}'
+        return rx_data
+    
+    def _background_spi_transfer(self, data, reverse=False, ignore_response=False):
+        """ Wrapper function for Apollo """
+        return self.transfer(data)
 
 
 if __name__ == "__main__":
