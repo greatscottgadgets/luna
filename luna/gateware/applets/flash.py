@@ -22,7 +22,7 @@ from luna.gateware.usb.usb2.request   import USBRequestHandler
 from luna.gateware.platform           import PLATFORM_FOR_REVISION, LATEST_PLATFORM
 from luna.usb2                        import USBDevice, USBStreamInEndpoint, USBStreamOutEndpoint
 
-from usb_protocol.types               import USBRequestType
+from usb_protocol.types               import USBRequestType, USBRequestRecipient
 from usb_protocol.emitters            import DeviceDescriptorCollection
 
 
@@ -143,6 +143,10 @@ class FlashBridgeRequestHandler(USBRequestHandler):
 
     REQUEST_TRIGGER_RECONF = 0
 
+    def __init__(self, if_number):
+        super().__init__()
+        self.if_number = if_number
+
     def elaborate(self, platform):
         m = Module()
 
@@ -154,7 +158,9 @@ class FlashBridgeRequestHandler(USBRequestHandler):
 
         self_prog = platform.request("self_program", dir="o")
 
-        with m.If(setup.type == USBRequestType.VENDOR):
+        with m.If((setup.type == USBRequestType.VENDOR) & \
+                  (setup.recipient == USBRequestRecipient.INTERFACE) & \
+                  (setup.index == self.if_number)):
             with m.Switch(setup.request):
 
                 with m.Case(self.REQUEST_TRIGGER_RECONF):
@@ -235,6 +241,7 @@ class FlashBridge(Elaboratable):
 
             with c.InterfaceDescriptor() as i:
                 i.bInterfaceNumber = 0
+                i.iInterface = "Configuration Flash bridge"
 
                 with i.EndpointDescriptor() as e:
                     e.bEndpointAddress = BULK_ENDPOINT_NUMBER
@@ -262,7 +269,7 @@ class FlashBridge(Elaboratable):
         control_ep = usb.add_standard_control_endpoint(descriptors)
 
         # Add our vendor request handler to the control endpoint.
-        control_ep.add_request_handler(FlashBridgeRequestHandler())
+        control_ep.add_request_handler(FlashBridgeRequestHandler(0))
 
         # Add output and input stream endpoints to our device.
         stream_out_ep = USBStreamOutEndpoint(
@@ -355,7 +362,7 @@ class FlashBridgeConnection:
 
     def trigger_reconfiguration(self):
         """ Triggers the target FPGA to reconfigure itself from its flash chip. """
-        request_type = usb.ENDPOINT_OUT | usb.RECIP_DEVICE | usb.TYPE_VENDOR
+        request_type = usb.ENDPOINT_OUT | usb.RECIP_INTERFACE | usb.TYPE_VENDOR
         return self.device.ctrl_transfer(request_type, 0, 0, 0, None)
 
     def transfer(self, data):
