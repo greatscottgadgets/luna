@@ -187,8 +187,9 @@ class FlashBridgeRequestHandler(USBRequestHandler):
 
 class FlashBridge(Elaboratable):
 
-    def configure(programmer):
-        """ Configure configuration flash bridge and return a FlashBridgeConnection instance """
+    @staticmethod
+    def _configure(programmer):
+        """ Configure flash bridge using the specified programmer """
 
         # Look up the relevant platform accordingly and override the device.
         debugger = programmer.chain.debugger
@@ -208,9 +209,34 @@ class FlashBridge(Elaboratable):
         else:
             products = plan.execute_local(cache_dir)
         programmer.configure(products.get("top.bit"))
-        
-        # Create connection to our flash bridge
-        flash_bridge = FlashBridgeConnection()
+
+    @staticmethod
+    def build(programmer):
+        """ Return a connection to a configuration flash bridge in the FPGA.
+            If this bridge is not present in the FPGA, reconfigure it to have one. """
+
+        # First, try to connect to an existing flash bridge that may be present in the FPGA.
+        try:
+            flash_bridge = FlashBridgeConnection()
+        except FlashBridgeNotFound:
+            flash_bridge = None
+
+        # Otherwise, we replace the gateware
+        if flash_bridge is None:
+            FlashBridge._configure(programmer)
+
+            # Poll for device availablility.
+            timeout = 10
+            while flash_bridge is None and timeout:
+                try:
+                    flash_bridge = FlashBridgeConnection()
+                except FlashBridgeNotFound:
+                    pass
+                timeout -= 0.5
+                time.sleep(0.5)
+            
+            if flash_bridge is None:
+                raise FlashBridgeNotFound("Connection timeout")
 
         return flash_bridge
 
@@ -241,7 +267,7 @@ class FlashBridge(Elaboratable):
 
             with c.InterfaceDescriptor() as i:
                 i.bInterfaceNumber = 0
-                i.iInterface = "Configuration Flash bridge"
+                i.iInterface = "ConfigFlashBridge"
 
                 with i.EndpointDescriptor() as e:
                     e.bEndpointAddress = BULK_ENDPOINT_NUMBER
@@ -338,17 +364,24 @@ class FlashBridgeNotFound(IOError):
 class FlashBridgeConnection:
     def __init__(self):
         # Try to create a connection to our configuration flash bridge.
-        while True:
-            device = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)
-            if device is not None:
-                break
-            time.sleep(0.1)
+
+        def find_cfg_flash_bridge(dev, get_ep=False):
+            for cfg in dev:
+                for intf in usb.util.find_descriptor(cfg, find_all=True, bInterfaceClass=0xFF):
+                    if_name = usb.core.util.get_string(dev, intf.iInterface, langid=0x0409)
+                    if if_name == "ConfigFlashBridge":
+                        if not get_ep:
+                            return True
+                        return intf.bInterfaceNumber, intf[0].bEndpointAddress
+
+        device = usb.core.find(custom_match=find_cfg_flash_bridge)
 
         # If we couldn't find the bridge, bail out.
         if device is None:
-            raise FlashBridgeNotFound()
-
+            raise FlashBridgeNotFound("Unable to find device")
+        
         self.device = device
+        self.interface, self.endpoint = find_cfg_flash_bridge(device, get_ep=True)
         self.reset_flash()
 
     def reset_flash(self):
@@ -363,13 +396,13 @@ class FlashBridgeConnection:
     def trigger_reconfiguration(self):
         """ Triggers the target FPGA to reconfigure itself from its flash chip. """
         request_type = usb.ENDPOINT_OUT | usb.RECIP_INTERFACE | usb.TYPE_VENDOR
-        return self.device.ctrl_transfer(request_type, 0, 0, 0, None)
+        return self.device.ctrl_transfer(request_type, 0, wValue=0, wIndex=self.interface)
 
     def transfer(self, data):
         """ Performs a SPI transfer, targeting the configuration flash."""
-        tx_sent = self.device.write(BULK_ENDPOINT_NUMBER, data)
+        tx_sent = self.device.write(self.endpoint, data)
         assert tx_sent == len(data)
-        rx_data = self.device.read(0x80 | BULK_ENDPOINT_NUMBER, 512)
+        rx_data = self.device.read(0x80 | self.endpoint, 512)
         assert len(rx_data) == tx_sent, f'Expected {tx_sent} bytes, received {len(rx_data)}'
         return rx_data
     
