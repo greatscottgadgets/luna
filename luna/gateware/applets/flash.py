@@ -185,6 +185,72 @@ class FlashBridgeRequestHandler(USBRequestHandler):
                 return m
 
 
+class FlashBridgeSubmodule(Elaboratable):
+    """ Implements gateware for the USB<->SPI bridge. Intended to use as a submodule
+        See example in FlashBridge """
+    
+    def __init__(self, endpoint):
+        # Endpoint number for the in/out stream endpoints
+        self.endpoint = endpoint
+
+        # Define endpoints
+        self.endpoint_out = USBStreamOutEndpoint(
+            endpoint_number=endpoint,
+            max_packet_size=MAX_BULK_PACKET_SIZE,
+        )
+        self.endpoint_in = USBStreamInEndpoint(
+            endpoint_number=endpoint,
+            max_packet_size=MAX_BULK_PACKET_SIZE
+        )
+
+    def elaborate(self, platform):
+        m = Module()
+
+        stream_in  = self.endpoint_in.stream
+        stream_out = self.endpoint_out.stream
+
+        # Use two small asynchronous FIFOs for crossing clock domains
+        spi     = SPIStreamController()
+        spi_bus = ECP5ConfigurationFlashInterface(bus=platform.request('spi_flash'), use_cs=True)
+        tx_fifo = AsyncFIFO(width=8+1, depth=8, w_domain="usb", r_domain="sync")
+        rx_fifo = AsyncFIFO(width=8+1, depth=8, w_domain="sync", r_domain="usb")
+
+        m.submodules += spi
+        m.submodules += spi_bus
+        m.submodules += tx_fifo
+        m.submodules += rx_fifo
+
+        m.d.comb += [
+            # Connect output from USB host to transmission FIFO
+            tx_fifo.w_data      .eq(Cat(stream_out.payload, stream_out.last)),
+            tx_fifo.w_en        .eq(stream_out.valid),
+            stream_out.ready    .eq(tx_fifo.w_rdy),
+
+            # Connect transmission FIFO to the SPI controller
+            Cat(spi.input.payload, spi.input.last).eq(tx_fifo.r_data),
+            spi.input.valid     .eq(tx_fifo.r_rdy),
+            tx_fifo.r_en        .eq(spi.input.ready),
+
+            # Connect output from SPI controller to reception FIFO
+            rx_fifo.w_data      .eq(Cat(spi.output.payload, spi.output.last)),
+            rx_fifo.w_en        .eq(spi.output.valid),
+            spi.output.ready    .eq(1),  # ignore rx_fifo.w_rdy
+
+            # Connect reception FIFO to USB host input
+            Cat(stream_in.payload, stream_in.last).eq(rx_fifo.r_data),
+            stream_in.valid     .eq(rx_fifo.r_rdy),
+            rx_fifo.r_en        .eq(stream_in.ready),
+
+            # Connect the SPI bus to our SPI controller
+            spi_bus.sck         .eq(spi.bus.sck),
+            spi_bus.sdi         .eq(spi.bus.sdi),
+            spi_bus.cs          .eq(spi.bus.cs),
+            spi.bus.sdo         .eq(spi_bus.sdo),
+        ]
+
+        return m
+
+
 class FlashBridge(Elaboratable):
 
     @staticmethod
@@ -297,63 +363,13 @@ class FlashBridge(Elaboratable):
         # Add our vendor request handler to the control endpoint.
         control_ep.add_request_handler(FlashBridgeRequestHandler(0))
 
-        # Add output and input stream endpoints to our device.
-        stream_out_ep = USBStreamOutEndpoint(
-            endpoint_number=BULK_ENDPOINT_NUMBER,
-            max_packet_size=MAX_BULK_PACKET_SIZE,
-        )
-        usb.add_endpoint(stream_out_ep)
+        # Add bridge submodule and input/output stream endpoints to our device.
+        m.submodules.bridge = bridge = FlashBridgeSubmodule(BULK_ENDPOINT_NUMBER)
+        usb.add_endpoint(bridge.endpoint_in)
+        usb.add_endpoint(bridge.endpoint_out)
 
-        stream_in_ep = USBStreamInEndpoint(
-            endpoint_number=BULK_ENDPOINT_NUMBER,
-            max_packet_size=MAX_BULK_PACKET_SIZE
-        )
-        usb.add_endpoint(stream_in_ep)
-
-        stream_in  = stream_in_ep.stream
-        stream_out = stream_out_ep.stream
-
-        # Use two small asynchronous FIFOs for crossing clock domains
-        spi     = SPIStreamController()
-        spi_bus = ECP5ConfigurationFlashInterface(bus=platform.request('spi_flash'), use_cs=True)
-        tx_fifo = AsyncFIFO(width=8+1, depth=8, w_domain="usb", r_domain="sync")
-        rx_fifo = AsyncFIFO(width=8+1, depth=8, w_domain="sync", r_domain="usb")
-
-        m.submodules += spi
-        m.submodules += spi_bus
-        m.submodules += tx_fifo
-        m.submodules += rx_fifo
-
-        m.d.comb += [
-            # Connect output from USB host to transmission FIFO
-            tx_fifo.w_data      .eq(Cat(stream_out.payload, stream_out.last)),
-            tx_fifo.w_en        .eq(stream_out.valid),
-            stream_out.ready    .eq(tx_fifo.w_rdy),
-
-            # Connect transmission FIFO to the SPI controller
-            Cat(spi.input.payload, spi.input.last).eq(tx_fifo.r_data),
-            spi.input.valid     .eq(tx_fifo.r_rdy),
-            tx_fifo.r_en        .eq(spi.input.ready),
-
-            # Connect output from SPI controller to reception FIFO
-            rx_fifo.w_data      .eq(Cat(spi.output.payload, spi.output.last)),
-            rx_fifo.w_en        .eq(spi.output.valid),
-            spi.output.ready    .eq(1),  # ignore rx_fifo.w_rdy
-
-            # Connect reception FIFO to USB host input
-            Cat(stream_in.payload, stream_in.last).eq(rx_fifo.r_data),
-            stream_in.valid     .eq(rx_fifo.r_rdy),
-            rx_fifo.r_en        .eq(stream_in.ready),
-
-            # Connect the SPI bus to our SPI controller
-            spi_bus.sck         .eq(spi.bus.sck),
-            spi_bus.sdi         .eq(spi.bus.sdi),
-            spi_bus.cs          .eq(spi.bus.cs),
-            spi.bus.sdo         .eq(spi_bus.sdo),
-
-            # Connect our device
-            usb.connect         .eq(1),
-        ]
+        # Connect our device
+        m.d.comb += usb.connect.eq(1)
 
         return m
 
