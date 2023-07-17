@@ -243,6 +243,8 @@ class USBDevice(Elaboratable):
 
             reset_sequencer.vbus_connected  .eq(~self.utmi.session_end),
             reset_sequencer.line_state      .eq(self.utmi.line_state),
+
+            reset_sequencer.disconnect      .eq(~self.connect),
         ]
 
 

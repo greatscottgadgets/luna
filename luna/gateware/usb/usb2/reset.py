@@ -65,6 +65,8 @@ class USBResetSequencer(Elaboratable):
         be held in perpetual bus reset, and reset handshaking will be disabled.
     line_state: Signal(2), input
         The UTMI linestate signals; used to read the current state of the USB D+ and D- lines.
+    disconnect: Signal(), input
+        If set, the device will be switched into non-driving operating mode to force a host disconnect.
 
     bus_reset: Signal(), output
         Strobe; pulses high for one cycle when a bus reset is detected. This signal indicates that the
@@ -123,6 +125,8 @@ class USBResetSequencer(Elaboratable):
         self.vbus_connected     = Signal()
         self.line_state         = Signal(2)
 
+        self.disconnect         = Signal()
+
         self.bus_reset          = Signal()
         self.suspended          = Signal()
 
@@ -173,6 +177,13 @@ class USBResetSequencer(Elaboratable):
         with m.Else():
             m.d.comb += bus_idle.eq(self.line_state == self._LINE_STATE_LS_J)
 
+        # Switch to non-driving operating mode when we're not
+        # connected and we're not seeing an SE0.
+        with m.If(self.disconnect & (self.line_state != self._LINE_STATE_SE0)):
+            m.d.usb += [
+                self.operating_mode.eq(UTMIOperatingMode.NON_DRIVING),
+                timer.eq(0),
+            ]
 
         #
         # Core reset sequences.
