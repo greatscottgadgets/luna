@@ -15,10 +15,11 @@ BULK_ENDPOINT_NUMBER = 1
 class USBSpeedTestDevice(Elaboratable):
     """ Simple device that exchanges data with the host as fast as the hardware can. """
 
-    def __init__(self, generate_clocks=True, fs_only=False, phy=None):
+    def __init__(self, generate_clocks=True, fs_only=False, phy=None, pid=PRODUCT_ID):
         self.generate_clocks = generate_clocks
         self.fs_only = fs_only
         self.phy = phy
+        self.pid = pid
         self.max_bulk_packet_size = 64 if fs_only else 512
 
     def create_descriptors(self):
@@ -34,7 +35,7 @@ class USBSpeedTestDevice(Elaboratable):
         # We'll need a device descriptor...
         with descriptors.DeviceDescriptor() as d:
             d.idVendor           = VENDOR_ID
-            d.idProduct          = PRODUCT_ID
+            d.idProduct          = self.pid
 
             d.iManufacturer      = "LUNA"
             d.iProduct           = "speed test"
