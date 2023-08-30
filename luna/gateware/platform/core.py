@@ -111,6 +111,9 @@ class LUNAApolloPlatform(LUNAPlatform):
         with debugger.jtag as jtag:
             programmer = ECP5_JTAGProgrammer(jtag)
             programmer.configure(bitstream)
+        
+        # Let the LUNA gateware take over in devices with shared USB port
+        debugger.honor_fpga_adv()
 
 
     def _ensure_unconfigured(self, debugger):
@@ -140,6 +143,9 @@ class LUNAApolloPlatform(LUNAPlatform):
             programmer.flash(bitstream)
 
         debugger.soft_reset()
+
+        # Let the LUNA gateware take over in devices with shared USB port
+        debugger.honor_fpga_adv()
 
 
     def toolchain_erase(self):
