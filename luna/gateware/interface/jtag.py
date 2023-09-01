@@ -127,6 +127,8 @@ class ECP5DebugSPIBridge(Elaboratable, ValueCastable):
             'cs':  self.cs
         }[key]
 
+    def shape(self):
+        return self.as_value().shape()
 
     def _synchronize_(self, m, output, o_domain="sync", stages=2):
         """ Creates a synchronized copy of this interface's I/O. """
