@@ -37,7 +37,7 @@ class DebugSPIExample(Elaboratable):
         m.d.comb  += self.interface.spi.connect(spi)
 
         # Turn on a single LED, just to show something's running.
-        led = platform.request('led', 0)
+        led = platform.request('led', 0).o
         m.d.comb += led.eq(1)
 
         # Echo back the last received data.

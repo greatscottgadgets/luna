@@ -81,8 +81,8 @@ class USBStreamOutDeviceExample(Elaboratable):
         )
         usb.add_endpoint(stream_ep)
 
-        leds    = Cat(platform.request_optional("led", i, default=NullPin()) for i in range(6))
-        user_io = Cat(platform.request_optional("user_io", i, default=NullPin()) for i in range(4))
+        leds    = Cat(platform.request_optional("led", i, default=NullPin()).o for i in range(6))
+        user_io = Cat(platform.request_optional("user_io", i, default=NullPin()).o for i in range(4))
 
         # Always stream our USB data directly onto our User I/O and LEDS.
         with m.If(stream_ep.stream.valid):

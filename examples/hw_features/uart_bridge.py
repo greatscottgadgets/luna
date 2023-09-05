@@ -61,7 +61,7 @@ class UARTBridgeExample(Elaboratable):
 
 
         # Turn on a single LED, just to show something's running.
-        led = Cat(platform.request('led', i) for i in range(6))
+        led = Cat(platform.request('led', i).o for i in range(6))
         m.d.comb += led.eq(~transmitter.tx)
 
         return m

@@ -41,8 +41,8 @@ class DebugControllerFlashBridge(Elaboratable):
 
         m.submodules += spi_flash_passthrough
         m.d.comb += [
-            spi_flash_passthrough.sck   .eq(board_spi.sck),
-            spi_flash_passthrough.sdi   .eq(board_spi.sdi),
+            spi_flash_passthrough.sck   .eq(board_spi.sck.i),
+            spi_flash_passthrough.sdi   .eq(board_spi.sdi.i),
             flash_sdo                   .eq(spi_flash_passthrough.sdo),
         ]
 
@@ -53,17 +53,17 @@ class DebugControllerFlashBridge(Elaboratable):
 
         # Select the passthrough or gateware SPI based on our chip-select values.
         gateware_sdo = Signal()
-        with m.If(board_spi.cs):
-            m.d.comb += board_spi.sdo.eq(gateware_sdo)
+        with m.If(board_spi.cs.i):
+            m.d.comb += board_spi.sdo.o.eq(gateware_sdo)
         with m.Else():
-            m.d.comb += board_spi.sdo.eq(flash_sdo)
+            m.d.comb += board_spi.sdo.o.eq(flash_sdo)
 
         # Connect our register interface to our board SPI.
         m.d.comb += [
-            spi_registers.spi.sck .eq(spi.sck),
-            spi_registers.spi.sdi .eq(spi.sdi),
+            spi_registers.spi.sck .eq(spi.sck.i),
+            spi_registers.spi.sdi .eq(spi.sdi.i),
             gateware_sdo          .eq(spi_registers.spi.sdo),
-            spi_registers.spi.cs  .eq(spi.cs)
+            spi_registers.spi.cs  .eq(spi.cs.i)
         ]
 
         return m

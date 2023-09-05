@@ -57,7 +57,7 @@ class ILASharedBusExample(Elaboratable):
             # chip select to our ILA bus. This will allow us to send
             # ILA data when CS is un-asserted, and register data when
             # CS is asserted.
-            ila_spi.cs  .eq(~board_spi.cs)
+            ila_spi.cs  .eq(~board_spi.cs.i)
         ]
 
         # Create a set of registers...
@@ -68,7 +68,7 @@ class ILASharedBusExample(Elaboratable):
         reg_spi = SPIBus()
         m.d.comb += [
             spi_registers.spi .connect(reg_spi),
-            reg_spi.cs        .eq(board_spi.cs)
+            reg_spi.cs        .eq(board_spi.cs.i)
         ]
 
         # Multiplex our ILA and register SPI busses.
@@ -86,7 +86,7 @@ class ILASharedBusExample(Elaboratable):
         )
 
         # Attach the LEDs and User I/O to the MSBs of our counter.
-        leds    = [platform.request("led", i, dir="o") for i in range(0, 6)]
+        leds    = [platform.request("led", i, dir="o").o for i in range(0, 6)]
         m.d.comb += Cat(leds).eq(self.counter[-7:-1])
 
         # Return our elaborated module.
