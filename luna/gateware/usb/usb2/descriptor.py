@@ -511,7 +511,7 @@ class GetDescriptorHandlerBlock(Elaboratable):
 
                     # Always drive the stream from our current memory output...
                     rom_read_port.addr  .eq(descriptor_data_base_address + word_in_stream),
-                    self.tx.payload     .eq(rom_read_port.data.word_select(3 - byte_in_stream, 8)),
+                    self.tx.payload     .eq(rom_read_port.data.word_select(~byte_in_stream, 8)),
 
                     # ... and base First and Last based on our current position in the stream.
                     self.tx.first       .eq(on_first_packet),
