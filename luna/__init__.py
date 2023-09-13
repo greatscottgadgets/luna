@@ -28,7 +28,7 @@ def configure_default_logging(level=logging.INFO, logger=logging):
     logger.basicConfig(level=level, format=log_format)
 
 
-def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
+def top_level_cli(fragment, *pos_args, **kwargs):
     from .gateware.platform import get_appropriate_platform
 
     """ Runs a default CLI that assists in building and running gateware.
@@ -40,8 +40,6 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
             fragment  -- The fragment instance to be built; or a callable that returns a fragment,
                          such as a Elaborable type. If the latter is provided, any keyword or positional
                          arguments not specified here will be passed to this callable.
-            cli_soc   -- Optional. If a SoC design provides a SimpleSoc, options will be provided for generating
-                         build artifacts, such as header or linker files; instead of elaborating a design.
     """
 
     name = fragment.__name__ if callable(fragment) else fragment.__class__.__name__
@@ -62,16 +60,6 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
          help="Overrides build configuration to build for a given FPGA. Useful if no FPGA is connected during build.")
     parser.add_argument('--console', metavar="port",
          help="Attempts to open a convenience 115200 8N1 UART console on the specified port immediately after uploading.")
-
-    # If we have SoC options, print them to the command line.
-    if cli_soc:
-        parser.add_argument('--generate-c-header', action='store_true',
-            help="If provided, a C header file for this design's SoC will be printed to the stdout. Other options ignored.")
-        parser.add_argument('--generate-ld-script', action='store_true',
-            help="If provided, a linker script for design's SoC memory regions be printed to the stdout. Other options ignored.")
-        parser.add_argument('--get-fw-address', action='store_true',
-            help="If provided, the utility will print the address firmware should be loaded to to stdout. Other options ignored.")
-
 
     # Disable UnusedElaboarable warnings until we decide to build things.
     # This is sort of cursed, but it keeps us categorically from getting UnusedElaborable warnings
@@ -97,20 +85,6 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
         args.upload = False
 
 
-    # If we've been asked to generate a C header, generate -only- that.
-    if cli_soc and args.generate_c_header:
-        cli_soc.generate_c_header(platform_name=get_appropriate_platform().name)
-        sys.exit(0)
-
-    # If we've been asked to generate linker region info, generate -only- that.
-    if cli_soc and args.generate_ld_script:
-        cli_soc.generate_ld_script()
-        sys.exit(0)
-
-    if cli_soc and args.get_fw_address:
-        print(f"0x{cli_soc.main_ram_address():08x}")
-        sys.exit(0)
-
     # Build the relevant gateware, uploading if requested.
     build_dir = "build" if args.keep_files else tempfile.mkdtemp()
 
@@ -133,18 +107,6 @@ def top_level_cli(fragment, *pos_args, cli_soc=None, **kwargs):
 
         join_text = "and uploading gateware to attached" if args.upload else "for"
         logging.info(f"Building {join_text} {platform.name}...")
-
-        # TODO fix litex build
-        thirdparty = os.path.join(build_dir, "soc/lambdasoc.soc.cpu/bios/3rdparty/litex")
-        if not os.path.exists(thirdparty):
-            logging.info("Fixing build, creating output directory: {}".format(thirdparty))
-            os.makedirs(thirdparty)
-
-        # If we have an SoC, allow it to perform any pre-elaboration steps it wants.
-        # This allows it to e.g. build a BIOS or equivalent firmware.
-        if cli_soc and hasattr(cli_soc, 'build'):
-            cli_soc.build(build_dir=build_dir)
-
 
         # Now that we're actually building, re-enable Unused warnings.
         MustUse._MustUse__silence = False
