@@ -1,7 +1,7 @@
 #
 # This file is part of LUNA.
 #
-# Copyright (c) 2020-2021 Great Scott Gadgets <info@greatscottgadgets.com>
+# Copyright (c) 2020-2023 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
@@ -13,7 +13,7 @@ from amaranth_boards.resources import *
 from .core import LUNAApolloPlatform
 from ..architecture.car import LunaECP5DomainGenerator
 
-__all__ = ["LUNAPlatformRev0D4"]
+__all__ = ["CynthionPlatformRev0D4"]
 
 #
 # Note that r0.4 have D+/D- swapped to avoid having to cross D+/D- in routing.
@@ -21,14 +21,14 @@ __all__ = ["LUNAPlatformRev0D4"]
 # This is supported by a PHY feature that allows you to swap pins 13 + 14.
 #
 
-class LUNAPlatformRev0D4(LUNAApolloPlatform, LatticeECP5Platform):
-    """ Board description for the pre-release r0.4 revision of LUNA. """
+class CynthionPlatformRev0D4(LUNAApolloPlatform, LatticeECP5Platform):
+    """ Board description for the pre-release r0.4 revision of Cynthion. """
 
-    name        = "LUNA r0.4"
+    name        = "Cynthion r0.4"
 
     device      = "LFE5U-12F"
     package     = "BG256"
-    speed       = os.getenv("LUNA_SPEED_GRADE", "8")
+    speed       = os.getenv("ECP5_SPEED_GRADE", "8")
 
     default_clk = "clk_60MHz"
 
@@ -63,7 +63,7 @@ class LUNAPlatformRev0D4(LUNAApolloPlatform, LatticeECP5Platform):
     # This is the spot to put any platform-specific vendor registers that need
     # to be written.
     ulpi_extra_registers = {
-        0x39: 0b000110 # USB3343: swap D+ and D- to match the LUNA boards
+        0x39: 0b000110 # USB3343: swap D+ and D- to match the hardware design
     }
 
 
@@ -114,6 +114,20 @@ class LUNAPlatformRev0D4(LUNAApolloPlatform, LatticeECP5Platform):
         *LEDResources(pins="P14 P16 P15 R16 R15 T15", attrs=Attrs(IO_TYPE="LVCMOS33"), invert=True),
 
         # USB PHYs
+        ULPIResource("control_phy", 0,
+            data="R1 P3 P1 P2 N1 M2 M1 L2", clk="P4", clk_dir='o',
+            dir="T2", nxt="R2", stp="R3", rst="T3", rst_invert=True,
+            attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
+        ULPIResource("aux_phy", 0,
+            data="F1 F2 E1 E2 D1 E3 C1 C2", clk="J1", clk_dir='o',
+            dir="G1", nxt="G2", stp="H2", rst="J2", rst_invert=True,
+            attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
+        ULPIResource("target_phy", 0,
+            data="E16 F14 F16 F15 G16 G15 H15 J16", clk="C15", clk_dir='o',
+            dir="D16", nxt="E15", stp="D14", rst="C16", rst_invert=True,
+            attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
+
+        # legacy USB port names
         ULPIResource("sideband_phy", 0,
             data="R1 P3 P1 P2 N1 M2 M1 L2", clk="P4", clk_dir='o',
             dir="T2", nxt="R2", stp="R3", rst="T3", rst_invert=True,
@@ -121,10 +135,6 @@ class LUNAPlatformRev0D4(LUNAApolloPlatform, LatticeECP5Platform):
         ULPIResource("host_phy", 0,
             data="F1 F2 E1 E2 D1 E3 C1 C2", clk="J1", clk_dir='o',
             dir="G1", nxt="G2", stp="H2", rst="J2", rst_invert=True,
-            attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
-        ULPIResource("target_phy", 0,
-            data="E16 F14 F16 F15 G16 G15 H15 J16", clk="C15", clk_dir='o',
-            dir="D16", nxt="E15", stp="D14", rst="C16", rst_invert=True,
             attrs=Attrs(IO_TYPE="LVCMOS33", SLEWRATE="FAST")),
 
         # Target port power switching.
