@@ -40,7 +40,7 @@ class ILAExample(Elaboratable):
         m.d.comb += self.ila.trigger.eq(self.counter == 7)
 
         # Grab our I/O connectors.
-        leds    = [platform.request_optional("led", i, default=NullPin(), dir="o") for i in range(0, 6)]
+        leds    = [platform.request_optional("led", i, default=NullPin(), dir="o").o for i in range(0, 6)]
         spi_bus = synchronize(m, platform.request('debug_spi'))
 
         # Attach the LEDs and User I/O to the MSBs of our counter.

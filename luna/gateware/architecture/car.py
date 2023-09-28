@@ -295,7 +295,7 @@ class LunaECP5DomainGenerator(LunaDomainGenerator):
             m.submodules += Instance("OSCG", p_DIV=self.OSCG_DIV, o_OSC=input_clock)
             pll_params["CLKFB_DIV"] = 4
         else:
-            input_clock = platform.request(clock_name)
+            input_clock = platform.request(clock_name).i
 
             divisor = 240e6 / clock_frequency
             if not divisor.is_integer():
