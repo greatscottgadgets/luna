@@ -5,7 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "luna"
 version = "0.2.0"
-authors = [{name = "Katherine Temkin <k@ktemkin.com>"}]
+authors = [
+    {name = "Great Scott Gadgets", email = "dev@greatscottgadgets.com"}
+]
 description = "Amaranth HDL framework for FPGA-based USB solutions"
 readme = "README.md"
 requires-python = ">=3.8,<4.0"
