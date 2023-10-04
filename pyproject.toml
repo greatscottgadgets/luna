@@ -1,29 +1,37 @@
-[tool.poetry]
-name = "luna"
-version = "0.1.0-dev.0"
-description = "Amaranth HDL framework for FPGA-based USB solutions"
-authors = ["Katherine Temkin <k@ktemkin.com>"]
-license = "BSD"
-
-[tool.poetry.dependencies]
-python = "^3.7"
-pyserial = "^3.5"
-pyusb = "^1.1.1"
-pyvcd = "^0.2.4"
-libusb1 = "^1.9.2"
-apollo-fpga = "^0.0.5"
-ziglang = "^0.8.0"
-amaranth = {git = "https://github.com/amaranth-lang/amaranth.git", branch="main"}
-amaranth-soc = {git = "https://github.com/amaranth-lang/amaranth-soc.git", branch="main"}
-amaranth-boards = {git = "https://github.com/amaranth-lang/amaranth-boards.git", branch="main"}
-usb-protocol = {git = "https://github.com/usb-tools/python-usb-protocol"}
-
-[tool.poetry.dev-dependencies]
-tox = "^3.22.0"
-minerva = {git = "https://github.com/lambdaconcept/minerva.git"}
-amaranth-stdio = {git = "https://github.com/amaranth-lang/amaranth-stdio.git", branch="main"}
-prompt-toolkit = "^3.0.16"
-
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "luna"
+version = "0.2.0"
+authors = [
+    {name = "Great Scott Gadgets", email = "dev@greatscottgadgets.com"}
+]
+description = "Amaranth HDL framework for FPGA-based USB solutions"
+readme = "README.md"
+requires-python = ">=3.8,<4.0"
+dependencies = [
+    "apollo-fpga>=0.0.5",
+    "libusb1>1.9.2",
+    "pyserial>=3.5",
+    "pyusb>1.1.1",
+    "pyvcd>=0.2.4",
+    "ziglang>0.8.0",
+    "amaranth @ git+https://github.com/amaranth-lang/amaranth",
+    "amaranth-soc @ git+https://github.com/amaranth-lang/amaranth-soc.git@main",
+    "amaranth-boards @ git+https://github.com/amaranth-lang/amaranth-boards.git@main",
+    "usb-protocol @ git+https://github.com/usb-tools/python-usb-protocol",
+]
+
+[project.optional-dependencies]
+dev = [
+    "prompt-toolkit>3.0.16",
+    "tox>3.22.0",
+    "minerva @ git+https://github.com/lambdaconcept/minerva.git",
+    "amaranth-stdio @ git+https://github.com/amaranth-lang/amaranth-stdio.git@main",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
