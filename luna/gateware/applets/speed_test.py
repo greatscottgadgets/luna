@@ -117,7 +117,7 @@ class USBSpeedTestDevice(Elaboratable):
 
         # Receive our OUT data stream, as fast as we can and output
         # the received data to our User I/O and LEDS
-        leds   = Cat(platform.request_optional("led", i, default=NullPin()) for i in range(6))
+        leds   = Cat(platform.request_optional("led", i, default=NullPin()).o for i in range(6))
         pmod_a = platform.request_optional("user_pmod", 0, default=NullPin(8))
         with m.If(stream_out_ep.stream.valid):
             m.d.comb += [
