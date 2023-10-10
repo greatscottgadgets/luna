@@ -1,8 +1,10 @@
 from amaranth                import *
 from usb_protocol.emitters   import DeviceDescriptorCollection, SuperSpeedDeviceDescriptorCollection
 
-from luna.usb2               import USBDevice, USBStreamInEndpoint
+from luna.usb2               import USBDevice, USBStreamInEndpoint, USBStreamOutEndpoint
 from luna.usb3               import USBSuperSpeedDevice, SuperSpeedStreamInEndpoint
+
+from luna.gateware.platform  import NullPin
 
 VENDOR_ID  = 0x16d0
 PRODUCT_ID = 0x0f3b
@@ -10,8 +12,8 @@ PRODUCT_ID = 0x0f3b
 BULK_ENDPOINT_NUMBER = 1
 
 
-class USBInSpeedTestDevice(Elaboratable):
-    """ Simple device that sends data to the host as fast as hardware can. """
+class USBSpeedTestDevice(Elaboratable):
+    """ Simple device that exchanges data with the host as fast as the hardware can. """
 
     def __init__(self, fs_only=False, phy=None):
         self.fs_only = fs_only
@@ -34,7 +36,7 @@ class USBInSpeedTestDevice(Elaboratable):
             d.idProduct          = PRODUCT_ID
 
             d.iManufacturer      = "LUNA"
-            d.iProduct           = "IN speed test"
+            d.iProduct           = "speed test"
             d.iSerialNumber      = "no serial"
 
             d.bNumConfigurations = 1
@@ -46,8 +48,14 @@ class USBInSpeedTestDevice(Elaboratable):
             with c.InterfaceDescriptor() as i:
                 i.bInterfaceNumber = 0
 
+                # Bulk IN to host (tx, from our side)
                 with i.EndpointDescriptor() as e:
                     e.bEndpointAddress = 0x80 | BULK_ENDPOINT_NUMBER
+                    e.wMaxPacketSize   = self.max_bulk_packet_size
+
+                # Bulk OUT to host (rx, from our side)
+                with i.EndpointDescriptor() as e:
+                    e.bEndpointAddress = BULK_ENDPOINT_NUMBER
                     e.wMaxPacketSize   = self.max_bulk_packet_size
 
 
@@ -76,18 +84,48 @@ class USBInSpeedTestDevice(Elaboratable):
         descriptors = self.create_descriptors()
         usb.add_standard_control_endpoint(descriptors)
 
-        # Add a stream endpoint to our device.
-        stream_ep = USBStreamInEndpoint(
+
+        # Add a stream endpoint to our device for Bulk IN transfers.
+        stream_in_ep = USBStreamInEndpoint(
             endpoint_number=BULK_ENDPOINT_NUMBER,
             max_packet_size=self.max_bulk_packet_size
         )
-        usb.add_endpoint(stream_ep)
+        usb.add_endpoint(stream_in_ep)
 
-        # Send entirely zeroes, as fast as we can.
+        # Create a simple data source that increments whenever the
+        # endpoint is accepting data.
+        counter = Signal(8)
+        with m.If(stream_in_ep.stream.ready):
+            m.d.sync += counter.eq(counter + 1)
+
+        # Send our IN data stream, as fast as we can.
         m.d.comb += [
-            stream_ep.stream.valid    .eq(1),
-            stream_ep.stream.payload  .eq(0)
+            stream_in_ep.stream.valid    .eq(1),
+            stream_in_ep.stream.payload  .eq(counter)
         ]
+
+
+        # Add a stream endpoint to our device for Bulk OUT transfers.
+        stream_out_ep = USBStreamOutEndpoint(
+            endpoint_number=BULK_ENDPOINT_NUMBER,
+            max_packet_size=self.max_bulk_packet_size
+        )
+        usb.add_endpoint(stream_out_ep)
+
+        # Always accept data as it comes in.
+        m.d.comb += stream_out_ep.stream.ready.eq(1)
+
+        # Receive our OUT data stream, as fast as we can and output
+        # the received data to our User I/O and LEDS
+        leds   = Cat(platform.request_optional("led", i, default=NullPin()).o for i in range(6))
+        pmod_a = platform.request_optional("user_pmod", 0, default=NullPin(8))
+        with m.If(stream_out_ep.stream.valid):
+            m.d.comb += [
+                leds.eq(stream_out_ep.stream.payload[2:8]),
+                pmod_a.o.eq(stream_out_ep.stream.payload),
+                pmod_a.oe.eq(1),
+            ]
+
 
         # Connect our device as a high speed device by default.
         m.d.comb += [
