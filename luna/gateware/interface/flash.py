@@ -55,13 +55,16 @@ class ECP5ConfigurationFlashInterface(Elaboratable):
             self.bus.sdi   .eq(self.sdi),
             self.sdo       .eq(self.bus.sdo)
         ]
-
-        if self.use_cs:
-            m.d.comb += [
-                self.bus.cs.o.eq(self.cs),
-                self.bus.cs.oe.eq(1)
-            ]
-        else:
-            m.d.comb += self.bus.cs.oe.eq(0)
+        
+        if hasattr(self.bus.cs, "oe"):
+            if self.use_cs:
+                m.d.comb += [
+                    self.bus.cs.o.eq(self.cs),
+                    self.bus.cs.oe.eq(1)
+                ]
+            else:
+                m.d.comb += self.bus.cs.oe.eq(0)
+        elif self.use_cs:
+            m.d.comb += self.bus.cs.eq(self.cs)
 
         return m
