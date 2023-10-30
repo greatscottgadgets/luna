@@ -1,6 +1,12 @@
 # .readthedocs.yml
 version: 2
 
+# Set the OS, Python version and other tools 
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.7"
+
 sphinx:
   configuration: docs/conf.py
 
@@ -8,4 +14,5 @@ sphinx:
 formats: all
 
 python:
-  version: 3.7
+  install:
+    - requirements: docs/requirements.txt
