@@ -1,4 +1,2 @@
-tox
 luna @ git+https://github.com/greatscottgadgets/luna.git
-pyserial~=3.4
 sphinx_rtd_theme==1.3.0
