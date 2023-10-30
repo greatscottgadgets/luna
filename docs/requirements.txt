@@ -1,11 +1,1 @@
-tox
-pyusb
--e git://github.com/amaranth-lang/amaranth.git#egg=amaranth
--e git://github.com/amaranth-lang/amaranth-soc.git#egg=amaranth-soc
--e git://github.com/amaranth-lang/amaranth-boards.git#egg=amaranth_boards
--e git://github.com/lambdaconcept/minerva.git#egg=minerva
--e git://github.com/usb-tools/python-usb-protocol.git#egg=usb_protocol
--e git://github.com/greatscottgadgets/luna.git#egg=luna
-pyvcd
-pyserial~=3.4
 sphinx_rtd_theme==1.3.0
