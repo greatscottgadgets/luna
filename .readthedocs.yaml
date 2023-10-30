@@ -1,0 +1,18 @@
+# .readthedocs.yml
+version: 2
+
+# Set the OS, Python version and other tools 
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.12"
+
+sphinx:
+  configuration: docs/conf.py
+
+# Build PDF, ePub, etc
+formats: all
+
+python:
+  install:
+    - requirements: docs/requirements.txt
