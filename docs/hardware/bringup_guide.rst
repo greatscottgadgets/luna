@@ -11,7 +11,8 @@ Prerequisites
 
 -  A LUNA board with a populated *Debug Controller* microprocessor. This
    is the SAMD microcontroller located in the Debug section at the
-   bottom of the board.
+   bottom of the board. When powering the board, the test points should
+   have the marked voltages. The FPGA LEDs might be dimly lit.
 -  A programmer capable of uploading firmware via SWD. Examples include
    the `Black Magic
    Probe <https://github.com/blacksphere/blackmagic>`__; the `Segger
@@ -77,8 +78,9 @@ The build should yield two useful build products: ``bootloader.elf`` and
 two files.
 
 Next, connect your SWD programmer to the header labeled ``uC``, and
-upload bootloader image. If you’re using the Black Magic Probe, this
-might look like:
+upload bootloader image. You can use both the ports labelled
+``Sideband`` and ``Main Host`` to power the board in this process.
+If you’re using the Black Magic Probe, this might look like:
 
 .. code:: sh
 
@@ -90,6 +92,41 @@ might look like:
        -ex 'kill' \
        bootloader.elf
 
+If you are using openocd, the process might look similar to the following
+(add the configuration file for your SWD adapter:
+
+.. code:: sh
+
+   $ openocd -f openocd/scripts/target/at91samdXX.cfg
+   Open On-Chip Debugger 0.11.0-rc2
+   Licensed under GNU GPL v2
+   Info : Listening on port 4444 for telnet connections
+   Info : clock speed 400 kHz
+   Info : SWD DPIDR 0x0bc11477
+   Info : at91samd.cpu: hardware has 4 breakpoints, 2 watchpoints
+   Info : at91samd.cpu: external reset detected
+
+.. code:: sh
+   $ nc localhost 4444
+   Open On-Chip Debugger
+   > targets
+       TargetName         Type       Endian TapName            State
+   --  ------------------ ---------- ------ ------------------ ------------
+   0* at91samd.cpu       cortex_m   little at91samd.cpu       reset
+
+   > at91samd chip-erase
+   chip erase started
+
+   > program Luna/saturn-v/bootloader.bin verify reset
+   target halted due to debug-request, current mode: Thread 
+   xPSR: 0xf1000000 pc: 0xfffffffe msp: 0xfffffffc
+   ** Programming Started **
+   SAMD MCU: SAMD21G18A (256KB Flash, 32KB RAM)
+   ** Programming Finished **
+   ** Verify Started **
+   ** Verified OK **
+   ** Resetting Target **
+
 If your programmer works best with ``.bin`` files, be sure to upload the
 ``bootloader.bin`` to the start of flash (address ``0x00000000``).
 
@@ -98,11 +135,20 @@ rapidly. This is the indication that your board is in Recovery Mode
 (RVM), and can be programmed via DFU.
 
 You can verify that the board is DFU-programmable by running
-``dfu-util``:
+``dfu-util`` while connected to the USB port labelled ``Sideband``:
 
 .. code:: sh
 
    $ dfu-util --list
+   dfu-util 0.9
+
+   Copyright 2005-2009 Weston Schmidt, Harald Welte and OpenMoko Inc.
+   Copyright 2010-2016 Tormod Volden and Stefan Schmidt
+   This program is Free Software and has ABSOLUTELY NO WARRANTY
+   Please report bugs to http://sourceforge.net/p/dfu-util/tickets/
+
+   Found DFU: [1d50:615c] ver=0000, devnum=22, cfg=1, intf=0, path="2-3.3.1.2", alt=1, name="SRAM"
+   Found DFU: [1d50:615c] ver=0000, devnum=22, cfg=1, intf=0, path="2-3.3.1.2", alt=0, name="Flash"
 
 If your device shows up as a LUNA board, congratulations! You’re ready
 to move on to the next step.
