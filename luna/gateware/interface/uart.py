@@ -9,7 +9,6 @@
 import unittest
 
 from amaranth   import Elaboratable, Module, Signal, Cat
-from amaranth_soc import wishbone, memory
 
 
 from ..stream       import StreamInterface
@@ -207,51 +206,6 @@ class UARTTransmitterTest(LunaGatewareTestCase):
         # Ensure we actually stop.
         yield from self.advance_bit()
         self.assertEqual((yield dut.idle), 1)
-
-
-class UARTTransmitterPeripheral(Elaboratable):
-    """ Wishbone-attached variant of our UARTTransmitter.
-
-    Attributes
-    ----------
-    tx: Signal(), output
-        The UART line to use for transmission.
-    bus: wishbone bus
-        Wishbone interface used for UART connections.
-
-    Parameters
-    ----------
-    divisor: int
-        number of `sync` clock cycles per bit period
-    """
-
-    # TODO: include a variant of misoc/LiteX's autoregister mechanism
-
-    def __init__(self, divisor):
-        self.divisor = divisor
-
-        #
-        # I/O port
-        #
-        self.tx  = Signal()
-        self.bus = wishbone.Interface(addr_width=0, data_width=8)
-        self.bus.memory_map = memory.MemoryMap(addr_width=1, data_width=8)
-
-
-    def elaborate(self, platform):
-        m = Module()
-
-        # Create our UART transmitter, and connect it directly to our
-        # wishbone bus.
-        m.submodules.tx = tx = UARTTransmitter(divisor=self.divisor)
-        m.d.comb += [
-            tx.stream.valid    .eq(self.bus.cyc & self.bus.stb & self.bus.we),
-            tx.stream.payload  .eq(self.bus.dat_w),
-
-            self.bus.ack.eq(tx.stream.ready),
-            self.tx.eq(tx.tx)
-        ]
-        return m
 
 
 class UARTMultibyteTransmitter(Elaboratable):

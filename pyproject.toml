@@ -19,7 +19,6 @@ dependencies = [
     "pyvcd>=0.2.4",
     "ziglang>0.8.0",
     "amaranth @ git+https://github.com/amaranth-lang/amaranth",
-    "amaranth-soc @ git+https://github.com/amaranth-lang/amaranth-soc.git@main",
     "amaranth-boards @ git+https://github.com/amaranth-lang/amaranth-boards.git@main",
     "usb-protocol @ git+https://github.com/usb-tools/python-usb-protocol",
 ]
