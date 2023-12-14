@@ -10,16 +10,14 @@ authors = [
 ]
 description = "Amaranth HDL framework for FPGA-based USB solutions"
 readme = "README.md"
-requires-python = ">=3.8,<4.0"
+requires-python = "~=3.8"
 dependencies = [
     "apollo-fpga>=0.0.5",
     "libusb1>1.9.2",
     "pyserial>=3.5",
     "pyusb>1.1.1",
     "pyvcd>=0.2.4",
-    "ziglang>0.8.0",
-    "amaranth @ git+https://github.com/amaranth-lang/amaranth",
-    "amaranth-soc @ git+https://github.com/amaranth-lang/amaranth-soc.git@main",
+    "amaranth~=0.4.0",
     "amaranth-boards @ git+https://github.com/amaranth-lang/amaranth-boards.git@main",
     "usb-protocol @ git+https://github.com/usb-tools/python-usb-protocol",
 ]
@@ -28,8 +26,6 @@ dependencies = [
 dev = [
     "prompt-toolkit>3.0.16",
     "tox>3.22.0",
-    "minerva @ git+https://github.com/lambdaconcept/minerva.git",
-    "amaranth-stdio @ git+https://github.com/amaranth-lang/amaranth-stdio.git@main",
 ]
 
 [tool.setuptools.packages.find]
