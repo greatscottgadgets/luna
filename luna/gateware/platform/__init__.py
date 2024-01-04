@@ -12,44 +12,9 @@ import importlib
 import importlib.util
 
 from amaranth import Record
-from amaranth.vendor.lattice_ecp5 import LatticeECP5Platform
 
-from .cynthion_r0_1 import CynthionPlatformRev0D1
-from .cynthion_r0_2 import CynthionPlatformRev0D2
-from .cynthion_r0_3 import CynthionPlatformRev0D3
-from .cynthion_r0_4 import CynthionPlatformRev0D4
-from .cynthion_r0_5 import CynthionPlatformRev0D5
-from .cynthion_r0_6 import CynthionPlatformRev0D6
-from .cynthion_r0_7 import CynthionPlatformRev0D7
-from .cynthion_r1_0 import CynthionPlatformRev1D0
-from .cynthion_r1_1 import CynthionPlatformRev1D1
-from .cynthion_r1_2 import CynthionPlatformRev1D2
-from .daisho    import DaishoPlatform
-from .amalthea  import AmaltheaPlatformRev0D1
+from .core import NullPin, LUNAPlatform
 
-from .core      import NullPin
-
-
-
-# Stores the latest platform; for reference / automagic.
-LATEST_PLATFORM = CynthionPlatformRev1D2
-
-
-# Table mapping hardware revision numbers to their platform objects.
-PLATFORM_FOR_REVISION = {
-    (0,   1): CynthionPlatformRev0D1,
-    (0,   2): CynthionPlatformRev0D2,
-    (0,   3): CynthionPlatformRev0D3,
-    (0,   4): CynthionPlatformRev0D4,
-    (0,   5): CynthionPlatformRev0D5,
-    (0,   6): CynthionPlatformRev0D6,
-    (0,   7): CynthionPlatformRev0D7,
-    (1,   0): CynthionPlatformRev1D0,
-    (1,   1): CynthionPlatformRev1D1,
-    (1,   2): CynthionPlatformRev1D2,
-    (254, 1): AmaltheaPlatformRev0D1,
-    (255, 0): DaishoPlatform
-}
 
 def _get_platform_from_string(platform):
     """ Attempts to get the most appropriate platform given a <module>:<class> specification."""
@@ -82,42 +47,57 @@ def _get_platform_from_string(platform):
     return platform_class()
 
 
-def get_appropriate_platform() -> LatticeECP5Platform:
+def get_appropriate_platform() -> LUNAPlatform:
     """ Attempts to return the most appropriate platform for the local configuration. """
 
-    # If we have a LUNA_PLATFORM variable, use it instead of autonegotiating.
+    # If we have a LUNA_PLATFORM variable, use it.
     if os.getenv("LUNA_PLATFORM"):
         return _get_platform_from_string(os.getenv("LUNA_PLATFORM"))
 
-    import apollo_fpga
+    # Otherwise, try to detect an Apollo-based platform.
+    platform_string = get_apollo_platform()
+    if platform_string is None:
+        raise RuntimeError(
+            "Unable to autodetect a supported platform. "
+            "The LUNA_PLATFORM environment variable must be set.")
+    else:
+        return _get_platform_from_string(platform_string)
 
+    return platform
+
+
+def get_apollo_platform() -> str | None:
+    """ Attempts to return a platform string for a connected Apollo-based device. """
+
+    # Try to import Apollo.
     try:
-        # Figure out what hardware revision we're going to connect to...
+        import apollo_fpga
+    except ImportError:
+        return None
+
+    # Look for an Apollo debug interface.
+    try:
         debugger = apollo_fpga.ApolloDebugger()
-        version = debugger.detect_connected_version()
-
-        # ... and look up the relevant platform accordingly.
-        platform = PLATFORM_FOR_REVISION[version]()
-
-        # Finally, override the platform's device type with the FPGA we detect
-        # as being present on the relevant board. (Note that this auto-detection
-        # only works if we're programming a connected device; otherwise, we'll
-        # need to use the custom-platform environment variables.)
-        platform.device = debugger.get_fpga_type()
-
-        # Explicitly close the debugger connection, as Windows doesn't allow you to
-        # re-claim the USB device if it's still open.
-        debugger.close()
-
-        return platform
-
-
-    # If we don't have a connected platform, fall back to the latest platform.
     except apollo_fpga.DebuggerNotFound:
-        platform = LATEST_PLATFORM()
+        return None
 
-        logging.warning(f"Couldn't auto-detect connected platform. Assuming {platform.name}.")
-        return platform
+    # Retrieve the version of the attached device.
+    version = debugger.detect_connected_version()
+
+    # Check if relevant modules provide a platform string.
+    try:
+        import cynthion.gateware
+        return cynthion.gateware.APOLLO_PLATFORMS[version]
+    except (ImportError, AttributeError, KeyError):
+        pass
+    try:
+        import luna_boards
+        return luna_boards.APOLLO_PLATFORMS[version]
+    except (ImportError, AttributeError, KeyError):
+        pass
+
+    # If none of the above modules produced a match, no platform is known.
+    return None
 
 
 class NullPin(Record):
