@@ -15,7 +15,7 @@ from .packet               import DataCRCInterface, USBDataPacketCRC, USBInterpa
 from .packet               import USBTokenDetector, TokenDetectorInterface
 from .packet               import InterpacketTimerInterface, HandshakeExchangeInterface
 from .endpoint             import EndpointInterface
-from .request              import USBSetupDecoder, USBRequestHandlerMultiplexer, StallOnlyRequestHandler
+from .request              import USBSetupDecoder, USBRequestHandlerMultiplexer
 from ..request.standard    import StandardRequestHandler
 from ..stream              import USBInStreamInterface, USBOutStreamInterface
 
@@ -125,20 +125,6 @@ class USBControlEndpoint(Elaboratable):
             # ... and our tokenizer.
             m.submodules.token_detector = tokenizer = USBTokenDetector(utmi=self.utmi)
             m.d.comb += tokenizer.interface.connect(interface.tokenizer)
-
-
-        #
-        # Convenience feature:
-        #
-        # If we have -only- a standard request handler, automatically add a handler that will
-        # stall all other requests.
-        #
-        single_handler = (len(self._request_handlers) == 1)
-        if (single_handler and isinstance(self._request_handlers[0], StandardRequestHandler)):
-
-            # Add a handler that will stall any non-standard request.
-            stall_condition = lambda setup : setup.type != USBRequestType.STANDARD
-            self.add_request_handler(StallOnlyRequestHandler(stall_condition))
 
 
         #

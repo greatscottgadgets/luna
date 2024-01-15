@@ -45,6 +45,9 @@ class ACMRequestHandlers(USBRequestHandler):
                 # SET_LINE_CODING: The host attempts to tell us how it wants serial data
                 # encoding. Since we output a stream, we'll ignore the actual line coding.
                 with m.Case(self.SET_LINE_CODING):
+                    
+                    # Drive interface outputs for this request
+                    m.d.comb += interface.claim.eq(1)
 
                     # Always ACK the data out...
                     with m.If(interface.rx_ready_for_response):
@@ -53,17 +56,8 @@ class ACMRequestHandlers(USBRequestHandler):
                     # ... and accept whatever the request was.
                     with m.If(interface.status_requested):
                         m.d.comb += self.send_zlp()
-
-
-                with m.Case():
-
-                    #
-                    # Stall unhandled requests.
-                    #
-                    with m.If(interface.status_requested | interface.data_requested):
-                        m.d.comb += interface.handshakes_out.stall.eq(1)
-
-                return m
+                        
+        return m
 
 
 class USBSerialDevice(Elaboratable):
