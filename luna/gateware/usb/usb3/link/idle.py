@@ -6,7 +6,6 @@
 """ Logical idle detection / polling gateware. """
 
 from amaranth         import *
-from amaranth.hdl.ast import Past
 
 from ...stream        import USBRawSuperSpeedStream
 
@@ -57,8 +56,12 @@ class IdleHandshakeHandler(Elaboratable):
         ctrl_word = self.sink.ctrl
 
         # Capture the previous data word; so we have a record of eight consecutive signals.
-        last_word = Past(self.sink.data)
-        last_ctrl = Past(self.sink.ctrl)
+        last_word = Signal.like(data_word)
+        last_ctrl = Signal.like(ctrl_word)
+        m.d.ss += [
+            last_word.eq(data_word),
+            last_ctrl.eq(ctrl_word),
+        ]
 
         # Logical idle descrambles to the raw data value zero; so we only need to validate that
         # the last and current words are both zeroes.

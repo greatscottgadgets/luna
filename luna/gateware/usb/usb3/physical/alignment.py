@@ -9,7 +9,6 @@
 """ Code for USB3 physical-layer encoding. """
 
 from amaranth import *
-from amaranth.hdl.ast import Past
 
 from .coding   import COM, SHP, SLC, EPF, get_word_for_symbols
 from ...stream import USBRawSuperSpeedStream
