@@ -12,33 +12,11 @@ from amaranth import Const, Signal, Module, Cat, Elaboratable, Record, ClockSign
 from amaranth.hdl.rec import DIR_FANIN, DIR_FANOUT
 from amaranth.lib.cdc import FFSynchronizer
 
-from ..utils.io   import delay
 from ..test.utils import LunaGatewareTestCase, sync_test_case
 
 
-class HyperBus(Record):
-    """ Record representing an HyperBus (DDR-ish connection for HyperRAM). """
-
-    def __init__(self):
-        super().__init__([
-            ('clk', 1, DIR_FANOUT),
-            ('dq',
-                ('i', 8, DIR_FANIN),
-                ('o', 8, DIR_FANOUT),
-                ('e', 1, DIR_FANOUT),
-            ),
-            ('rwds',
-                ('i', 1, DIR_FANIN),
-                ('o', 1, DIR_FANOUT),
-                ('e', 1, DIR_FANOUT),
-            ),
-            ('cs',     1, DIR_FANOUT),
-            ('reset',  1, DIR_FANOUT)
-        ])
-
-
 class HyperBusPHY(Record):
-    """ Record representing an 16-bit HyperBus interface for use with a 2:1 PHY module. """
+    """ Record representing a 16-bit HyperBus interface for use with a 2:1 PHY module. """
 
     def __init__(self):
         super().__init__([
