@@ -16,7 +16,7 @@ from luna.gateware.utils.cdc          import synchronize
 from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 from luna.gateware.interface.jtag     import JTAGRegisterInterface
 from luna.gateware.interface.ulpi     import ULPIRegisterWindow
-from luna.gateware.interface.psram    import HyperRAMInterface
+from luna.gateware.interface.psram    import HyperRAMPHY, HyperRAMInterface
 
 from apollo_fpga.support.selftest          import ApolloSelfTestCase, named_test
 
@@ -115,13 +115,18 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
         # HyperRAM test connections.
         #
         ram_bus = platform.request('ram')
-        psram = HyperRAMInterface(bus=ram_bus, **platform.ram_timings)
-        m.submodules += psram
+        psram_phy = HyperRAMPHY(bus=ram_bus)
+        psram = HyperRAMInterface(phy=psram_phy.phy)
+        m.submodules += [psram_phy, psram]
 
         psram_address_changed = Signal()
         psram_address = registers.add_register(REGISTER_RAM_REG_ADDR, write_strobe=psram_address_changed)
 
-        registers.add_sfr(REGISTER_RAM_VALUE, read=psram.read_data)
+        # Store last read word from HyperRAM.
+        psram_read_data = Signal.like(psram.read_data)
+        with m.If(psram.read_ready):
+            m.d.sync += psram_read_data.eq(psram.read_data)
+        registers.add_sfr(REGISTER_RAM_VALUE, read=psram_read_data)
 
         # Hook up our PSRAM.
         m.d.comb += [
@@ -253,7 +258,6 @@ class InteractiveSelftest(Elaboratable, ApolloSelfTestCase):
     def assertHyperRAMRegister(self, address: int, expected_values: int):
         """ Assertion that fails iff a RAM register doesn't hold the expected value. """
 
-        self.dut.registers.register_write(REGISTER_RAM_REG_ADDR, address)
         self.dut.registers.register_write(REGISTER_RAM_REG_ADDR, address)
         actual_value =  self.dut.registers.register_read(REGISTER_RAM_VALUE)
 
