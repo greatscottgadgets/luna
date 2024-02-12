@@ -271,9 +271,9 @@ class HyperRAMInterface(Elaboratable):
                 # If RWDS has changed, the host has just sent us new data.
                 # Sample it, and indicate that we now have a valid piece of new data.
                 with m.If(self.phy.rwds.i == 0b10):
-                    m.d.sync += [
-                        self.read_data.eq(self.phy.dq.i),
-                        self.read_ready    .eq(1)
+                    m.d.comb += [
+                        self.read_data     .eq(self.phy.dq.i),
+                        self.read_ready    .eq(1),
                     ]
 
                     # If our controller is done with the transcation, end it.
