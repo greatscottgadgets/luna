@@ -139,11 +139,10 @@ class HyperRAMInterface(Elaboratable):
         # and the relevant data stages.
         latency_clocks_remaining  = Signal(range(0, self.HIGH_LATENCY_CLOCKS + 1))
 
-        # One cycle delayed version of RWDS.
-        # This is used to detect edges in RWDS during reads, which semantically mean
-        # we should accept new data.
-        last_rwds = Signal.like(self.phy.rwds.i)
-        m.d.sync += last_rwds.eq(self.phy.rwds.i)
+        # Store last edge values of RWDS and DQ lines.
+        # This is used to handle clock inversion cases.
+        last_half_rwds = Signal()
+        last_half_dq   = Signal(len(self.phy.dq.i)//2)
 
         #
         # Core operation FSM.
@@ -152,9 +151,6 @@ class HyperRAMInterface(Elaboratable):
         # Provide defaults for our control/status signals.
         m.d.sync += [
             self.phy.clk_en     .eq(1),
-            self.read_ready     .eq(0),
-
-
             self.phy.cs         .eq(1),
             self.phy.rwds.e     .eq(0),
             self.phy.dq.e       .eq(0),
@@ -248,13 +244,15 @@ class HyperRAMInterface(Elaboratable):
                 with m.Else():
                     m.next = "HANDLE_LATENCY"
 
+                    # FIXME: our HyperRAM part has a fixed latency, but we could need to detect 
+                    # different variants from the configuration register in the future.
                     with m.If(extra_latency | 1):
                         m.d.sync += latency_clocks_remaining.eq(self.HIGH_LATENCY_CLOCKS-2)
                     with m.Else():
                         m.d.sync += latency_clocks_remaining.eq(self.LOW_LATENCY_CLOCKS-2)
 
 
-            # HANDLE_LATENCY -- applies clock edges until our latency period is over.
+            # HANDLE_LATENCY -- applies clock cycles until our latency period is over.
             with m.State('HANDLE_LATENCY'):
                 m.d.sync += latency_clocks_remaining.eq(latency_clocks_remaining - 1)
 
@@ -265,8 +263,14 @@ class HyperRAMInterface(Elaboratable):
                         m.next = 'WRITE_DATA'
 
 
-            # STREAM_DATA_LSB -- scans in or out the second byte of data
+            # READ_DATA -- reads words from the PSRAM
             with m.State('READ_DATA'):
+
+                # Store data sampled in last edge.
+                m.d.sync += [
+                    last_half_rwds .eq(self.phy.rwds.i[0]),
+                    last_half_dq   .eq(self.phy.dq.i[:8])
+                ]
 
                 # If RWDS has changed, the host has just sent us new data.
                 # Sample it, and indicate that we now have a valid piece of new data.
@@ -276,12 +280,23 @@ class HyperRAMInterface(Elaboratable):
                         self.read_ready    .eq(1),
                     ]
 
-                    # If our controller is done with the transcation, end it.
+                    # If our controller is done with the transaction, end it.
                     with m.If(self.final_word):
                         m.next = 'RECOVERY'
 
+                # Manage clock inversion: the data is divided between the current cycle 
+                # and the preceding one.
+                with m.Elif(Cat(self.phy.rwds.i[1], last_half_rwds) == 0b10):
+                    m.d.comb += [
+                        self.read_data     .eq(Cat(self.phy.dq.i[8:], last_half_dq)),
+                        self.read_ready    .eq(1),
+                    ]
 
-            # WRITE_DATA_LSB -- write the first of our two bytes of data to the to the PSRAM
+                    # If our controller is done with the transaction, end it.
+                    with m.If(self.final_word):
+                        m.next = 'RECOVERY'
+
+            # WRITE_DATA -- write a word to the PSRAM
             with m.State("WRITE_DATA"):
                 m.d.sync += [
                     self.phy.dq.o    .eq(self.write_data),
@@ -303,7 +318,10 @@ class HyperRAMInterface(Elaboratable):
             with m.State('RECOVERY'):
                 m.d.sync += [
                     self.phy.cs     .eq(0),
-                    self.phy.clk_en .eq(0)
+                    self.phy.clk_en .eq(0),
+                    last_half_rwds  .eq(0),
+                    last_half_dq    .eq(0),
+
                 ]
 
                 # TODO: implement recovery
