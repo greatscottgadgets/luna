@@ -161,10 +161,12 @@ if __name__ == "__main__":
         dut.registers.register_write(REGISTER_RAM_READ_LENGTH, 10)
         dut.registers.register_read(REGISTER_RAM_START)
 
+        # Verify data.
         for addr in range(len(data)):
             result = dut.registers.register_read(REGISTER_RAM_FIFO)
-            print(f"{result=:x} {data[addr]=:x} {addr=}")
-
+            if result != data[addr]:
+                print(f"{result=:x} {data[addr]=:x} {addr=}")
+                return False
 
         return True
 
@@ -173,10 +175,10 @@ if __name__ == "__main__":
         for i in range(iterations):
 
             if test():
-                pprint(f".", end="")
+                pprint(".", end="")
                 passes += 1
             else:
-                pprint(f"✗", end="")
+                pprint("✗", end="")
 
                 failures += 1
                 failed_tests.add(test)
@@ -185,8 +187,9 @@ if __name__ == "__main__":
     pass_text = "<green>✓ PASSED</green>"
     pprint(HTML("\n\n<b><u>Results:</u></b>"))
 
-    pprint(HTML(f"    ID READ:     {fail_text if test_id_read in failed_tests else pass_text}"))
-    pprint(HTML(f"    CONFIG READ: {fail_text if test_config_read in failed_tests else pass_text}"))
+    pprint(HTML(f"    ID READ:      {fail_text if test_id_read in failed_tests else pass_text}"))
+    pprint(HTML(f"    CONFIG READ:  {fail_text if test_config_read in failed_tests else pass_text}"))
+    pprint(HTML(f"    MEM READBACK: {fail_text if test_mem_readback in failed_tests else pass_text}"))
 
 
     print(f"\nDiagnostics completed with {passes} passes and {failures} failures.\n")
