@@ -99,7 +99,7 @@ class HyperRAMDiagnostic(Elaboratable):
 
         # Hook up our PSRAM.
         m.d.comb += [
-            ram_bus.reset          .eq(0),
+            ram_bus.reset.o        .eq(0),
             psram.single_page      .eq(0),
             psram.register_space   .eq(register_space),
             psram.final_word       .eq(final_word),
