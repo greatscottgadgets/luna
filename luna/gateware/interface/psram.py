@@ -464,12 +464,12 @@ class TestHyperRAMInterface(LunaGatewareTestCase):
         yield self.ram_signals.dq.i.eq(0xCAFE)
         yield self.ram_signals.rwds.i.eq(0b10)
         yield
-        yield
 
         # Once this finished, we should have a result on our data out.
         self.assertEqual((yield self.dut.read_data),      0xCAFE)
         self.assertEqual((yield self.dut.read_ready    ), 1)
 
+        yield
         yield
         self.assertEqual((yield self.ram_signals.cs),     0)
         self.assertEqual((yield self.ram_signals.dq.e),   0)
@@ -492,7 +492,6 @@ class HyperRAMPHY(Elaboratable):
     def __init__(self, *, bus, in_skew=None, out_skew=None, clock_skew=None):
         self.bus = bus
         self.phy = HyperBusPHY()
-        self.rwds_in = Signal()
 
     def elaborate(self, platform):
         m = Module()
