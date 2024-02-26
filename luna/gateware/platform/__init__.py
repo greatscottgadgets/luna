@@ -11,6 +11,8 @@ import logging
 import importlib
 import importlib.util
 
+from typing import Optional
+
 from amaranth import Record
 
 from .core import NullPin, LUNAPlatform
@@ -66,7 +68,7 @@ def get_appropriate_platform() -> LUNAPlatform:
     return platform
 
 
-def get_apollo_platform() -> str | None:
+def get_apollo_platform() -> Optional[str]:
     """ Attempts to return a platform string for a connected Apollo-based device. """
 
     # Try to import Apollo.
