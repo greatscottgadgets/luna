@@ -6,7 +6,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from amaranth import *
-from amaranth.hdl.ast import Fell
 
 from usb_protocol.types            import USBRequestType
 from usb_protocol.emitters         import SuperSpeedDeviceDescriptorCollection

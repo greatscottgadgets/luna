@@ -11,7 +11,6 @@ import operator
 from enum import IntEnum
 
 from amaranth          import *
-from amaranth.hdl.ast  import Past
 
 from .crc              import compute_usb_crc5
 from ..physical.coding import SLC, EPF, stream_matches_symbols, get_word_for_symbols

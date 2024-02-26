@@ -11,7 +11,6 @@ import unittest
 
 from amaranth       import Signal, Module, Cat, Elaboratable, ClockSignal, \
                            Record, ResetSignal, Const
-from amaranth.hdl.ast import Rose, Fell, Past
 from amaranth.hdl.rec import Record, DIR_FANIN, DIR_FANOUT, DIR_NONE
 
 from ..utils.io     import delay
@@ -1296,7 +1295,9 @@ class UTMITranslator(Elaboratable):
         # A transmission starts when DIR goes high with NXT, or when an RxEvent indicates
         # a switch from RxActive = 0 to RxActive = 1. A transmission stops when DIR drops low,
         # or when the RxEvent RxActive bit drops from 1 to 0, or an error occurs.A
-        dir_rising_edge = Rose(self.ulpi.dir.i, domain="usb")
+        past_dir        = Signal.like(self.ulpi.dir.i)
+        m.d.usb        += past_dir.eq(self.ulpi.dir.i)
+        dir_rising_edge = ~past_dir & self.ulpi.dir.i
         dir_based_start = dir_rising_edge & self.ulpi.nxt
 
 

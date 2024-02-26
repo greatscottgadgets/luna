@@ -9,7 +9,6 @@ import logging
 
 from amaranth import *
 from amaranth.lib.cdc import PulseSynchronizer, FFSynchronizer
-from amaranth.hdl.ast import Rose
 
 
 class PHYResetController(Elaboratable):
@@ -156,6 +155,10 @@ class LinkPartnerDetector(Elaboratable):
         # after a detection completes.
         PARTNER_PRESENT_STATUS = 0b011
 
+        # Keep track of the previous value of the request detection strobe
+        past_request_detection = Signal()
+        m.d.ss                += past_request_detection.eq(self.request_detection)
+
         with m.FSM(domain="ss"):
 
             # IDLE_P2 -- our post-startup state; represents when we're IDLE but in P2.
@@ -211,7 +214,8 @@ class LinkPartnerDetector(Elaboratable):
 
                 # We can only perform detections from P2; so, when the user requests a detection, we'll
                 # need to move back to P2.
-                with m.If(Rose(self.request_detection)):
+                request_detection_rose = ~past_request_detection & self.request_detection
+                with m.If(request_detection_rose):
                     m.next = "MOVE_TO_P2"
 
 

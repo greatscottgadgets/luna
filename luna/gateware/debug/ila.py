@@ -17,7 +17,6 @@ import subprocess
 from abc               import ABCMeta, abstractmethod
 
 from amaranth          import Signal, Module, Cat, Elaboratable, Memory, ClockDomain, DomainRenamer
-from amaranth.hdl.ast  import Rose
 from amaranth.lib.cdc  import FFSynchronizer
 from amaranth.lib.fifo import AsyncFIFOBuffered
 from vcd               import VCDWriter
@@ -376,7 +375,10 @@ class SyncSerialILA(Elaboratable):
         m  = Module()
         m.submodules.ila = self.ila
 
-        transaction_start = Rose(self.spi.cs)
+        # Keep track of the rising edge of the CS signal
+        past_spi_cs       = Signal()
+        m.d.sync         += past_spi_cs.eq(self.spi.cs)
+        transaction_start = ~past_spi_cs & self.spi.cs 
 
         # Connect up our SPI transciever to our public interface.
         interface = SPIDeviceInterface(

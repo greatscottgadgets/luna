@@ -8,7 +8,6 @@
 import unittest
 
 from amaranth                      import *
-from amaranth.hdl.ast              import Fell
 
 from usb_protocol.types.superspeed import LinkCommand
 
@@ -425,6 +424,9 @@ class HeaderPacketReceiver(Elaboratable):
         with m.If(self.acknowledge_power_state):
             m.d.ss += lpma_pending.eq(1)
 
+        # Keep track of the last value of the enable signal
+        last_enable = Signal()
+        m.d.ss     += last_enable.eq(self.enable)
 
         #
         # Header Packet Buffers
@@ -600,7 +602,7 @@ class HeaderPacketReceiver(Elaboratable):
 
                 # Once we've become disabled, we'll want to prepare for our next enable.
                 # This means preparing for our advertisement, by:
-                with m.If(Fell(self.enable) | self.usb_reset):
+                with m.If((last_enable & ~self.enable) | self.usb_reset):
                     m.d.ss += [
                         # -Resetting our pending ACKs to 1, so we perform an sequence number advertisement
                         #  when we're next enabled.
