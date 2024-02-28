@@ -15,9 +15,13 @@ BULK_ENDPOINT_NUMBER = 1
 class USBSpeedTestDevice(Elaboratable):
     """ Simple device that exchanges data with the host as fast as the hardware can. """
 
-    def __init__(self, fs_only=False, phy=None):
+    def __init__(self, generate_clocks=True, fs_only=False, phy=None,
+            vid=VENDOR_ID, pid=PRODUCT_ID):
+        self.generate_clocks = generate_clocks
         self.fs_only = fs_only
         self.phy = phy
+        self.vid = vid
+        self.pid = pid
         self.max_bulk_packet_size = 64 if fs_only else 512
 
     def create_descriptors(self):
@@ -32,8 +36,8 @@ class USBSpeedTestDevice(Elaboratable):
 
         # We'll need a device descriptor...
         with descriptors.DeviceDescriptor() as d:
-            d.idVendor           = VENDOR_ID
-            d.idProduct          = PRODUCT_ID
+            d.idVendor           = self.vid
+            d.idProduct          = self.pid
 
             d.iManufacturer      = "LUNA"
             d.iProduct           = "speed test"
@@ -66,7 +70,8 @@ class USBSpeedTestDevice(Elaboratable):
         m = Module()
 
         # Generate our domain clocks/resets.
-        m.submodules.car = platform.clock_domain_generator()
+        if self.generate_clocks:
+            m.submodules.clocks = platform.clock_domain_generator()
 
         # Request default PHY unless another was specified.
         if self.phy is None:
@@ -141,6 +146,9 @@ class USBInSuperSpeedTestDevice(Elaboratable):
 
     MAX_BULK_PACKET_SIZE = 1024
 
+    def __init__(self, generate_clocks=True):
+        self.generate_clocks = generate_clocks
+
     def create_descriptors(self):
         """ Create the descriptors we want to use for our device. """
 
@@ -186,8 +194,9 @@ class USBInSuperSpeedTestDevice(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-        # Generate our domain clocks/resets.
-        m.submodules.car = platform.clock_domain_generator()
+        # Generate our clock domains, if needed.
+        if self.generate_clocks:
+            m.submodules.clocks = platform.clock_domain_generator()
 
         # Create our core PIPE PHY. Since PHY configuration is per-board, we'll just ask
         # our platform for a pre-configured USB3 PHY.
