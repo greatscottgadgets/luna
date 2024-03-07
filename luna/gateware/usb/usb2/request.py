@@ -11,6 +11,7 @@ import functools
 import operator
 
 from amaranth            import Signal, Module, Elaboratable, Cat
+from amaranth.lib.coding import Encoder
 from amaranth.hdl.rec    import Record, DIR_FANOUT
 
 from .                   import USBSpeed
@@ -19,7 +20,6 @@ from .packet             import DataCRCInterface, USBInterpacketTimer, TokenDete
 from .packet             import InterpacketTimerInterface, HandshakeExchangeInterface
 from ..stream            import USBInStreamInterface, USBOutStreamInterface
 from ..request           import SetupPacket
-from ...utils.bus        import OneHotMultiplexer
 
 from ...test             import usb_domain_test_case
 
@@ -31,6 +31,7 @@ class RequestHandlerInterface:
     Components (I = input to request handler; O = output to control interface):
         *: setup                  -- Carries the most recent setup request to the handler.
         *: tokenizer              -- Carries information about any incoming token packets.
+        O: claim                  -- Assert to drive the rest of output signals.
 
         # Control request status signals.
         I: data_requested         -- Pulsed to indicate that a data-phase IN token has been issued,
@@ -64,6 +65,7 @@ class RequestHandlerInterface:
     def __init__(self):
         self.setup                 = SetupPacket()
         self.tokenizer             = TokenDetectorInterface()
+        self.claim                 = Signal()
 
         self.data_requested        = Signal()
         self.status_requested      = Signal()
@@ -396,16 +398,19 @@ class USBRequestHandlerMultiplexer(Elaboratable):
         # Internals
         #
         self._interfaces = []
+        self._fallback   = None
 
 
     def add_interface(self, interface: RequestHandlerInterface):
         """ Adds a RequestHandlerInterface to the multiplexer.
 
-        Arbitration is not performed; it's expected only one handler will be
-        driving requests at a time.
+        It's expected only one handler will be driving requests at a time.
         """
         self._interfaces.append(interface)
 
+    def set_fallback_interface(self, interface: RequestHandlerInterface):
+        """ Sets a RequestHandlerInterface as a fallback for unhandled requests. """
+        self._fallback = interface
 
     def _multiplex_signals(self, m, *, when, multiplex, sub_bus=None):
         """ Helper that creates a simple priority-encoder multiplexer.
@@ -454,11 +459,15 @@ class USBRequestHandlerMultiplexer(Elaboratable):
         m = Module()
         shared = self.shared
 
+        # If no fallback request handler is provided, stall all unhandled requests.
+        if self._fallback is None:
+            m.submodules.stall_handler = stall_handler = StallOnlyRequestHandler()
+            self._fallback = stall_handler.interface
 
         #
         # Pass through signals being routed -to- our pre-mux interfaces.
         #
-        for interface in self._interfaces:
+        for interface in [*self._interfaces, self._fallback]:
             m.d.comb += [
                 shared.setup                     .connect(interface.setup),
                 shared.tokenizer                 .connect(interface.tokenizer),
@@ -476,42 +485,36 @@ class USBRequestHandlerMultiplexer(Elaboratable):
         #
         # Multiplex the signals being routed -from- our pre-mux interface.
         #
-        self._multiplex_signals(m,
-            when='address_changed',
-            multiplex=['address_changed', 'new_address']
-        )
 
-        self._multiplex_signals(m,
-            when='config_changed',
-            multiplex=['config_changed', 'new_config']
-        )
+        def _connect_interface_outputs(interface):
+            m.d.comb += [
+                shared.tx               .stream_eq(interface.tx),
 
-        # Connect up our transmit interface.
-        m.submodules.tx_mux = tx_mux = OneHotMultiplexer(
-            interface_type=USBInStreamInterface,
-            mux_signals=('payload',),
-            or_signals=('valid', 'first', 'last'),
-            pass_signals=('ready',)
-        )
-        tx_mux.add_interfaces(i.tx for i in self._interfaces)
-        m.d.comb += self.shared.tx.stream_eq(tx_mux.output)
+                shared.tx_data_pid      .eq(interface.tx_data_pid),
 
-        # Pass through the relevant PID from our data source.
-        for i in self._interfaces:
-            with m.If(i.tx.valid):
-                m.d.comb += self.shared.tx_data_pid.eq(i.tx_data_pid)
+                shared.handshakes_out   .eq(interface.handshakes_out),
 
-        # OR together all of our handshake-generation requests.
-        any_ack   = functools.reduce(operator.__or__, (i.handshakes_out.ack   for i in self._interfaces))
-        any_nak   = functools.reduce(operator.__or__, (i.handshakes_out.nak   for i in self._interfaces))
-        any_stall = functools.reduce(operator.__or__, (i.handshakes_out.stall for i in self._interfaces))
+                shared.address_changed  .eq(interface.address_changed),
+                shared.new_address      .eq(interface.new_address),
+                shared.config_changed   .eq(interface.config_changed),
+                shared.new_config       .eq(interface.new_config),
+            ]
 
-        m.d.comb += [
-            shared.handshakes_out.ack    .eq(any_ack),
-            shared.handshakes_out.nak    .eq(any_nak),
-            shared.handshakes_out.stall  .eq(any_stall),
-        ]
+        # The encoder provides the index of the single interface that claims the 
+        # output lines. Otherwise, it asserts the .n (invalid) line.
+        m.submodules.encoder = encoder = Encoder(len(self._interfaces))
+        m.d.comb += encoder.i.eq(Cat(interface.claim for interface in self._interfaces))
 
+        # Connect the interface outputs to the interface that claims them.
+        with m.Switch(encoder.o):
+            for index, interface in enumerate(self._interfaces):
+                with m.Case(index):
+                    _connect_interface_outputs(interface)
+
+        # Use the fallback handler interface for the invalid case.
+        with m.If(encoder.n):
+            _connect_interface_outputs(self._fallback)
+        
         return m
 
 
@@ -523,14 +526,14 @@ class StallOnlyRequestHandler(Elaboratable):
                         See its record definition for signal definitions.
     """
 
-    def __init__(self, stall_condition):
+    def __init__(self, stall_condition=None):
         """
         Parameters:
             stall_condition -- A function that accepts a SetupRequest packet, and returns
                                an Amaranth conditional indicating whether we should stall.
         """
 
-        self.condition = stall_condition
+        self.condition = stall_condition or (lambda _: 1)
 
         #
         # I/O port
