@@ -150,6 +150,7 @@ class USBDevice(Elaboratable):
         # Internals.
         #
         self._endpoints = []
+        self._bus_name   = bus.name
 
 
     def add_endpoint(self, endpoint):
@@ -201,6 +202,12 @@ class USBDevice(Elaboratable):
 
     def elaborate(self, platform):
         m = Module()
+
+        # Call any hooks registered for the bus in the platform definition.
+        if hasattr(platform, "usb_device_hooks"):
+            hook = platform.usb_device_hooks.get(self._bus_name)
+            if hook is not None:
+                hook(self, m)
 
         # If we have a bus translator, include it in our submodules.
         if self.translator:
