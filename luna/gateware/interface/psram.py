@@ -497,7 +497,7 @@ class HyperRAMPHY(Elaboratable):
         m = Module()
 
         m.submodules += [
-            FFSynchronizer(self.phy.cs,     self.bus.cs,      stages=3),
+            FFSynchronizer(self.phy.cs,     self.bus.cs.o,    stages=3),
             FFSynchronizer(self.phy.rwds.e, self.bus.rwds.oe, stages=3),
             FFSynchronizer(self.phy.dq.e,   self.bus.dq.oe,   stages=3),
         ]
@@ -514,7 +514,7 @@ class HyperRAMPHY(Elaboratable):
             ),
             Instance("DELAYF",
                 i_A=clk_out,
-                o_Z=self.bus.clk,
+                o_Z=self.bus.clk.o,
                 # TODO: connect up move/load/dir
                 p_DEL_VALUE=int(2e-9 / 25e-12),
             ),
