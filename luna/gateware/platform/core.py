@@ -57,8 +57,8 @@ class LUNAPlatform:
         try:
             rgb_led = self.request("rgb_led", index)
             m.d.comb += [
-                rgb_led.r.eq(0),
-                rgb_led.b.eq(0)
+                rgb_led.r.o.eq(0),
+                rgb_led.b.o.eq(0)
             ]
             return rgb_led.g
         except ResourceError:

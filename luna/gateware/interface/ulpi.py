@@ -474,10 +474,10 @@ class ULPIRxEventDecoder(Elaboratable):
         # To implement the first condition, we'll first create a delayed
         # version of DIR, and then logically AND it with the current value.
         direction_delayed = Signal()
-        m.d.usb += direction_delayed.eq(self.ulpi.dir)
+        m.d.usb += direction_delayed.eq(self.ulpi.dir.i)
 
         receiving = Signal()
-        m.d.comb += receiving.eq(direction_delayed & self.ulpi.dir)
+        m.d.comb += receiving.eq(direction_delayed & self.ulpi.dir.i)
 
         # Default our strobes to 0, unless asserted.
         m.d.usb += [
@@ -486,7 +486,7 @@ class ULPIRxEventDecoder(Elaboratable):
         ]
 
         # Sample the DATA lines whenever these conditions are met.
-        with m.If(receiving & ~self.ulpi.nxt & ~self.register_operation_in_progress):
+        with m.If(receiving & ~self.ulpi.nxt.i & ~self.register_operation_in_progress):
             m.d.usb += self.last_rx_command.eq(self.ulpi.data.i)
 
             # If RxActive has just changed, strobe the start or stop signals,
@@ -521,8 +521,12 @@ class ULPIRxEventDecoderTest(LunaGatewareTestCase):
     def instantiate_dut(self):
 
         self.ulpi = Record([
-            ("dir", 1),
-            ("nxt", 1),
+            ("dir", [
+                ("i", 1),
+            ]),
+            ("nxt", [
+                ("i", 1),
+            ]),
             ("data", [
                 ("i", 8),
             ])
@@ -532,8 +536,8 @@ class ULPIRxEventDecoderTest(LunaGatewareTestCase):
 
 
     def initialize_signals(self):
-        yield self.ulpi.dir.eq(0)
-        yield self.ulpi.nxt.eq(0)
+        yield self.ulpi.dir.i.eq(0)
+        yield self.ulpi.nxt.i.eq(0)
         yield self.ulpi.data.i.eq(0)
         yield self.dut.register_operation_in_progress.eq(0)
 
@@ -546,22 +550,22 @@ class ULPIRxEventDecoderTest(LunaGatewareTestCase):
 
         # First, set DIR and NXT at the same time, and verify that we
         # don't register an RxEvent.
-        yield self.ulpi.dir.eq(1)
-        yield self.ulpi.nxt.eq(1)
+        yield self.ulpi.dir.i.eq(1)
+        yield self.ulpi.nxt.i.eq(1)
 
         yield from self.advance_cycles(5)
         self.assertEqual((yield self.dut.last_rx_command), 0x00)
 
         # Nothing should change when we drop DIR and NXT.
-        yield self.ulpi.dir.eq(0)
-        yield self.ulpi.nxt.eq(0)
+        yield self.ulpi.dir.i.eq(0)
+        yield self.ulpi.nxt.i.eq(0)
         yield
         self.assertEqual((yield self.dut.last_rx_command), 0x00)
 
 
         # Setting DIR but not NXT should trigger an RxEvent; but not
         # until one cycle of "bus turnaround" has passed.
-        yield self.ulpi.dir.eq(1)
+        yield self.ulpi.dir.i.eq(1)
 
         yield self.ulpi.data.i.eq(0x12)
         yield
@@ -1205,7 +1209,7 @@ class UTMITranslator(Elaboratable):
             register_window.busy     | \
             transmit_translator.busy | \
             control_translator.busy  | \
-            self.ulpi.dir
+            self.ulpi.dir.i
 
 
         # If we're handling ULPI clocking, do so.
@@ -1218,9 +1222,9 @@ class UTMITranslator(Elaboratable):
 
             # Just Input (TM) and Just Output (TM) clocks are simpler: we know how to drive them.
             elif hasattr(self.ulpi.clk, 'o'):
-                m.d.comb += self.ulpi.clk.eq(ClockSignal(raw_clock_domain))
+                m.d.comb += self.ulpi.clk.o.eq(ClockSignal(raw_clock_domain))
             elif hasattr(self.ulpi.clk, 'i'):
-                m.d.comb += ClockSignal(raw_clock_domain).eq(self.ulpi.clk)
+                m.d.comb += ClockSignal(raw_clock_domain).eq(self.ulpi.clk.i)
 
             # Clocks that don't seem to be I/O pins aren't what we're expecting; fail out.
             else:
@@ -1230,14 +1234,14 @@ class UTMITranslator(Elaboratable):
 
         # Hook up our reset signal iff our ULPI bus has one.
         if hasattr(self.ulpi, 'rst'):
-            m.d.comb += self.ulpi.rst  .eq(ResetSignal(raw_clock_domain)),
+            m.d.comb += self.ulpi.rst.o.eq(ResetSignal(raw_clock_domain)),
 
 
         # Connect our ULPI control signals to each of our subcomponents.
         m.d.comb += [
 
             # Drive the bus whenever the target PHY isn't.
-            self.ulpi.data.oe            .eq(~self.ulpi.dir),
+            self.ulpi.data.oe            .eq(~self.ulpi.dir.i),
 
             # Generate our busy signal.
             self.busy                    .eq(any_busy),
@@ -1248,9 +1252,9 @@ class UTMITranslator(Elaboratable):
             self.last_rx_command          .eq(rxevent_decoder.last_rx_command),
 
             # Connect our inputs to our transmit translator.
-            transmit_translator.ulpi_nxt  .eq(self.ulpi.nxt),
+            transmit_translator.ulpi_nxt  .eq(self.ulpi.nxt.i),
             transmit_translator.op_mode   .eq(self.op_mode),
-            transmit_translator.bus_idle  .eq(~control_translator.busy & ~self.ulpi.dir),
+            transmit_translator.bus_idle  .eq(~control_translator.busy & ~self.ulpi.dir.i),
             transmit_translator.tx_data   .eq(self.tx_data),
             transmit_translator.tx_valid  .eq(self.tx_valid),
             self.tx_ready                 .eq(transmit_translator.tx_ready),
@@ -1258,8 +1262,8 @@ class UTMITranslator(Elaboratable):
             # Connect our inputs to our control translator / register window.
             control_translator.bus_idle   .eq(~transmit_translator.busy),
             register_window.ulpi_data_in  .eq(self.ulpi.data.i),
-            register_window.ulpi_dir      .eq(self.ulpi.dir),
-            register_window.ulpi_next     .eq(self.ulpi.nxt),
+            register_window.ulpi_dir      .eq(self.ulpi.dir.i),
+            register_window.ulpi_next     .eq(self.ulpi.nxt.i),
         ]
 
         # Control our the source of our ULPI data output.
@@ -1268,7 +1272,7 @@ class UTMITranslator(Elaboratable):
         with m.If(transmit_translator.ulpi_out_req):
             m.d.comb += [
                 self.ulpi.data.o  .eq(transmit_translator.ulpi_data_out),
-                self.ulpi.stp     .eq(transmit_translator.ulpi_stp)
+                self.ulpi.stp.o   .eq(transmit_translator.ulpi_stp)
             ]
         # Otherwise, yield control to the register handler.
         # This is a slight optimization: since it properly generates NOPs
@@ -1276,7 +1280,7 @@ class UTMITranslator(Elaboratable):
         with m.Else():
             m.d.comb += [
                 self.ulpi.data.o  .eq(register_window.ulpi_data_out),
-                self.ulpi.stp     .eq(register_window.ulpi_stop)
+                self.ulpi.stp.o   .eq(register_window.ulpi_stop)
             ]
 
 
@@ -1298,10 +1302,10 @@ class UTMITranslator(Elaboratable):
         past_dir        = Signal.like(self.ulpi.dir.i)
         m.d.usb        += past_dir.eq(self.ulpi.dir.i)
         dir_rising_edge = ~past_dir & self.ulpi.dir.i
-        dir_based_start = dir_rising_edge & self.ulpi.nxt
+        dir_based_start = dir_rising_edge & self.ulpi.nxt.i
 
 
-        with m.If(~self.ulpi.dir | rxevent_decoder.rx_stop):
+        with m.If(~self.ulpi.dir.i | rxevent_decoder.rx_stop):
             # TODO: this should probably also trigger if RxError
             m.d.usb += self.rx_active.eq(0)
         with m.Elif(dir_based_start | rxevent_decoder.rx_start):
@@ -1315,7 +1319,7 @@ class UTMITranslator(Elaboratable):
         # RxValid: equivalent to NXT whenever a Rx is active.
         m.d.usb += [
             self.rx_data   .eq(self.ulpi.data.i),
-            self.rx_valid  .eq(self.ulpi.nxt & self.rx_active)
+            self.rx_valid  .eq(self.ulpi.nxt.i & self.rx_active)
         ]
 
         return m
