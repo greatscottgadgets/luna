@@ -133,8 +133,8 @@ class GatewarePHY(Elaboratable):
         # signal. Otherwise, we'll pretend ``vbus_valid`` is always true, for compatibility.
         if hasattr(self._io, 'vbus_valid'):
             m.d.comb += [
-                self.vbus_valid   .eq(self._io.vbus_valid),
-                self.session_end  .eq(~self._io.vbus_valid)
+                self.vbus_valid   .eq(self._io.vbus_valid.i),
+                self.session_end  .eq(~self._io.vbus_valid.i)
             ]
         else:
             m.d.comb += [
@@ -149,11 +149,11 @@ class GatewarePHY(Elaboratable):
 
         # If we have a pullup signal, drive it based on ``term_select``.
         if hasattr(self._io, 'pullup'):
-            m.d.comb += self._io.pullup.eq(self.term_select)
+            m.d.comb += self._io.pullup.o.eq(self.term_select)
 
         # If we have a pulldown signal, drive it based on our pulldown controls.
         if hasattr(self._io, 'pulldown'):
-            m.d.comb += self._io.pullup.eq(self.dm_pulldown | self.dp_pulldown)
+            m.d.comb += self._io.pullup.o.eq(self.dm_pulldown | self.dp_pulldown)
 
 
         #
@@ -218,8 +218,8 @@ class GatewarePHY(Elaboratable):
 
             # We'll listen for packets on D+ and D- _whenever we're not transmitting._.
             # (If we listen while we're transmitting, we'll hear our own packets.)
-            receiver.i_usbp  .eq(self._io.d_p & ~transmitter.o_oe),
-            receiver.i_usbn  .eq(self._io.d_n & ~transmitter.o_oe),
+            receiver.i_usbp  .eq(self._io.d_p.i & ~transmitter.o_oe),
+            receiver.i_usbn  .eq(self._io.d_n.i & ~transmitter.o_oe),
 
             self.rx_data     .eq(receiver.o_data_payload),
             self.rx_valid    .eq(receiver.o_data_strobe & receiver.o_pkt_in_progress),

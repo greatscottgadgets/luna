@@ -126,7 +126,7 @@ class StandardRequestHandler(ControlRequestHandler):
                                     m.next = 'GET_DESCRIPTOR'
                                 with m.Case(USBStandardRequests.GET_CONFIGURATION):
                                     m.next = 'GET_CONFIGURATION'
-                                with m.Case():
+                                with m.Default():
                                     m.next = 'UNHANDLED'
 
 

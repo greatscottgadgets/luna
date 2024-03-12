@@ -122,7 +122,7 @@ class GetDescriptorHandler(Elaboratable):
                         ]
 
             # If none of our descriptors match, stall any request that comes in.
-            with m.Case():
+            with m.Default():
                 m.d.comb += self.stall.eq(self.start)
 
         # Convert our sync domain to the domain requested by the user, if necessary.
