@@ -20,7 +20,6 @@ dependencies = [
     "amaranth~=0.4.0",
     "amaranth-boards @ git+https://github.com/amaranth-lang/amaranth-boards.git@main",
     "usb-protocol @ git+https://github.com/usb-tools/python-usb-protocol",
-    "cynthion @ git+https://github.com/greatscottgadgets/cynthion/#subdirectory=cynthion/python/"
 ]
 
 [project.optional-dependencies]
