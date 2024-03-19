@@ -166,7 +166,7 @@ class StandardRequestHandler(Elaboratable):
                                 m.next = 'SET_ISOCH_DELAY'
                             with m.Case(USBStandardRequests.SET_SEL):
                                 m.next = 'SET_SEL'
-                            with m.Case():
+                            with m.Default():
                                 m.next = 'UNHANDLED'
 
 

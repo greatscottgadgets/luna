@@ -133,7 +133,7 @@ class GetDescriptorHandlerDistributed(Elaboratable):
                     m.d.usb += generator.start    .eq(self.start),
 
             # If none of our descriptors match, stall any request that comes in.
-            with m.Case():
+            with m.Default():
                 m.d.comb += self.stall.eq(self.start)
 
 
