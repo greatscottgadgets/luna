@@ -19,10 +19,9 @@ from usb_protocol.types     import USBStandardRequests, USBRequestType
 from usb_protocol.emitters  import DeviceDescriptorCollection
 
 from ..usb2.request         import RequestHandlerInterface, USBRequestHandler
-from ..usb2.descriptor      import GetDescriptorHandlerDistributed, GetDescriptorHandlerBlock
+from ..usb2.descriptor      import GetDescriptorHandlerDistributed, GetDescriptorHandlerBlock, GetDescriptorHandlerMux
 from ..stream               import USBInStreamInterface
 from ...stream.generator    import StreamSerializer
-from luna.gateware.usb.usb2 import descriptor
 from .                      import SetupPacket
 from .control               import ControlRequestHandler
 
@@ -55,6 +54,34 @@ class StandardRequestHandler(ControlRequestHandler):
 
         super().__init__()
 
+    
+    def get_descriptor_handler_submodule(self):
+
+        # The distributed handler supports a combination of fixed and runtime descriptors directly...
+        if self._avoid_blockram:
+            return GetDescriptorHandlerDistributed(self.descriptors)
+
+        # ...but the block handler does not. In this case, first we split the descriptors into two 
+        # collections: fixed descriptors (for the ROM) and runtime descriptors. 
+        fixed_descriptors       = DeviceDescriptorCollection()
+        runtime_descriptors     = DeviceDescriptorCollection()
+        has_runtime_descriptors = False
+        for type_number, index, descriptor in self.descriptors:
+            if isinstance(descriptor, bytes):
+                fixed_descriptors.add_descriptor(descriptor, index=index, descriptor_type=type_number)
+            else:
+                runtime_descriptors.add_descriptor(descriptor, index=index, descriptor_type=type_number)
+                has_runtime_descriptors = True
+
+        # If there are runtime descriptors, we add a get descriptor multiplexer and a distributed handler.
+        if has_runtime_descriptors:
+            handler_mux = GetDescriptorHandlerMux()
+            handler_mux.add_descriptor_handler(GetDescriptorHandlerBlock(fixed_descriptors))
+            handler_mux.add_descriptor_handler(GetDescriptorHandlerDistributed(runtime_descriptors))
+            return handler_mux
+        else:
+            return GetDescriptorHandlerBlock(self.descriptors)
+
 
     def elaborate(self, platform):
         m = Module()
@@ -69,13 +96,8 @@ class StandardRequestHandler(ControlRequestHandler):
         #
         # Submodules
         #
-        if self._avoid_blockram:
-            descriptor_handler_type = GetDescriptorHandlerDistributed
-        else:
-            descriptor_handler_type = GetDescriptorHandlerBlock
-
         # Handler for Get Descriptor requests; responds with our various fixed descriptors.
-        m.submodules.get_descriptor = get_descriptor_handler = descriptor_handler_type(self.descriptors)
+        m.submodules.get_descriptor = get_descriptor_handler = self.get_descriptor_handler_submodule()
         m.d.comb += [
             get_descriptor_handler.value  .eq(setup.value),
             get_descriptor_handler.length .eq(setup.length),
