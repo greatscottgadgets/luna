@@ -57,49 +57,54 @@ def get_appropriate_platform() -> LUNAPlatform:
         return _get_platform_from_string(os.getenv("LUNA_PLATFORM"))
 
     # Otherwise, try to detect an Apollo-based platform.
-    platform_string = get_apollo_platform()
+    platform_string, fpga_device = get_apollo_platform()
     if platform_string is None:
         raise RuntimeError(
             "Unable to autodetect a supported platform. "
             "The LUNA_PLATFORM environment variable must be set.")
-    else:
-        return _get_platform_from_string(platform_string)
-
+    platform = _get_platform_from_string(platform_string)
+    
+    # If possible, override the platform's device type with the detected FPGA.
+    if fpga_device is not None:
+        platform.device = fpga_device
+    
     return platform
 
 
-def get_apollo_platform() -> Optional[str]:
+def get_apollo_platform() -> (Optional[str], Optional[str]):
     """ Attempts to return a platform string for a connected Apollo-based device. """
 
-    # Try to import Apollo.
+    # Try to import Apollo and look for a debug interface.
     try:
         import apollo_fpga
-    except ImportError:
-        return None
-
-    # Look for an Apollo debug interface.
-    try:
         debugger = apollo_fpga.ApolloDebugger()
-    except apollo_fpga.DebuggerNotFound:
-        return None
+    except (ImportError, apollo_fpga.DebuggerNotFound):
+        return None, None
 
     # Retrieve the version of the attached device.
     version = debugger.detect_connected_version()
 
+    # Try to auto-detect the attached FPGA device. This can be
+    # used to override the default platform's device type.
+    try:
+        fpga_type = debugger.get_fpga_type()
+    except IOError:
+        fpga_type = None
+
     # Check if relevant modules provide a platform string.
     try:
         import cynthion.gateware
-        return cynthion.gateware.APOLLO_PLATFORMS[version]
+        return cynthion.gateware.APOLLO_PLATFORMS[version], fpga_type
     except (ImportError, AttributeError, KeyError):
         pass
     try:
         import luna_boards
-        return luna_boards.APOLLO_PLATFORMS[version]
+        return luna_boards.APOLLO_PLATFORMS[version], fpga_type
     except (ImportError, AttributeError, KeyError):
         pass
 
     # If none of the above modules produced a match, no platform is known.
-    return None
+    return None, None
 
 
 class NullPin(Record):
