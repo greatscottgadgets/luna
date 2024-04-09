@@ -45,5 +45,8 @@ USER jenkins
 # add to PATH for pip/source package installations
 ENV PATH="/root/.local/bin:/oss-cad-suite/bin:$PATH"
 
+# add the Cynthion board rev
+ENV LUNA_PLATFORM="cynthion.gateware.platform:CynthionPlatformRev0D4"
+
 # Inform Docker that the container is listening on port 8080 at runtime
 EXPOSE 8080
