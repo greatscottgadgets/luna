@@ -18,7 +18,6 @@ from amaranth.lib.fifo import SyncFIFO
 from luna                             import top_level_cli
 from apollo_fpga                      import ApolloDebugger
 from luna.gateware.interface.jtag     import JTAGRegisterInterface
-from luna.gateware.architecture.car   import LunaECP5DomainGenerator
 from luna.gateware.interface.psram    import HyperRAMPHY, HyperRAMInterface
 
 REGISTER_RAM_REGISTER_SPACE = 1
@@ -38,7 +37,7 @@ class HyperRAMDiagnostic(Elaboratable):
         m = Module()
 
         # Generate our clock domains.
-        clocking = LunaECP5DomainGenerator()
+        clocking = platform.clock_domain_generator()
         m.submodules.clocking = clocking
 
         # Create a set of registers...
