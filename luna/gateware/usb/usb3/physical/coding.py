@@ -39,13 +39,13 @@ class NamedSymbol:
     def value_const(self, *, repeat=1):
         """ Returns this symbol's data value as an Amaranth const. """
         value = Const(self.value, 8)
-        return Repl(value, repeat)
+        return value.replicate(repeat)
 
 
     def ctrl_const(self, *, repeat=1):
         """ Returns this symbol's ctrl value as an Amaranth const. """
         ctrl =  Const(self.ctrl, 1)
-        return Repl(ctrl, repeat)
+        return ctrl.replicate(repeat)
 
 
 SKP =  NamedSymbol("SKP", K(28, 1), "Skip")                              # 3c

@@ -313,8 +313,8 @@ class CTCSkipInserter(Elaboratable):
             m.d.comb += self.sending_skip.eq(1)
             m.d.ss += [
                 source.valid       .eq(1),
-                source.data        .eq(Repl(SKP.value_const(), len(source.ctrl))),
-                source.ctrl        .eq(Repl(SKP.ctrl_const(),  len(source.ctrl))),
+                source.data        .eq(SKP.value_const().replicate(len(source.ctrl))),
+                source.ctrl        .eq(SKP.ctrl_const().replicate(len(source.ctrl))),
             ]
 
         with m.Else():
