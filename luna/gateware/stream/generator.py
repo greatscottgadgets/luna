@@ -274,7 +274,7 @@ class ConstantStreamGenerator(Elaboratable):
 
                         # If we're not enforcing a max length, always use our leftover bits-per-word.
                         if not self._max_length_width:
-                            m.d.comb += self.stream.valid.eq(Repl(Const(1), valid_bits_last_word))
+                            m.d.comb += self.stream.valid.eq(Const(1).replicate(valid_bits_last_word))
 
                         # Otherwise, do our complex case.
                         else:
@@ -284,7 +284,7 @@ class ConstantStreamGenerator(Elaboratable):
                             ending_due_to_max_length  = (bytes_sent + bytes_per_word >= max_length)
 
                             # ... and figure out the valid bits based us running out of data...
-                            valid_due_to_data_length  = Repl(Const(1), valid_bits_last_word)
+                            valid_due_to_data_length  = Const(1).replicate(valid_bits_last_word)
 
                             # ... and due to our maximum length. Finding this arithmetically creates
                             # difficult-to-optimize code, and bytes_per_word is going to be small, so
@@ -299,7 +299,7 @@ class ConstantStreamGenerator(Elaboratable):
 
                                     # ... with the appropriate amount of valid bits.
                                     with m.Case(i):
-                                        m.d.comb += valid_due_to_max_length.eq(Repl(Const(1), i))
+                                        m.d.comb += valid_due_to_max_length.eq(Const(1).replicate(i))
 
 
                             # Our most complex logic is when both of our end conditions are met; we'll need
@@ -321,7 +321,7 @@ class ConstantStreamGenerator(Elaboratable):
                     # If we're not on our last word, every valid bit should be set.
                     with m.Else():
                         valid_bits = len(self.stream.valid)
-                        m.d.comb += self.stream.valid.eq(Repl(Const(1), valid_bits))
+                        m.d.comb += self.stream.valid.eq(Const(1).replicate(valid_bits))
 
 
                 # If the current data byte is accepted, move past it.
@@ -646,19 +646,20 @@ class StreamSerializer(Elaboratable):
                                   transmitted.
         """
 
-        self.domain      = domain
-        self.data_width  = data_width
-        self.data_length = data_length
+        self.domain         = domain
+        self.data_width     = data_width
+        self.data_length    = data_length
 
         #
         # I/O port.
         #
-        self.start       = Signal()
-        self.done        = Signal()
+        self.start          = Signal()
+        self.done           = Signal()
 
-        self.data        = Array(Signal(data_width, name=f"datum_{i}") for i in range(data_length))
-        self.stream      = stream_type(payload_width=data_width)
+        self.data           = Array(Signal(data_width, name=f"datum_{i}") for i in range(data_length))
+        self.stream         = stream_type(payload_width=data_width)
 
+        self.start_position = Signal(range(self.data_length))
 
         # If we have a maximum length width, include it in our I/O port.
         # Otherwise, use a constant.
@@ -676,7 +677,7 @@ class StreamSerializer(Elaboratable):
         position_in_stream = Signal(range(0, self.data_length))
 
         # Track when we're on the first and last packet.
-        on_first_packet = position_in_stream == 0
+        on_first_packet = position_in_stream == self.start_position
         on_last_packet  = \
             (position_in_stream == (self.data_length - 1)) | \
             (position_in_stream == (self.max_length - 1))
@@ -689,6 +690,20 @@ class StreamSerializer(Elaboratable):
 
 
         #
+        # Figure out where we should start in our stream.
+        #
+        start_position = Signal.like(position_in_stream)
+
+        # If our starting position is greater than our data length, use our data length.
+        with m.If(self.start_position >= self.data_length):
+            m.d.comb += start_position.eq(self.data_length - 1)
+
+        # Otherwise, use our starting position.
+        with m.Else():
+            m.d.comb += start_position.eq(self.start_position)
+
+
+        #
         # Controller.
         #
         with m.FSM(domain=self.domain) as fsm:
@@ -698,7 +713,7 @@ class StreamSerializer(Elaboratable):
             with m.State('IDLE'):
 
                 # Keep ourselves at the beginning of the stream, but don't yet count.
-                m.d.sync += position_in_stream.eq(0)
+                m.d.sync += position_in_stream.eq(start_position)
 
                 # Once the user requests that we start, move to our stream being valid.
                 with m.If(self.start & (self.max_length > 0)):

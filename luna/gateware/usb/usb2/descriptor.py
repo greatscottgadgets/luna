@@ -16,7 +16,7 @@ from usb_protocol.types.descriptors.standard import StandardDescriptorNumbers
 from ..stream                                import USBInStreamInterface
 from ...stream.generator                     import ConstantStreamGenerator
 from ...test                                 import LunaUSBGatewareTestCase, usb_domain_test_case
-
+from ...utils.bus                            import OneHotMultiplexer
 
 class USBDescriptorStreamGenerator(ConstantStreamGenerator):
     """ Specialized stream generator for generating USB descriptor constants. """
@@ -103,7 +103,10 @@ class GetDescriptorHandlerDistributed(Elaboratable):
         #
         for type_number, index, raw_descriptor in self._descriptors:
             # Create the generator...
-            generator = USBDescriptorStreamGenerator(raw_descriptor)
+            if isinstance(raw_descriptor, bytes):
+                generator = USBDescriptorStreamGenerator(raw_descriptor)
+            else:
+                generator = raw_descriptor()
             descriptor_generators[(type_number, index)] = generator
 
             m.d.comb += [
@@ -708,6 +711,67 @@ class GetDescriptorHandlerBlockTest(LunaUSBGatewareTestCase):
 
         # Index after last used type
         yield from self._test_stall(0x42, 0, 0, 64)
+
+
+class GetDescriptorHandlerMux(Elaboratable):
+    def __init__(self, domain="usb"):
+        self._domain        = domain
+        self._handlers      = []
+        #
+        # I/O port
+        #
+        self.value          = Signal(16)
+        self.length         = Signal(16)
+
+        self.start          = Signal()
+        self.start_position = Signal(11)
+
+        self.tx             = USBInStreamInterface()
+        self.stall          = Signal()
+
+    def add_descriptor_handler(self, handler):
+        self._handlers.append(handler)
+
+    def elaborate(self, platform):
+        m = Module()
+
+        m.submodules += self._handlers
+
+        # The multiplexer only stalls when all the underlying handlers do.
+        stalled = [ Signal(name=f"stalled_{i}") for i in range(len(self._handlers)) ]
+        m.d.comb += self.stall.eq(Cat(stalled).all())
+
+        # Connect the inputs to the descriptor handlers and register any
+        # stall for the current transaction.
+        for i, handler in enumerate(self._handlers):
+            m.d.comb += [
+                handler.value           .eq(self.value),
+                handler.length          .eq(self.length),
+                handler.start           .eq(self.start),
+                handler.start_position  .eq(self.start_position),
+            ]
+            stall_latch = Signal(name=f"stall_latch_{i}")
+            m.d.comb += stalled[i].eq(handler.stall | stall_latch)
+            with m.If(self.start | self.stall):
+                m.d.sync += stall_latch.eq(0)
+            with m.If(handler.stall & ~self.stall):
+                m.d.sync += stall_latch.eq(1)
+
+        # Connect up our transmit interface.
+        m.submodules.tx_mux = tx_mux = OneHotMultiplexer(
+            interface_type=USBInStreamInterface,
+            mux_signals=('payload',),
+            or_signals=('valid', 'first', 'last'),
+            pass_signals=('ready',)
+        )
+        tx_mux.add_interfaces(handler.tx for handler in self._handlers)
+        m.d.comb += self.tx.stream_eq(tx_mux.output)
+
+        # Convert our sync domain to the domain requested by the user, if necessary.
+        if self._domain != "sync":
+            m = DomainRenamer({"sync": self._domain})(m)
+
+        return m
 
 if __name__ == "__main__":
     unittest.main()
