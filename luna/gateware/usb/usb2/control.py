@@ -5,8 +5,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Low-level USB transciever gateware -- control transfer components. """
 
-import unittest
-
 from amaranth              import Signal, Module, Elaboratable
 from usb_protocol.emitters import DeviceDescriptorCollection
 from usb_protocol.types    import USBRequestType
@@ -288,7 +286,3 @@ class USBControlEndpoint(Elaboratable):
                     m.d.comb += interface.handshakes_out.ack.eq(1)
 
         return m
-
-
-if __name__ == "__main__":
-    unittest.main()

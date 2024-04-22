@@ -5,10 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Control-request interfacing and gateware for USB3. """
 
-import unittest
-
 from amaranth               import *
-from usb_protocol.types     import USBRequestType, USBRequestRecipient
 
 from ...request             import SetupPacket
 from ...stream              import SuperSpeedStreamInterface
@@ -16,7 +13,6 @@ from ..protocol.transaction import HandshakeGeneratorInterface, HandshakeReceive
 from ..protocol.data        import DataHeaderPacket
 
 from ....utils              import falling_edge_detected
-from ....test               import LunaSSGatewareTestCase, ss_domain_test_case
 
 class SuperSpeedRequestHandlerInterface:
     """ Interface representing a connection between a control endpoint and a request handler.
@@ -103,8 +99,6 @@ class SuperSpeedRequestHandlerInterface:
         self.active_config         = Signal(8)
         self.config_changed        = Signal()
         self.new_config            = Signal(8)
-
-
 
 
 class SuperSpeedSetupDecoder(Elaboratable):
@@ -209,47 +203,6 @@ class SuperSpeedSetupDecoder(Elaboratable):
                     m.next = "WAIT_FOR_FIRST"
 
         return m
-
-
-
-class SuperSpeedSetupDecoderTest(LunaSSGatewareTestCase):
-    FRAGMENT_UNDER_TEST = SuperSpeedSetupDecoder
-
-    @ss_domain_test_case
-    def test_setup_parse(self):
-        dut   = self.dut
-        sink  = dut.sink
-        setup = dut.packet
-
-        # Mark our data as always valid SETUP data.
-        yield dut.header_in.setup.eq(1)
-        yield sink.valid.eq(0b1111)
-
-        # Provide our first word...
-        yield sink.first.eq(1)
-        yield sink.last .eq(0)
-        yield sink.data .eq(0x2211AAC1)
-        yield
-
-        # ... then our second ...
-        yield sink.first.eq(0)
-        yield sink.last .eq(1)
-        yield sink.data .eq(0x00043344)
-        yield
-
-        # ... then mark our packet as good.
-        yield from self.pulse(dut.rx_good)
-        yield
-
-        # Finally, check that our fields have been parsed properly.
-        self.assertEqual((yield setup.is_in_request), 1)
-        self.assertEqual((yield setup.type),          USBRequestType.VENDOR)
-        self.assertEqual((yield setup.recipient),     USBRequestRecipient.INTERFACE)
-        self.assertEqual((yield setup.request),       0xAA)
-        self.assertEqual((yield setup.value),         0x2211)
-        self.assertEqual((yield setup.index),         0x3344)
-        self.assertEqual((yield setup.length),        4)
-
 
 
 class SuperSpeedRequestHandlerMultiplexer(Elaboratable):
@@ -450,7 +403,3 @@ class SuperSpeedRequestHandler(Elaboratable):
         # I/O port
         #
         self.interface = SuperSpeedRequestHandlerInterface()
-
-
-if __name__ == "__main__":
-    unittest.main()

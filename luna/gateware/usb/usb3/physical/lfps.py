@@ -26,12 +26,10 @@ To be able generate and receive LFPS, a transceiver needs to be able put its TX 
 and to detect RX electrical idle.
 """
 
-import unittest
 from math import ceil
 
 from amaranth       import *
 
-from ....test.utils  import LunaSSGatewareTestCase, ss_domain_test_case
 from ....utils       import synchronize, rising_edge_detected
 
 
@@ -277,47 +275,6 @@ class LFPSGenerator(Elaboratable):
         return m
 
 
-class LFPSGeneratorTest(LunaSSGatewareTestCase):
-    FRAGMENT_UNDER_TEST = LFPSGenerator
-    FRAGMENT_ARGUMENTS  = dict(
-        lfps_pattern = _PollingLFPS,
-        sys_clk_freq = 125e6
-    )
-
-    @ss_domain_test_case
-    def test_polling_lfps_sequence(self):
-        dut = self.dut
-
-        burst_length = ceil(self.SS_CLOCK_FREQUENCY * _PollingLFPSBurst.t_typ)
-        burst_repeat = ceil(self.SS_CLOCK_FREQUENCY * _PollingLFPSRepeat.t_typ)
-
-        # Trigger a burst...
-        yield dut.generate.eq(1)
-        yield
-        yield
-        yield dut.generate.eq(0)
-
-        # Wait for a whole burst-repeat cycle...
-        burst_ticks = 0
-        total_ticks = 0
-        while (yield dut.drive_electrical_idle):
-
-            # ... and measure how long our burst lasts...
-            if (yield dut.send_signaling):
-                burst_ticks += 1
-
-            # ... as well as the length of our whole interval.
-            total_ticks += 1
-            yield
-
-        # Our observed burst length should be within 10% of our specification...
-        self.assertLess(abs(burst_ticks)/burst_length - 1.0, 10e-2)
-
-        # ... as should our observed total length between bursts.
-        self.assertLess(abs(total_ticks)/burst_repeat - 1.0, 10e-2)
-
-
-
 class LFPSTransceiver(Elaboratable):
     """ Low-Frequency Periodic Signaling (LFPS) Transciever
 
@@ -398,7 +355,3 @@ class LFPSTransceiver(Elaboratable):
             m.d.ss += self.cycles_sent.eq(0)
 
         return m
-
-
-if __name__ == "__main__":
-    unittest.main()
