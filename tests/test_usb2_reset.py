@@ -29,8 +29,7 @@ class USBResetSequencerTest(LunaGatewareTestCase):
         # Start with a non-reset line-state.
         yield self.dut.line_state.eq(0b01)
 
-    import unittest
-    @unittest.skip("Broken test, wasn't previously being run")
+    @usb_domain_test_case
     def test_full_speed_reset(self):
         dut = self.dut
 
@@ -54,22 +53,22 @@ class USBResetSequencerTest(LunaGatewareTestCase):
 
         yield dut.line_state.eq(0)
 
-        # After assertion of SE0, we should remain out of reset for 2.5uS...
+        # After assertion of SE0, we should remain out of reset for >2.5us, <3ms...
         yield
         self.assertEqual((yield dut.bus_reset), 0)
 
-        # ... and then we should see a cycle of reset.
-        yield from self.advance_cycles(dut._CYCLES_2P5_MICROSECONDS + 1)
+        # ... we choose to wait for 5us and then we should see a cycle of reset.
+        yield from self.advance_cycles(dut._CYCLES_5_MICROSECONDS)
         self.assertEqual((yield dut.bus_reset), 1)
 
         yield from self.advance_cycles(10)
         yield dut.line_state.eq(0b01)
         yield
 
-        # Finally, we should arrive in FS, post-reset.
-        self.assertEqual((yield dut.current_speed),      USBSpeed.FULL)
-        self.assertEqual((yield dut.operating_mode),     UTMIOperatingMode.NORMAL)
-        self.assertEqual((yield dut.termination_select), UTMITerminationSelect.LS_FS_NORMAL)
+        # Finally, we should arrive in HS_DETECT, post-reset.
+        self.assertEqual((yield dut.current_speed),      USBSpeed.HIGH)
+        self.assertEqual((yield dut.operating_mode),     UTMIOperatingMode.CHIRP)
+        self.assertEqual((yield dut.termination_select), UTMITerminationSelect.HS_CHIRP)
 
 
     #
