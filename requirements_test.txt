@@ -1,7 +1,0 @@
-tox
-pyusb
-amaranth~=0.4.0
--e git+https://github.com/amaranth-lang/amaranth-boards.git#egg=amaranth_boards
--e git+https://github.com/usb-tools/python-usb-protocol.git#egg=usb_protocol
-pyvcd
-pyserial~=3.4
