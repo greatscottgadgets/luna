@@ -1,9 +1,10 @@
+import time
 
 # -- Project information -----------------------------------------------------
 
 project = 'LUNA'
-copyright = '2020 Great Scott Gadgets'
-author = 'Katherine J. Temkin'
+copyright = time.strftime('2020-%Y, Great Scott Gadgets')
+author = 'Great Scott Gadgets'
 
 # -- General configuration ---------------------------------------------------
 
