@@ -1,4 +1,3 @@
-
 ========================================
 LUNA: USB Multitool and Gateware Library
 ========================================
@@ -21,7 +20,6 @@ Contributions are always appreciated.
    custom_hardware
    gateware/usb2_device
    gateware/endpoint
-   hardware/bringup_guide
 
 
 
