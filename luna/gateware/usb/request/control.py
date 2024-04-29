@@ -5,8 +5,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Full-gateware control request handlers. """
 
-import unittest
-
 from amaranth               import *
 
 from ..usb2.request         import USBRequestHandler
@@ -71,7 +69,3 @@ class ControlRequestHandler(USBRequestHandler):
         with m.If(self.interface.status_requested):
             m.d.comb += self.interface.handshakes_out.ack.eq(1)
             m.next = 'IDLE'
-
-
-if __name__ == "__main__":
-    unittest.main(warnings="ignore")

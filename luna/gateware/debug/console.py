@@ -8,7 +8,6 @@
 
 
 from amaranth        import Signal, Module, Cat, Elaboratable, Array
-from ..test.utils    import LunaGatewareTestCase, sync_test_case
 
 
 class DebugConsole(Elaboratable):

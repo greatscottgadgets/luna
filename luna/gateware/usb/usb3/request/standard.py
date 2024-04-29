@@ -5,8 +5,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """ Standard, full-gateware control request handlers. """
 
-import unittest
-
 from amaranth                 import *
 
 from usb_protocol.types       import USBStandardRequests, USBRequestType
@@ -250,8 +248,3 @@ class StandardRequestHandler(Elaboratable):
                         m.next = 'IDLE'
 
         return m
-
-
-if __name__ == "__main__":
-    unittest.main(warnings="ignore")
-

@@ -7,9 +7,6 @@
 
 """ Helpers for I/O interfacing. """
 
-import unittest
-from unittest import TestCase
-
 from amaranth import Record, Instance, Module, Signal, Cat
 from amaranth.hdl.rec import DIR_FANIN, DIR_FANOUT
 

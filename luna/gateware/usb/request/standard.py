@@ -7,7 +7,6 @@
 
 import os
 import operator
-import unittest
 import functools
 from typing import Iterable, Callable
 
@@ -232,7 +231,3 @@ class StandardRequestHandler(ControlRequestHandler):
                         m.next = 'IDLE'
 
         return m
-
-
-if __name__ == "__main__":
-    unittest.main(warnings="ignore")

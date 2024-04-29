@@ -7,16 +7,11 @@
 
 """ Helpers for clock domain crossings. """
 
-import unittest
-import warnings
-
-from unittest       import TestCase
-from amaranth       import Record, Module, Signal
+from amaranth       import Record, Signal
 from amaranth.lib.cdc import FFSynchronizer
 from amaranth.lib.io  import Pin
-from amaranth.hdl.rec import DIR_FANIN, DIR_FANOUT
+from amaranth.hdl.rec import DIR_FANOUT
 
-from ..test         import LunaGatewareTestCase, sync_test_case
 
 def synchronize(m, signal, *, output=None, o_domain='sync', stages=2):
     """ Convenience function. Synchronizes a signal, or equivalent collection.
@@ -76,35 +71,6 @@ def synchronize(m, signal, *, output=None, o_domain='sync', stages=2):
     return output
 
 
-class SynchronizedTest(TestCase):
-
-    def test_signal(self):
-        m = Module()
-        synchronize(m, Signal())
-
-    def test_directional_record(self):
-        m = Module()
-
-        record = Record([
-            ('sig_in',  1, DIR_FANIN),
-            ('sig_out', 1, DIR_FANOUT)
-        ])
-        synchronize(m, record)
-
-    def test_nested_record(self):
-        m = Module()
-
-        record = Record([
-            ('sig_in',  1, DIR_FANIN),
-            ('sig_out', 1, DIR_FANOUT),
-            ('nested', [
-                ('subsig_in',  1, DIR_FANIN),
-                ('subsig_out', 1, DIR_FANOUT),
-            ])
-        ])
-        synchronize(m, record)
-
-
 def stretch_strobe_signal(m, strobe, *, to_cycles, output=None, domain=None, allow_delay=False):
     """ Stretches a given strobe to the given number of cycles.
 
@@ -145,55 +111,3 @@ def stretch_strobe_signal(m, strobe, *, to_cycles, output=None, domain=None, all
         m.d.comb += output.eq(strobe | (delayed_strobe != 0))
 
     return output
-
-
-class StrobeStretcherTest(LunaGatewareTestCase):
-    """ Test case for our strobe stretcher function. """
-
-
-    def instantiate_dut(self):
-        m = Module()
-
-        # Create a module that only has our stretched strobe signal.
-        m.strobe_in = Signal()
-        m.stretched_strobe = stretch_strobe_signal(m, m.strobe_in, to_cycles=2)
-
-        return m
-
-
-    def initialize_signals(self):
-        yield self.dut.strobe_in.eq(0)
-
-
-    @sync_test_case
-    def test_stretch(self):
-
-        # Ensure our stretched strobe stays 0 until it sees an input.
-        yield
-        self.assertEqual((yield self.dut.stretched_strobe), 0)
-        yield
-        self.assertEqual((yield self.dut.stretched_strobe), 0)
-
-        # Apply our strobe, and validate that we immediately see a '1'...
-        yield self.dut.strobe_in.eq(1)
-        yield
-        self.assertEqual((yield self.dut.stretched_strobe), 1)
-
-        # ... ensure that 1 lasts for a second cycle ...
-        yield self.dut.strobe_in.eq(0)
-        yield
-        self.assertEqual((yield self.dut.stretched_strobe), 1)
-
-        # ... and then returns to 0.
-        yield
-        self.assertEqual((yield self.dut.stretched_strobe), 0)
-
-        yield
-        self.assertEqual((yield self.dut.stretched_strobe), 0)
-
-
-
-if __name__ == "__main__":
-    warnings.filterwarnings("error")
-    unittest.main()
-
