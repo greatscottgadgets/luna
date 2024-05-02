@@ -18,8 +18,7 @@ from amaranth.lib.fifo import SyncFIFO
 from luna                             import top_level_cli
 from apollo_fpga                      import ApolloDebugger
 from luna.gateware.interface.jtag     import JTAGRegisterInterface
-from luna.gateware.architecture.car   import LunaECP5DomainGenerator
-from luna.gateware.interface.psram    import HyperRAMPHY, HyperRAMInterface
+from luna.gateware.interface.psram    import HyperRAMPHY, HyperRAMInterface, HyperRAMDQSInterface, HyperRAMDQSPHY
 
 REGISTER_RAM_REGISTER_SPACE = 1
 REGISTER_RAM_ADDR           = 2
@@ -27,6 +26,9 @@ REGISTER_RAM_READ_LENGTH    = 3
 REGISTER_RAM_FIFO           = 4
 REGISTER_RAM_START          = 5
 
+DQS = False
+REG_WIDTH = 32 if DQS else 16
+REG_SHIFT = 16 if DQS else 0
 
 class HyperRAMDiagnostic(Elaboratable):
     """
@@ -37,27 +39,40 @@ class HyperRAMDiagnostic(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
+        clock_frequencies = platform.DEFAULT_CLOCK_FREQUENCIES_MHZ
+
+        #
+        # HyperRAM test connections.
+        #
+        if DQS:
+            clock_frequencies = {
+                "fast": 120,
+                "sync": 60,
+                "usb":  60,
+            }
+            ram_bus = platform.request('ram', dir={'rwds':'-', 'dq':'-', 'cs':'-'})
+            psram_phy = HyperRAMDQSPHY(bus=ram_bus)
+            psram = HyperRAMDQSInterface(phy=psram_phy.phy)
+        else:
+            ram_bus = platform.request('ram')
+            psram_phy = HyperRAMPHY(bus=ram_bus)
+            psram = HyperRAMInterface(phy=psram_phy.phy)
+
+        m.submodules += [psram_phy, psram]
+
         # Generate our clock domains.
-        clocking = LunaECP5DomainGenerator()
+        clocking = platform.clock_domain_generator(clock_frequencies=clock_frequencies)
         m.submodules.clocking = clocking
 
         # Create a set of registers...
         registers = JTAGRegisterInterface(address_size=7, default_read_value=0xDEADBEEF)
         m.submodules.registers = registers
 
-        #
-        # HyperRAM test connections.
-        #
-        ram_bus = platform.request('ram')
-        psram_phy = HyperRAMPHY(bus=ram_bus)
-        psram = HyperRAMInterface(phy=psram_phy.phy)
-        m.submodules += [psram_phy, psram]
-
         psram_address = registers.add_register(REGISTER_RAM_ADDR)
         read_length   = registers.add_register(REGISTER_RAM_READ_LENGTH, reset=1)
 
-        m.submodules.read_fifo  = read_fifo  = SyncFIFO(width=16, depth=32)
-        m.submodules.write_fifo = write_fifo = SyncFIFO(width=16, depth=32)
+        m.submodules.read_fifo  = read_fifo  = SyncFIFO(width=REG_WIDTH, depth=32)
+        m.submodules.write_fifo = write_fifo = SyncFIFO(width=REG_WIDTH, depth=32)
         registers.add_sfr(REGISTER_RAM_FIFO,
             read=read_fifo.r_data,
             read_strobe=read_fifo.r_en,
@@ -123,7 +138,10 @@ if __name__ == "__main__":
     dut = ApolloDebugger()
     logging.info(f"Connected to onboard dut; hardware revision r{dut.major}.{dut.minor} (s/n: {dut.serial_number}).")
 
-    logging.info("Running basic HyperRAM diagnostics.")
+    if DQS:
+        logging.info("Running basic HyperRAM diagnostics, using DQS implementation.")
+    else:
+        logging.info("Running basic HyperRAM diagnostics.")
 
     iterations = 1
 
@@ -136,7 +154,7 @@ if __name__ == "__main__":
         dut.registers.register_write(REGISTER_RAM_ADDR, addr)
         dut.registers.register_read(REGISTER_RAM_START)
         time.sleep(0.1)
-        return dut.registers.register_read(REGISTER_RAM_FIFO)
+        return dut.registers.register_read(REGISTER_RAM_FIFO) >> REG_SHIFT
 
     def test_id_read():
         return read_hyperram_register(0x0) in (0x0c81, 0x0c86)
@@ -147,7 +165,7 @@ if __name__ == "__main__":
     def test_mem_readback():
         dut.registers.register_write(REGISTER_RAM_REGISTER_SPACE, 0)
 
-        data = [random.randint(0, int(2**16)) for _ in range(10)]
+        data = [random.randint(0, int(2**REG_WIDTH)) for _ in range(10)]
 
         # Fill write FIFO.
         for d in data:
