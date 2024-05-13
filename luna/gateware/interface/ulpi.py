@@ -688,6 +688,8 @@ class UTMITranslator(Elaboratable):
 
     """
 
+    _CYCLES_1_MILLISECONDS = 60000
+
     # UTMI status signals translated from the ULPI bus.
     RXEVENT_STATUS_SIGNALS = [
         ('line_state', 2), ('vbus_valid', 1), ('session_valid', 1), ('session_end', 1),
@@ -850,8 +852,18 @@ class UTMITranslator(Elaboratable):
 
 
         # Hook up our reset signal iff our ULPI bus has one.
+        phy_ready = Signal()
         if hasattr(self.ulpi, 'rst'):
             m.d.comb += self.ulpi.rst.o.eq(ResetSignal(raw_clock_domain)),
+
+            # After reset, DIR may not be driven high immediately.
+            # Before using the bus, wait for the minimum Tstart time according to [USB334x: Table 4.3].
+            startup_counter = Signal(range(self._CYCLES_1_MILLISECONDS + 1))
+            m.d.usb += startup_counter.eq(startup_counter + 1)
+            with m.If(startup_counter == self._CYCLES_1_MILLISECONDS):
+                m.d.usb += phy_ready.eq(1)
+        else:
+            m.d.usb += phy_ready.eq(1)
 
 
         # Connect our ULPI control signals to each of our subcomponents.
@@ -871,13 +883,13 @@ class UTMITranslator(Elaboratable):
             # Connect our inputs to our transmit translator.
             transmit_translator.ulpi_nxt  .eq(self.ulpi.nxt.i),
             transmit_translator.op_mode   .eq(self.op_mode),
-            transmit_translator.bus_idle  .eq(~control_translator.busy & ~self.ulpi.dir.i),
+            transmit_translator.bus_idle  .eq(~control_translator.busy & ~self.ulpi.dir.i & phy_ready),
             transmit_translator.tx_data   .eq(self.tx_data),
             transmit_translator.tx_valid  .eq(self.tx_valid),
             self.tx_ready                 .eq(transmit_translator.tx_ready),
 
             # Connect our inputs to our control translator / register window.
-            control_translator.bus_idle   .eq(~transmit_translator.busy),
+            control_translator.bus_idle   .eq(~transmit_translator.busy & phy_ready),
             register_window.ulpi_data_in  .eq(self.ulpi.data.i),
             register_window.ulpi_dir      .eq(self.ulpi.dir.i),
             register_window.ulpi_next     .eq(self.ulpi.nxt.i),
