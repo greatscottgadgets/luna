@@ -33,6 +33,11 @@ Currently, the LUNA library is considered a “work-in-progress”; and
 thus it’s assumed you’ll want to use a local copy of LUNA for
 development.
 
+.. code:: sh
+
+    # clone the LUNA repository
+    git clone https://github.com/greatscottgadgets/luna.git
+
 The easiest way to set this up is to install the distribution in your working environment.
 From the root of the repository:
 
@@ -44,7 +49,6 @@ From the root of the repository:
    # Alternatively: install all dependencies,
    # including optional development packages (required for running applets and examples).
    pip install .[dev]
-
 
 If you want to install LUNA to your machine globally (not recommended), you can do so
 using the following single command:
