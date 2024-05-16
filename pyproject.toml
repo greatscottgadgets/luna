@@ -1,16 +1,34 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=64", "setuptools-git-versioning<2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "luna"
-version = "0.2.0"
-authors = [
-    {name = "Great Scott Gadgets", email = "dev@greatscottgadgets.com"}
-]
+name = "luna-usb"
 description = "Amaranth HDL framework for FPGA-based USB solutions"
+license = { text = "BSD" }
 readme = "README.md"
-requires-python = "~=3.8"
+requires-python = ">=3.8"
+authors = [
+    {name = "Great Scott Gadgets", email = "dev@greatscottgadgets.com"},
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Natural Language :: English",
+    "Environment :: Console",
+    "Environment :: Other Environment",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+    "Topic :: Security",
+    "Topic :: System :: Hardware :: Universal Serial Bus (USB)",
+]
+
+dynamic = ["version"]
+
 dependencies = [
     "apollo_fpga @ git+https://github.com/greatscottgadgets/apollo.git", # temporarily pull from git until apollo release
     "libusb1>1.9.2",
@@ -18,14 +36,12 @@ dependencies = [
     "pyusb>1.1.1",
     "pyvcd>=0.2.4",
     "amaranth~=0.4.0",
-    "amaranth-boards @ git+https://github.com/amaranth-lang/amaranth-boards.git@main",
     "usb-protocol @ git+https://github.com/usb-tools/python-usb-protocol",
 ]
 
 [project.optional-dependencies]
 dev = [
     "prompt-toolkit>3.0.16",
-    "tox>3.22.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -34,3 +50,7 @@ include = ["*"]
 
 [tool.pdm.scripts]
 test.cmd = "python -m unittest discover -t . -s tests -v"
+
+[tool.setuptools-git-versioning]
+enabled = true
+starting_version = "0.0.0"
