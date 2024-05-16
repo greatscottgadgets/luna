@@ -97,6 +97,28 @@ class LUNAPlatform:
 class LUNAApolloPlatform(LUNAPlatform):
     """ Base class for Apollo-based LUNA platforms; includes configuration. """
 
+    def port_sharing(self, phy_name):
+        """ Reports whether and how the USB port for a given PHY is shared with Apollo.
+
+        Parameters
+        ----------
+        phy_name: str
+            The name of a PHY resource on the platform.
+
+        Returns
+        -------
+        A string identifying the sharing mechanism, or None if the port is not shared.
+
+        Supported sharing mechanisms are:
+
+        "advertising":
+            The gateware must create an ApolloAdvertiser instance, which will
+            signal to the Apollo MCU that it wishes to use the port. The FPGA
+            may hand the port back to Apollo by ceasing advertising.
+        """
+        sharing = getattr(self, "apollo_port_sharing", {})
+        return sharing.get(phy_name, None)
+
     def toolchain_program(self, products, name):
         """ Programs the relevant LUNA board via its sideband connection. """
 
