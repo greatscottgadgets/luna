@@ -2,5 +2,5 @@ sphinx==7.2.6
 sphinx_rtd_theme==2.0.0
 sphinxcontrib-apidoc
 readthedocs-sphinx-search==0.3.2
-jinja2==3.1.3
+jinja2==3.1.4
 luna @ git+https://github.com/greatscottgadgets/luna.git
