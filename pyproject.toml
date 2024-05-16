@@ -46,7 +46,7 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["*"]
+include = ["luna*"]
 
 [tool.pdm.scripts]
 test.cmd = "python -m unittest discover -t . -s tests -v"
