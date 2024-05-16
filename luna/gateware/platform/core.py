@@ -97,6 +97,10 @@ class LUNAPlatform:
 class LUNAApolloPlatform(LUNAPlatform):
     """ Base class for Apollo-based LUNA platforms; includes configuration. """
 
+    def port_sharing(self, phy_name):
+        sharing = getattr(self, "apollo_port_sharing", {})
+        return sharing.get(phy_name, None)
+
     def toolchain_program(self, products, name):
         """ Programs the relevant LUNA board via its sideband connection. """
 
