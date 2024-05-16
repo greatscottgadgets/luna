@@ -1,18 +1,22 @@
+import time
 
 # -- Project information -----------------------------------------------------
 
 project = 'LUNA'
-copyright = '2020 Great Scott Gadgets'
-author = 'Katherine J. Temkin'
+copyright = time.strftime('2020-%Y, Great Scott Gadgets')
+author = 'Great Scott Gadgets'
 
 # -- General configuration ---------------------------------------------------
 
 master_doc = 'index'
 
 extensions = [
+    'sphinx.ext.autosectionlabel',
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon'
 ]
+
+autosectionlabel_prefix_document = True
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']

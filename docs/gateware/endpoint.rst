@@ -1,4 +1,3 @@
-
 ============================
 Gateware Endpoint Interfaces
 ============================
@@ -14,10 +13,10 @@ devices will provide multiple endpoint interfaces -- often one for each endpoint
 Incoming token, data, and handshake packets are routed to all endpoint interfaces; it is up to each endpoint interface
 to decide which packets to respond to.
 
-	*Note: terms like "interface" are overloaded: the single term "interface" can refer both to hardware interfaces
-	and to the USB concept of an Interface. The "interface" in "endpoint interface" is an instance of the former;
-	they are conceptually distinct from USB interfaces. To reduce conflation, we'll use the full phrase "endpoint
-	interface" in this document.*
+    *Note: terms like "interface" are overloaded: the single term "interface" can refer both to hardware interfaces
+    and to the USB concept of an Interface. The "interface" in "endpoint interface" is an instance of the former;
+    they are conceptually distinct from USB interfaces. To reduce conflation, we'll use the full phrase "endpoint
+    interface" in this document.*
 
 As a single endpoint interface may handle packets for multiple endpoints; it is entirely possible to have a device
 that talks on multiple endpoints, but which uses only one endpoint interface.
@@ -47,9 +46,10 @@ The LUNA library ships with a few provided endpoint interfaces. These include:
 - The :class:`USBControlEndpoint`, which provides gateware that facilitates handling USB control requests.
   To handle requests via this endpoint, the user attaches one or more *request handlers interfaces*; which
   are documented in their own section.
-- The ``FIFOInterface`` classes, which implement simple, FIFO-based software interfaces. These lightweight
-  interfaces are meant to allow simple CPU control over one or more endpoints. These are based off of the
-  ValentyUSB ``eptri`` interface; and will eventually be binary-compatible with existing ``eptri`` code.
+- The `*FIFOInterface <https://luna-soc.readthedocs.io/en/latest/eptri.html>`__ classes, which implement simple,
+  FIFO-based software interfaces. These lightweight interfaces are meant to allow simple CPU control over one or
+  more endpoints. These are based off of the ValentyUSB ``eptri`` interface; and will eventually be
+  binary-compatible with existing ``eptri`` code.
 
 
 ``usb2.control`` Components
@@ -60,13 +60,10 @@ The LUNA library ships with a few provided endpoint interfaces. These include:
   :show-inheritance:
 
 
-
 ``usb2.interfaces.eptri`` Components
 ------------------------------------
 
-.. automodule :: luna.gateware.usb.usb2.interfaces.eptri
-  :members:
-  :show-inheritance:
+See the `luna-soc documentation <https://luna-soc.readthedocs.io/en/latest/api_docs/luna_soc.gateware.csr.usb2.interfaces.html>`__.
 
 
 Bulk Endpoint Helpers / ``usb2.endpoints.stream`` Components
