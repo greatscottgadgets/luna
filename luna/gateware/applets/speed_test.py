@@ -5,6 +5,9 @@ from luna.usb2               import USBDevice, USBStreamInEndpoint, USBStreamOut
 from luna.usb3               import USBSuperSpeedDevice, SuperSpeedStreamInEndpoint
 
 from luna.gateware.platform  import NullPin
+from luna.gateware.platform.core import LUNAApolloPlatform
+
+from apollo_fpga.gateware.advertiser import ApolloAdvertiser, ApolloAdvertiserRequestHandler
 
 VENDOR_ID  = 0x16d0
 PRODUCT_ID = 0x0f3b
@@ -15,16 +18,16 @@ BULK_ENDPOINT_NUMBER = 1
 class USBSpeedTestDevice(Elaboratable):
     """ Simple device that exchanges data with the host as fast as the hardware can. """
 
-    def __init__(self, generate_clocks=True, fs_only=False, phy=None,
+    def __init__(self, generate_clocks=True, fs_only=False, phy_name=None,
             vid=VENDOR_ID, pid=PRODUCT_ID):
         self.generate_clocks = generate_clocks
         self.fs_only = fs_only
-        self.phy = phy
+        self.phy_name = phy_name
         self.vid = vid
         self.pid = pid
         self.max_bulk_packet_size = 64 if fs_only else 512
 
-    def create_descriptors(self):
+    def create_descriptors(self, sharing):
         """ Create the descriptors we want to use for our device. """
 
         descriptors = DeviceDescriptorCollection()
@@ -62,6 +65,12 @@ class USBSpeedTestDevice(Elaboratable):
                     e.bEndpointAddress = BULK_ENDPOINT_NUMBER
                     e.wMaxPacketSize   = self.max_bulk_packet_size
 
+            if sharing is not None:
+                with c.InterfaceDescriptor() as i:
+                    i.bInterfaceNumber = 1
+                    i.bInterfaceClass = 0xFF
+                    i.bInterfaceSubclass = 0x00
+                    i.bInterfaceProtocol = ApolloAdvertiserRequestHandler.PROTOCOL_VERSION
 
         return descriptors
 
@@ -74,10 +83,14 @@ class USBSpeedTestDevice(Elaboratable):
             m.submodules.clocks = platform.clock_domain_generator()
 
         # Request default PHY unless another was specified.
-        if self.phy is None:
-            ulpi = platform.request(platform.default_usb_connection)
+        phy_name = self.phy_name or platform.default_usb_connection
+        ulpi = platform.request(phy_name)
+
+        # Check if port is shared.
+        if isinstance(platform, LUNAApolloPlatform):
+            sharing = platform.port_sharing(phy_name)
         else:
-            ulpi = self.phy
+            sharing = None
 
         # Create our USB device interface...
         m.submodules.usb = usb = USBDevice(bus=ulpi)
@@ -86,9 +99,13 @@ class USBSpeedTestDevice(Elaboratable):
                "fs_only must be set for devices with a full speed only PHY"
 
         # Add our standard control endpoint to the device.
-        descriptors = self.create_descriptors()
-        usb.add_standard_control_endpoint(descriptors)
+        descriptors = self.create_descriptors(sharing)
+        control_ep = usb.add_standard_control_endpoint(descriptors)
 
+        # Add an Apollo advertiser, if needed.
+        if sharing == "advertising":
+            adv = m.submodules.adv = ApolloAdvertiser()
+            control_ep.add_request_handler(adv.default_request_handler(1))
 
         # Add a stream endpoint to our device for Bulk IN transfers.
         stream_in_ep = USBStreamInEndpoint(
