@@ -55,8 +55,9 @@ class MicrosoftOS10RequestHandler(USBRequestHandler):
         #
         with m.If(
             (setup.type == USBRequestType.VENDOR) &
-            (setup.recipient == USBRequestRecipient.DEVICE) &
-            ((setup.index == 4) | (setup.index == 5))
+            (setup.request == self._request_code) & (
+                ((setup.recipient == USBRequestRecipient.DEVICE) & (setup.index == 4)) |
+                ((setup.recipient == USBRequestRecipient.INTERFACE) & (setup.index == 5)))
         ):
             m.d.comb += interface.claim.eq(1)
 
@@ -75,13 +76,7 @@ class MicrosoftOS10RequestHandler(USBRequestHandler):
 
                     # If we've received a new setup packet, handle it.
                     with m.If(setup.received):
-
-                        with m.Switch(setup.request):
-
-                            with m.Case(self._request_code):
-                                m.next = 'GET_MS_DESCRIPTOR'
-                            with m.Default():
-                                m.next = 'UNHANDLED'
+                        m.next = 'GET_MS_DESCRIPTOR'
 
 
                 # GET_MS_DESCRIPTOR -- The host is trying to request a OS Feature descriptor set
@@ -123,16 +118,6 @@ class MicrosoftOS10RequestHandler(USBRequestHandler):
                     # If the requested descriptor doesn't exist, the request is terminated by STALLing the data stage.
                     with m.Elif(ms_descriptor_handler.stall):
                         m.d.usb += expecting_ack.eq(0)
-                        m.next = 'IDLE'
-
-
-                # UNHANDLED -- we've received a request we're not prepared to handle
-                with m.State('UNHANDLED'):
-
-                    # When we next have an opportunity to stall, do so,
-                    # and then return to idle.
-                    with m.If(interface.data_requested | interface.status_requested):
-                        m.d.comb += handshake_generator.stall.eq(1)
                         m.next = 'IDLE'
 
         return m
