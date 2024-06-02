@@ -55,7 +55,7 @@ def synchronize(m, signal, *, output=None, o_domain='sync', stages=2):
     for name, layout, direction in signal.layout:
 
         # If this is a record itself, we'll need to recurse.
-        if isinstance(signal[name], (Record, Pin)):
+        if isinstance(signal[name], Record) and (len(layout.fields) > 1): 
             synchronize(m, signal[name], output=output[name],
                     o_domain=o_domain, stages=stages)
             continue
