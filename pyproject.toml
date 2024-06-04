@@ -36,7 +36,7 @@ dependencies = [
     "pyusb>1.1.1",
     "pyvcd>=0.2.4",
     "amaranth~=0.4.0",
-    "usb-protocol @ git+https://github.com/usb-tools/python-usb-protocol",
+    "usb-protocol~=0.9",
 ]
 
 [project.optional-dependencies]
