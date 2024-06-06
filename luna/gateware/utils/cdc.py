@@ -53,17 +53,16 @@ def synchronize(m, signal, *, output=None, o_domain='sync', stages=2):
     # Otherwise, we'll need to make sure we only synchronize
     # elements with non-output directions.
     for name, layout, direction in signal.layout:
+        # Skip any output elements, as they're already
+        # in our clock domain, and we don't want to drive them.
+        if (direction == DIR_FANOUT) or (hasattr(signal[name], 'o') and ~hasattr(signal[name], 'i')):
+            m.d.comb += signal[name].eq(output[name])
+            continue
 
         # If this is a record itself, we'll need to recurse.
         if isinstance(signal[name], (Record, Pin)):
             synchronize(m, signal[name], output=output[name],
                     o_domain=o_domain, stages=stages)
-            continue
-
-        # Skip any output elements, as they're already
-        # in our clock domain, and we don't want to drive them.
-        if (direction == DIR_FANOUT) or (hasattr(signal[name], 'o') and ~hasattr(signal[name], 'i')):
-            m.d.comb += signal[name].eq(output[name])
             continue
 
         m.submodules += create_synchronizer(signal[name], output[name])
