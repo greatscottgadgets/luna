@@ -45,7 +45,7 @@ class ACMRequestHandlers(USBRequestHandler):
                 # SET_LINE_CODING: The host attempts to tell us how it wants serial data
                 # encoding. Since we output a stream, we'll ignore the actual line coding.
                 with m.Case(self.SET_LINE_CODING):
-                    
+
                     # Drive interface outputs for this request
                     m.d.comb += interface.claim.eq(1)
 
@@ -56,7 +56,7 @@ class ACMRequestHandlers(USBRequestHandler):
                     # ... and accept whatever the request was.
                     with m.If(interface.status_requested):
                         m.d.comb += self.send_zlp()
-                        
+
         return m
 
 
@@ -102,7 +102,7 @@ class USBSerialDevice(Elaboratable):
     def __init__(self, *, bus, idVendor, idProduct,
             manufacturer_string="LUNA",
             product_string="USB-to-serial",
-            serial_number=None, max_packet_size=64):
+            serial_number="", max_packet_size=64):
 
         self._bus                 = bus
         self._idVendor            = idVendor
@@ -239,4 +239,3 @@ class USBSerialDevice(Elaboratable):
         ]
 
         return m
-
