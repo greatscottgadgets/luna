@@ -55,8 +55,11 @@ def synchronize(m, signal, *, output=None, o_domain='sync', stages=2):
     for name, layout, direction in signal.layout:
         # Skip any output elements, as they're already
         # in our clock domain, and we don't want to drive them.
-        if (direction == DIR_FANOUT) or (hasattr(signal[name], 'o') and ~hasattr(signal[name], 'i')):
+        if (direction == DIR_FANOUT):
             m.d.comb += signal[name].eq(output[name])
+            continue
+        elif hasattr(signal[name], 'o') and ~hasattr(signal[name], 'i'):
+            m.d.comb += signal[name].o.eq(output[name])
             continue
 
         # If this is a record itself, we'll need to recurse.
