@@ -8,6 +8,7 @@ from luna.gateware.test         import LunaGatewareTestCase, sync_test_case
 from unittest       import TestCase
 
 from amaranth import Module, Record, Signal
+from amaranth.lib.io import Pin
 from amaranth.hdl.rec import DIR_FANIN, DIR_FANOUT
 from luna.gateware.utils.cdc import synchronize, stretch_strobe_signal
 
@@ -37,6 +38,17 @@ class SynchronizedTest(TestCase):
                 ('subsig_out', 1, DIR_FANOUT),
             ])
         ])
+        synchronize(m, record)
+
+    def test_pins(self):
+        m = Module()
+        pins = {
+            "sig_in": Pin(1, "i"),
+            "sig_out": Pin(1, "o"),
+        }
+        record = Record([
+            (f_name, f.layout) for (f_name, f) in pins.items()
+        ], fields=pins)
         synchronize(m, record)
 
 
