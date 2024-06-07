@@ -532,8 +532,12 @@ class USBResetSequencer(Elaboratable):
 
                 # Exit DISCONNECT once the Tddis timer has expired and self.disconnect is low.
                 with m.If((~self.disconnect) & tddis):
-                    m.d.usb += tddis.eq(0)
-                    m.d.usb += timer.eq(0)
-                    m.next = 'START_HS_DETECTION'
+                    m.d.usb += [
+                        tddis.eq(0),
+                        self.current_speed.eq(USBSpeed.FULL),
+                        self.operating_mode.eq(UTMIOperatingMode.NORMAL),
+                        self.termination_select.eq(1),
+                    ]
+                    m.next = 'INITIALIZE'
 
         return m
