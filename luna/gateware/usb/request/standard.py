@@ -58,7 +58,7 @@ class StandardRequestHandler(ControlRequestHandler):
 
         # The distributed handler supports a combination of fixed and runtime descriptors directly...
         if self._avoid_blockram:
-            return GetDescriptorHandlerDistributed(self.descriptors)
+            return GetDescriptorHandlerDistributed(self.descriptors, max_packet_length=self._max_packet_size)
 
         # ...but the block handler does not. In this case, first we split the descriptors into two 
         # collections: fixed descriptors (for the ROM) and runtime descriptors. 
@@ -75,11 +75,11 @@ class StandardRequestHandler(ControlRequestHandler):
         # If there are runtime descriptors, we add a get descriptor multiplexer and a distributed handler.
         if has_runtime_descriptors:
             handler_mux = GetDescriptorHandlerMux()
-            handler_mux.add_descriptor_handler(GetDescriptorHandlerBlock(fixed_descriptors))
-            handler_mux.add_descriptor_handler(GetDescriptorHandlerDistributed(runtime_descriptors))
+            handler_mux.add_descriptor_handler(GetDescriptorHandlerBlock(fixed_descriptors, max_packet_length=self._max_packet_size))
+            handler_mux.add_descriptor_handler(GetDescriptorHandlerDistributed(runtime_descriptors, max_packet_length=self._max_packet_size))
             return handler_mux
         else:
-            return GetDescriptorHandlerBlock(self.descriptors)
+            return GetDescriptorHandlerBlock(self.descriptors, max_packet_length=self._max_packet_size)
 
 
     def elaborate(self, platform):
