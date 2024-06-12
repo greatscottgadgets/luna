@@ -30,7 +30,6 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
-    "apollo_fpga @ git+https://github.com/greatscottgadgets/apollo.git", # temporarily pull from git until apollo release
     "libusb1>1.9.2",
     "pyserial>=3.5",
     "pyusb>1.1.1",
@@ -41,6 +40,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "apollo_fpga",
     "prompt-toolkit>3.0.16",
 ]
 
@@ -58,4 +58,4 @@ test.cmd = "python -m unittest discover -t . -s tests -v"
 
 [tool.setuptools-git-versioning]
 enabled = true
-starting_version = "0.0.0"
+starting_version = "0.1.0"
