@@ -11,6 +11,7 @@ import operator
 
 from amaranth            import Signal, Module, Elaboratable, Cat
 from amaranth.lib.coding import Encoder
+from amaranth.lib.data   import Struct
 from amaranth.hdl.rec    import Record, DIR_FANOUT
 
 from .                   import USBSpeed
@@ -19,6 +20,12 @@ from .packet             import DataCRCInterface, USBInterpacketTimer, TokenDete
 from .packet             import InterpacketTimerInterface, HandshakeExchangeInterface
 from ..stream            import USBInStreamInterface, USBOutStreamInterface
 from ..request           import SetupPacket
+
+
+class ClearEndpointHaltInterface(Struct):
+    enable: 1
+    direction: 1
+    number: 4
 
 
 class RequestHandlerInterface:
@@ -72,6 +79,8 @@ class RequestHandlerInterface:
         self.active_config         = Signal(8)
         self.config_changed        = Signal()
         self.new_config            = Signal(8)
+
+        self.clear_endpoint_halt   = Signal(ClearEndpointHaltInterface)
 
         self.rx                    = USBOutStreamInterface()
         self.rx_expected           = Signal()
@@ -378,16 +387,17 @@ class USBRequestHandlerMultiplexer(Elaboratable):
 
         def _connect_interface_outputs(interface):
             m.d.comb += [
-                shared.tx               .stream_eq(interface.tx),
+                shared.tx                 .stream_eq(interface.tx),
 
-                shared.tx_data_pid      .eq(interface.tx_data_pid),
+                shared.tx_data_pid        .eq(interface.tx_data_pid),
 
-                shared.handshakes_out   .eq(interface.handshakes_out),
+                shared.handshakes_out     .eq(interface.handshakes_out),
 
-                shared.address_changed  .eq(interface.address_changed),
-                shared.new_address      .eq(interface.new_address),
-                shared.config_changed   .eq(interface.config_changed),
-                shared.new_config       .eq(interface.new_config),
+                shared.address_changed    .eq(interface.address_changed),
+                shared.new_address        .eq(interface.new_address),
+                shared.config_changed     .eq(interface.config_changed),
+                shared.new_config         .eq(interface.new_config),
+                shared.clear_endpoint_halt.eq(interface.clear_endpoint_halt),
             ]
 
         # The encoder provides the index of the single interface that claims the 

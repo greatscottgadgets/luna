@@ -115,7 +115,7 @@ class USBInTransferManager(Elaboratable):
 
         # Handle our PID-sequence reset.
         # Note that we store the _inverse_ of our data PID, as we'll toggle our DATA PID
-        # before sending.
+        # before sending. However, if it has already been toggled then this is overridden below.
         with m.If(self.reset_sequence):
             m.d.usb += self.data_pid.eq(~self.start_with_data1)
 
@@ -267,6 +267,10 @@ class USBInTransferManager(Elaboratable):
                     # Undo the data PID toggle.
                     m.d.usb += self.data_pid[0].eq(~self.data_pid[0]),
                     m.next = "WAIT_FOR_DATA"
+
+                # If we get a clear halt request while in this state, reset to initial PID.
+                with m.Elif(self.reset_sequence):
+                    m.d.usb += self.data_pid.eq(self.start_with_data1)
 
                 # Otherwise, once we get an IN token, move to sending a packet.
                 with m.Elif(in_token_received):

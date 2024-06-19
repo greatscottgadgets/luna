@@ -14,7 +14,7 @@ from luna.gateware.test import utils
 
 from amaranth               import *
 from amaranth.hdl.ast       import Value, Const
-from usb_protocol.types     import USBStandardRequests, USBRequestType
+from usb_protocol.types     import USBStandardFeatures, USBStandardRequests, USBRequestRecipient, USBRequestType
 from usb_protocol.emitters  import DeviceDescriptorCollection
 
 from ..usb2.request         import RequestHandlerInterface, USBRequestHandler
@@ -139,6 +139,8 @@ class StandardRequestHandler(ControlRequestHandler):
 
                                 with m.Case(USBStandardRequests.GET_STATUS):
                                     m.next = 'GET_STATUS'
+                                with m.Case(USBStandardRequests.CLEAR_FEATURE):
+                                    m.next = 'CLEAR_FEATURE'
                                 with m.Case(USBStandardRequests.SET_ADDRESS):
                                     m.next = 'SET_ADDRESS'
                                 with m.Case(USBStandardRequests.SET_CONFIGURATION):
@@ -158,6 +160,30 @@ class StandardRequestHandler(ControlRequestHandler):
                     # TODO: copy the remote wakeup and bus-powered attributes from bmAttributes of the relevant descriptor?
                     self.handle_simple_data_request(m, transmitter, 0, length=2)
 
+                with m.State('CLEAR_FEATURE'):
+                    # Provide an response to the STATUS stage.
+                    with m.If(interface.status_requested):
+
+                        # If our stall condition is met, stall; otherwise, send a ZLP [USB 8.5.3].
+                        # For now, we only implement clearing ENDPOINT_HALT.
+                        stall_condition = \
+                            (setup.recipient != USBRequestRecipient.ENDPOINT) | \
+                            (setup.value     != USBStandardFeatures.ENDPOINT_HALT)
+                        with m.If(stall_condition):
+                            m.d.comb += handshake_generator.stall.eq(1)
+                        with m.Else():
+                            m.d.comb += self.send_zlp()
+
+                    # Accept the relevant value after the packet is ACK'd...
+                    with m.If(interface.handshakes_in.ack):
+                        m.d.comb += [
+                            interface.clear_endpoint_halt.enable   .eq(1),
+                            interface.clear_endpoint_halt.direction.eq(setup.index[7]),
+                            interface.clear_endpoint_halt.number   .eq(setup.index[0:4]),
+                        ]
+
+                        # ... and then return to idle.
+                        m.next = 'IDLE'
 
                 # SET_ADDRESS -- The host is trying to assign us an address.
                 with m.State('SET_ADDRESS'):
