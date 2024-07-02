@@ -2,7 +2,7 @@
 #
 # This file is part of LUNA.
 #
-# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# Copyright (c) 2020-2024 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
 from amaranth import *
@@ -32,8 +32,8 @@ class USBSuperSpeedExample(Elaboratable):
 
         # We'll need a device descriptor...
         with descriptors.DeviceDescriptor() as d:
-            d.idVendor           = 0x16d0
-            d.idProduct          = 0xf3b
+            d.idVendor           = 0x1209
+            d.idProduct          = 0x0001
 
             # We're complying with the USB 3.2 standard.
             d.bcdUSB             = 3.2

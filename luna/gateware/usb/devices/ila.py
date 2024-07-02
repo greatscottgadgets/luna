@@ -1,7 +1,7 @@
 #
 # This file is part of LUNA.
 #
-# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# Copyright (c) 2020-2024 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
 """ Pre-made gateware that implements an ILA connection serial. """
@@ -72,8 +72,8 @@ class USBIntegratedLogicAnalyzer(Elaboratable):
 
         # We'll need a device descriptor...
         with descriptors.DeviceDescriptor() as d:
-            d.idVendor           = 0x16d0
-            d.idProduct          = 0x05a5
+            d.idVendor           = 0x1209
+            d.idProduct          = 0x0002
 
             d.iManufacturer      = "LUNA"
             d.iProduct           = "Integrated Logic Analyzer"
@@ -162,7 +162,7 @@ class USBIntegratedLogicAnalyzerFrontend(ILAFrontend):
             time.sleep(delay)
 
         # Create our USB connection the device
-        self._device = usb.core.find(idVendor=0x16d0, idProduct=0x5a5)
+        self._device = usb.core.find(idVendor=0x1209, idProduct=0x0002)
 
 
         super().__init__(ila)
