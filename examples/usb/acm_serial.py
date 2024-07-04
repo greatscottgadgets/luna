@@ -2,7 +2,7 @@
 #
 # This file is part of LUNA.
 #
-# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# Copyright (c) 2020-2024 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
 from amaranth            import Elaboratable, Module
@@ -23,7 +23,7 @@ class USBSerialDeviceExample(Elaboratable):
         # Create our USB-to-serial converter.
         ulpi = platform.request(platform.default_usb_connection)
         m.submodules.usb_serial = usb_serial = \
-                USBSerialDevice(bus=ulpi, idVendor=0x16d0, idProduct=0x0f3b)
+                USBSerialDevice(bus=ulpi, idVendor=0x1209, idProduct=0x0001)
 
         m.d.comb += [
             # Place the streams into a loopback configuration...

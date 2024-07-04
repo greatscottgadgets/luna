@@ -43,8 +43,8 @@ class FullDeviceTest(USBDeviceTest):
         self.descriptors = descriptors = DeviceDescriptorCollection()
 
         with descriptors.DeviceDescriptor() as d:
-            d.idVendor           = 0x16d0
-            d.idProduct          = 0xf3b
+            d.idVendor           = 0x1209
+            d.idProduct          = 0x0001
 
             d.iManufacturer      = "LUNA"
             d.iProduct           = "Test Device"
@@ -163,8 +163,8 @@ class LongDescriptorTest(USBDeviceTest):
         self.descriptors = descriptors = DeviceDescriptorCollection()
 
         with descriptors.DeviceDescriptor() as d:
-            d.idVendor           = 0x16d0
-            d.idProduct          = 0xf3b
+            d.idVendor           = 0x1209
+            d.idProduct          = 0x0001
 
             d.iManufacturer      = "LUNA"
             d.iProduct           = "Test Device"

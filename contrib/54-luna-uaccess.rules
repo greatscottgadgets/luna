@@ -1,5 +1,5 @@
-ATTR{idVendor}=="16d0", ATTR{idProduct}=="05a5", SYMLINK+="luna%k", TAG+="uaccess"
-ATTR{idVendor}=="16d0", ATTR{idProduct}=="0f3b", SYMLINK+="lunatarget%k", TAG+="uaccess"
-
-ATTR{idVendor}=="1d50", ATTR{idProduct}=="615c", SYMLINK+="apollo%k", TAG+="uaccess"
-ATTR{idVendor}=="1d50", ATTR{idProduct}=="615b", SYMLINK+="luna%k", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="0001", SYMLINK+="luna-test1-%k", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="0002", SYMLINK+="luna-test2-%k", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="0003", SYMLINK+="luna-test3-%k", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="0004", SYMLINK+="luna-test4-%k", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="0005", SYMLINK+="luna-test5-%k", TAG+="uaccess"

@@ -1,3 +1,9 @@
+#
+# This file is part of LUNA.
+#
+# Copyright (c) 2020-2024 Great Scott Gadgets <info@greatscottgadgets.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
 from amaranth                import *
 from usb_protocol.emitters   import DeviceDescriptorCollection, SuperSpeedDeviceDescriptorCollection
 
@@ -9,8 +15,8 @@ from luna.gateware.platform.core import LUNAApolloPlatform
 
 from apollo_fpga.gateware.advertiser import ApolloAdvertiser, ApolloAdvertiserRequestHandler
 
-VENDOR_ID  = 0x16d0
-PRODUCT_ID = 0x0f3b
+VENDOR_ID  = 0x1209
+PRODUCT_ID = 0x0001
 
 BULK_ENDPOINT_NUMBER = 1
 
@@ -178,8 +184,8 @@ class USBInSuperSpeedTestDevice(Elaboratable):
 
         # We'll need a device descriptor...
         with descriptors.DeviceDescriptor() as d:
-            d.idVendor           = 0x16d0
-            d.idProduct          = 0xf3b
+            d.idVendor           = 0x1209
+            d.idProduct          = 0x0001
 
             # We're complying with the USB 3.2 standard.
             d.bcdUSB             = 3.2
