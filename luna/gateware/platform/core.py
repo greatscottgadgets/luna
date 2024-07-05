@@ -119,6 +119,17 @@ class LUNAApolloPlatform(LUNAPlatform):
         sharing = getattr(self, "apollo_port_sharing", {})
         return sharing.get(phy_name, None)
 
+
+    @property
+    def apollo_gateware_phy(self):
+        """ Returns the USB PHY for Apollo gateware. """
+        
+        sharing = getattr(self, "apollo_port_sharing", {})
+        if len(sharing) == 0:
+            return self.default_usb_connection
+        return list(sharing.keys())[0]
+
+
     def toolchain_program(self, products, name):
         """ Programs the relevant LUNA board via its sideband connection. """
 
