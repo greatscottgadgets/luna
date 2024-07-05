@@ -13,6 +13,7 @@ from amaranth         import Signal, Elaboratable, Module, Cat
 
 from .packet          import DataCRCInterface, InterpacketTimerInterface, TokenDetectorInterface
 from .packet          import HandshakeExchangeInterface
+from .request         import ClearEndpointHaltInterface
 from ..stream         import USBInStreamInterface, USBOutStreamInterface
 from ...utils.bus     import OneHotMultiplexer
 
@@ -89,6 +90,9 @@ class EndpointInterface:
         self.active_config         = Signal(8)
         self.config_changed        = Signal()
         self.new_config            = Signal(8)
+
+        self.clear_endpoint_halt_out = Signal(ClearEndpointHaltInterface)
+        self.clear_endpoint_halt_in  = Signal(ClearEndpointHaltInterface)
 
         self.rx                    = USBOutStreamInterface()
         self.rx_complete           = Signal()
@@ -213,6 +217,8 @@ class USBEndpointMultiplexer(Elaboratable):
                 shared.handshakes_in             .connect(interface.handshakes_in),
                 shared.tokenizer                 .connect(interface.tokenizer),
 
+                interface.clear_endpoint_halt_in .eq(shared.clear_endpoint_halt_out),
+
                 # Rx interface.
                 shared.rx                        .connect(interface.rx),
                 interface.rx_complete            .eq(shared.rx_complete),
@@ -258,6 +264,10 @@ class USBEndpointMultiplexer(Elaboratable):
 
         # ... and our timer start signals.
         self.or_join_interface_signals(m, lambda interface : interface.timer.start)
+
+        self.or_join_interface_signals(m, lambda interface : interface.clear_endpoint_halt_out.enable)
+        self.or_join_interface_signals(m, lambda interface : interface.clear_endpoint_halt_out.direction)
+        self.or_join_interface_signals(m, lambda interface : interface.clear_endpoint_halt_out.number)
 
         # Finally, connect up our transmit PID select.
         conditional = m.If

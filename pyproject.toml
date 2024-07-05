@@ -35,7 +35,7 @@ dependencies = [
     "pyusb>1.1.1",
     "pyvcd>=0.2.4",
     "amaranth~=0.4.0",
-    "usb-protocol~=0.9",
+    "usb-protocol~=0.9.1",
 ]
 
 [project.optional-dependencies]

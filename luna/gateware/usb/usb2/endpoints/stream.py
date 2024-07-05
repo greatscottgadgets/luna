@@ -81,6 +81,11 @@ class USBStreamInEndpoint(Elaboratable):
         # Create our transfer manager, which will be used to sequence packet transfers for our stream.
         m.submodules.tx_manager = tx_manager = USBInTransferManager(self._max_packet_size)
 
+        # Check there has been a ClearFeature(ENDPOINT_HALT) request address to this endpoint.
+        clear_endpoint_halt = \
+            interface.clear_endpoint_halt_in.enable & \
+            interface.clear_endpoint_halt_in.direction & \
+            (interface.clear_endpoint_halt_in.number == self._endpoint_number)
         m.d.comb += [
 
             # Always generate ZLPs; in order to pass along when stream packets terminate.
@@ -93,6 +98,9 @@ class USBStreamInEndpoint(Elaboratable):
             tx_manager.transfer_stream  .stream_eq(self.stream),
             tx_manager.flush            .eq(self.flush),
             tx_manager.discard          .eq(self.discard),
+
+            # ... and data-toggle reset on clear endpoint halt...
+            tx_manager.reset_sequence   .eq(clear_endpoint_halt),
 
             # ... and our output stream...
             interface.tx                .stream_eq(tx_manager.packet_stream),
@@ -413,6 +421,16 @@ class USBStreamOutEndpoint(Elaboratable):
         # We'll toggle our DATA PID each time we issue an ACK to the host [USB 2.0: 8.6.2].
         with m.If(data_response_requested & data_accepted):
             m.d.usb += expected_data_toggle.eq(~expected_data_toggle)
+
+        # If there has been a ClearFeature(ENDPOINT_HALT) request address to this endpoint...
+        clear_endpoint_halt = \
+            self.interface.clear_endpoint_halt_in.enable & \
+            ~self.interface.clear_endpoint_halt_in.direction & \
+            (self.interface.clear_endpoint_halt_in.number == self._endpoint_number)
+
+        with m.If(clear_endpoint_halt):
+            # ... reset the expected data toggle.
+            m.d.usb += expected_data_toggle.eq(0)
 
 
         return m

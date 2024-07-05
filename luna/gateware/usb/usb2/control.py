@@ -178,6 +178,8 @@ class USBControlEndpoint(Elaboratable):
             interface.address_changed              .eq(request_handler.address_changed),
             interface.new_address                  .eq(request_handler.new_address),
 
+            interface.clear_endpoint_halt_out      .eq(request_handler.clear_endpoint_halt),
+
             request_handler.active_config          .eq(interface.active_config),
             interface.config_changed               .eq(request_handler.config_changed),
             interface.new_config                   .eq(request_handler.new_config),
