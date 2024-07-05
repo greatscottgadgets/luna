@@ -78,7 +78,7 @@ class FlashUIDReader(Elaboratable):
     # Opcode to read the chip's unique ID.
     READ_UID = 0x4B
     
-    def __init__(self, bus, clock_period=4, domain="sync"):
+    def __init__(self, bus, clock_period=2, domain="sync"):
         assert clock_period & (clock_period - 1) == 0  # only powers of 2
         self._domain = domain
         self.period  = clock_period
@@ -97,11 +97,9 @@ class FlashUIDReader(Elaboratable):
         cycles   = Signal(range(self.period))
         sck_fall = Signal()
         sck_rise = Signal()
-        sck_d    = Signal()
-        m.d.sync += sck_d.eq(self.bus.sck)
-        m.d.comb += [
-            sck_fall.eq( sck_d & ~self.bus.sck),  # falling edge
-            sck_rise.eq(~sck_d &  self.bus.sck),  # rising edge
+        m.d.sync += [
+            sck_fall.eq(cycles == self.period - 1),     # falling edge
+            sck_rise.eq(cycles == self.period//2 - 1),  # rising edge
         ]
         
         # Output shift register and bit counter
@@ -111,7 +109,7 @@ class FlashUIDReader(Elaboratable):
         with m.FSM(domain=self._domain):
 
             with m.State("XFER"):
-                m.d.comb += [
+                m.d.sync += [
                     self.bus.sck .eq(cycles[-1]),
                     self.bus.sdi .eq(shreg_o[-1]),
                     self.bus.cs  .eq(1),
@@ -129,6 +127,7 @@ class FlashUIDReader(Elaboratable):
                         count_o .eq(count_o - 1),
                     ]
                     with m.If(count_o == 0):
+                        m.d.sync += self.bus.cs.eq(0)
                         m.next = 'END'
             
             with m.State("END"):
