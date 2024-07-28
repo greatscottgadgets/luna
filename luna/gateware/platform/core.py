@@ -151,9 +151,7 @@ class LUNAApolloPlatform(LUNAPlatform):
 
         from apollo_fpga.ecp5 import ECP5_JTAGProgrammer
 
-        with debugger.jtag as jtag:
-            programmer = ECP5_JTAGProgrammer(jtag)
-            programmer.unconfigure()
+        debugger.force_fpga_offline()
 
 
     def toolchain_flash(self, products, name="top"):
