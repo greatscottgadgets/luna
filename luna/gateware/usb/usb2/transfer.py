@@ -9,12 +9,12 @@ This module contains gateware designed to assist with endpoint/transfer state ma
 Its components facilitate data transfer longer than a single packet.
 """
 
-from amaranth         import Signal, Elaboratable, Module, Array
-from amaranth.hdl.mem import Memory
+from amaranth            import Signal, Elaboratable, Module, Array
+from amaranth.lib.memory import Memory
 
-from .packet          import HandshakeExchangeInterface, TokenDetectorInterface
-from ..stream         import USBInStreamInterface
-from ...stream        import StreamInterface
+from .packet             import HandshakeExchangeInterface, TokenDetectorInterface
+from ..stream            import USBInStreamInterface
+from ...stream           import StreamInterface
 
 class USBInTransferManager(Elaboratable):
     """ Sequencer that converts a long data stream (a USB *transfer*) into a burst of USB packets.
@@ -135,12 +135,11 @@ class USBInTransferManager(Elaboratable):
         #
 
         # We'll create two buffers; so we can fill one as we empty the other.
-        buffer = Array(Memory(width=8, depth=self._max_packet_size, name=f"transmit_buffer_{i}") for i in range(2))
+        m.submodules.transmit_buffer_0 = transmit_buffer_0 = Memory(shape=8, depth=self._max_packet_size, init=[])
+        m.submodules.transmit_buffer_1 = transmit_buffer_1 = Memory(shape=8, depth=self._max_packet_size, init=[])
+        buffer = Array([transmit_buffer_0, transmit_buffer_1])
         buffer_write_ports = Array(buffer[i].write_port(domain="usb") for i in range(2))
         buffer_read_ports  = Array(buffer[i].read_port(domain="usb") for i in range(2))
-
-        m.submodules.read_port_0,  m.submodules.read_port_1  = buffer_read_ports
-        m.submodules.write_port_0, m.submodules.write_port_1 = buffer_write_ports
 
         # Create values equivalent to the buffer numbers for our read and write buffer; which switch
         # whenever we swap our two buffers.

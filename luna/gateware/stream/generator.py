@@ -6,8 +6,9 @@
 
 """ Stream generators. """
 
-from amaranth     import *
-from .            import StreamInterface
+from amaranth            import Array, Const, DomainRenamer, Elaboratable, Module, Signal
+from amaranth.lib.memory import Memory
+from .                   import StreamInterface
 
 
 class ConstantStreamGenerator(Elaboratable):
@@ -153,8 +154,8 @@ class ConstantStreamGenerator(Elaboratable):
         data_initializer, valid_bits_last_word = self._get_initializer_value()
         data_length = len(data_initializer)
 
-        rom = Memory(width=self._data_width, depth=data_length, init=data_initializer)
-        m.submodules.rom_read_port = rom_read_port = rom.read_port(transparent=False)
+        m.submodules.rom = rom = Memory(shape=self._data_width, depth=data_length, init=data_initializer)
+        rom_read_port = rom.read_port()
 
         if self._max_length_width:
             # Register maximum length, to improve timing.

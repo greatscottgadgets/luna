@@ -13,17 +13,18 @@ import math
 import tempfile
 import subprocess
 
-from abc               import ABCMeta, abstractmethod
+from abc                 import ABCMeta, abstractmethod
 
-from amaranth          import Signal, Module, Cat, Elaboratable, Memory, ClockDomain, DomainRenamer
-from amaranth.lib.cdc  import FFSynchronizer
-from amaranth.lib.fifo import AsyncFIFOBuffered
-from vcd               import VCDWriter
-from vcd.gtkw          import GTKWSave
+from amaranth            import Cat, DomainRenamer, Elaboratable, Module, Signal
+from amaranth.lib.cdc    import FFSynchronizer
+from amaranth.lib.fifo   import AsyncFIFOBuffered
+from amaranth.lib.memory import Memory
+from vcd                 import VCDWriter
+from vcd.gtkw            import GTKWSave
 
-from ..stream          import StreamInterface
-from ..interface.uart  import UARTMultibyteTransmitter
-from ..interface.spi   import SPIDeviceInterface, SPIBus
+from ..stream            import StreamInterface
+from ..interface.uart    import UARTMultibyteTransmitter
+from ..interface.spi     import SPIDeviceInterface, SPIBus
 
 
 class IntegratedLogicAnalyzer(Elaboratable):
@@ -77,7 +78,7 @@ class IntegratedLogicAnalyzer(Elaboratable):
         #
         # Create a backing store for our samples.
         #
-        self.mem = Memory(width=self.sample_width, depth=sample_depth, name="ila_buffer")
+        self.mem = Memory(shape=self.sample_width, depth=sample_depth, init=[])
 
 
         #
@@ -97,7 +98,7 @@ class IntegratedLogicAnalyzer(Elaboratable):
         # Memory ports.
         write_port = self.mem.write_port()
         read_port  = self.mem.read_port(domain="sync")
-        m.submodules += [write_port, read_port]
+        m.submodules['ila_buffer'] = self.mem
 
         # If necessary, create synchronized versions of the relevant signals.
         if self.samples_pretrigger >= 2:

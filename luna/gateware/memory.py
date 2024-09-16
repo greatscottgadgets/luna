@@ -8,7 +8,8 @@
 This module contains definitions of memory units that work well for USB applications.
 """
 
-from amaranth import Elaboratable, Module, Signal, Memory
+from amaranth import Elaboratable, Module, Signal
+from amaranth.lib.memory import Memory
 from amaranth.hdl.xfrm import DomainRenamer
 
 
@@ -108,9 +109,9 @@ class TransactionalizedFIFO(Elaboratable):
         #
         # Core internal "backing store".
         #
-        memory = Memory(width=self.width, depth=self.depth + 1, name=self.name)
-        m.submodules.read_port  = read_port  = memory.read_port()
-        m.submodules.write_port = write_port = memory.write_port()
+        m.submodules[self.name] = memory = Memory(shape=self.width, depth=self.depth + 1, init=[])
+        read_port = memory.read_port()
+        write_port = memory.write_port()
 
         # Always connect up our memory's data/en ports to ours.
         m.d.comb += [
