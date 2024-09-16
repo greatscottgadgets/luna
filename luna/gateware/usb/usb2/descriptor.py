@@ -383,7 +383,7 @@ class GetDescriptorHandlerBlock(Elaboratable):
         # ... and to the ROM's lower half, not counting the last two bits (which are always 0,
         # as our pointers are always aligned). This creates an element pointer counted in words,
         # instead of in bytes; and thus one compatible with our read_port addr.
-        rom_element_pointer  = rom_read_port.data.bit_select(2, rom_read_port.addr.width)
+        rom_element_pointer  = rom_read_port.data.bit_select(2, len(rom_read_port.addr))
 
         #
         # Figure out the maximum length we're willing to send.
@@ -408,7 +408,7 @@ class GetDescriptorHandlerBlock(Elaboratable):
 
         # Registers that store descriptor length and data base address.
         descriptor_length = Signal(16)
-        descriptor_data_base_address = Signal(rom_read_port.addr.width)
+        descriptor_data_base_address = Signal.like(rom_read_port.addr)
 
         # Track when we're on the first and last packet.
         on_first_packet = position_in_stream == self.start_position
@@ -529,7 +529,7 @@ class GetDescriptorHandlerBlock(Elaboratable):
                             position_in_stream  .eq(position_in_stream + 1),
                             bytes_sent          .eq(bytes_sent + 1),
                         ]
-                        m.d.comb += rom_read_port.addr.eq(descriptor_data_base_address+(position_in_stream + 1).bit_select(2, position_in_stream.width - 2)),
+                        m.d.comb += rom_read_port.addr.eq(descriptor_data_base_address+(position_in_stream + 1).bit_select(2, len(position_in_stream) - 2)),
 
                     # Otherwise, we've finished! Return to IDLE.
                     with m.Else():
