@@ -231,9 +231,9 @@ class I2CBusDriver(Elaboratable):
         self.sda_t  = pads.sda_t if hasattr(pads, "sda_t") else pads.sda
 
         self.scl_i  = Signal()
-        self.scl_o  = Signal(reset=1)
+        self.scl_o  = Signal(init=1)
         self.sda_i  = Signal()
-        self.sda_o  = Signal(reset=1)
+        self.sda_o  = Signal(init=1)
 
         self.sample = Signal(name="bus_sample")
         self.setup  = Signal(name="bus_setup")
@@ -248,7 +248,7 @@ class I2CBusDriver(Elaboratable):
             self.sda_t.o  .eq(0),
             self.sda_t.oe .eq(~self.sda_o),
         ]
-        m.submodules += FFSynchronizer(self.sda_t.i, self.sda_i, reset=1)
+        m.submodules += FFSynchronizer(self.sda_t.i, self.sda_i, init=1)
 
         # But the SCL line does not need to: only if we want to support clock stretching
         if hasattr(self.scl_t, "oe"):
@@ -256,7 +256,7 @@ class I2CBusDriver(Elaboratable):
                 self.scl_t.o  .eq(0),
                 self.scl_t.oe .eq(~self.scl_o),
             ]
-            m.submodules += FFSynchronizer(self.scl_t.i, self.scl_i, reset=1)
+            m.submodules += FFSynchronizer(self.scl_t.i, self.scl_i, init=1)
         else:
             # SCL output only
             m.d.comb += [
@@ -265,8 +265,8 @@ class I2CBusDriver(Elaboratable):
             ]
 
         # Additional signals for bus state detection
-        scl_r = Signal(reset=1)
-        sda_r = Signal(reset=1)
+        scl_r = Signal(init=1)
+        sda_r = Signal(init=1)
         m.d.sync += [
             scl_r.eq(self.scl_i),
             sda_r.eq(self.sda_i),
@@ -327,7 +327,7 @@ class I2CInitiator(Elaboratable):
         self.period_cyc  = int(period_cyc)
         self.clk_stretch = clk_stretch
 
-        self.busy   = Signal(reset=1)
+        self.busy   = Signal(init=1)
         self.start  = Signal()
         self.stop   = Signal()
         self.read   = Signal()

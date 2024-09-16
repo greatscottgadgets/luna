@@ -94,7 +94,7 @@ class TxShifter(Elaboratable):
         m = Module()
 
         shifter = Signal(self._width)
-        pos = Signal(self._width, reset=0b1)
+        pos = Signal(self._width, init=0b1)
 
 
         with m.If(self.i_enable):

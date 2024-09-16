@@ -69,7 +69,7 @@ class HyperRAMDiagnostic(Elaboratable):
         m.submodules.registers = registers
 
         psram_address = registers.add_register(REGISTER_RAM_ADDR)
-        read_length   = registers.add_register(REGISTER_RAM_READ_LENGTH, reset=1)
+        read_length   = registers.add_register(REGISTER_RAM_READ_LENGTH, init=1)
 
         m.submodules.read_fifo  = read_fifo  = SyncFIFO(width=REG_WIDTH, depth=32)
         m.submodules.write_fifo = write_fifo = SyncFIFO(width=REG_WIDTH, depth=32)

@@ -12,8 +12,8 @@ from luna.gateware.interface.i2c import I2CBus, I2CInitiator
 class I2CInitiatorTestbench(I2CInitiator):
     def __init__(self, pads, period_cyc, clk_stretch=True):
         super().__init__(pads, period_cyc, clk_stretch)
-        self.scl_o = Signal(reset=1)  # used to override values from testbench
-        self.sda_o = Signal(reset=1)  
+        self.scl_o = Signal(init=1)  # used to override values from testbench
+        self.sda_o = Signal(init=1)  
 
     def elaborate(self, platform):
         m = super().elaborate(platform)

@@ -56,7 +56,7 @@ class PHYResetController(Elaboratable):
         cycles_in_reset = Signal(range(0, self.reset_length_cycles))
 
         reset_state = 'RESETTING' if self.power_on_reset else 'IDLE'
-        with m.FSM(reset=reset_state, domain='sync') as fsm:
+        with m.FSM(init=reset_state, domain='sync') as fsm:
 
             # Drive the PHY reset whenever we're in the RESETTING cycle.
             m.d.comb += [

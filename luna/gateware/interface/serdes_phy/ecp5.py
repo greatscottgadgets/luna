@@ -445,10 +445,10 @@ class ECP5SerDesResetSequencer(Elaboratable):
         self.rx_coding_err  = Signal()
 
         # Reset out.
-        self.tx_pll_reset   = Signal(reset=1)
-        self.tx_pcs_reset   = Signal(reset=1)
-        self.rx_cdr_reset   = Signal(reset=1)
-        self.rx_pcs_reset   = Signal(reset=1)
+        self.tx_pll_reset   = Signal(init=1)
+        self.tx_pcs_reset   = Signal(init=1)
+        self.rx_cdr_reset   = Signal(init=1)
+        self.rx_pcs_reset   = Signal(init=1)
 
         # Status out.
         self.tx_pcs_ready   = Signal()
