@@ -60,7 +60,7 @@ class StressTestEndpoint(Elaboratable):
         tx        = interface.tx
 
         # Counter that stores how many bytes we have left to send.
-        bytes_to_send = Signal(range(0, self._max_packet_size + 1), reset=0)
+        bytes_to_send = Signal(range(0, self._max_packet_size + 1), init=0)
 
         # True iff we're the active endpoint.
         endpoint_selected = \

@@ -439,7 +439,7 @@ class RxBitstuffRemover(Elaboratable):
         # pass all of the outputs through a pipe stage
         self.o_data = Signal()
         self.o_error = Signal()
-        self.o_stall = Signal(reset=1)
+        self.o_stall = Signal(init=1)
 
 
     def elaborate(self, platform):
@@ -536,7 +536,7 @@ class RxShifter(Elaboratable):
 
         # Instead of using a counter, we will use a sentinel bit in the shift
         # register to indicate when it is full.
-        shift_reg = Signal(width+1, reset=0b1)
+        shift_reg = Signal(width+1, init=0b1)
 
         m.d.comb += self.o_data.eq(shift_reg[0:width])
         m.d.usb_io += self.o_put.eq(shift_reg[width-1] & ~shift_reg[width] & self.i_valid),
@@ -562,8 +562,8 @@ class RxPipeline(Elaboratable):
         self.o_bit_strobe = Signal()
 
         # Reset state is J
-        self.i_usbp = Signal(reset=1)
-        self.i_usbn = Signal(reset=0)
+        self.i_usbp = Signal(init=1)
+        self.i_usbn = Signal(init=0)
 
         self.o_data_strobe = Signal()
         self.o_data_payload = Signal(8)

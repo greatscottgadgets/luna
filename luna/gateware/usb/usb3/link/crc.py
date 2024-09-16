@@ -76,7 +76,7 @@ class HeaderPacketCRC(Elaboratable):
         self.data_input  = Signal(32)
         self.advance_crc = Signal()
 
-        self.crc   = Signal(16, reset=initial_value)
+        self.crc   = Signal(16, init=initial_value)
 
 
     def _generate_next_crc(self, current_crc, data_in):
@@ -133,7 +133,7 @@ class HeaderPacketCRC(Elaboratable):
         m = Module()
 
         # Register that contains the running CRCs.
-        crc = Signal(16, reset=self._initial_value)
+        crc = Signal(16, init=self._initial_value)
 
         # If we're clearing our CRC in progress, move our holding register back to
         # our initial value.
@@ -391,7 +391,7 @@ class DataPacketPayloadCRC(Elaboratable):
         m = Module()
 
         # Register that contains the running CRCs.
-        crc         = Signal(32, reset=self._initial_value)
+        crc         = Signal(32, init=self._initial_value)
 
         # Internal signals representing our next internal state given various input sizes.
         next_crc_3B = Signal.like(crc)

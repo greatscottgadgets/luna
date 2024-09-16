@@ -282,7 +282,7 @@ class GTPChannel(Elaboratable):
         m.submodules += FFSynchronizer(self.rx_termination, rx_termination, o_domain="ss")
 
         m.submodules.rx_term = rx_term = DRPFieldController(
-            addr=0x0011, bits=slice(4, 6), reset=0b10) # RX_CM_SEL
+            addr=0x0011, bits=slice(4, 6), init=0b10) # RX_CM_SEL
         m.d.comb += [
             rx_term.value.eq(Mux(rx_termination,
                                  0b11,    # Programmable

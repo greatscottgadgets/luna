@@ -455,7 +455,7 @@ class StreamILA(Elaboratable):
             # SENDING -- we now have a valid buffer of samples to send up to the host;
             # we'll transmit them over our stream interface.
             with m.State("SENDING"):
-                data_valid = Signal(reset=1)
+                data_valid = Signal(init=1)
                 m.d.comb += [
                     # While we're sending, we're always providing valid data to the UART.
                     in_domain_stream.valid  .eq(data_valid),

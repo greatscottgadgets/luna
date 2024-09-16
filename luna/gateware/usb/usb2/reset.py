@@ -130,9 +130,9 @@ class USBResetSequencer(Elaboratable):
         self.bus_reset          = Signal()
         self.suspended          = Signal()
 
-        self.current_speed      = Signal(2, reset=USBSpeed.FULL)
-        self.operating_mode     = Signal(2, reset=UTMIOperatingMode.NORMAL)
-        self.termination_select = Signal(1, reset=1)
+        self.current_speed      = Signal(2, init=USBSpeed.FULL)
+        self.operating_mode     = Signal(2, init=UTMIOperatingMode.NORMAL)
+        self.termination_select = Signal(1, init=1)
 
         self.tx                 = UTMITransmitInterface()
 

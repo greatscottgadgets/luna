@@ -59,7 +59,7 @@ class ScramblerLFSR(Elaboratable):
         m = Module()
 
         next_value       = Signal(16)
-        current_value    = Signal(16, reset=self._initial_value)
+        current_value    = Signal(16, init=self._initial_value)
 
         def xor_bits(*indices):
             bits = (current_value[i] for i in indices)

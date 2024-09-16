@@ -78,7 +78,7 @@ class SuperSpeedEndpointInterface:
         self.tx_length             = Signal(range(1024 + 1))
         self.tx_endpoint_number    = Signal(4)
         self.tx_sequence_number    = Signal(5)
-        self.tx_direction          = Signal(reset=1)
+        self.tx_direction          = Signal(init=1)
 
         # Handshaking / transaction packet exchange.
         self.handshakes_out        = HandshakeGeneratorInterface()

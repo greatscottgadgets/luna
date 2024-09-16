@@ -31,7 +31,7 @@ MAX_BULK_PACKET_SIZE = 512
 COUNTER_MAX = 251
 GET_OUT_COUNTER_VALID = 0
 
-out_counter_valid = Signal(reset=1)
+out_counter_valid = Signal(init=1)
 
 class VendorRequestHandler(ControlRequestHandler):
 
@@ -137,7 +137,7 @@ class ClearHaltTestDevice(Elaboratable):
                 m.d.usb += in_counter.eq(0)
 
         # Expect a counter on the OUT endpoint, and verify that it is contiguous.
-        prev_out_counter = Signal(8, reset=COUNTER_MAX)
+        prev_out_counter = Signal(8, init=COUNTER_MAX)
         with m.If(stream_out_ep.stream.valid):
             out_counter = stream_out_ep.stream.payload
             counter_increase = out_counter == (prev_out_counter + 1)

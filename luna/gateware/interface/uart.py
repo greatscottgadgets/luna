@@ -49,7 +49,7 @@ class UARTTransmitter(Elaboratable):
         #
         # I/O port
         #
-        self.tx              = Signal(reset=1)
+        self.tx              = Signal(init=1)
         self.driving         = Signal()
         self.stream          = StreamInterface()
 
@@ -168,7 +168,7 @@ class UARTMultibyteTransmitter(Elaboratable):
         #
         # I/O port
         #
-        self.tx              = Signal(reset=1)
+        self.tx              = Signal(init=1)
         self.stream          = StreamInterface(payload_width=byte_width * 8)
 
         self.idle            = Signal()

@@ -93,7 +93,7 @@ class USBInTransferManager(Elaboratable):
 
         # Note: we'll start with DATA1 in our register; as we'll toggle our data PID
         # before we send.
-        self.data_pid         = Signal(2, reset=1)
+        self.data_pid         = Signal(2, init=1)
         self.buffer_toggle    = Signal()
 
         self.tokenizer        = TokenDetectorInterface()

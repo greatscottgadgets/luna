@@ -138,7 +138,7 @@ class LinkPartnerDetector(Elaboratable):
         #
         self.request_detection = Signal()
 
-        self.power_state       = Signal(2, reset=2)
+        self.power_state       = Signal(2, init=2)
         self.detection_control = Signal()
         self.phy_status        = Signal()
         self.rx_status         = Signal(3)

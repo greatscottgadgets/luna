@@ -671,7 +671,7 @@ class PacketTransmitter(Elaboratable):
         next_expected_credit = Signal(range(self._buffer_count))
 
         # Keep track of what sequence number we expect to have ACK'd next.
-        next_expected_ack_number = Signal(self.SEQUENCE_NUMBER_WIDTH, reset=-1)
+        next_expected_ack_number = Signal(self.SEQUENCE_NUMBER_WIDTH, init=-1)
 
         # Handle link commands as we receive them.
         with m.If(lc_detector.new_command):

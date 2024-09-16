@@ -102,7 +102,7 @@ class SPIDeviceInterface(Elaboratable):
 
         # We'll use separate buffers for transmit and receive,
         # as this makes the code a little more readable.
-        bit_count    = Signal(range(0, self.word_size), reset=0)
+        bit_count    = Signal(range(0, self.word_size), init=0)
         current_tx   = Signal.like(self.word_out)
         current_rx   = Signal.like(self.word_in)
 
@@ -537,7 +537,7 @@ class SPIRegisterInterface(Elaboratable):
 
 
     def add_register(self, address, *, value_signal=None, size=None, name=None, read_strobe=None,
-        write_strobe=None, reset=0):
+        write_strobe=None, init=0):
         """ Adds a standard, memory-backed register.
 
             Parameters:
@@ -561,7 +561,7 @@ class SPIRegisterInterface(Elaboratable):
         # Generate a backing store for the register, if we don't already have one.
         if value_signal is None:
             size = self.register_size if (size is None) else size
-            value_signal = Signal(size, name=name, reset=reset)
+            value_signal = Signal(size, name=name, init=init)
 
         # If we don't have a write strobe signal, create an internal one.
         if write_strobe is None:
