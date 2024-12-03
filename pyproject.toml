@@ -7,7 +7,7 @@ name = "luna-usb"
 description = "Amaranth HDL framework for FPGA-based USB solutions"
 license = { text = "BSD" }
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     {name = "Great Scott Gadgets", email = "dev@greatscottgadgets.com"},
 ]

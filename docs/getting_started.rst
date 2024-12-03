@@ -13,7 +13,7 @@ prerequisites) up and running.
 Prerequisites
 -------------
 
--  Python 3.8, or later.
+-  Python 3.9, or later.
 -  A working FPGA toolchain. We only officially support a toolchain
    composed of the `Project
    Trellis <https://github.com/YosysHQ/prjtrellis>`__ ECP5 tools, the
