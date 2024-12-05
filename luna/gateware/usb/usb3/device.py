@@ -100,10 +100,10 @@ class USBSuperSpeedDevice(Elaboratable):
         #
 
         # Stores the device's current address. Used to identify which packets are for us.
-        address       = Signal(7, reset=0)
+        address       = Signal(7, init=0)
 
         # Stores the device's current configuration. Defaults to unconfigured.
-        configuration = Signal(8, reset=0)
+        configuration = Signal(8, init=0)
 
 
         #
