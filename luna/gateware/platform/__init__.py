@@ -16,6 +16,7 @@ from typing import Optional
 from amaranth import Record
 
 from .core import NullPin, LUNAPlatform
+from .toolchain import configure_toolchain
 
 
 def _get_platform_from_string(platform):
@@ -63,11 +64,11 @@ def get_appropriate_platform() -> LUNAPlatform:
             "Unable to autodetect a supported platform. "
             "The LUNA_PLATFORM environment variable must be set.")
     platform = _get_platform_from_string(platform_string)
-    
+
     # If possible, override the platform's device type with the detected FPGA.
     if fpga_device is not None:
         platform.device = fpga_device
-    
+
     return platform
 
 

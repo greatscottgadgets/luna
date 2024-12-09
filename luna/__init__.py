@@ -12,6 +12,8 @@ import argparse
 from amaranth           import Elaboratable
 from amaranth._unused   import MustUse
 
+from luna.gateware.platform import configure_toolchain
+
 # Log formatting strings.
 LOG_FORMAT_COLOR = "\u001b[37;1m%(levelname)-8s| \u001b[0m\u001b[1m%(module)-12s|\u001b[0m %(message)s"
 LOG_FORMAT_PLAIN = "%(levelname)-8s:n%(module)-12s>%(message)s"
@@ -108,8 +110,15 @@ def top_level_cli(fragment, *pos_args, **kwargs):
         join_text = "and uploading gateware to attached" if args.upload else "for"
         logging.info(f"Building {join_text} {platform.name}...")
 
+        # Configure toolchain.
+        if not configure_toolchain(platform):
+            logging.info(f"Failed to configure the toolchain for: {platform.toolchain}")
+            logging.info(f"Continuing anyway.")
+
         # Now that we're actually building, re-enable Unused warnings.
         MustUse._MustUse__silence = False
+
+        # Perform the build.
         products = platform.build(fragment,
             do_program=args.upload,
             build_dir=build_dir
