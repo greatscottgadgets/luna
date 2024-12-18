@@ -90,7 +90,7 @@ class RequestHandlerInterface:
         self.tx                    = USBInStreamInterface()
         self.handshakes_out        = HandshakeExchangeInterface(is_detector=True)
         self.handshakes_in         = HandshakeExchangeInterface(is_detector=False)
-        self.tx_data_pid           = Signal(reset=1)
+        self.tx_data_pid           = Signal(init=1)
 
 
 

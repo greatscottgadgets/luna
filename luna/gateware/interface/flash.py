@@ -103,8 +103,8 @@ class FlashUIDReader(Elaboratable):
         ]
         
         # Output shift register and bit counter
-        shreg_o = Signal(8, reset=self.READ_UID)
-        count_o = Signal(range(128), reset=8*(1+4+8)-1)  # bytes: 1 opcode, 4 padding, 8 id
+        shreg_o = Signal(8, init=self.READ_UID)
+        count_o = Signal(range(128), init=8*(1+4+8)-1)  # bytes: 1 opcode, 4 padding, 8 id
 
         with m.FSM(domain=self._domain):
 
