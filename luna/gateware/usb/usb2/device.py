@@ -119,8 +119,8 @@ class USBDevice(Elaboratable):
             self.utmi       = bus
             self.bus_busy   = Const(0)
             self.translator = None
-            self.always_fs  = True
-            self.data_clock = 12e6
+            self.always_fs  = False
+            self.data_clock = 60e6
 
         #
         # I/O port
