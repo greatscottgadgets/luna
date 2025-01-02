@@ -7,70 +7,7 @@
 
 """ Helpers for clock domain crossings. """
 
-from amaranth       import Record, Signal
-from amaranth.lib.cdc import FFSynchronizer
-from amaranth.lib.io  import Pin
-from amaranth.hdl.rec import DIR_FANOUT
-
-
-def synchronize(m, signal, *, output=None, o_domain='sync', stages=2):
-    """ Convenience function. Synchronizes a signal, or equivalent collection.
-
-    Parameters:
-        input   -- The signal to be synchronized.
-        output  -- The signal to output the result of the synchronization
-                   to, or None to have one created for you.
-        domain  -- The name of the domain to be synchronized to.
-        stages  -- The depth (in FFs) of the synchronization chain.
-                   Longer incurs more delay. Must be >= 2 to avoid metastability.
-
-    Returns:
-        record  -- The post-synchronization signal. Will be equivalent to the
-                   `output` record if provided, or a new, created signal otherwise.
-    """
-
-    # Quick function to create a synchronizer with our domain and stages.
-    def create_synchronizer(signal, output):
-        return FFSynchronizer(signal, output, o_domain=o_domain, stages=stages)
-
-    if output is None:
-        if isinstance(signal, Signal):
-            output = Signal.like(signal)
-        else:
-            output = Record.like(signal)
-
-    # If the object knows how to synchronize itself, let it.
-    if hasattr(signal, '_synchronize_'):
-        signal._synchronize_(m, output, o_domain=o_domain, stages=stages)
-        return output
-
-    # Trivial case: if this element doesn't have a layout,
-    # we can just synchronize it directly.
-    if not hasattr(signal, 'layout'):
-        m.submodules += create_synchronizer(signal, output)
-        return output
-
-    # Otherwise, we'll need to make sure we only synchronize
-    # elements with non-output directions.
-    for name, layout, direction in signal.layout:
-        # Skip any output elements, as they're already
-        # in our clock domain, and we don't want to drive them.
-        if (direction == DIR_FANOUT):
-            m.d.comb += signal[name].eq(output[name])
-            continue
-        elif hasattr(signal[name], 'o') and ~hasattr(signal[name], 'i'):
-            m.d.comb += signal[name].o.eq(output[name])
-            continue
-
-        # If this is a record itself, we'll need to recurse.
-        if isinstance(signal[name], (Record, Pin)):
-            synchronize(m, signal[name], output=output[name],
-                    o_domain=o_domain, stages=stages)
-            continue
-
-        m.submodules += create_synchronizer(signal[name], output[name])
-
-    return output
+from amaranth       import Signal
 
 
 def stretch_strobe_signal(m, strobe, *, to_cycles, output=None, domain=None, allow_delay=False):

@@ -7,49 +7,8 @@
 from luna.gateware.test         import LunaGatewareTestCase, sync_test_case
 from unittest       import TestCase
 
-from amaranth import Module, Record, Signal
-from amaranth.lib.io import Pin
-from amaranth.hdl.rec import DIR_FANIN, DIR_FANOUT
-from luna.gateware.utils.cdc import synchronize, stretch_strobe_signal
-
-class SynchronizedTest(TestCase):
-
-    def test_signal(self):
-        m = Module()
-        synchronize(m, Signal())
-
-    def test_directional_record(self):
-        m = Module()
-
-        record = Record([
-            ('sig_in',  1, DIR_FANIN),
-            ('sig_out', 1, DIR_FANOUT)
-        ])
-        synchronize(m, record)
-
-    def test_nested_record(self):
-        m = Module()
-
-        record = Record([
-            ('sig_in',  1, DIR_FANIN),
-            ('sig_out', 1, DIR_FANOUT),
-            ('nested', [
-                ('subsig_in',  1, DIR_FANIN),
-                ('subsig_out', 1, DIR_FANOUT),
-            ])
-        ])
-        synchronize(m, record)
-
-    def test_pins(self):
-        m = Module()
-        pins = {
-            "sig_in": Pin(1, "i"),
-            "sig_out": Pin(1, "o"),
-        }
-        record = Record([
-            (f_name, f.layout) for (f_name, f) in pins.items()
-        ], fields=pins)
-        synchronize(m, record)
+from amaranth import Module, Signal
+from luna.gateware.utils.cdc import stretch_strobe_signal
 
 
 class StrobeStretcherTest(LunaGatewareTestCase):

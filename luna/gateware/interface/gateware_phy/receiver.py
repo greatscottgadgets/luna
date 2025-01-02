@@ -33,10 +33,9 @@
 #
 
 from amaranth          import Elaboratable, Module, Signal, Cat, Const, ClockSignal
+from amaranth.lib.cdc  import FFSynchronizer
 from amaranth.lib.fifo import AsyncFIFOBuffered
 from amaranth.hdl.xfrm import ResetInserter
-
-from ...utils.cdc import synchronize
 
 class RxClockDataRecovery(Elaboratable):
     """RX Clock Data Recovery module.
@@ -102,8 +101,10 @@ class RxClockDataRecovery(Elaboratable):
         # Synchronize the USB signals at our I/O boundary.
         # Despite the assumptions made in ValentyUSB, this line rate recovery FSM
         # isn't enough to properly synchronize these inputs. We'll explicitly synchronize.
-        sync_dp = synchronize(m, self._usbp, o_domain="usb_io")
-        sync_dn = synchronize(m, self._usbn, o_domain="usb_io")
+        sync_dp = Signal()
+        sync_dn = Signal()
+        m.submodules.dp_cdc = FFSynchronizer(self._usbp, sync_dp, o_domain="usb_io")
+        m.submodules.dn_cdc = FFSynchronizer(self._usbn, sync_dn, o_domain="usb_io")
 
         #######################################################################
         # Line State Recovery State Machine

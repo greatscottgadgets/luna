@@ -28,9 +28,10 @@ and to detect RX electrical idle.
 
 from math import ceil
 
-from amaranth       import *
+from amaranth         import *
+from amaranth.lib.cdc import FFSynchronizer
 
-from ....utils       import synchronize, rising_edge_detected
+from ....utils       import rising_edge_detected
 
 
 __all__ = ['LFPSTransceiver']
@@ -106,7 +107,8 @@ class LFPSDetector(Elaboratable):
         m = Module()
 
         # Create an in-domain version of our square-wave-detector signal.
-        present = synchronize(m, self.signaling_received, o_domain="ss")
+        present = Signal()
+        m.submodules.present_cdc = FFSynchronizer(self.signaling_received, present, o_domain="ss")
 
         # Figure out how large of a counter we're going to need...
         burst_cycles_min    = ceil(self._clock_frequency * self._pattern.burst.t_min)
