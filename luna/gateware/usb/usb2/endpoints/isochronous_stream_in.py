@@ -1,7 +1,7 @@
 #
 # This file is part of LUNA.
 #
-# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# Copyright (c) 2020-2025 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD--3-Clause
 """ Endpoint interfaces for isochronous endpoints.
 
@@ -9,11 +9,10 @@ These interfaces provide interfaces for connecting streams or stream-like
 interfaces to hosts via isochronous pipes.
 """
 
-from amaranth             import Elaboratable, Module, Signal, unsigned
-# TODO from amaranth.lib         import stream
+from amaranth      import *
+from amaranth.lib  import stream
 
-from ..endpoint           import EndpointInterface
-from ...stream            import StreamInterface # TODO
+from ..endpoint    import EndpointInterface
 
 
 class USBIsochronousStreamInEndpoint(Elaboratable):
@@ -69,10 +68,7 @@ class USBIsochronousStreamInEndpoint(Elaboratable):
         # I/O Port
         #
         self.interface      = EndpointInterface()
-        # TODO self.stream         = stream.Interface(
-        #     stream.Signature(unsigned(8))
-        # )
-        self.stream    = StreamInterface()
+        self.stream         = stream.Interface(stream.Signature(unsigned(8)))
         self.data_requested = Signal()
         self.frame_finished = Signal()
 

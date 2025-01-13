@@ -1,7 +1,7 @@
 #
 # This file is part of LUNA.
 #
-# Copyright (c) 2020 Great Scott Gadgets <info@greatscottgadgets.com>
+# Copyright (c) 2020-2025 Great Scott Gadgets <info@greatscottgadgets.com>
 # SPDX-License-Identifier: BSD-3-Clause
 
 """ Endpoint interfaces for isochronous endpoints.
@@ -10,11 +10,14 @@ These interfaces provide interfaces for connecting streams or stream-like
 interfaces to hosts via isochronous pipes.
 """
 
-from amaranth       import Elaboratable, Module, Signal
+from amaranth              import *
+from amaranth.lib          import stream, wiring
+from amaranth.lib .wiring  import In, Out
 
-from ..endpoint     import EndpointInterface
-from ...stream      import StreamInterface, USBOutStreamBoundaryDetector
-from ....memory     import TransactionalizedFIFO
+from ..endpoint            import EndpointInterface
+from ...stream             import USBOutStreamBoundaryDetector
+from ....stream.future     import Packet
+from ....memory            import TransactionalizedFIFO
 
 
 class USBIsochronousStreamOutEndpoint(Elaboratable):
@@ -52,9 +55,12 @@ class USBIsochronousStreamOutEndpoint(Elaboratable):
         #
         # I/O port
         #
-        self.stream    = StreamInterface()
+        self.stream = stream.Interface(
+            stream.Signature(
+                Packet(unsigned(8))
+            )
+        )
         self.interface = EndpointInterface()
-
 
     def elaborate(self, platform):
         m = Module()
@@ -122,17 +128,17 @@ class USBIsochronousStreamOutEndpoint(Elaboratable):
 
             # Our stream data always comes directly out of the FIFO; and is valid
             # whenever our FIFO actually has data for us to read.
-            stream.valid      .eq(~fifo.empty),
-            stream.payload    .eq(fifo.read_data[0:8]),
+            stream.valid        .eq(~fifo.empty),
+            stream.p.data       .eq(fifo.read_data[0:8]),
 
             # Our `last` bit comes directly from the FIFO; and we know a `first` bit immediately
             # follows a `last` one.
-            stream.last       .eq(fifo.read_data[8]),
-            stream.first      .eq(fifo.read_data[9]),
+            stream.p.last        .eq(fifo.read_data[8]),
+            stream.p.first       .eq(fifo.read_data[9]),
 
-            # Move to the next byte in the FIFO whenever our stream is advaced.
-            fifo.read_en      .eq(stream.ready),
-            fifo.read_commit  .eq(1)
+            # Move to the next byte in the FIFO whenever our stream is advanced.
+            fifo.read_en         .eq(stream.ready),
+            fifo.read_commit     .eq(1)
         ]
 
         # Count bytes in packet.
