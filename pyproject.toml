@@ -34,7 +34,7 @@ dependencies = [
     "pyserial>=3.5",
     "pyusb>1.1.1",
     "pyvcd>=0.2.4",
-    "amaranth~=0.4.0",
+    "amaranth~=0.5.0",
     "usb-protocol~=0.9.1",
 ]
 

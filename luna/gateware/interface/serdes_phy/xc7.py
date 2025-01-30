@@ -113,13 +113,13 @@ class DRPArbiter(Elaboratable):
 class DRPFieldController(Elaboratable):
     """ Gateware that atomically updates part of a word via DRP. """
 
-    def __init__(self, *, addr: int, bits: slice, reset=0):
+    def __init__(self, *, addr: int, bits: slice, init=0):
         self._addr = addr
         self._bits = bits
 
         self.drp = DRPInterface()
 
-        self.value = Signal(bits.stop - bits.start, reset=reset)
+        self.value = Signal(bits.stop - bits.start, init=reset)
 
 
     def elaborate(self, platform):
@@ -193,7 +193,7 @@ class GTResetDeferrer(Elaboratable):
         timer  = Signal(range(cycles))
 
         # Defer reset immediately after configuration; and never again, even if our domain is reset.
-        defer  = Signal(reset=1, reset_less=True)
+        defer  = Signal(init=1, reset_less=True)
 
         with m.If(defer):
             m.d.ss += timer.eq(timer + 1)

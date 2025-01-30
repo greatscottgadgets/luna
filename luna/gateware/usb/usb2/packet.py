@@ -561,7 +561,7 @@ class USBDataPacketCRC(Elaboratable):
         self.tx_data  = Signal(8)
         self.tx_valid = Signal()
 
-        self.crc   = Signal(16, reset=initial_value)
+        self.crc   = Signal(16, init=initial_value)
 
 
     def add_interface(self, interface : DataCRCInterface):
@@ -611,7 +611,7 @@ class USBDataPacketCRC(Elaboratable):
         m = Module()
 
         # Register that contains the running CRCs.
-        crc        = Signal(16, reset=self._initial_value)
+        crc        = Signal(16, init=self._initial_value)
 
         # Signal that contains the output version of our active CRC.
         output_crc = Signal.like(crc)

@@ -6,7 +6,8 @@
 
 import struct
 
-from amaranth                                     	import DomainRenamer, Elaboratable, Memory, Module, Signal
+from amaranth                                     	import DomainRenamer, Elaboratable, Module, Signal
+from amaranth.lib.memory                            import Memory
 from usb_protocol.emitters.descriptors.microsoft10 	import MicrosoftOS10DescriptorCollection
 
 from ...stream                                    	import USBInStreamInterface
@@ -182,8 +183,8 @@ class GetMicrosoftDescriptorHandlerBlock(Elaboratable):
         #
         rom_content, descriptor_max_length, max_index, min_index = self.generate_rom_content()
 
-        rom = Memory(width=32, depth=len(rom_content), init=rom_content)
-        m.submodules.rom_read_port = rom_read_port = rom.read_port(transparent=False)
+        m.submodules.rom = rom = Memory(shape=32, depth=len(rom_content), init=rom_content)
+        rom_read_port = rom.read_port()
 
         # Create convenience aliases to the upper and lower half of the ROM.
         rom_upper_half = rom_read_port.data.word_select(1, 16)

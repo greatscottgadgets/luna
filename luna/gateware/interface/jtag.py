@@ -200,8 +200,8 @@ class JTAGCommandInterface(Elaboratable):
         #
         ir_size              = self.command_size + 1
         dr_size              = self.word_size + 1
-        instruction_register = Signal(ir_size, reset=(2 ** ir_size - 1))
-        data_register        = Signal(dr_size, reset=(2 ** dr_size - 1))
+        instruction_register = Signal(ir_size, init=(2 ** ir_size - 1))
+        data_register        = Signal(dr_size, init=(2 ** dr_size - 1))
 
         #
         # JTAG interface.

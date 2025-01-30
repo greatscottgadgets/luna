@@ -397,14 +397,14 @@ class ULPIControlTranslator(Elaboratable):
         # I/O port
         #
         self.bus_idle      = Signal()
-        self.xcvr_select   = Signal(2, reset=0b01)
+        self.xcvr_select   = Signal(2, init=0b01)
         self.term_select   = Signal()
         self.op_mode       = Signal(2)
         self.suspend       = Signal()
 
         self.id_pullup     = Signal()
-        self.dp_pulldown   = Signal(reset=1)
-        self.dm_pulldown   = Signal(reset=1)
+        self.dp_pulldown   = Signal(init=1)
+        self.dm_pulldown   = Signal(init=1)
 
         self.chrg_vbus     = Signal()
         self.dischrg_vbus  = Signal()
@@ -412,7 +412,7 @@ class ULPIControlTranslator(Elaboratable):
         self.busy          = Signal()
 
         # Extra/non-UTMI properties.
-        self.use_external_vbus_indicator = Signal(reset=1)
+        self.use_external_vbus_indicator = Signal(init=1)
 
         #
         # Internal variables.
@@ -432,7 +432,7 @@ class ULPIControlTranslator(Elaboratable):
                         -- of the given register; allowing us to avoid an initial write.
         """
 
-        current_register_value = Signal(8, reset=reset_value, name=f"current_register_value_{address:02x}")
+        current_register_value = Signal(8, init=reset_value, name=f"current_register_value_{address:02x}")
 
         # Create internal signals that request register updates.
         write_requested = Signal(name=f"write_requested_{address:02x}")

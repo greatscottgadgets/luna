@@ -10,10 +10,10 @@ These are mainly meant for use with interrupt endpoints; and allow a host to e.g
 repeatedly poll a device for status.
 """
 
-from amaranth       import Elaboratable, Module, Signal, Array
+from amaranth         import Elaboratable, Module, Signal, Array
+from amaranth.lib.cdc import FFSynchronizer
 
 from ..endpoint     import EndpointInterface
-from ....utils.cdc  import synchronize
 
 
 class USBSignalInEndpoint(Elaboratable):
@@ -76,7 +76,8 @@ class USBSignalInEndpoint(Elaboratable):
         if self._signal_domain == "usb":
             target_signal = self.signal
         else:
-            target_signal = synchronize(m, self.signal, o_domain="usb")
+            target_signal = Signal()
+            m.submodules.target_signal_cdc = FFSynchronizer(self.signal, target_signal, o_domain="usb")
 
 
         # Store a latched version of our signal, captured before we start a transmission.

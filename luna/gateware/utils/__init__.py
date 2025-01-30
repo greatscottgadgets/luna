@@ -4,11 +4,10 @@
 """ Simple utility constructs for LUNA. """
 
 from amaranth import Module, Signal, Cat
-from .cdc import synchronize
 
 __all__ = [
     'rising_edge_detected', 'falling_edge_detected', 'any_edge_detected',
-    'past_value_of', 'synchronize'
+    'past_value_of'
 ]
 
 
