@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 -->
 
-## [0.1.3] - 2024-09-19
+## [0.2.0] - 2025-02-25
+### Added
+* Support for Amaranth 0.5.x
+### Changed
+* Use `amaranth.lib.memory.Memory` instead of `amaranth.hdl.Memory`.
+### Removed
+* The `synchronize` helper function. Use `amaranth.lib.cdc.FFSynchronizer` instead.
+* Old examples and components that used the `debug_spi` interface.
+### Security
+* Bump jinja2 from 3.1.4 to 3.1.5
+
+
+## [0.1.3] - 2024-12-18
 ### Added
 * Support for yowasp when yosys is unavailable.
 ### Changed
@@ -34,7 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/greatscottgadgets/luna/compare/0.1.3...HEAD
+[Unreleased]: https://github.com/greatscottgadgets/luna/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/greatscottgadgets/luna/compare/0.1.3...0.2.0
 [0.1.3]: https://github.com/greatscottgadgets/luna/compare/0.1.2...0.1.3
 [0.1.2]: https://github.com/greatscottgadgets/luna/compare/0.1.1...0.1.2
 [0.1.1]: https://github.com/greatscottgadgets/luna/compare/0.1.0...0.1.1
