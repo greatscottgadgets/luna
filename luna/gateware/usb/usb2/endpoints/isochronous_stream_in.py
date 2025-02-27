@@ -88,7 +88,7 @@ class USBIsochronousStreamInEndpoint(Elaboratable):
 
         # Track our transmission state.
         bytes_left_in_frame  = Signal.like(self.bytes_in_frame)
-        bytes_left_in_packet = Signal(range(0, self._max_packet_size + 1), reset=self._max_packet_size - 1)
+        bytes_left_in_packet = Signal(range(0, self._max_packet_size + 1), init=self._max_packet_size - 1)
         next_data_pid        = Signal(2)
         tx_cnt               = Signal(range(0, self._MAX_FRAME_DATA))
         next_byte            = Signal.like(tx_cnt)
