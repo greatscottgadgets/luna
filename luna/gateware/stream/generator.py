@@ -403,12 +403,13 @@ class StreamSerializer(Elaboratable):
 
         # Register that stores our current position in the stream.
         position_in_stream = Signal(range(0, self.data_length))
+        bytes_sent         = Signal.like(self.max_length)
 
         # Track when we're on the first and last packet.
         on_first_packet = position_in_stream == self.start_position
         on_last_packet  = \
             (position_in_stream == (self.data_length - 1)) | \
-            (position_in_stream == (self.max_length - 1))
+            (bytes_sent         == (self.max_length - 1))
 
         m.d.comb += [
             # Create first and last based on our stream position.
@@ -441,7 +442,10 @@ class StreamSerializer(Elaboratable):
             with m.State('IDLE'):
 
                 # Keep ourselves at the beginning of the stream, but don't yet count.
-                m.d.sync += position_in_stream.eq(start_position)
+                m.d.sync += [
+                    position_in_stream  .eq(start_position),
+                    bytes_sent          .eq(0),
+                ]
 
                 # Once the user requests that we start, move to our stream being valid.
                 with m.If(self.start & (self.max_length > 0)):
@@ -455,13 +459,10 @@ class StreamSerializer(Elaboratable):
                 # If the current data byte is accepted, move past it.
                 with m.If(self.stream.ready):
 
-                    should_continue = \
-                        ((position_in_stream + 1) < self.max_length) & \
-                        ((position_in_stream + 1) < self.data_length)
-
                     # If there's still data left to transmit, move forward.
-                    with m.If(should_continue):
+                    with m.If(~on_last_packet):
                         m.d.sync += position_in_stream.eq(position_in_stream + 1)
+                        m.d.sync += bytes_sent        .eq(bytes_sent + 1)
 
                     # Otherwise, we've finished streaming. Return to IDLE.
                     with m.Else():
