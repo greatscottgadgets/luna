@@ -7,6 +7,8 @@ from luna.gateware.test                                 import LunaUSBGatewareTe
 
 from luna.gateware.usb.usb2.descriptor import GetDescriptorHandlerBlock, DeviceDescriptorCollection, StandardDescriptorNumbers
 
+from usb_protocol.emitters.descriptors.standard import get_string_descriptor
+
 class GetDescriptorHandlerBlockTest(LunaUSBGatewareTestCase):
     descriptors = DeviceDescriptorCollection()
 
@@ -34,6 +36,9 @@ class GetDescriptorHandlerBlockTest(LunaUSBGatewareTestCase):
                     e.bmAttributes     = 0x03
                     e.wMaxPacketSize   = 64
                     e.bInterval        = 11
+
+    # Add a non-consecutive string descriptor.
+    descriptors.add_descriptor(get_string_descriptor("nonconsecutive"), index=0xfe)
 
     # HID Descriptor (Example E.8 of HID specification)
     descriptors.add_descriptor(b'\x09\x21\x01\x01\x00\x01\x22\x00\x32')

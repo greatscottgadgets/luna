@@ -252,11 +252,13 @@ class GetDescriptorHandlerBlock(Elaboratable):
 
             descriptors[type_number][index] = raw_descriptor
 
-        # For now, we only support layouts with consecutive indexes.
-        # Ensure this is the case.
+        # Check if we need to support non-consecutive indexes.
         for type_number, indexes in sorted(descriptors.items()):
-            assert max(indexes.keys()) == len(indexes) - 1, "descriptors have non-contiguous indices!"
-
+            if max(indexes.keys()) != len(indexes) - 1:
+                indirect_idx = True
+                break
+        else:
+            indirect_idx = False
 
         #
         # Compute the ROM size that we'll need.
@@ -313,16 +315,18 @@ class GetDescriptorHandlerBlock(Elaboratable):
             next_free_address += len(indexes) * self.ELEMENT_SIZE
 
 
+        index_map = {}
+
         # Next, create the tables themselves, which are filled with data pointers,
         # and add our descriptors to our memory.
         for type_number, descriptor_set in sorted(descriptors.items()):
-            for index, raw_descriptor in sorted(descriptor_set.items()):
+            for i, (index, raw_descriptor) in enumerate(sorted(descriptor_set.items())):
 
                 # Create our descriptor pointer entries...
                 pointer_bytes = struct.pack(">HH", len(raw_descriptor), next_free_address)
 
                 # ... figure out where in the ROM we're going to store the pointer ...
-                index_base_address = type_index_base_address[type_number] + index * self.ELEMENT_SIZE
+                index_base_address = type_index_base_address[type_number] + i * self.ELEMENT_SIZE
 
                 # ... add the pointer...
                 rom[index_base_address:index_base_address + 4] = pointer_bytes
@@ -333,6 +337,10 @@ class GetDescriptorHandlerBlock(Elaboratable):
                 # Figure out the next free position for a descriptor.
                 aligned_size = self._align_to_element_size(len(raw_descriptor))
                 next_free_address += aligned_size * self.ELEMENT_SIZE
+
+                # Store in the index map if needed.
+                if indirect_idx:
+                    index_map[index | (type_number << 8)] = i
 
         assert total_size == len(rom)
 
@@ -349,7 +357,7 @@ class GetDescriptorHandlerBlock(Elaboratable):
         # ... and then convert that into an initializer value in the format Amaranth ROMs like (integers).
         initializer = [struct.unpack(">I", rom_entry)[0] for rom_entry in rom_entries]
 
-        return initializer, max_descriptor_size, max_type_number
+        return initializer, max_descriptor_size, max_type_number, index_map
 
 
     def elaborate(self, platform) -> Module:
@@ -367,7 +375,7 @@ class GetDescriptorHandlerBlock(Elaboratable):
         #
         # Create the ROM that stores our descriptors...
         #
-        rom_content, descriptor_max_length, max_type_index = self.generate_rom_content()
+        rom_content, descriptor_max_length, max_type_index, index_map = self.generate_rom_content()
 
         m.submodules.rom = rom = Memory(shape=32, depth=len(rom_content), init=rom_content)
         rom_read_port = rom.read_port()
@@ -454,6 +462,19 @@ class GetDescriptorHandlerBlock(Elaboratable):
                     m.d.comb += self.stall.eq(1)
                     m.next = 'IDLE'
 
+                # Handle index mapping for non-consecutive descriptors.
+                if len(index_map) != 0:
+                    descr_idx = Signal.like(index)
+                    
+                    with m.Switch(Cat(index, type_number)):
+                        for orig_idx, remapped_idx in index_map.items():
+                            with m.Case(orig_idx):
+                                m.d.sync += descr_idx.eq(remapped_idx)
+                        with m.Default():
+                            m.d.sync += descr_idx.eq(0xFF)  # invalid index
+                else:
+                    descr_idx = index
+
             # LOOKUP_TYPE -- we're now ready to start sending a descriptor, but we've not yet fetched the
             # descriptor from memory. First, we'll need to find the location of the table that contains each
             # descriptor pointer.
@@ -464,13 +485,13 @@ class GetDescriptorHandlerBlock(Elaboratable):
 
                 # If the requested type is greater than the maximum type number the ROM encodes,
                 # stall the request and return to idle.
-                with m.If(index >= rom_element_count):
+                with m.If(descr_idx >= rom_element_count):
                     m.d.comb += self.stall.eq(1)
                     m.next = "IDLE"
 
                 # Otherwise, look up the type data in the ROM; and then move on to finding the descriptor itself.
                 with m.Else():
-                    m.d.comb += rom_read_port.addr.eq(rom_element_pointer + index)
+                    m.d.comb += rom_read_port.addr.eq(rom_element_pointer + descr_idx)
                     with m.If(length == 0):
                         m.next = 'SEND_ZLP'
                     with m.Else():
