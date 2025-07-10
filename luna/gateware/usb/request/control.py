@@ -37,7 +37,7 @@ class ControlRequestHandler(USBRequestHandler):
         with m.If(self.interface.handshakes_in.ack):
             m.d.comb += [
                 write_strobe      .eq(1),
-                new_value_signal  .eq(self.interface.setup.value[0:7])
+                new_value_signal  .eq(self.interface.setup.value)
             ]
 
             # ... and then return to idle.
