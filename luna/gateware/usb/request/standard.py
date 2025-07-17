@@ -49,6 +49,8 @@ class StandardRequestHandler(ControlRequestHandler):
         self._avoid_blockram  = avoid_blockram
         if len(blacklist) > 0:
             warn("Argument 'blacklist' is deprecated; prefer 'skiplist'.", DeprecationWarning)
+            if len(skiplist) > 0:
+                warn("Only one of 'blacklist' or 'skiplist' should be specified.")
             self._skiplist = blacklist
         else:
             self._skiplist = skiplist
