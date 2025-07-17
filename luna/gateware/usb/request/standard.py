@@ -9,6 +9,7 @@ import os
 import operator
 import functools
 from typing import Iterable, Callable
+from warnings import warn
 
 from luna.gateware.test import utils
 
@@ -34,18 +35,25 @@ class StandardRequestHandler(ControlRequestHandler):
         The DeviceDescriptorCollection that contains our descriptors.
     max_packet_size: int, optional
         The maximum packet size for the endpoint associated with this handler.
-    blacklist:  iterable of functions that accept a SetupPacket and return a boolean
+    blacklist: deprecated, use skiplist instead
+    skiplist:  iterable of functions that accept a SetupPacket and return a boolean
         Collection of functions that determine if a given packet will be handled by this request handler.
     avoid_blockram: int, optional
         If True, placing data into block RAM will be avoided.
 
      """
 
-    def __init__(self, descriptors: DeviceDescriptorCollection, max_packet_size=64, avoid_blockram=None, blacklist: Iterable[Callable[[SetupPacket], Value]] = ()):
+    def __init__(self, descriptors: DeviceDescriptorCollection, max_packet_size=64, avoid_blockram=None, blacklist: Iterable[Callable[[SetupPacket], Value]] = (), skiplist: Iterable[Callable[[SetupPacket], Value]] = ()):
         self.descriptors      = descriptors
         self._max_packet_size = max_packet_size
         self._avoid_blockram  = avoid_blockram
-        self._blacklist = blacklist
+        if len(blacklist) > 0:
+            warn("Argument 'blacklist' is deprecated; prefer 'skiplist'.", DeprecationWarning)
+            if len(skiplist) > 0:
+                warn("Only one of 'blacklist' or 'skiplist' should be specified.")
+            self._skiplist = blacklist
+        else:
+            self._skiplist = skiplist
 
         # If we don't have a value for avoiding blockrams; defer to the environment.
         if self._avoid_blockram is None:
@@ -53,15 +61,15 @@ class StandardRequestHandler(ControlRequestHandler):
 
         super().__init__()
 
-    
+
     def get_descriptor_handler_submodule(self):
 
         # The distributed handler supports a combination of fixed and runtime descriptors directly...
         if self._avoid_blockram:
             return GetDescriptorHandlerDistributed(self.descriptors, max_packet_length=self._max_packet_size)
 
-        # ...but the block handler does not. In this case, first we split the descriptors into two 
-        # collections: fixed descriptors (for the ROM) and runtime descriptors. 
+        # ...but the block handler does not. In this case, first we split the descriptors into two
+        # collections: fixed descriptors (for the ROM) and runtime descriptors.
         fixed_descriptors       = DeviceDescriptorCollection()
         runtime_descriptors     = DeviceDescriptorCollection()
         has_runtime_descriptors = False
@@ -112,9 +120,9 @@ class StandardRequestHandler(ControlRequestHandler):
         #
         with m.If(setup.type == USBRequestType.STANDARD):
 
-            # Only handle setup packet if not blacklisted
-            blacklisted = functools.reduce(operator.__or__, (f(setup) for f in self._blacklist), Const(0))
-            m.d.comb += interface.claim.eq(~blacklisted)
+            # Only handle setup packet if not skiplisted
+            skiplisted = functools.reduce(operator.__or__, (f(setup) for f in self._skiplist), Const(0))
+            m.d.comb += interface.claim.eq(~skiplisted)
 
             with m.FSM(domain="usb"):
 
@@ -132,7 +140,7 @@ class StandardRequestHandler(ControlRequestHandler):
                     # If we've received a new setup packet, handle it.
                     with m.If(setup.received):
 
-                        with m.If(~blacklisted):
+                        with m.If(~skiplisted):
 
                             # Select which standard packet we're going to handler.
                             with m.Switch(setup.request):
