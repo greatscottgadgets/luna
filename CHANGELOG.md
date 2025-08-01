@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 -->
 
+## [0.2.2] - 2025-08-01
+### Added
+* Support for non-contiguous descriptor indices without requiring `avoid_blockram`.
+* `StreamSerializer` can now send descriptors with more than 64 bytes of content.  (tx povauboin!)
+
+### Changed
+* Deprecate `blacklist` in favor of `skiplist` in `StandardRequestHandler` method: `add_standard_request_handlers()`.
+
+### Fixed
+* `handle_write_register_write_request` is no longer limited to a 7 bit value.
+
+
+
 ## [0.2.1] - 2025-06-10
 ### Added
 * Add support for streaming USB 2.0 Isochronous Endpoints.
@@ -50,7 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/greatscottgadgets/luna/compare/0.2.1...HEAD
+[Unreleased]: https://github.com/greatscottgadgets/luna/compare/0.2.2...HEAD
+[0.2.2]: https://github.com/greatscottgadgets/luna/compare/0.2.1...0.2.2
 [0.2.1]: https://github.com/greatscottgadgets/luna/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/greatscottgadgets/luna/compare/0.1.3...0.2.0
 [0.1.3]: https://github.com/greatscottgadgets/luna/compare/0.1.2...0.1.3
