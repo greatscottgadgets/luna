@@ -136,11 +136,19 @@ class USBSerialDevice(Elaboratable):
 
             d.bNumConfigurations = 1
 
-
         # ... and then describe our CDC-ACM setup.
         with descriptors.ConfigurationDescriptor() as c:
+            # First, add a descriptor to show that both interfaces in this
+            # configuration are associated with the same function.
+            # (this seems to be required on Windows)
+            with c.InterfaceAssociationDescriptor() as ia:
+                ia.bFirstInterface = 0
+                ia.bInterfaceCount = 2
+                ia.bFunctionClass    = 0x02 # CDC
+                ia.bFunctionSubClass = 0x02 # ACM
+                ia.bFunctionProtocol = 0x01 # AT commands / UART
 
-            # First, we'll describe the Communication Interface, which contains most
+            # Then, we'll describe the Communication Interface, which contains most
             # of our description; but also an endpoint that does effectively nothing in
             # our case, since we don't have interrupts we want to send up to the host.
             with c.InterfaceDescriptor() as i:
