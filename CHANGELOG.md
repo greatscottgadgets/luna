@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 -->
 
+## [0.2.3] - 2025-08-22
+### Fixed
+* `luna.full_devices.USBSerialDevice` fails with Windows host.
+
+
 ## [0.2.2] - 2025-08-01
 ### Added
 * Support for non-contiguous descriptor indices without requiring `avoid_blockram`.
@@ -63,7 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/greatscottgadgets/luna/compare/0.2.2...HEAD
+[Unreleased]: https://github.com/greatscottgadgets/luna/compare/0.2.3...HEAD
+[0.2.3]: https://github.com/greatscottgadgets/luna/compare/0.2.2...0.2.3
 [0.2.2]: https://github.com/greatscottgadgets/luna/compare/0.2.1...0.2.2
 [0.2.1]: https://github.com/greatscottgadgets/luna/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/greatscottgadgets/luna/compare/0.1.3...0.2.0
