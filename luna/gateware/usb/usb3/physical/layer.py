@@ -9,6 +9,8 @@ import logging
 
 from amaranth import *
 from amaranth.lib.fifo import AsyncFIFOBuffered
+
+from ....interface.pipe import TXDeemphMode
 from ...stream  import USBRawSuperSpeedStream
 
 from .lfps       import LFPSTransceiver
@@ -111,7 +113,7 @@ class USB3PhysicalLayer(Elaboratable):
             # Use default/normal signal thresholds.
             phy.tx_swing                .eq(0),
             phy.tx_margin               .eq(0b000),
-            phy.tx_deemph               .eq(0b01),
+            phy.tx_deemph               .eq(TXDeemphMode.DEEMPH_3P5DB),
             phy.tx_ones_zeros           .eq(self.tx_ones_zeros),
 
             # Pass through our remaining control signals directly to the PHY.

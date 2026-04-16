@@ -8,6 +8,7 @@
 
 from amaranth import *
 from amaranth.lib.cdc  import FFSynchronizer, ResetSynchronizer
+from amaranth.lib.enum import IntEnum
 from amaranth.lib.fifo import AsyncFIFOBuffered
 
 
@@ -156,7 +157,7 @@ class PIPEInterface(Elaboratable):
         self.elas_buf_mode  = Signal(1)
         self.rate           = Signal(1)
         self.power_down     = Signal(2)
-        self.tx_deemph      = Signal(2)
+        self.tx_deemph      = Signal(TXDeemphMode)
         self.tx_margin      = Signal(3)
         self.tx_swing       = Signal(1)
         self.tx_detrx_lpbk  = Signal()
@@ -561,3 +562,8 @@ class GearedPIPEInterface(Elaboratable):
         return m
 
 
+class TXDeemphMode(IntEnum, shape=2):
+    DEEMPH_6DB      = 0b00
+    DEEMPH_3P5DB    = 0b01
+    DEEMPH_NONE     = 0b10
+    DEEMPH_RESERVED = 0b11
