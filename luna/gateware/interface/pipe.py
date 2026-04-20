@@ -89,8 +89,8 @@ class PIPEInterface(Elaboratable):
     tx_compliance : Signal(), input
         If asserted, sets the running disparity to negative for the first symbol on the transmit
         data bus. This signal is implemented only for PHYs that can operate in the PCI Express mode.
-    tx_ones_zeroes : Signal(), input
-        If asserted, the PHY transmits an alternating sequence of 50-250 ones and 50-250 zeroes
+    tx_ones_zeros : Signal(), input
+        If asserted, the PHY transmits an alternating sequence of 50-250 ones and 50-250 zeros
         instead of the data on the transmit data bus. This signal is implemented only for PHYs
         that can operate in the SuperSpeed USB mode.
     rx_polarity : Signal(), input
@@ -162,7 +162,7 @@ class PIPEInterface(Elaboratable):
         self.tx_detrx_lpbk  = Signal()
         self.tx_elec_idle   = Signal()
         self.tx_compliance  = Signal()
-        self.tx_ones_zeroes = Signal()
+        self.tx_ones_zeros  = Signal()
         self.rx_polarity    = Signal()
         self.rx_eq_training = Signal()
         self.rx_termination = Signal()
@@ -252,20 +252,20 @@ class AsyncPIPEInterface(PIPEInterface, Elaboratable):
         geared_tx_data          = Signal.like(self.tx_data)
         geared_tx_datak         = Signal.like(self.tx_datak)
         geared_tx_compliance    = Signal.like(self.tx_compliance)
-        geared_tx_ones_zeroes   = Signal.like(self.tx_ones_zeroes)
+        geared_tx_ones_zeros    = Signal.like(self.tx_ones_zeros)
         mac_tx_bus_signals = Cat(
             self.tx_data,
             self.tx_datak,
             # These control signals are additional inputs to the 8b10b encoder; and must be
             # exactly synchronized to the transmit data bus.
             self.tx_compliance,
-            self.tx_ones_zeroes,
+            self.tx_ones_zeros,
         )
         phy_tx_bus_signals = Cat(
             geared_tx_data,
             geared_tx_datak,
             geared_tx_compliance,
-            geared_tx_ones_zeroes,
+            geared_tx_ones_zeros,
         )
 
         m.d.comb += [
@@ -275,8 +275,8 @@ class AsyncPIPEInterface(PIPEInterface, Elaboratable):
         # TxCompliance affects only the first transmitted symbol; keep that property after gearing.
         with m.If(gear_index == 0):
             m.d.comb += phy.tx_compliance   .eq(geared_tx_compliance)
-        # TxOnesZeroes replaces all symbols on the transmit data bus.
-        m.d.comb += phy.tx_ones_zeroes  .eq(geared_tx_ones_zeroes)
+        # TxOnesZeros replaces all symbols on the transmit data bus.
+        m.d.comb += phy.tx_ones_zeros  .eq(geared_tx_ones_zeros)
 
         m.submodules.tx_fifo = tx_fifo = AsyncFIFOBuffered(
             width=len(mac_tx_bus_signals),

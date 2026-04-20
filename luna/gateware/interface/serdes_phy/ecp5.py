@@ -1155,7 +1155,7 @@ class ECP5SerDesPIPE(PIPEInterface, Elaboratable):
     tx_elec_idle :
         Transmit control signals. Loopback and receiver detection are not implemented.
     tx_compliance :
-    tx_ones_zeroes :
+    tx_ones_zeros :
     rx_eq_training :
         These inputs are not implemented.
     power_present :
