@@ -52,6 +52,7 @@ class USB3PhysicalLayer(Elaboratable):
         self.ready                      = Signal()
         self.engage_terminations        = Signal()
         self.tx_electrical_idle         = Signal()
+        self.tx_ones_zeros              = Signal()
         self.invert_rx_polarity         = Signal()
         self.train_equalizer            = Signal()
         self.vbus_present               = Signal()
@@ -111,6 +112,7 @@ class USB3PhysicalLayer(Elaboratable):
             phy.tx_swing                .eq(0),
             phy.tx_margin               .eq(0b000),
             phy.tx_deemph               .eq(0b01),
+            phy.tx_ones_zeros           .eq(self.tx_ones_zeros),
 
             # Pass through our remaining control signals directly to the PHY.
             phy.rx_termination          .eq(self.engage_terminations),

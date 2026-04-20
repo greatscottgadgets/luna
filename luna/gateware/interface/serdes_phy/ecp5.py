@@ -725,6 +725,7 @@ class ECP5SerDes(Elaboratable):
         self.rx_datak       = Signal(self._io_words)
 
         # TX controls
+        self.tx_ones_zeros  = Signal()
         self.tx_polarity    = Signal()
         self.tx_elec_idle   = Signal()
         self.tx_gpio_en     = Signal()
@@ -793,6 +794,7 @@ class ECP5SerDes(Elaboratable):
         m.submodules.sci = sci = ECP5SerDesConfigInterface(self)
         m.submodules.sci_trans = sci_trans = ECP5SerDesRegisterTranslator(self, sci)
         m.d.comb += [
+            sci_trans.enc_bypass    .eq(self.tx_ones_zeros),
             sci_trans.tx_polarity   .eq(self.tx_polarity),
             sci_trans.rx_polarity   .eq(self.rx_polarity),
             sci_trans.rx_termination.eq(self.rx_termination),
@@ -1114,6 +1116,21 @@ class ECP5SerDes(Elaboratable):
             tx_bus[20]          .eq(self.tx_datak[1]),
         ]
 
+        # If `tx_ones_zeros` is set, override the TX data.
+        tx_pattern = Signal.like(tx_bus)
+        counter = Signal(range(9))
+        m.d.pipe += [
+            counter.eq(counter + 1),
+            # When bypassing the 8b10b encoder, the bus expands to 10-bit.
+            # However, we're still in PCIe mode and need to avoid setting `pcie_ei_en`.
+            # (table 7.3 in the user guide is not very clear on this case)
+            tx_pattern[0 :10].eq(Mux(counter[-1], -1, 0)),
+            tx_pattern[12:22].eq(Mux(counter[-1], -1, 0)),
+        ]
+        with m.If(self.tx_ones_zeros):
+            m.d.comb += tx_bus.eq(tx_pattern)
+
+
         # The SerDes is providing us with two RxStatus words, one per byte; but we emit only one
         # for the entire word. Combine the status conditions together according to their priorities.
         for rx_status_code in 0b011, 0b010, 0b001, 0b111, 0b110, 0b101, 0b100:
@@ -1154,8 +1171,9 @@ class ECP5SerDesPIPE(PIPEInterface, Elaboratable):
     tx_detrx_lpbk :
     tx_elec_idle :
         Transmit control signals. Loopback and receiver detection are not implemented.
-    tx_compliance :
     tx_ones_zeros :
+        Transmit 50-250 ones and 50-250 zeros. This implementation transmits 160 of each.
+    tx_compliance :
     rx_eq_training :
         These inputs are not implemented.
     power_present :
@@ -1219,6 +1237,7 @@ class ECP5SerDesPIPE(PIPEInterface, Elaboratable):
             self.pclk               .eq(serdes.pclk),
 
             serdes.tx_elec_idle     .eq(self.tx_elec_idle),
+            serdes.tx_ones_zeros    .eq(self.tx_ones_zeros),
             serdes.rx_polarity      .eq(self.rx_polarity),
             serdes.rx_termination   .eq(self.rx_termination),
             lfps_generator.generate .eq(self.tx_detrx_lpbk & self.tx_elec_idle),
