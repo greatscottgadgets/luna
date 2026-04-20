@@ -7,6 +7,7 @@
 
 from amaranth import *
 
+from ....interface.pipe import TXDeemphMode
 from ...stream          import USBRawSuperSpeedStream, SuperSpeedStreamArbiter, SuperSpeedStreamInterface
 from ..physical.coding  import IDL
 
@@ -113,6 +114,10 @@ class USB3LinkLayer(Elaboratable):
         #
         m.submodules.ltssm = ltssm = LTSSMController(ss_clock_frequency=self._clock_frequency)
 
+        tx_deemph = Mux(compliance_emitter.disable_deemph,
+                        TXDeemphMode.DEEMPH_NONE,
+                        TXDeemphMode.DEEMPH_3P5DB)
+
         m.d.comb += [
             ltssm.phy_ready                      .eq(physical_layer.ready),
 
@@ -126,6 +131,7 @@ class USB3LinkLayer(Elaboratable):
             ltssm.no_link_partner_detected       .eq(physical_layer.no_link_partner_detected),
 
             # Pass down our link controls to the physical layer.
+            physical_layer.tx_deemph             .eq(tx_deemph),
             physical_layer.tx_electrical_idle    .eq(ltssm.tx_electrical_idle),
             physical_layer.tx_ones_zeros         .eq(compliance_emitter.tx_ones_zeros),
             physical_layer.engage_terminations   .eq(ltssm.engage_terminations),

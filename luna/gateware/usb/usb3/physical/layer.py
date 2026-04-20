@@ -53,6 +53,7 @@ class USB3PhysicalLayer(Elaboratable):
         # Physical link state.
         self.ready                      = Signal()
         self.engage_terminations        = Signal()
+        self.tx_deemph                  = Signal(TXDeemphMode)
         self.tx_electrical_idle         = Signal()
         self.tx_ones_zeros              = Signal()
         self.invert_rx_polarity         = Signal()
@@ -113,7 +114,7 @@ class USB3PhysicalLayer(Elaboratable):
             # Use default/normal signal thresholds.
             phy.tx_swing                .eq(0),
             phy.tx_margin               .eq(0b000),
-            phy.tx_deemph               .eq(TXDeemphMode.DEEMPH_3P5DB),
+            phy.tx_deemph               .eq(self.tx_deemph),
             phy.tx_ones_zeros           .eq(self.tx_ones_zeros),
 
             # Pass through our remaining control signals directly to the PHY.
