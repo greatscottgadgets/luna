@@ -113,6 +113,7 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
         #
         # I/O port
         #
+        self.enc_bypass  = Signal()
         self.loopback    = Signal()
         self.rx_polarity = Signal()
         self.tx_idle     = Signal()
@@ -187,6 +188,35 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
                     sci.adr.eq(0x02),
                     sci.dat_w.eq(data),
                     sci.dat_w[6].eq(self.tx_idle),  # pcie_ei_en
+                ]
+
+                with m.If(~first & sci.done):
+                    m.d.pipe += first.eq(1)
+                    m.d.comb += sci.we.eq(0)
+                    m.next = "READ-CH_03"
+
+            with m.State("READ-CH_03"):
+                m.d.pipe += first.eq(0)
+                m.d.comb += [
+                    sci.chan_sel.eq(1),
+                    sci.re.eq(1),
+                    sci.adr.eq(0x03),
+                ]
+
+                with m.If(~first & sci.done):
+                    m.d.comb += sci.re.eq(0)
+                    m.d.pipe += first.eq(1)
+                    m.d.pipe += data.eq(sci.dat_r)
+                    m.next = "WRITE-CH_03"
+
+            with m.State("WRITE-CH_03"):
+                m.d.pipe += first.eq(0)
+                m.d.comb += [
+                    sci.chan_sel.eq(1),
+                    sci.we.eq(1),
+                    sci.adr.eq(0x03),
+                    sci.dat_w.eq(data),
+                    sci.dat_w[3].eq(self.enc_bypass),  # enc_bypass
                 ]
 
                 with m.If(~first & sci.done):
