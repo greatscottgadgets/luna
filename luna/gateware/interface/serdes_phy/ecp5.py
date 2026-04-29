@@ -1157,6 +1157,7 @@ class ECP5SerDesPIPE(PIPEInterface, Elaboratable):
             pll_config  = pll_config,
             tx_pads     = self._tx_pads,
             rx_pads     = self._rx_pads,
+            dual        = self._dual,
             channel     = self._channel,
         )
 
