@@ -1078,10 +1078,10 @@ class ECP5SerDes(Elaboratable):
             p_CHX_TXAMPLITUDE       = "0d1000", # 1000 mV
 
             # CHX TX — equalization
-            p_CHX_TDRV_SLICE0_CUR   = "0b000",  # 200 uA
-            p_CHX_TDRV_SLICE0_SEL   = "0b00",   # power down
+            p_CHX_TDRV_SLICE0_CUR   = "0b001",  # 200 uA
+            p_CHX_TDRV_SLICE0_SEL   = "0b01",   # main data
 
-            p_CHX_TDRV_SLICE1_CUR   = "0b000",  # 200 uA
+            p_CHX_TDRV_SLICE1_CUR   = "0b000",  # 100 uA
             p_CHX_TDRV_SLICE1_SEL   = "0b00",   # power down
 
             # This slice will be switched to post data by SCI when de-emphasis is enabled.
@@ -1094,7 +1094,7 @@ class ECP5SerDes(Elaboratable):
             p_CHX_TDRV_SLICE4_CUR   = "0b11",   # 3200 uA
             p_CHX_TDRV_SLICE4_SEL   = "0b01",   # main data
 
-            p_CHX_TDRV_SLICE5_CUR   = "0b10",   # 2400 uA
+            p_CHX_TDRV_SLICE5_CUR   = "0b01",   # 1600 uA
             p_CHX_TDRV_SLICE5_SEL   = "0b01",   # main data
 
             p_CHX_TDRV_PRE_EN       = "0b0",
