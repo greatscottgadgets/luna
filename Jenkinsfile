@@ -48,7 +48,7 @@ pipeline {
             steps {
                 dir('cynthion-test') {
                     sh 'cp /tmp/calibration.dat calibration.dat'
-                    sh 'make analyzer.bit'
+                    sh 'make bitstreams'
                 }
             }
         }
