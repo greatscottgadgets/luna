@@ -68,6 +68,7 @@ class USB3PhysicalLayer(Elaboratable):
         self.send_lfps_polling          = Signal()
         self.lfps_cycles_sent           = Signal(16)
 
+        self.lfps_ping_detected         = Signal()
         self.lfps_polling_detected      = Signal()
         self.lfps_reset_detected        = Signal()
 
@@ -223,6 +224,7 @@ class USB3PhysicalLayer(Elaboratable):
             lfps.send_polling           .eq(self.send_lfps_polling),
             self.lfps_cycles_sent       .eq(lfps.cycles_sent),
 
+            self.lfps_ping_detected     .eq(lfps.ping_detected),
             self.lfps_polling_detected  .eq(lfps.polling_detected),
             self.lfps_reset_detected    .eq(lfps.reset_detected),
 
