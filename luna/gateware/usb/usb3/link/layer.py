@@ -18,6 +18,7 @@ from .transmitter  import PacketTransmitter
 from .timers       import LinkMaintenanceTimers
 from .ordered_sets import TSTransceiver
 from .data         import DataPacketReceiver, DataPacketTransmitter, DataHeaderPacket
+from .compliance   import CompliancePatternEmitter
 
 
 class USB3LinkLayer(Elaboratable):
@@ -63,6 +64,7 @@ class USB3LinkLayer(Elaboratable):
 
         # Test and debug signals.
         self.disable_scrambling        = Signal()
+        self.enable_compliance         = Signal()
 
 
     def elaborate(self, platform):
@@ -71,6 +73,11 @@ class USB3LinkLayer(Elaboratable):
 
         # Mark ourselves as always consuming physical-layer packets.
         m.d.comb += physical_layer.source.ready.eq(1)
+
+        #
+        # Compliance pattern generation
+        #
+        m.submodules.compliance_emitter = compliance_emitter = CompliancePatternEmitter()
 
         #
         # Training Set Detectors/Emitters
@@ -126,7 +133,7 @@ class USB3LinkLayer(Elaboratable):
 
             # LFPS control.
             ltssm.lfps_polling_detected          .eq(physical_layer.lfps_polling_detected),
-            physical_layer.send_lfps_polling     .eq(ltssm.send_lfps_polling),
+            physical_layer.send_lfps_polling     .eq(ltssm.send_lfps_polling | compliance_emitter.send_lfps_polling),
             ltssm.lfps_cycles_sent               .eq(physical_layer.lfps_cycles_sent),
 
             # Training set detectors
@@ -162,6 +169,9 @@ class USB3LinkLayer(Elaboratable):
 
             # Test and debug.
             ltssm.disable_scrambling             .eq(self.disable_scrambling),
+            ltssm.enable_compliance_scrambling   .eq(compliance_emitter.enable_scrambling),
+            compliance_emitter.enable            .eq(ltssm.emit_compliance_pattern),
+            compliance_emitter.lfps_ping_detected.eq(physical_layer.lfps_ping_detected),
         ]
 
 
@@ -270,6 +280,7 @@ class USB3LinkLayer(Elaboratable):
         m.submodules.stream_arbiter = arbiter = SuperSpeedStreamArbiter()
 
         # Add each of our streams to our arbiter, from highest to lowest priority.
+        arbiter.add_stream(compliance_emitter.source)
         arbiter.add_stream(training_set_source)
         arbiter.add_stream(header_rx.source)
         arbiter.add_stream(transmitter.source)
