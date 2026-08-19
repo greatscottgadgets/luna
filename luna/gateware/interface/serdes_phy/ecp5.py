@@ -17,7 +17,7 @@ from amaranth import *
 from amaranth.lib.cdc import FFSynchronizer
 
 from .lfps         import LFPSSquareWaveGenerator, LFPSSquareWaveDetector
-from ..pipe        import PIPEInterface
+from ..pipe        import PIPEInterface, TXDeemphMode
 
 
 class ECP5SerDesPLLConfiguration:
@@ -113,8 +113,10 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
         #
         # I/O port
         #
+        self.enc_bypass  = Signal()
         self.loopback    = Signal()
         self.rx_polarity = Signal()
+        self.tx_deemph   = Signal(TXDeemphMode)
         self.tx_idle     = Signal()
         self.tx_polarity = Signal()
         self.rx_termination = Signal()
@@ -192,6 +194,67 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
                 with m.If(~first & sci.done):
                     m.d.pipe += first.eq(1)
                     m.d.comb += sci.we.eq(0)
+                    m.next = "READ-CH_03"
+
+            with m.State("READ-CH_03"):
+                m.d.pipe += first.eq(0)
+                m.d.comb += [
+                    sci.chan_sel.eq(1),
+                    sci.re.eq(1),
+                    sci.adr.eq(0x03),
+                ]
+
+                with m.If(~first & sci.done):
+                    m.d.pipe += first.eq(1)
+                    m.d.comb += sci.re.eq(0)
+                    m.d.pipe += data.eq(sci.dat_r)
+                    m.next = "WRITE-CH_03"
+
+            with m.State("WRITE-CH_03"):
+                m.d.pipe += first.eq(0)
+                m.d.comb += [
+                    sci.chan_sel.eq(1),
+                    sci.we.eq(1),
+                    sci.adr.eq(0x03),
+                    sci.dat_w.eq(data),
+                    sci.dat_w[3].eq(self.enc_bypass),  # enc_bypass
+                ]
+
+                with m.If(~first & sci.done):
+                    m.d.pipe += first.eq(1)
+                    m.d.comb += sci.we.eq(0)
+                    m.next = "READ-CH_12"
+
+            with m.State("READ-CH_12"):
+                m.d.pipe += first.eq(0)
+                m.d.comb += [
+                    sci.chan_sel.eq(1),
+                    sci.re.eq(1),
+                    sci.adr.eq(0x12),
+                ]
+
+                with m.If(~first & sci.done):
+                    m.d.comb += sci.re.eq(0)
+                    m.d.pipe += first.eq(1)
+                    m.d.pipe += data.eq(sci.dat_r)
+                    m.next = "WRITE-CH_12"
+
+            with m.State("WRITE-CH_12"):
+                m.d.pipe += first.eq(0)
+                # If de-emphasis is enabled, drive one slice with Post Data,
+                # else drive it with Main Data.
+                slice2_sel = Mux(self.tx_deemph == TXDeemphMode.DEEMPH_3P5DB, 0b11, 0b01)
+                m.d.comb += [
+                    sci.chan_sel.eq(1),
+                    sci.we.eq(1),
+                    sci.adr.eq(0x12),
+                    sci.dat_w.eq(data),
+                    sci.dat_w[4:6].eq(slice2_sel),
+                ]
+
+                with m.If(~first & sci.done):
+                    m.d.pipe += first.eq(1)
+                    m.d.comb += sci.we.eq(0)
                     m.next = "READ-CH_15"
 
             with m.State("READ-CH_15"):
@@ -220,6 +283,7 @@ class ECP5SerDesRegisterTranslator(Elaboratable):
                     m.d.comb += sci.dat_w[0:6].eq(0b110010) # lb_ctl
 
                 with m.If(~first & sci.done):
+                    m.d.pipe += first.eq(1)
                     m.d.comb += sci.we.eq(0)
                     m.next = "READ-CH_17"
 
@@ -695,6 +759,8 @@ class ECP5SerDes(Elaboratable):
         self.rx_datak       = Signal(self._io_words)
 
         # TX controls
+        self.tx_deemph      = Signal(TXDeemphMode)
+        self.tx_ones_zeros  = Signal()
         self.tx_polarity    = Signal()
         self.tx_elec_idle   = Signal()
         self.tx_gpio_en     = Signal()
@@ -758,11 +824,17 @@ class ECP5SerDes(Elaboratable):
         # SerDes parameter control.
         #
 
+        # Disable de-emphasis when using the low-data-rate mode,
+        # to avoid an issue where the high-speed data still affects the output driver.
+        tx_deemph = Mux(self.tx_gpio_en, TXDeemphMode.DEEMPH_NONE, self.tx_deemph)
+
         # Some of the SerDes parameters cannot be directly controlled with fabric signals, but have to
         # be configured through the SerDes client interface.
         m.submodules.sci = sci = ECP5SerDesConfigInterface(self)
         m.submodules.sci_trans = sci_trans = ECP5SerDesRegisterTranslator(self, sci)
         m.d.comb += [
+            sci_trans.enc_bypass    .eq(self.tx_ones_zeros),
+            sci_trans.tx_deemph     .eq(tx_deemph),
             sci_trans.tx_polarity   .eq(self.tx_polarity),
             sci_trans.rx_polarity   .eq(self.rx_polarity),
             sci_trans.rx_termination.eq(self.rx_termination),
@@ -1006,18 +1078,27 @@ class ECP5SerDes(Elaboratable):
             p_CHX_TXAMPLITUDE       = "0d1000", # 1000 mV
 
             # CHX TX — equalization
-            p_CHX_TDRV_SLICE0_CUR   = "0b011",  # 400 uA
+            p_CHX_TDRV_SLICE0_CUR   = "0b001",  # 200 uA
             p_CHX_TDRV_SLICE0_SEL   = "0b01",   # main data
+
             p_CHX_TDRV_SLICE1_CUR   = "0b000",  # 100 uA
             p_CHX_TDRV_SLICE1_SEL   = "0b00",   # power down
-            p_CHX_TDRV_SLICE2_CUR   = "0b11",   # 3200 uA
+
+            # This slice will be switched to post data by SCI when de-emphasis is enabled.
+            p_CHX_TDRV_SLICE2_CUR   = "0b01",   # 1600 uA
             p_CHX_TDRV_SLICE2_SEL   = "0b01",   # main data
-            p_CHX_TDRV_SLICE3_CUR   = "0b10",   # 2400 uA
+
+            p_CHX_TDRV_SLICE3_CUR   = "0b11",   # 3200 uA
             p_CHX_TDRV_SLICE3_SEL   = "0b01",   # main data
-            p_CHX_TDRV_SLICE4_CUR   = "0b00",   # 800 uA
-            p_CHX_TDRV_SLICE4_SEL   = "0b00",   # power down
-            p_CHX_TDRV_SLICE5_CUR   = "0b00",   # 800 uA
-            p_CHX_TDRV_SLICE5_SEL   = "0b00",   # power down
+
+            p_CHX_TDRV_SLICE4_CUR   = "0b11",   # 3200 uA
+            p_CHX_TDRV_SLICE4_SEL   = "0b01",   # main data
+
+            p_CHX_TDRV_SLICE5_CUR   = "0b01",   # 1600 uA
+            p_CHX_TDRV_SLICE5_SEL   = "0b01",   # main data
+
+            p_CHX_TDRV_PRE_EN       = "0b0",
+            p_CHX_TDRV_POST_EN      = "0b1",
 
             # CHX TX — clocking
             p_CHX_FF_TX_F_CLK_DIS   = "0b0",    # enable  DIV/1 output clock
@@ -1084,6 +1165,21 @@ class ECP5SerDes(Elaboratable):
             tx_bus[20]          .eq(self.tx_datak[1]),
         ]
 
+        # If `tx_ones_zeros` is set, override the TX data.
+        tx_pattern = Signal.like(tx_bus)
+        counter = Signal(range(9))
+        m.d.pipe += [
+            counter.eq(counter + 1),
+            # When bypassing the 8b10b encoder, the bus expands to 10-bit.
+            # However, we're still in PCIe mode and need to avoid setting `pcie_ei_en`.
+            # (table 7.3 in the user guide is not very clear on this case)
+            tx_pattern[0 :10].eq(Mux(counter[-1], -1, 0)),
+            tx_pattern[12:22].eq(Mux(counter[-1], -1, 0)),
+        ]
+        with m.If(self.tx_ones_zeros):
+            m.d.comb += tx_bus.eq(tx_pattern)
+
+
         # The SerDes is providing us with two RxStatus words, one per byte; but we emit only one
         # for the entire word. Combine the status conditions together according to their priorities.
         for rx_status_code in 0b011, 0b010, 0b001, 0b111, 0b110, 0b101, 0b100:
@@ -1124,8 +1220,9 @@ class ECP5SerDesPIPE(PIPEInterface, Elaboratable):
     tx_detrx_lpbk :
     tx_elec_idle :
         Transmit control signals. Loopback and receiver detection are not implemented.
+    tx_ones_zeros :
+        Transmit 50-250 ones and 50-250 zeros. This implementation transmits 160 of each.
     tx_compliance :
-    tx_ones_zeroes :
     rx_eq_training :
         These inputs are not implemented.
     power_present :
@@ -1157,6 +1254,7 @@ class ECP5SerDesPIPE(PIPEInterface, Elaboratable):
             pll_config  = pll_config,
             tx_pads     = self._tx_pads,
             rx_pads     = self._rx_pads,
+            dual        = self._dual,
             channel     = self._channel,
         )
 
@@ -1187,7 +1285,9 @@ class ECP5SerDesPIPE(PIPEInterface, Elaboratable):
             serdes.reset            .eq(self.reset),
             self.pclk               .eq(serdes.pclk),
 
+            serdes.tx_deemph        .eq(self.tx_deemph),
             serdes.tx_elec_idle     .eq(self.tx_elec_idle),
+            serdes.tx_ones_zeros    .eq(self.tx_ones_zeros),
             serdes.rx_polarity      .eq(self.rx_polarity),
             serdes.rx_termination   .eq(self.rx_termination),
             lfps_generator.generate .eq(self.tx_detrx_lpbk & self.tx_elec_idle),

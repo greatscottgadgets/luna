@@ -11,6 +11,7 @@
 #
 
 import math
+import os
 
 from amaranth import *
 from amaranth.lib.coding import Encoder
@@ -117,6 +118,7 @@ class LTSSMController(Elaboratable):
         # Loopback & compliance.
         self.act_as_loopback           = Signal()
         self.emit_compliance_pattern   = Signal()
+        self.enable_compliance_scrambling = Signal()
 
 
 
@@ -687,13 +689,19 @@ class LTSSMController(Elaboratable):
             with m.State("Compliance"):
                 handle_warm_resets()
 
-                # We don't currently handle Compliance properly. In this case, this message refers
-                # to the Compliance state, but this also makes us non-compliant, so this statement
-                # has an especially appropriate double meaning.
+                # According to the spec, if we reach this state then we should stay in it and
+                # emit appropriate test patterns.
                 #
-                # We'll throw our hands up in despair and re-try link training.
-                # Maybe this time it'll work.
-                transition_to_state("Rx.Detect.Reset")
+                # Until link training is more reliable, make that behavior optional based on an env var.
+                if os.getenv('LUNA_COMPLIANCE'):
+                    m.d.comb += [
+                        self.emit_compliance_pattern.eq(1),
+                        self.enable_scrambling.eq(self.enable_compliance_scrambling),
+                    ]
+                else:
+                    # We'll throw our hands up in despair and re-try link training.
+                    # Maybe this time it'll work.
+                    transition_to_state("Rx.Detect.Reset")
 
 
             # Loopback -- during the link bringup, our link partner requested that we go into

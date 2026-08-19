@@ -9,6 +9,8 @@ import logging
 
 from amaranth import *
 from amaranth.lib.fifo import AsyncFIFOBuffered
+
+from ....interface.pipe import TXDeemphMode
 from ...stream  import USBRawSuperSpeedStream
 
 from .lfps       import LFPSTransceiver
@@ -51,7 +53,9 @@ class USB3PhysicalLayer(Elaboratable):
         # Physical link state.
         self.ready                      = Signal()
         self.engage_terminations        = Signal()
+        self.tx_deemph                  = Signal(TXDeemphMode)
         self.tx_electrical_idle         = Signal()
+        self.tx_ones_zeros              = Signal()
         self.invert_rx_polarity         = Signal()
         self.train_equalizer            = Signal()
         self.vbus_present               = Signal()
@@ -68,6 +72,7 @@ class USB3PhysicalLayer(Elaboratable):
         self.send_lfps_polling          = Signal()
         self.lfps_cycles_sent           = Signal(16)
 
+        self.lfps_ping_detected         = Signal()
         self.lfps_polling_detected      = Signal()
         self.lfps_reset_detected        = Signal()
 
@@ -109,7 +114,8 @@ class USB3PhysicalLayer(Elaboratable):
             # Use default/normal signal thresholds.
             phy.tx_swing                .eq(0),
             phy.tx_margin               .eq(0b000),
-            phy.tx_deemph               .eq(0b01),
+            phy.tx_deemph               .eq(self.tx_deemph),
+            phy.tx_ones_zeros           .eq(self.tx_ones_zeros),
 
             # Pass through our remaining control signals directly to the PHY.
             phy.rx_termination          .eq(self.engage_terminations),
@@ -223,6 +229,7 @@ class USB3PhysicalLayer(Elaboratable):
             lfps.send_polling           .eq(self.send_lfps_polling),
             self.lfps_cycles_sent       .eq(lfps.cycles_sent),
 
+            self.lfps_ping_detected     .eq(lfps.ping_detected),
             self.lfps_polling_detected  .eq(lfps.polling_detected),
             self.lfps_reset_detected    .eq(lfps.reset_detected),
 

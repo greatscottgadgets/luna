@@ -70,6 +70,10 @@ _PollingLFPSBurst  = LFPSTiming(t_typ=1.0e-6,  t_min=0.6e-6, t_max=1.4e-6)
 _PollingLFPSRepeat = LFPSTiming(t_typ=10.0e-6, t_min=6.0e-6, t_max=14.0e-6)
 _PollingLFPS       = LFPS(burst=_PollingLFPSBurst, repeat=_PollingLFPSRepeat)
 
+_PingLFPSBurst     = LFPSTiming(t_min=40.0e-9, t_max=160.0e-9)
+_PingLFPSRepeat    = LFPSTiming(t_typ=200e-3, t_min=160e-3, t_max=240.0e-3)
+_PingLFPS          = LFPS(burst=_PingLFPSBurst, repeat=_PingLFPSRepeat)
+
 _ResetLFPSBurst    = LFPSTiming(t_typ=100.0e-3, t_min=80.0e-3,  t_max=120.0e-3)
 _ResetLFPS         = LFPS(burst=_ResetLFPSBurst)
 
@@ -319,6 +323,7 @@ class LFPSTransceiver(Elaboratable):
 
         # LFPS burst reception
         self.polling_detected      = Signal() # o
+        self.ping_detected         = Signal() # o
         self.reset_detected        = Signal() # o
 
 
@@ -332,6 +337,12 @@ class LFPSTransceiver(Elaboratable):
         m.d.comb += [
             polling_detector.signaling_received .eq(self.signaling_received),
             self.polling_detected               .eq(polling_detector.detect)
+        ]
+
+        m.submodules.ping_detector = ping_detector = LFPSDetector(_PingLFPS, self._clock_frequency)
+        m.d.comb += [
+            ping_detector.signaling_received .eq(self.signaling_received),
+            self.ping_detected               .eq(ping_detector.detect)
         ]
 
         m.submodules.reset_detector = reset_detector = LFPSDetector(_ResetLFPS, self._clock_frequency)

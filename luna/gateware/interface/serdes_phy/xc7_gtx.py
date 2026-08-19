@@ -1017,7 +1017,7 @@ class XC7GTXSerDesPIPE(PIPEInterface, Elaboratable):
     tx_elec_idle :
         Transmit control signals. Loopback and receiver detection are not implemented.
     tx_compliance :
-    tx_ones_zeroes :
+    tx_ones_zeros :
         These inputs are not implemented.
     power_present :
         This output is not implemented. External logic may drive it if necessary.
