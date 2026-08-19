@@ -48,7 +48,7 @@ class HandshakeExchangeInterface(Record):
     """
 
     def __init__(self, *, is_detector):
-        direction = DIR_FANOUT if is_detector else DIR_FANOUT
+        direction = DIR_FANOUT if is_detector else DIR_FANIN
 
         super().__init__([
             ('ack',   1, direction),
