@@ -331,12 +331,10 @@ class USBDevice(Elaboratable):
 
 
         # Finally, add each of our endpoints to this module and our multiplexer.
-        for endpoint in self._endpoints:
+        for i, endpoint in enumerate(self._endpoints):
 
-            # Create a display name for the endpoint...
-            name = endpoint.__class__.__name__
-            if hasattr(m.submodules, name):
-                name = f"{name}_{id(endpoint)}"
+            # Create a unique display name for the endpoint...
+            name = f"{endpoint.__class__.__name__}_{i}"
 
             # ... and add it, both as a submodule and to our multiplexer.
             endpoint_mux.add_interface(endpoint.interface)

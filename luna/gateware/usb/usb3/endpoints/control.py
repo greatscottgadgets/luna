@@ -119,12 +119,10 @@ class USB3ControlEndpoint(Elaboratable):
         request_interface = request_mux.shared
 
         # Add each of our handlers to the endpoint; and add it to our mux.
-        for handler in self._request_handlers:
+        for i, handler in enumerate(self._request_handlers):
 
-            # Create a display name for the handler...
-            name = handler.__class__.__name__
-            if hasattr(m.submodules, name):
-                name = f"{name}_{id(handler)}"
+            # Create a unique display name for the handler...
+            name = f"{handler.__class__.__name__}_{i}"
 
             # ... and add it.
             m.submodules[name] = handler
