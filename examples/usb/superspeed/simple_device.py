@@ -69,12 +69,16 @@ class USBSuperSpeedExample(Elaboratable):
     def elaborate(self, platform):
         m = Module()
 
-        # Generate our domain clocks/resets.
-        m.submodules.car = platform.clock_domain_generator()
-
         # Create our core PIPE PHY. Since PHY configuration is per-board, we'll just ask
         # our platform for a pre-configured USB3 PHY.
         m.submodules.phy = phy = platform.create_usb3_phy()
+
+        # If the PHY has its own reference clock, we'll use that for the rest of the system.
+        usb3_refclk = getattr(phy, 'refclk', None)
+        usb3_refclk_freq = getattr(phy, 'refclk_frequency', None)
+
+        # Generate our domain clocks/resets.
+        m.submodules.clocks = platform.clock_domain_generator(clock_signal=usb3_refclk, clock_signal_frequency=usb3_refclk_freq)
 
         # Create our core SuperSpeed device.
         m.submodules.usb = usb = USBSuperSpeedDevice(phy=phy)
