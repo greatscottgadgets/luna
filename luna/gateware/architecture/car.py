@@ -108,13 +108,17 @@ class LunaDomainGenerator(Elaboratable, metaclass=ABCMeta):
                             and thus we should avoid transactions with the external PHY.
     """
 
-    def __init__(self, *, clock_signal_name=None, clock_signal_frequency=None):
+    def __init__(self, *, clock_signal=None, clock_signal_name=None, clock_signal_frequency=None):
         """
         Parameters:
             clock_signal_name      = The clock signal name to use; or None to use the platform's default clock.
             clock_signal_frequency = The frequency of clock_signal_name in Hz.
         """
 
+        if clock_signal is not None and clock_signal_name is not None:
+            raise ValueError("Only one of 'clock_signal' or 'clock_signal_name' should be specified.")
+
+        self.clock_signal    = clock_signal
         self.clock_name      = clock_signal_name
         self.clock_frequency = clock_signal_frequency
 
@@ -205,7 +209,7 @@ class LunaECP5DomainGenerator(LunaDomainGenerator):
         "usb":  60
     }
 
-    def __init__(self, *, clock_frequencies=None, clock_signal_name=None, clock_signal_frequency=None):
+    def __init__(self, *, clock_frequencies=None, clock_signal=None, clock_signal_name=None, clock_signal_frequency=None):
         """
         Parameters:
             clock_frequencies -- A dictionary mapping 'fast', 'sync', and 'usb' to the clock
@@ -214,7 +218,9 @@ class LunaECP5DomainGenerator(LunaDomainGenerator):
                                  assumed to be 240, sync will assumed to be 120, and usb will
                                  be assumed to be a standard 60.
         """
-        super().__init__(clock_signal_name=clock_signal_name, clock_signal_frequency=clock_signal_frequency)
+        super().__init__(clock_signal=clock_signal,
+                         clock_signal_name=clock_signal_name,
+                         clock_signal_frequency=clock_signal_frequency)
         self.clock_frequencies = clock_frequencies
 
 
@@ -231,8 +237,9 @@ class LunaECP5DomainGenerator(LunaDomainGenerator):
         self.clock_frequencies = new_clock_frequencies
 
 
-        # Use the provided clock name and frequency for our input; or the default clock
+        # Use the provided clock signal/name and frequency for our input; or the default clock
         # if no name was provided.
+        clock_signal = self.clock_signal
         clock_name = self.clock_name if self.clock_name else platform.default_clk
         clock_frequency = self.clock_frequency if self.clock_name else platform.default_clk_frequency
 
@@ -261,7 +268,10 @@ class LunaECP5DomainGenerator(LunaDomainGenerator):
             m.submodules += Instance("OSCG", p_DIV=self.OSCG_DIV, o_OSC=input_clock)
             pll_params["CLKFB_DIV"] = 4
         else:
-            input_clock = platform.request(clock_name).i
+            if clock_signal:
+                input_clock = clock_signal
+            else:
+                input_clock = platform.request(clock_name).i
 
             divisor = 240e6 / clock_frequency
             if not divisor.is_integer():
